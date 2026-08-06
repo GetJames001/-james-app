@@ -42,7 +42,7 @@ function nextAppointment(){
 
 function updateHero(){
   const appt = nextAppointment();
-  const travel = events.find(e => e[4] === 'travel' && e[2] === 'Travel' && e[3].includes(appt[2])) || ['','','','18 min'];
+  const travel = events.find(e => e[4] === 'travel' && e[3].includes(appt[2])) || ['','','','18 min'];
   const drive = parseInt(travel[3],10) || 18;
   const start = timeToDate(appt[0]);
   const leave = new Date(start.getTime() - drive * 60000);
@@ -69,20 +69,19 @@ function buildCalendar(){
   events.forEach(e => {
     const top = mins(e[0]);
     const height = Math.max(18, mins(e[1]) - mins(e[0]));
-    if(e[4] === 'open'){
-      const o = document.createElement('div');
-      o.className = 'open';
-      o.style.top = `${top + 8}px`;
-      o.textContent = `Open · ${pretty(e[0])}–${pretty(e[1])}`;
-      c.appendChild(o);
-      return;
-    }
+    if(e[4] === 'open') return; // open time is intentionally represented by whitespace
     const b = document.createElement('button');
     b.className = `event ${e[4] || ''}`;
     b.style.top = `${top}px`;
     b.style.height = `${height}px`;
-    b.innerHTML = `<b>${e[2]}</b><small>${e[3]}</small>`;
-    b.onclick = () => panel(e[4] === 'travel' ? 'TRAVEL' : 'APPOINTMENT', e[2], `<div class="panel-item"><b>${pretty(e[0])}–${pretty(e[1])}</b><span>${e[3]}</span><button>Call</button><button>Text</button><button>Email</button><button>Move</button><button>Notes</button><button>Files</button></div>`);
+    if(e[4] === 'travel'){
+      b.setAttribute('aria-label', e[3]);
+      b.title = e[3];
+      b.innerHTML = '';
+    } else {
+      b.innerHTML = `<b>${e[2]}</b><small>${e[3]}</small>`;
+    }
+    b.onclick = () => panel(e[4] === 'travel' ? 'TRAVEL' : 'APPOINTMENT', e[4] === 'travel' ? 'Route' : e[2], `<div class="panel-item"><b>${pretty(e[0])}–${pretty(e[1])}</b><span>${e[3]}</span>${e[4] === 'travel' ? '' : '<button>Call</button><button>Text</button><button>Email</button><button>Move</button><button>Notes</button><button>Files</button>'}</div>`);
     c.appendChild(b);
   });
   const now = new Date();
@@ -91,33 +90,54 @@ function buildCalendar(){
   n.className = 'now';
   n.style.top = `${top}px`;
   c.appendChild(n);
-  $('#apptList').innerHTML = events.filter(e => e[4] !== 'open').map(e => `<article><div>${pretty(e[0])}</div><div><h4>${e[2]}</h4><p>${e[3]}</p></div><button data-a="${e[2]}">Open</button></article>`).join('');
+  $('#apptList').innerHTML = events.filter(e => e[4] !== 'open' && e[4] !== 'travel').map(e => `<article><div>${pretty(e[0])}</div><div><h4>${e[2]}</h4><p>${e[3]}</p></div><button data-a="${e[2]}">Open</button></article>`).join('');
 }
 
 function page(id){
   $$('nav button').forEach(b => b.classList.toggle('active', b.dataset.page === id));
   $$('.page').forEach(p => p.classList.toggle('active', p.id === id));
+  if(id === 'insights') $('#jamesNav').classList.remove('has-recommendation');
 }
 function panel(k,t,html){ $('#panelKicker').textContent = k; $('#panelTitle').textContent = t; $('#panelBody').innerHTML = html; $('#backdrop').classList.add('open'); }
 function closePanel(){ $('#backdrop').classList.remove('open'); }
-function speak(){
-  const start = localStorage.getItem('jamesStart') || 'your selected location';
-  const text = `Good morning, Michael. I have your route starting from ${start}. Your next appointment is Fort Apache Surgical at nine. Leave by eight thirty two. You have open time from eleven to one. The Galleria bid is due tomorrow at five. Otherwise, your day looks manageable.`;
-  if('speechSynthesis' in window){ speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(text); u.rate=.96; u.pitch=.9; speechSynthesis.speak(u); }
-  else panel('JAMES','Morning Briefing',`<p>${text}</p>`);
+function speak(text){
+  const start = localStorage.getItem('jamesStart') || 'home';
+  const script = text || `Good morning, Michael. I have your route starting from ${start}. Your next appointment is ${$('#nextTitle').textContent}. Leave by ${$('#leaveBy').textContent}. The Galleria bid is due tomorrow at five. Otherwise, your day looks manageable.`;
+  if('speechSynthesis' in window){ speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(script); u.rate=.96; u.pitch=.9; speechSynthesis.speak(u); }
+  else panel('JAMES','Morning Briefing',`<p>${script}</p>`);
 }
 
-function finishIntro(startLocation){
-  if(startLocation) localStorage.setItem('jamesStart', startLocation);
+let introFinished = false;
+let introFallback;
+function finishIntro(startLocation, auto=false){
+  if(introFinished) return;
+  introFinished = true;
+  clearTimeout(introFallback);
+  const chosen = startLocation || localStorage.getItem('jamesStart') || 'Home';
+  localStorage.setItem('jamesStart', chosen);
   $('#routePrompt').classList.add('answered');
-  $('#introSummary').textContent = startLocation ? `Perfect. Updating today’s route from ${startLocation.toLowerCase()}.` : 'Your briefing is ready.';
-  setTimeout(() => { $('#app').classList.remove('frosted'); $('#app').classList.add('clear'); }, 500);
-  setTimeout(() => $('#intro').classList.add('hide'), 1450);
+  $('#introSummary').textContent = auto ? `Starting from ${chosen.toLowerCase()}. Your briefing is ready.` : `Perfect. Updating today’s route from ${chosen.toLowerCase()}.`;
+  setTimeout(() => {
+    $('#human').classList.add('returning');
+    $('.orb.big').classList.add('returning');
+  }, 350);
+  setTimeout(() => { $('#app').classList.remove('frosted'); $('#app').classList.add('clear'); }, 900);
+  setTimeout(() => $('#intro').classList.add('hide'), 1750);
 }
 
 function intro(){
-  setTimeout(() => { $('.orb.big').style.opacity=.15; $('#human').classList.add('show'); }, 650);
-  setTimeout(() => { $('#human').classList.add('out'); $('.orb.big').style.opacity=1; }, 2800);
+  const saved = localStorage.getItem('jamesStart');
+  const hello = `${$('#introGreeting').textContent} I’ve prepared your briefing. ${saved ? `I have your route starting from ${saved.toLowerCase()}.` : 'Before I finalize your route, where are we starting? Home, office, or somewhere else?'}`;
+  setTimeout(() => $('.orb.big').classList.add('opening'), 350);
+  setTimeout(() => $('#human').classList.add('show'), 950);
+  setTimeout(() => speak(hello), 1400);
+  if(saved){
+    $('#routePrompt').classList.add('answered');
+    $('#introSummary').textContent = `I have your route starting from ${saved.toLowerCase()}.`;
+    introFallback = setTimeout(() => finishIntro(saved, true), 4100);
+  } else {
+    introFallback = setTimeout(() => finishIntro('Home', true), 8200);
+  }
 }
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -137,9 +157,8 @@ document.addEventListener('DOMContentLoaded', () => {
   });
   $('#close').onclick = closePanel;
   $('#backdrop').onclick = e => { if(e.target === $('#backdrop')) closePanel(); };
-  $('#hear').onclick = speak;
-  $('#jamesOrb').onclick = speak;
-  $('#skip').onclick = () => finishIntro();
+  $('#hear').onclick = () => speak();
+  $('#jamesOrb').onclick = () => speak();
   $$('[data-start]').forEach(b => b.onclick = () => finishIntro(b.dataset.start));
   intro();
 });

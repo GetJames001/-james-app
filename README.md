@@ -1,13 +1,14 @@
-# James v0.1.1 Alpha
+# James v0.1.2 Alpha
 
-Morning Briefing refinement for getjames.ai.
+Morning Briefing refinement build.
 
 ## Changes
-- Added a prominent next-appointment hero with live countdown, leave-by time, drive time, and traffic state.
-- Added start-location selection during the opening conversation; the control disappears after it is answered.
-- Removed redundant Morning Briefing description and bottom summary footer.
-- Moved weather and traffic into the header.
-- Merged deadline information into Today's Focus.
-- Narrowed and rebalanced the calendar layout.
-- Repurposed Travel for flights, hotels, rental cars, and business trips.
-- Added time-aware greeting and automatic hero updates.
+- Stronger Next Appointment hero hierarchy
+- Calendar travel labels removed; route time remains visually indicated
+- Open time represented as clean whitespace
+- Focus spacing refined; deadline pill preserved
+- Appointments, Tasks, Travel, Files, and James recommendations constrained to cleaner desktop widths
+- Insights renamed to James with a subtle recommendation signal
+- James introduction rebuilt to visibly emerge from the orb and automatically transition into the briefing
+- Removed Skip Intro; route choice remains available, with a timed fallback so the experience never stalls
+- Version advanced to 0.1.2 Alpha

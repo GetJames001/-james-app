@@ -9,21 +9,26 @@
 </head>
 <body>
 <section id="intro" class="intro" aria-label="James introduction">
-  <div class="orb big"><span>J</span></div>
-  <div id="human" class="human" aria-hidden="true"><div class="head"></div><div class="body"></div><div class="shirt"></div><div class="tie"></div><div class="cuff left"></div><div class="cuff right"></div></div>
+  <div class="intro-stage" aria-hidden="true">
+    <div class="orb big"><span>J</span></div>
+    <div id="human" class="human">
+      <div class="head"></div><div class="hair"></div><div class="neck"></div>
+      <div class="body"></div><div class="shirt"></div><div class="lapel left-lapel"></div><div class="lapel right-lapel"></div><div class="tie"></div>
+      <div class="arm left-arm"></div><div class="arm right-arm"></div><div class="cuff left"></div><div class="cuff right"></div>
+    </div>
+  </div>
   <div class="intro-copy">
     <small>JAMES</small>
     <h1 id="introGreeting">Good morning, Michael.</h1>
-    <p id="introSummary">Busy day today. Let’s take a look.</p>
+    <p id="introSummary">I’ve prepared your briefing.</p>
     <div id="routePrompt" class="route-prompt">
-      <span>Where are we starting today?</span>
+      <span>Before I finalize your route, where are we starting?</span>
       <div class="route-options">
         <button data-start="Home">Home</button>
         <button data-start="Office">Office</button>
         <button data-start="Other">Other</button>
       </div>
     </div>
-    <button id="skip" class="skip">Skip introduction</button>
   </div>
 </section>
 
@@ -46,7 +51,7 @@
     <button data-page="tasks">Tasks</button>
     <button data-page="travel">Travel</button>
     <button data-page="files">Files</button>
-    <button data-page="insights">Insights</button>
+    <button id="jamesNav" class="james-nav has-recommendation" data-page="insights">James<span class="recommendation-dot" aria-hidden="true"></span></button>
   </nav>
 
   <section id="briefing" class="page active">
@@ -59,7 +64,7 @@
       <section class="next-card" aria-label="Next appointment">
         <div class="next-label">NEXT APPOINTMENT</div>
         <div class="next-main">
-          <div>
+          <div class="next-identity">
             <h4 id="nextTitle">Fort Apache Surgical</h4>
             <p id="nextType">Site Visit · 9:00 AM</p>
           </div>
@@ -96,15 +101,15 @@
     </div>
   </section>
 
-  <section id="appointments" class="page"><div class="sheet"><div class="sheet-head"><div><small>APPOINTMENTS</small><h3>Your day, with room to pivot.</h3></div></div><div id="apptList" class="list"></div></div></section>
-  <section id="conversations" class="page"><div class="sheet"><div class="sheet-head"><div><small>CONVERSATIONS</small><h3>Calls, texts, and email in one place.</h3></div></div><div class="cards"><article><small>CALL</small><h4>Scott Schuster</h4><p>Voicemail left July 29.</p><button>Call</button><button>Text</button></article><article><small>EMAIL</small><h4>David Kim</h4><p>Central Transport proposal due midweek.</p><button>Open draft</button></article><article><small>TEXT</small><h4>TJ</h4><p>Follow up regarding Sunset Ridge.</p><button>Text</button><button>Call</button></article></div></div></section>
-  <section id="tasks" class="page"><div class="sheet"><div class="sheet-head"><div><small>TASKS</small><h3>Commitments James is protecting.</h3></div></div><div class="tasks"><label><input type="checkbox"> Finish Galleria bid <span>Due tomorrow</span></label><label><input type="checkbox"> Finish Central Transport proposal <span>Due midweek</span></label><label><input type="checkbox"> Return Scott Schuster’s call <span>Overdue</span></label><label><input type="checkbox"> Send pricing follow-up to TJ <span>Today</span></label></div></div></section>
-  <section id="travel" class="page"><div class="sheet"><div class="sheet-head"><div><small>TRAVEL</small><h3>Trips beyond today’s route.</h3></div></div><div class="cards one"><article><h4>No upcoming travel booked</h4><p>Flights, hotels, rental cars, boarding details, and business trips will appear here.</p></article></div></div></section>
-  <section id="files" class="page"><div class="sheet"><div class="sheet-head"><div><small>FILES</small><h3>The documents your day depends on.</h3></div></div><div class="cards"><article><small>PDF</small><h4>Central Transport Proposal v4</h4><p>Updated yesterday</p></article><article><small>PDF</small><h4>Galleria Bid Package</h4><p>Due tomorrow</p></article><article><small>IMG</small><h4>Generator Photos — Fort Apache</h4><p>8 images</p></article></div></div></section>
-  <section id="insights" class="page"><div class="sheet"><div class="sheet-head"><div><small>INSIGHTS</small><h3>What James notices before you ask.</h3></div></div><div class="cards one"><article><h4>Today’s recommendation</h4><p>Use the 11:00 AM–1:00 PM opening to finish Central Transport and return callbacks.</p></article><article><h4>Deadline risk</h4><p>The Galleria bid becomes high risk if it is not substantially complete today.</p></article><article><h4>Schedule health</h4><p>Your afternoon can absorb one rescheduled appointment.</p></article></div></div></section>
+  <section id="appointments" class="page"><div class="sheet content-medium"><div class="sheet-head"><div><small>APPOINTMENTS</small><h3>Your day, with room to pivot.</h3></div></div><div id="apptList" class="list"></div></div></section>
+  <section id="conversations" class="page"><div class="sheet content-wide"><div class="sheet-head"><div><small>CONVERSATIONS</small><h3>Calls, texts, and email in one place.</h3></div></div><div class="cards"><article><small>CALL</small><h4>Scott Schuster</h4><p>Voicemail left July 29.</p><button>Call</button><button>Text</button></article><article><small>EMAIL</small><h4>David Kim</h4><p>Central Transport proposal due midweek.</p><button>Open draft</button></article><article><small>TEXT</small><h4>TJ</h4><p>Follow up regarding Sunset Ridge.</p><button>Text</button><button>Call</button></article></div></div></section>
+  <section id="tasks" class="page"><div class="sheet content-narrow"><div class="sheet-head"><div><small>TASKS</small><h3>Commitments James is protecting.</h3></div></div><div class="tasks"><label><input type="checkbox"> Finish Galleria bid <span>Due tomorrow</span></label><label><input type="checkbox"> Finish Central Transport proposal <span>Due midweek</span></label><label><input type="checkbox"> Return Scott Schuster’s call <span>Overdue</span></label><label><input type="checkbox"> Send pricing follow-up to TJ <span>Today</span></label></div></div></section>
+  <section id="travel" class="page"><div class="sheet content-narrow"><div class="sheet-head"><div><small>TRAVEL</small><h3>Trips beyond today’s route.</h3></div></div><div class="cards one compact-cards"><article><h4>No upcoming travel booked</h4><p>Flights, hotels, rental cars, boarding details, and business trips will appear here.</p></article></div></div></section>
+  <section id="files" class="page"><div class="sheet content-wide"><div class="sheet-head"><div><small>FILES</small><h3>The documents your day depends on.</h3></div></div><div class="cards"><article><small>PDF</small><h4>Central Transport Proposal v4</h4><p>Updated yesterday</p></article><article><small>PDF</small><h4>Galleria Bid Package</h4><p>Due tomorrow</p></article><article><small>IMG</small><h4>Generator Photos — Fort Apache</h4><p>8 images</p></article></div></div></section>
+  <section id="insights" class="page"><div class="sheet content-narrow recommendation-sheet"><div class="sheet-head"><div><small>JAMES RECOMMENDS</small><h3>Worth your attention.</h3></div></div><div class="cards one compact-cards"><article class="recommendation-primary"><small>RECOMMENDATION</small><h4>Use the 11:00 AM–1:00 PM opening deliberately.</h4><p>Finish Central Transport and return your overdue callbacks while the calendar is clear.</p></article><article><small>DEADLINE WATCH</small><h4>Galleria needs meaningful progress today.</h4><p>The bid becomes high risk if it is not substantially complete before tomorrow.</p></article><article><small>SCHEDULE</small><h4>You still have room to pivot.</h4><p>Your afternoon can absorb one rescheduled appointment without disrupting the day.</p></article></div></div></section>
 
   <div id="backdrop" class="backdrop"><aside class="panel"><div class="panel-head"><div><small id="panelKicker"></small><h3 id="panelTitle"></h3></div><button id="close">×</button></div><div id="panelBody"></div></aside></div>
-  <footer><span>JAMES · VERSION 0.1.1 ALPHA</span><span>GETJAMES.AI</span></footer>
+  <footer><span>JAMES · VERSION 0.1.2 ALPHA</span><span>GETJAMES.AI</span></footer>
 </main>
 <script src="app.js"></script>
 </body>
