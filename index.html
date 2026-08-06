@@ -1,12 +1,111 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#11100f"><title>James — Morning Briefing</title><link rel="stylesheet" href="styles.css"></head><body>
-<section id="intro" class="intro"><div class="orb big"><span>J</span></div><div id="human" class="human"><div class="head"></div><div class="body"></div><div class="shirt"></div><div class="tie"></div><div class="cuff left"></div><div class="cuff right"></div></div><div class="intro-copy"><small>JAMES</small><h1>Good morning, Michael.</h1><p>Busy day today. Let’s take a look.</p><button id="skip">Skip introduction</button></div></section>
-<main id="app" class="app frosted"><header><div class="brand"><button id="jamesOrb" class="orb mini"><span>J</span></button><div><b>JAMES</b><small>Your Executive AI Assistant</small></div></div><div class="greeting"><h2>Good Morning, Michael</h2><p id="dateTime"></p></div><div class="ready">● Briefing ready</div></header>
-<nav id="nav"><button class="active" data-page="briefing">Briefing</button><button data-page="appointments">Appointments</button><button data-page="conversations">Conversations</button><button data-page="tasks">Tasks</button><button data-page="travel">Travel</button><button data-page="files">Files</button><button data-page="insights">Insights</button></nav>
-<section id="briefing" class="page active"><div class="sheet"><div class="sheet-head"><div><small>YOUR MORNING BRIEFING</small><h3>Today at a glance</h3><p>Appointments, open time, deadlines, and what needs your attention.</p></div><button id="hear" class="primary">Hear James</button></div><div class="brief-grid"><div><small>TODAY’S CALENDAR · 7:00 AM–7:00 PM</small><div id="calendar" class="calendar"></div><div class="summaries"><div><b>Next</b><span>Fort Apache Surgical · 9:00 AM</span></div><div><b>Open time</b><span>11:00 AM–1:00 PM</span></div><div><b>Leave by</b><span>8:32 AM</span></div></div></div><aside><section><small>TODAY’S FOCUS</small><ol><li><i>01</i><div><b>Finish Galleria and Central Transport bids</b><span>Galleria closes tomorrow at 5:00 PM.</span></div></li><li><i>02</i><div><b>Complete three overdue callbacks</b><span>Best opening: 11:00 AM–1:00 PM.</span></div></li><li><i>03</i><div><b>Respond to five priority emails</b><span>Two require approval.</span></div></li></ol></section><section><small>WEATHER & TRAVEL</small><p class="weather">☀ <b>82° · Sunny</b><span>Clear roads. Traffic light.</span></p></section><section><small>DEADLINES</small><p><b>Galleria bid</b><span class="urgent">Due tomorrow · 5:00 PM</span></p><p><b>Central Transport</b><span>Requested by midweek</span></p></section><div class="quick"><button data-panel="callbacks">Callbacks <b>3 overdue</b></button><button data-panel="emails">Emails <b>5 require action</b></button><button data-panel="proposals">Proposals <b>2 active</b></button></div></aside></div></div></section>
-<section id="appointments" class="page"><div class="sheet"><div class="sheet-head"><div><small>APPOINTMENTS</small><h3>Your day, with room to pivot.</h3></div></div><div id="apptList" class="list"></div></div></section>
-<section id="conversations" class="page"><div class="sheet"><div class="sheet-head"><div><small>CONVERSATIONS</small><h3>Calls, texts, and email in one place.</h3></div></div><div class="cards"><article><small>CALL</small><h4>Scott Schuster</h4><p>Voicemail left July 29.</p><button>Call</button><button>Text</button></article><article><small>EMAIL</small><h4>David Kim</h4><p>Central Transport proposal due midweek.</p><button>Open draft</button></article><article><small>TEXT</small><h4>TJ</h4><p>Follow up regarding Sunset Ridge.</p><button>Text</button><button>Call</button></article></div></div></section>
-<section id="tasks" class="page"><div class="sheet"><div class="sheet-head"><div><small>TASKS</small><h3>Commitments James is protecting.</h3></div></div><div class="tasks"><label><input type="checkbox"> Finish Galleria bid <span>Due tomorrow</span></label><label><input type="checkbox"> Finish Central Transport proposal <span>Due midweek</span></label><label><input type="checkbox"> Return Scott Schuster’s call <span>Overdue</span></label><label><input type="checkbox"> Send pricing follow-up to TJ <span>Today</span></label></div></div></section>
-<section id="travel" class="page"><div class="sheet"><div class="sheet-head"><div><small>TRAVEL</small><h3>Live departure intelligence.</h3></div></div><div class="travel"><div class="route">⌁</div><div><b>Fort Apache Surgical</b><p>18 minutes away · traffic light</p></div><div><small>Leave by</small><b>8:32 AM</b></div></div></div></section>
-<section id="files" class="page"><div class="sheet"><div class="sheet-head"><div><small>FILES</small><h3>The documents your day depends on.</h3></div></div><div class="cards"><article><small>PDF</small><h4>Central Transport Proposal v4</h4><p>Updated yesterday</p></article><article><small>PDF</small><h4>Galleria Bid Package</h4><p>Due tomorrow</p></article><article><small>IMG</small><h4>Generator Photos — Fort Apache</h4><p>8 images</p></article></div></div></section>
-<section id="insights" class="page"><div class="sheet"><div class="sheet-head"><div><small>INSIGHTS</small><h3>What James notices before you ask.</h3></div></div><div class="cards one"><article><h4>Today’s recommendation</h4><p>Use the 11:00 AM–1:00 PM opening to finish Central Transport and return callbacks.</p></article><article><h4>Deadline risk</h4><p>The Galleria bid becomes high risk if it is not substantially complete today.</p></article><article><h4>Schedule health</h4><p>Your afternoon can absorb one rescheduled appointment.</p></article></div></div></section>
-<div id="backdrop" class="backdrop"><aside class="panel"><div class="panel-head"><div><small id="panelKicker"></small><h3 id="panelTitle"></h3></div><button id="close">×</button></div><div id="panelBody"></div></aside></div><footer><span>JAMES · VERSION 0.1.0 ALPHA</span><span>GETJAMES.AI</span></footer></main><script src="app.js"></script></body></html>
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#11100f">
+  <title>James — Morning Briefing</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<section id="intro" class="intro" aria-label="James introduction">
+  <div class="orb big"><span>J</span></div>
+  <div id="human" class="human" aria-hidden="true"><div class="head"></div><div class="body"></div><div class="shirt"></div><div class="tie"></div><div class="cuff left"></div><div class="cuff right"></div></div>
+  <div class="intro-copy">
+    <small>JAMES</small>
+    <h1 id="introGreeting">Good morning, Michael.</h1>
+    <p id="introSummary">Busy day today. Let’s take a look.</p>
+    <div id="routePrompt" class="route-prompt">
+      <span>Where are we starting today?</span>
+      <div class="route-options">
+        <button data-start="Home">Home</button>
+        <button data-start="Office">Office</button>
+        <button data-start="Other">Other</button>
+      </div>
+    </div>
+    <button id="skip" class="skip">Skip introduction</button>
+  </div>
+</section>
+
+<main id="app" class="app frosted">
+  <header>
+    <div class="brand">
+      <button id="jamesOrb" class="orb mini" aria-label="Hear James"><span>J</span></button>
+      <div><b>JAMES</b><small>Your Executive AI Assistant</small></div>
+    </div>
+    <div class="greeting"><h2 id="mainGreeting">Good Morning, Michael</h2><p id="dateTime"></p></div>
+    <div class="status-cluster">
+      <div class="weather-status"><span class="sun">☀</span><div><b>82° · Sunny</b><small>Light traffic</small></div></div>
+    </div>
+  </header>
+
+  <nav id="nav">
+    <button class="active" data-page="briefing">Briefing</button>
+    <button data-page="appointments">Appointments</button>
+    <button data-page="conversations">Conversations</button>
+    <button data-page="tasks">Tasks</button>
+    <button data-page="travel">Travel</button>
+    <button data-page="files">Files</button>
+    <button data-page="insights">Insights</button>
+  </nav>
+
+  <section id="briefing" class="page active">
+    <div class="sheet briefing-sheet">
+      <div class="sheet-head compact-head">
+        <div><h3>Your Morning Briefing</h3></div>
+        <button id="hear" class="primary">Hear James</button>
+      </div>
+
+      <section class="next-card" aria-label="Next appointment">
+        <div class="next-label">NEXT APPOINTMENT</div>
+        <div class="next-main">
+          <div>
+            <h4 id="nextTitle">Fort Apache Surgical</h4>
+            <p id="nextType">Site Visit · 9:00 AM</p>
+          </div>
+          <div class="countdown"><span>STARTS IN</span><strong id="countdown">2 hr 14 min</strong></div>
+        </div>
+        <div class="next-meta">
+          <div><span>LEAVE BY</span><b id="leaveBy">8:32 AM</b></div>
+          <div><span>DRIVE</span><b id="driveTime">18 min</b></div>
+          <div><span>TRAFFIC</span><b id="traffic">Light</b></div>
+        </div>
+      </section>
+
+      <div class="brief-grid">
+        <div class="calendar-column">
+          <small>TODAY’S CALENDAR · 7:00 AM–7:00 PM</small>
+          <div id="calendar" class="calendar"></div>
+        </div>
+        <aside>
+          <section>
+            <small>TODAY’S FOCUS</small>
+            <ol>
+              <li><i>01</i><div><b>Finish Galleria and Central Transport bids</b><span><em class="deadline-pill">Due tomorrow · 5:00 PM</em></span></div></li>
+              <li><i>02</i><div><b>Complete three overdue callbacks</b><span>Best opening: 11:00 AM–1:00 PM.</span></div></li>
+              <li><i>03</i><div><b>Respond to five priority emails</b><span>Two require approval.</span></div></li>
+            </ol>
+          </section>
+          <div class="quick">
+            <button data-panel="callbacks">Callbacks <b>3 overdue</b></button>
+            <button data-panel="emails">Emails <b>5 require action</b></button>
+            <button data-panel="proposals">Proposals <b>2 active</b></button>
+          </div>
+        </aside>
+      </div>
+    </div>
+  </section>
+
+  <section id="appointments" class="page"><div class="sheet"><div class="sheet-head"><div><small>APPOINTMENTS</small><h3>Your day, with room to pivot.</h3></div></div><div id="apptList" class="list"></div></div></section>
+  <section id="conversations" class="page"><div class="sheet"><div class="sheet-head"><div><small>CONVERSATIONS</small><h3>Calls, texts, and email in one place.</h3></div></div><div class="cards"><article><small>CALL</small><h4>Scott Schuster</h4><p>Voicemail left July 29.</p><button>Call</button><button>Text</button></article><article><small>EMAIL</small><h4>David Kim</h4><p>Central Transport proposal due midweek.</p><button>Open draft</button></article><article><small>TEXT</small><h4>TJ</h4><p>Follow up regarding Sunset Ridge.</p><button>Text</button><button>Call</button></article></div></div></section>
+  <section id="tasks" class="page"><div class="sheet"><div class="sheet-head"><div><small>TASKS</small><h3>Commitments James is protecting.</h3></div></div><div class="tasks"><label><input type="checkbox"> Finish Galleria bid <span>Due tomorrow</span></label><label><input type="checkbox"> Finish Central Transport proposal <span>Due midweek</span></label><label><input type="checkbox"> Return Scott Schuster’s call <span>Overdue</span></label><label><input type="checkbox"> Send pricing follow-up to TJ <span>Today</span></label></div></div></section>
+  <section id="travel" class="page"><div class="sheet"><div class="sheet-head"><div><small>TRAVEL</small><h3>Trips beyond today’s route.</h3></div></div><div class="cards one"><article><h4>No upcoming travel booked</h4><p>Flights, hotels, rental cars, boarding details, and business trips will appear here.</p></article></div></div></section>
+  <section id="files" class="page"><div class="sheet"><div class="sheet-head"><div><small>FILES</small><h3>The documents your day depends on.</h3></div></div><div class="cards"><article><small>PDF</small><h4>Central Transport Proposal v4</h4><p>Updated yesterday</p></article><article><small>PDF</small><h4>Galleria Bid Package</h4><p>Due tomorrow</p></article><article><small>IMG</small><h4>Generator Photos — Fort Apache</h4><p>8 images</p></article></div></div></section>
+  <section id="insights" class="page"><div class="sheet"><div class="sheet-head"><div><small>INSIGHTS</small><h3>What James notices before you ask.</h3></div></div><div class="cards one"><article><h4>Today’s recommendation</h4><p>Use the 11:00 AM–1:00 PM opening to finish Central Transport and return callbacks.</p></article><article><h4>Deadline risk</h4><p>The Galleria bid becomes high risk if it is not substantially complete today.</p></article><article><h4>Schedule health</h4><p>Your afternoon can absorb one rescheduled appointment.</p></article></div></div></section>
+
+  <div id="backdrop" class="backdrop"><aside class="panel"><div class="panel-head"><div><small id="panelKicker"></small><h3 id="panelTitle"></h3></div><button id="close">×</button></div><div id="panelBody"></div></aside></div>
+  <footer><span>JAMES · VERSION 0.1.1 ALPHA</span><span>GETJAMES.AI</span></footer>
+</main>
+<script src="app.js"></script>
+</body>
+</html>

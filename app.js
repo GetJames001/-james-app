@@ -1,1 +1,145 @@
-const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];const events=[['08:30','09:00','Travel','18 min to Fort Apache Surgical','travel'],['09:00','10:00','Fort Apache Surgical','Site Visit'],['10:00','10:18','Travel','18 min to Advanced Surgical','travel'],['10:18','11:00','Advanced Surgical','Site Visit'],['11:00','13:00','Available','Open time','open'],['13:00','14:00','Windmill Library','Site Visit'],['14:00','14:12','Travel','12 min to Sierra Surgical','travel'],['14:30','15:15','Sierra Surgical','Follow Up'],['15:15','16:30','Available','Open time','open'],['16:30','17:15','Allegiant Stadium','Site Visit'],['17:15','18:15','Available','Open time','open'],['18:15','19:00','Central Transport','Bid Review']];const mins=t=>{let[h,m]=t.split(':').map(Number);return(h-7)*60+m},pretty=t=>{let[h,m]=t.split(':').map(Number),s=h>=12?'PM':'AM';h=h%12||12;return`${h}:${String(m).padStart(2,'0')} ${s}`};function build(){let c=$('#calendar');for(let h=7;h<=19;h++){let r=document.createElement('div');r.className='hour';r.innerHTML=`<span>${h>12?h-12:h}:00 ${h>=12?'PM':'AM'}</span>`;c.appendChild(r)}events.forEach(e=>{let top=mins(e[0]),height=Math.max(18,mins(e[1])-mins(e[0]));if(e[4]==='open'){let o=document.createElement('div');o.className='open';o.style.top=top+6+'px';o.textContent=`Available · ${pretty(e[0])}–${pretty(e[1])}`;c.appendChild(o);return}let b=document.createElement('button');b.className='event '+(e[4]||'');b.style.top=top+'px';b.style.height=height+'px';b.innerHTML=`<b>${e[2]}</b><small>${e[3]}</small>`;b.onclick=()=>panel(e[4]==='travel'?'TRAVEL':'APPOINTMENT',e[2],`<div class="panel-item"><b>${pretty(e[0])}–${pretty(e[1])}</b><span>${e[3]}</span><button>Call</button><button>Text</button><button>Email</button><button>Move</button><button>Notes</button><button>Files</button></div>`);c.appendChild(b)});let n=document.createElement('div');n.className='now';n.style.top=mins('08:15')+'px';c.appendChild(n);$('#apptList').innerHTML=events.filter(e=>e[4]!=='open').map(e=>`<article><div>${pretty(e[0])}</div><div><h4>${e[2]}</h4><p>${e[3]}</p></div><button data-a="${e[2]}">Open</button></article>`).join('')}function page(id){$$('nav button').forEach(b=>b.classList.toggle('active',b.dataset.page===id));$$('.page').forEach(p=>p.classList.toggle('active',p.id===id))}function panel(k,t,html){$('#panelKicker').textContent=k;$('#panelTitle').textContent=t;$('#panelBody').innerHTML=html;$('#backdrop').classList.add('open')}function close(){ $('#backdrop').classList.remove('open')}function speak(){let text='Good morning, Michael. Your first appointment is Fort Apache Surgical at nine. Leave by eight thirty two. You have open time from eleven to one. The Galleria bid closes tomorrow at five, so I recommend using that opening to finish Central Transport and return callbacks. Otherwise, today looks manageable. I will be here if you need me.';if('speechSynthesis'in window){speechSynthesis.cancel();let u=new SpeechSynthesisUtterance(text);u.rate=.96;u.pitch=.9;speechSynthesis.speak(u)}else panel('JAMES','Morning Briefing',`<p>${text}</p>`)}function intro(){setTimeout(()=>{$('.orb.big').style.opacity=.15;$('#human').classList.add('show')},900);setTimeout(()=>{$('#human').classList.add('out');$('.orb.big').style.opacity=1},3900);setTimeout(()=>{$('#app').classList.remove('frosted');$('#app').classList.add('clear')},5000);setTimeout(()=>$('#intro').classList.add('hide'),6300)}document.addEventListener('DOMContentLoaded',()=>{build();let d=new Date();$('#dateTime').textContent=d.toLocaleDateString(undefined,{weekday:'long',month:'long',day:'numeric'})+' · '+d.toLocaleTimeString([],{hour:'numeric',minute:'2-digit'});$$('nav button').forEach(b=>b.onclick=()=>page(b.dataset.page));$$('[data-panel]').forEach(b=>b.onclick=()=>{let type=b.dataset.panel,data={callbacks:[['Scott Schuster','North Las Vegas Fire'],['TJ','Sunset Ridge Post Acute'],['Mission Pines','Initial call required']],emails:[['Ron Jeet','Generator quote confirmation'],['Maria Lopez','Galleria bid documents'],['David Kim','Central Transport proposal']],proposals:[['Galleria Bid','Due tomorrow at 5:00 PM'],['Central Transport','Requested by midweek']]}[type];panel(type.toUpperCase(),b.textContent.trim(),data.map(x=>`<div class="panel-item"><b>${x[0]}</b><span>${x[1]}</span><button>Open</button><button>Call</button><button>Message</button></div>`).join(''))});$('#close').onclick=close;$('#backdrop').onclick=e=>{if(e.target===$('#backdrop'))close()};$('#hear').onclick=speak;$('#jamesOrb').onclick=speak;$('#skip').onclick=()=>{$('#app').classList.remove('frosted');$('#app').classList.add('clear');$('#intro').classList.add('hide')};intro()});
+const $ = (s) => document.querySelector(s);
+const $$ = (s) => [...document.querySelectorAll(s)];
+
+const events = [
+  ['08:30','09:00','Travel','18 min to Fort Apache Surgical','travel'],
+  ['09:00','10:00','Fort Apache Surgical','Site Visit'],
+  ['10:00','10:18','Travel','18 min to Advanced Surgical','travel'],
+  ['10:18','11:00','Advanced Surgical','Site Visit'],
+  ['11:00','13:00','Available','Open time','open'],
+  ['13:00','14:00','Windmill Library','Site Visit'],
+  ['14:00','14:12','Travel','12 min to Sierra Surgical','travel'],
+  ['14:30','15:15','Sierra Surgical','Follow Up'],
+  ['15:15','16:30','Available','Open time','open'],
+  ['16:30','17:15','Allegiant Stadium','Site Visit'],
+  ['17:15','18:15','Available','Open time','open'],
+  ['18:15','19:00','Central Transport','Bid Review']
+];
+
+const mins = (t) => { const [h,m] = t.split(':').map(Number); return (h-7)*60+m; };
+const pretty = (t) => { let [h,m] = t.split(':').map(Number); const s = h >= 12 ? 'PM' : 'AM'; h = h % 12 || 12; return `${h}:${String(m).padStart(2,'0')} ${s}`; };
+const timeToDate = (t) => { const [h,m] = t.split(':').map(Number); const d = new Date(); d.setHours(h,m,0,0); return d; };
+
+function greetingForHour(hour){
+  if(hour < 12) return 'Good Morning, Michael';
+  if(hour < 18) return 'Good Afternoon, Michael';
+  return 'Good Evening, Michael';
+}
+
+function setGreeting(){
+  const now = new Date();
+  const text = greetingForHour(now.getHours());
+  $('#mainGreeting').textContent = text;
+  $('#introGreeting').textContent = `${text.replace(', Michael','')}, Michael.`;
+  $('#dateTime').textContent = now.toLocaleDateString(undefined,{weekday:'long',month:'long',day:'numeric'}) + ' · ' + now.toLocaleTimeString([],{hour:'numeric',minute:'2-digit'});
+}
+
+function nextAppointment(){
+  const now = new Date();
+  const appointments = events.filter(e => !e[4]);
+  return appointments.find(e => timeToDate(e[1]) > now) || appointments[0];
+}
+
+function updateHero(){
+  const appt = nextAppointment();
+  const travel = events.find(e => e[4] === 'travel' && e[2] === 'Travel' && e[3].includes(appt[2])) || ['','','','18 min'];
+  const drive = parseInt(travel[3],10) || 18;
+  const start = timeToDate(appt[0]);
+  const leave = new Date(start.getTime() - drive * 60000);
+  const now = new Date();
+  const diff = Math.max(0, start - now);
+  const hrs = Math.floor(diff / 3600000);
+  const min = Math.floor((diff % 3600000) / 60000);
+  $('#nextTitle').textContent = appt[2];
+  $('#nextType').textContent = `${appt[3]} · ${pretty(appt[0])}`;
+  $('#countdown').textContent = hrs ? `${hrs} hr ${min} min` : `${min} min`;
+  $('#leaveBy').textContent = leave.toLocaleTimeString([],{hour:'numeric',minute:'2-digit'});
+  $('#driveTime').textContent = `${drive} min`;
+}
+
+function buildCalendar(){
+  const c = $('#calendar');
+  c.innerHTML = '';
+  for(let h=7; h<=19; h++){
+    const r = document.createElement('div');
+    r.className = 'hour';
+    r.innerHTML = `<span>${h>12?h-12:h}:00 ${h>=12?'PM':'AM'}</span>`;
+    c.appendChild(r);
+  }
+  events.forEach(e => {
+    const top = mins(e[0]);
+    const height = Math.max(18, mins(e[1]) - mins(e[0]));
+    if(e[4] === 'open'){
+      const o = document.createElement('div');
+      o.className = 'open';
+      o.style.top = `${top + 8}px`;
+      o.textContent = `Open · ${pretty(e[0])}–${pretty(e[1])}`;
+      c.appendChild(o);
+      return;
+    }
+    const b = document.createElement('button');
+    b.className = `event ${e[4] || ''}`;
+    b.style.top = `${top}px`;
+    b.style.height = `${height}px`;
+    b.innerHTML = `<b>${e[2]}</b><small>${e[3]}</small>`;
+    b.onclick = () => panel(e[4] === 'travel' ? 'TRAVEL' : 'APPOINTMENT', e[2], `<div class="panel-item"><b>${pretty(e[0])}–${pretty(e[1])}</b><span>${e[3]}</span><button>Call</button><button>Text</button><button>Email</button><button>Move</button><button>Notes</button><button>Files</button></div>`);
+    c.appendChild(b);
+  });
+  const now = new Date();
+  const top = Math.max(0, Math.min(720, (now.getHours()-7)*60 + now.getMinutes()));
+  const n = document.createElement('div');
+  n.className = 'now';
+  n.style.top = `${top}px`;
+  c.appendChild(n);
+  $('#apptList').innerHTML = events.filter(e => e[4] !== 'open').map(e => `<article><div>${pretty(e[0])}</div><div><h4>${e[2]}</h4><p>${e[3]}</p></div><button data-a="${e[2]}">Open</button></article>`).join('');
+}
+
+function page(id){
+  $$('nav button').forEach(b => b.classList.toggle('active', b.dataset.page === id));
+  $$('.page').forEach(p => p.classList.toggle('active', p.id === id));
+}
+function panel(k,t,html){ $('#panelKicker').textContent = k; $('#panelTitle').textContent = t; $('#panelBody').innerHTML = html; $('#backdrop').classList.add('open'); }
+function closePanel(){ $('#backdrop').classList.remove('open'); }
+function speak(){
+  const start = localStorage.getItem('jamesStart') || 'your selected location';
+  const text = `Good morning, Michael. I have your route starting from ${start}. Your next appointment is Fort Apache Surgical at nine. Leave by eight thirty two. You have open time from eleven to one. The Galleria bid is due tomorrow at five. Otherwise, your day looks manageable.`;
+  if('speechSynthesis' in window){ speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(text); u.rate=.96; u.pitch=.9; speechSynthesis.speak(u); }
+  else panel('JAMES','Morning Briefing',`<p>${text}</p>`);
+}
+
+function finishIntro(startLocation){
+  if(startLocation) localStorage.setItem('jamesStart', startLocation);
+  $('#routePrompt').classList.add('answered');
+  $('#introSummary').textContent = startLocation ? `Perfect. Updating today’s route from ${startLocation.toLowerCase()}.` : 'Your briefing is ready.';
+  setTimeout(() => { $('#app').classList.remove('frosted'); $('#app').classList.add('clear'); }, 500);
+  setTimeout(() => $('#intro').classList.add('hide'), 1450);
+}
+
+function intro(){
+  setTimeout(() => { $('.orb.big').style.opacity=.15; $('#human').classList.add('show'); }, 650);
+  setTimeout(() => { $('#human').classList.add('out'); $('.orb.big').style.opacity=1; }, 2800);
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  setGreeting();
+  buildCalendar();
+  updateHero();
+  setInterval(() => { setGreeting(); updateHero(); }, 60000);
+  $$('nav button').forEach(b => b.onclick = () => page(b.dataset.page));
+  $$('[data-panel]').forEach(b => b.onclick = () => {
+    const type = b.dataset.panel;
+    const data = {
+      callbacks:[['Scott Schuster','North Las Vegas Fire'],['TJ','Sunset Ridge Post Acute'],['Mission Pines','Initial call required']],
+      emails:[['Ron Jeet','Generator quote confirmation'],['Maria Lopez','Galleria bid documents'],['David Kim','Central Transport proposal']],
+      proposals:[['Galleria Bid','Due tomorrow at 5:00 PM'],['Central Transport','Requested by midweek']]
+    }[type];
+    panel(type.toUpperCase(), b.textContent.trim(), data.map(x => `<div class="panel-item"><b>${x[0]}</b><span>${x[1]}</span><button>Open</button><button>Call</button><button>Message</button></div>`).join(''));
+  });
+  $('#close').onclick = closePanel;
+  $('#backdrop').onclick = e => { if(e.target === $('#backdrop')) closePanel(); };
+  $('#hear').onclick = speak;
+  $('#jamesOrb').onclick = speak;
+  $('#skip').onclick = () => finishIntro();
+  $$('[data-start]').forEach(b => b.onclick = () => finishIntro(b.dataset.start));
+  intro();
+});

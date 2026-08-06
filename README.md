@@ -1,5 +1,13 @@
-# James v0.1.0 Alpha
+# James v0.1.1 Alpha
 
-Initial live foundation for getjames.ai.
+Morning Briefing refinement for getjames.ai.
 
-Includes the launch sequence, energy orb, Morning Briefing, full-day calendar, deadlines, appointments, conversations, tasks, travel, files, insights, and responsive phone/iPad layouts.
+## Changes
+- Added a prominent next-appointment hero with live countdown, leave-by time, drive time, and traffic state.
+- Added start-location selection during the opening conversation; the control disappears after it is answered.
+- Removed redundant Morning Briefing description and bottom summary footer.
+- Moved weather and traffic into the header.
+- Merged deadline information into Today's Focus.
+- Narrowed and rebalanced the calendar layout.
+- Repurposed Travel for flights, hotels, rental cars, and business trips.
+- Added time-aware greeting and automatic hero updates.
