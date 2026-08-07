@@ -1,9 +1,9 @@
-# James v0.1.3 Alpha
+# James v0.1.4 Alpha
 
-Morning Briefing final-polish sprint.
+Morning Briefing intro lock / persistent James pass.
 
-- Refined energy orb with layered light and halo motion.
-- Entrance sequence progresses visually even when browser speech autoplay is blocked.
-- Next Appointment hero aligned to the calendar column instead of spanning the page.
-- James recommendation state is more noticeable but remains restrained.
-- Final spacing and hierarchy refinements to the Morning Briefing.
+- Clean one-way intro: orb → James → orb → briefing.
+- Start location is confirmed each session; route confirmation is spoken, not repeated as prototype text.
+- Persistent living James orb is available in the upper-right on every page.
+- Removed redundant “Hear James” button from the Morning Briefing.
+- Morning Briefing layout remains frozen from v0.1.3.

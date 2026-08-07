@@ -113,54 +113,63 @@ function speak(text){
 
 let introFinished = false;
 let introFallback;
-function finishIntro(startLocation, auto=false){
+
+function setOrbState(state='idle'){
+  const orb = $('#jamesOrb');
+  if(!orb) return;
+  orb.classList.remove('listening','speaking','attention');
+  if(state !== 'idle') orb.classList.add(state);
+}
+
+function finishIntro(startLocation){
   if(introFinished) return;
   introFinished = true;
   clearTimeout(introFallback);
   const chosen = startLocation || localStorage.getItem('jamesStart') || 'Home';
   localStorage.setItem('jamesStart', chosen);
+
+  // The answer has done its job: remove the controls and do not repeat it on screen.
   $('#routePrompt').classList.add('answered');
-  $('#introSummary').textContent = auto ? `Starting from ${chosen.toLowerCase()}. Your briefing is ready.` : `Perfect. Updating today’s route from ${chosen.toLowerCase()}.`;
+  $('#introSummary').classList.add('quiet');
+
+  const spoken = `Perfect. I've updated today's route from ${chosen.toLowerCase()}.`;
+  speak(spoken);
+
+  // One clean motion: James returns to the light, the orb reforms, briefing appears.
+  setTimeout(() => $('#intro').classList.add('phase-return'), 240);
   setTimeout(() => {
-    $('#human').classList.add('returning');
-    $('.orb.big').classList.add('returning');
-  }, 350);
-  setTimeout(() => { $('#app').classList.remove('frosted'); $('#app').classList.add('clear'); }, 900);
-  setTimeout(() => $('#intro').classList.add('hide'), 1750);
+    $('#app').classList.remove('frosted');
+    $('#app').classList.add('clear');
+  }, 850);
+  setTimeout(() => $('#intro').classList.add('hide'), 1450);
 }
 
 function intro(){
   const saved = localStorage.getItem('jamesStart');
-  const orb = $('.orb.big');
-  const human = $('#human');
+  const introEl = $('#intro');
   const summary = $('#introSummary');
   const prompt = $('#routePrompt');
 
-  // The visual sequence never depends on browser autoplay permissions.
-  setTimeout(() => orb.classList.add('opening'), 300);
+  // Phase 1: living orb only. Phase 2: James emerges once from the light.
+  setTimeout(() => introEl.classList.add('phase-james'), 650);
   setTimeout(() => {
-    human.classList.add('show');
     summary.textContent = 'I’ve prepared your briefing.';
-  }, 900);
-
-  setTimeout(() => {
     if(saved){
-      prompt.classList.add('answered');
-      summary.textContent = `Your route is set from ${saved.toLowerCase()}.`;
+      // Still confirm the starting point each session; plans can change overnight.
+      summary.textContent = 'Before I finalize today’s route, where are we starting?';
     } else {
       summary.textContent = 'Before I finalize today’s route, where are we starting?';
     }
-  }, 1750);
+  }, 1450);
 
-  // Speech is attempted, but the visual experience continues if the browser blocks autoplay.
+  // Speech is additive. The visual sequence never waits on autoplay permission.
   setTimeout(() => {
-    const hello = `${$('#introGreeting').textContent} I’ve prepared your briefing. ${saved ? `Your route is set from ${saved.toLowerCase()}.` : 'Before I finalize today’s route, where are we starting? Home, office, or somewhere else?'}`;
+    const hello = `${$('#introGreeting').textContent} I've prepared your briefing. Before I finalize today's route, where are we starting? Home, office, or somewhere else?`;
     speak(hello);
-  }, 1950);
+  }, 1650);
 
-  if(saved){
-    introFallback = setTimeout(() => finishIntro(saved, true), 3900);
-  }
+  // Keep the intro waiting for the user's start-location answer. No auto-finish copy.
+  prompt.classList.remove('answered');
 }
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -180,8 +189,7 @@ document.addEventListener('DOMContentLoaded', () => {
   });
   $('#close').onclick = closePanel;
   $('#backdrop').onclick = e => { if(e.target === $('#backdrop')) closePanel(); };
-  $('#hear').onclick = () => speak();
-  $('#jamesOrb').onclick = () => speak();
+  $('#jamesOrb').onclick = () => { setOrbState('listening'); speak(); setTimeout(() => setOrbState('idle'), 3200); };
   $$('[data-start]').forEach(b => b.onclick = () => finishIntro(b.dataset.start));
   intro();
 });
