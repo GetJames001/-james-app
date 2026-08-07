@@ -96,7 +96,11 @@ function buildCalendar(){
 function page(id){
   $$('nav button').forEach(b => b.classList.toggle('active', b.dataset.page === id));
   $$('.page').forEach(p => p.classList.toggle('active', p.id === id));
-  if(id === 'insights') $('#jamesNav').classList.remove('has-recommendation');
+  if(id === 'insights'){
+    $('#jamesNav').classList.remove('has-recommendation');
+    const cue = $('#jamesNav .recommendation-cue');
+    if(cue) cue.setAttribute('aria-label','Recommendations reviewed');
+  }
 }
 function panel(k,t,html){ $('#panelKicker').textContent = k; $('#panelTitle').textContent = t; $('#panelBody').innerHTML = html; $('#backdrop').classList.add('open'); }
 function closePanel(){ $('#backdrop').classList.remove('open'); }
@@ -127,16 +131,35 @@ function finishIntro(startLocation, auto=false){
 
 function intro(){
   const saved = localStorage.getItem('jamesStart');
-  const hello = `${$('#introGreeting').textContent} I’ve prepared your briefing. ${saved ? `I have your route starting from ${saved.toLowerCase()}.` : 'Before I finalize your route, where are we starting? Home, office, or somewhere else?'}`;
-  setTimeout(() => $('.orb.big').classList.add('opening'), 350);
-  setTimeout(() => $('#human').classList.add('show'), 950);
-  setTimeout(() => speak(hello), 1400);
+  const orb = $('.orb.big');
+  const human = $('#human');
+  const summary = $('#introSummary');
+  const prompt = $('#routePrompt');
+
+  // The visual sequence never depends on browser autoplay permissions.
+  setTimeout(() => orb.classList.add('opening'), 300);
+  setTimeout(() => {
+    human.classList.add('show');
+    summary.textContent = 'I’ve prepared your briefing.';
+  }, 900);
+
+  setTimeout(() => {
+    if(saved){
+      prompt.classList.add('answered');
+      summary.textContent = `Your route is set from ${saved.toLowerCase()}.`;
+    } else {
+      summary.textContent = 'Before I finalize today’s route, where are we starting?';
+    }
+  }, 1750);
+
+  // Speech is attempted, but the visual experience continues if the browser blocks autoplay.
+  setTimeout(() => {
+    const hello = `${$('#introGreeting').textContent} I’ve prepared your briefing. ${saved ? `Your route is set from ${saved.toLowerCase()}.` : 'Before I finalize today’s route, where are we starting? Home, office, or somewhere else?'}`;
+    speak(hello);
+  }, 1950);
+
   if(saved){
-    $('#routePrompt').classList.add('answered');
-    $('#introSummary').textContent = `I have your route starting from ${saved.toLowerCase()}.`;
-    introFallback = setTimeout(() => finishIntro(saved, true), 4100);
-  } else {
-    introFallback = setTimeout(() => finishIntro('Home', true), 8200);
+    introFallback = setTimeout(() => finishIntro(saved, true), 3900);
   }
 }
 

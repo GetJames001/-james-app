@@ -1,14 +1,9 @@
-# James v0.1.2 Alpha
+# James v0.1.3 Alpha
 
-Morning Briefing refinement build.
+Morning Briefing final-polish sprint.
 
-## Changes
-- Stronger Next Appointment hero hierarchy
-- Calendar travel labels removed; route time remains visually indicated
-- Open time represented as clean whitespace
-- Focus spacing refined; deadline pill preserved
-- Appointments, Tasks, Travel, Files, and James recommendations constrained to cleaner desktop widths
-- Insights renamed to James with a subtle recommendation signal
-- James introduction rebuilt to visibly emerge from the orb and automatically transition into the briefing
-- Removed Skip Intro; route choice remains available, with a timed fallback so the experience never stalls
-- Version advanced to 0.1.2 Alpha
+- Refined energy orb with layered light and halo motion.
+- Entrance sequence progresses visually even when browser speech autoplay is blocked.
+- Next Appointment hero aligned to the calendar column instead of spanning the page.
+- James recommendation state is more noticeable but remains restrained.
+- Final spacing and hierarchy refinements to the Morning Briefing.
