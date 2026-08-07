@@ -151,7 +151,7 @@ function intro(){
   const prompt = $('#routePrompt');
 
   // Phase 1: living orb only. Phase 2: James emerges once from the light.
-  setTimeout(() => introEl.classList.add('phase-james'), 650);
+  // setTimeout(() => introEl.classList.add('phase-james'), 650);
   setTimeout(() => {
     summary.textContent = 'I’ve prepared your briefing.';
     if(saved){
