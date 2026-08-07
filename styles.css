@@ -73,3 +73,40 @@ ol li{padding:17px 0}
 }
 
 .orb::before{content:'';position:absolute;inset:-12px;border-radius:50%;background:radial-gradient(circle,rgba(255,190,70,.22),transparent 70%);filter:blur(10px);animation:breathe 3s infinite;}
+
+/* James v0.1.6 STEP 1 — approved living orb asset */
+.orb{
+  background-image:url("assets/orb/james-orb-v1.png") !important;
+  background-color:transparent !important;
+  background-repeat:no-repeat !important;
+  background-position:center !important;
+  background-size:contain !important;
+  box-shadow:none !important;
+  overflow:visible;
+}
+.orb span{display:none !important}
+.orb::after{display:none !important}
+.orb::before{
+  content:"";
+  position:absolute;
+  inset:-16%;
+  z-index:-1;
+  border-radius:50%;
+  background:radial-gradient(circle,rgba(255,190,70,.22) 0%,rgba(211,124,24,.12) 40%,transparent 72%);
+  filter:blur(12px);
+  animation:approvedOrbBreath 5.8s ease-in-out infinite !important;
+}
+.orb.big{
+  width:220px !important;
+  height:220px !important;
+  box-shadow:none !important;
+}
+.orb.mini{
+  width:50px !important;
+  height:50px !important;
+  box-shadow:none !important;
+}
+@keyframes approvedOrbBreath{
+  0%,100%{transform:scale(.985);opacity:.62}
+  50%{transform:scale(1.035);opacity:1}
+}
