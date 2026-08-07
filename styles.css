@@ -86,15 +86,7 @@ ol li{padding:17px 0}
 }
 .orb span{display:none !important}
 .orb::after{display:none !important}
-.orb::before{
-  content:"";
-  position:absolute;
-  inset:-16%;
-  z-index:-1;
-  border-radius:50%;
-  background:radial-gradient(circle,rgba(255,190,70,.22) 0%,rgba(211,124,24,.12) 40%,transparent 72%);
-  filter:blur(12px);
-  animation:approvedOrbBreath 5.8s ease-in-out infinite !important;
+.orb::before{display:none !important;
 }
 .orb.big{
   width:220px !important;
