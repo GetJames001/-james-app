@@ -1,1 +1,7 @@
-{"cleanUrls":true,"trailingSlash":false}
+{
+  "functions": {
+    "api/council.js": {
+      "maxDuration": 60
+    }
+  }
+}

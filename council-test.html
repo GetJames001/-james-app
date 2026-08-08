@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>James Council Test</title>
+<style>
+body{font-family:system-ui;margin:40px;max-width:900px;background:#111;color:#eee}
+textarea{width:100%;min-height:120px;padding:12px}
+button{padding:12px 18px;margin-top:10px}
+pre{white-space:pre-wrap;background:#1c1c1c;padding:16px;border-radius:10px;overflow:auto}
+</style>
+</head>
+<body>
+<h1>James Live Council Test</h1>
+<p>Internal test page. It calls <code>/api/council</code> on the same deployment.</p>
+<textarea id="q">Should I buy this company?</textarea>
+<br>
+<button id="run">Run Executive Council</button>
+<pre id="out">Ready.</pre>
+<script>
+document.getElementById("run").onclick = async () => {
+  const out = document.getElementById("out");
+  out.textContent = "Council in session...";
+  try {
+    const r = await fetch("/api/council", {
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({
+        question:document.getElementById("q").value,
+        context:{case_file:{id:"manual_test",status:"ACTIVE"}}
+      })
+    });
+    const data = await r.json();
+    out.textContent = JSON.stringify(data,null,2);
+  } catch(e) {
+    out.textContent = String(e);
+  }
+};
+</script>
+</body>
+</html>
