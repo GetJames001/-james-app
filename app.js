@@ -192,4 +192,37 @@ document.addEventListener('DOMContentLoaded', () => {
   $('#jamesOrb').onclick = () => { setOrbState('listening'); speak(); setTimeout(() => setOrbState('idle'), 3200); };
   $$('[data-start]').forEach(b => b.onclick = () => finishIntro(b.dataset.start));
   intro();
+  $('#askJamesButton').onclick = async () => {
+    const question = $('#jamesQuestion').value.trim();
+    if (!question) return;
+
+    $('#jamesAnswer').textContent = 'James is thinking...';
+
+    try {
+      const response = await fetch('/api/council', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ question })
+      });
+
+      const data = await response.json();
+
+      if (!data.ok) {
+        $('#jamesAnswer').textContent =
+          data.message || 'James could not complete the analysis.';
+        return;
+      }
+
+      const rec = data.final_recommendation;
+
+      $('#jamesAnswer').innerHTML = rec
+        ? `<h4>${rec.recommendation}</h4>
+           <p>Confidence: ${Math.round((rec.confidence?.score || 0) * 100)}% · ${rec.confidence?.label || ''}</p>`
+        : '<p>James completed the Council review but did not produce a final recommendation.</p>';
+
+    } catch (err) {
+      $('#jamesAnswer').textContent = 'James could not reach the Council.';
+    }
+  };
+
 });
