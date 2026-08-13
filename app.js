@@ -176,7 +176,7 @@ function intro(){
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-  setGreeting();
+  $$('[data-start]').forEach(b => b.onclick = () => finishIntro(b.dataset.start));
   buildCalendar();
   updateHero();
   setInterval(() => { setGreeting(); updateHero(); }, 60000);
@@ -193,7 +193,7 @@ document.addEventListener('DOMContentLoaded', () => {
   $('#close').onclick = closePanel;
   $('#backdrop').onclick = e => { if(e.target === $('#backdrop')) closePanel(); };
   $('#jamesOrb').onclick = () => { setOrbState('listening'); speak(); setTimeout(() => setOrbState('idle'), 3200); };
-  $$('[data-start]').forEach(b => b.onclick = () => finishIntro(b.dataset.start));
+  
   intro();
   $('#askJamesButton').onclick = async () => {
     const question = $('#jamesQuestion').value.trim();
