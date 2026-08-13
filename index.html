@@ -287,37 +287,23 @@
 
     <div class="james-workspace">
 
-      <section class="james-input-area">
-        <label for="jamesQuestion">YOUR QUESTION</label>
+  <section class="james-input-area">
+    <textarea
+      id="jamesQuestion"
+      rows="8"
+      placeholder="Ask James anything..."
+    ></textarea>
 
-        <textarea
-          id="jamesQuestion"
-          rows="8"
-          placeholder="Ask James anything... for example: Should I buy this company?"
-        ></textarea>
-
-        <div class="james-actions">
-          <button id="askJamesButton" class="primary">Ask James</button>
-        </div>
-      </section>
-
-      <section class="james-response-area">
-        <div class="response-head">
-          <div>
-            <small>COUNCIL RESPONSE</small>
-            <h4>James’s analysis will appear here.</h4>
-          </div>
-        </div>
-
-        <div id="jamesAnswer" class="james-answer">
-          <p>Ask a question above to begin a Council review.</p>
-        </div>
-      </section>
-
+    <div class="james-actions">
+      <button id="askJamesButton" class="primary">Ask James</button>
     </div>
-  </div>
-</section>
+  </section>
 
+  <section class="james-response-area">
+    <div id="jamesAnswer" class="james-answer"></div>
+  </section>
+
+</div>
   <div id="backdrop" class="backdrop">
     <aside class="panel">
       <div class="panel-head">
