@@ -276,27 +276,47 @@
   </section>
 
   <section id="insights" class="page">
-    <div class="sheet content-narrow recommendation-sheet">
+  <div class="sheet content-wide recommendation-sheet">
 
-      <div class="sheet-head">
-        <div>
-          <small>ASK JAMES</small>
-          <h3>What can James help you with?</h3>
-        </div>
+    <div class="sheet-head">
+      <div>
+        <small>ASK JAMES</small>
+        <h3>What can James help you with?</h3>
       </div>
+    </div>
 
-      <div class="james-question">
+    <div class="james-workspace">
+
+      <section class="james-input-area">
+        <label for="jamesQuestion">YOUR QUESTION</label>
+
         <textarea
           id="jamesQuestion"
-          rows="5"
+          rows="8"
           placeholder="Ask James anything... for example: Should I buy this company?"
         ></textarea>
 
-        <button id="askJamesButton">Ask James</button>
-        <div id="jamesAnswer"></div>
-      </div>
+        <div class="james-actions">
+          <button id="askJamesButton" class="primary">Ask James</button>
+        </div>
+      </section>
+
+      <section class="james-response-area">
+        <div class="response-head">
+          <div>
+            <small>COUNCIL RESPONSE</small>
+            <h4>James’s analysis will appear here.</h4>
+          </div>
+        </div>
+
+        <div id="jamesAnswer" class="james-answer">
+          <p>Ask a question above to begin a Council review.</p>
+        </div>
+      </section>
+
     </div>
-  </section>
+  </div>
+</section>
 
   <div id="backdrop" class="backdrop">
     <aside class="panel">
