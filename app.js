@@ -133,7 +133,7 @@ function finishIntro(startLocation){
   $('#introSummary').classList.add('quiet');
 
   const spoken = `Perfect. I've updated today's route from ${chosen.toLowerCase()}.`;
-  speak(spoken);
+  try { speak(spoken); } catch (e) {}
 
   // One clean motion: James returns to the light, the orb reforms, briefing appears.
   setTimeout(() => $('#intro').classList.add('phase-return'), 240);
