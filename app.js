@@ -124,6 +124,9 @@ function setOrbState(state='idle'){
 function finishIntro(startLocation){
   if(introFinished) return;
   introFinished = true;
+  $('#intro').classList.add('hide');
+$('#app').classList.remove('frosted');
+$('#app').classList.add('clear');
   clearTimeout(introFallback);
   const chosen = startLocation || localStorage.getItem('jamesStart') || 'Home';
   localStorage.setItem('jamesStart', chosen);
