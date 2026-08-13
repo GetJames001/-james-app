@@ -7,20 +7,22 @@
   <title>James — Morning Briefing</title>
   <link rel="stylesheet" href="styles.css">
 </head>
+
 <body>
+
 <section id="intro" class="intro" aria-label="James introduction">
   <div class="intro-stage" aria-hidden="true">
     <div class="orb big"><span>J</span></div>
-    
   </div>
+
   <div class="intro-copy">
     <small>JAMES</small>
     <h1 id="introGreeting">Good morning, Michael.</h1>
     <p id="introSummary">I’ve prepared your briefing.</p>
+
     <div id="routePrompt" class="route-prompt">
-      
-      <div class="route-
-        <button data-start="Home" onclick="document.getElementById('intro').style.display='none';document.getElementById('app').style.filter='none';document.getElementById('app').style.opacity='1';">Home</button>
+      <div class="route-options">
+        <button data-start="Home">Home</button>
         <button data-start="Office">Office</button>
         <button data-start="Other">Other</button>
       </div>
@@ -29,14 +31,33 @@
 </section>
 
 <main id="app" class="app frosted">
+
   <header>
     <div class="brand">
-      <div><b>JAMES</b><small>Your Executive AI Assistant</small></div>
+      <div>
+        <b>JAMES</b>
+        <small>Your Executive AI Assistant</small>
+      </div>
     </div>
-    <div class="greeting"><h2 id="mainGreeting">Good Morning, Michael</h2><p id="dateTime"></p></div>
+
+    <div class="greeting">
+      <h2 id="mainGreeting">Good Morning, Michael</h2>
+      <p id="dateTime"></p>
+    </div>
+
     <div class="status-cluster">
-      <button id="jamesOrb" class="orb mini persistent-orb" aria-label="Talk to James" title="Talk to James"><span>J</span><i class="orb-status" aria-hidden="true"></i></button>
-      <div class="weather-status"><span class="sun">☀</span><div><b>82° · Sunny</b><small>Light traffic</small></div></div>
+      <button id="jamesOrb" class="orb mini persistent-orb" aria-label="Talk to James" title="Talk to James">
+        <span>J</span>
+        <i class="orb-status" aria-hidden="true"></i>
+      </button>
+
+      <div class="weather-status">
+        <span class="sun">☀</span>
+        <div>
+          <b>82° · Sunny</b>
+          <small>Light traffic</small>
+        </div>
+      </div>
     </div>
   </header>
 
@@ -47,28 +68,49 @@
     <button data-page="tasks">Tasks</button>
     <button data-page="travel">Travel</button>
     <button data-page="files">Files</button>
-    <button id="jamesNav" class="james-nav has-recommendation" data-page="insights">James<span class="recommendation-cue" aria-label="1 recommendation">1</span></button>
+    <button id="jamesNav" class="james-nav has-recommendation" data-page="insights">
+      James
+      <span class="recommendation-cue" aria-label="1 recommendation">1</span>
+    </button>
   </nav>
 
   <section id="briefing" class="page active">
     <div class="sheet briefing-sheet">
+
       <div class="sheet-head compact-head">
-        <div><h3>Your Morning Briefing</h3></div>
+        <div>
+          <h3>Your Morning Briefing</h3>
+        </div>
       </div>
 
       <section class="next-card" aria-label="Next appointment">
         <div class="next-label">NEXT APPOINTMENT</div>
+
         <div class="next-main">
           <div class="next-identity">
             <h4 id="nextTitle">Fort Apache Surgical</h4>
             <p id="nextType">Site Visit · 9:00 AM</p>
           </div>
-          <div class="countdown"><span>STARTS IN</span><strong id="countdown">2 hr 14 min</strong></div>
+
+          <div class="countdown">
+            <span>STARTS IN</span>
+            <strong id="countdown">2 hr 14 min</strong>
+          </div>
         </div>
+
         <div class="next-meta">
-          <div><span>LEAVE BY</span><b id="leaveBy">8:32 AM</b></div>
-          <div><span>DRIVE</span><b id="driveTime">18 min</b></div>
-          <div><span>TRAFFIC</span><b id="traffic">Light</b></div>
+          <div>
+            <span>LEAVE BY</span>
+            <b id="leaveBy">8:32 AM</b>
+          </div>
+          <div>
+            <span>DRIVE</span>
+            <b id="driveTime">18 min</b>
+          </div>
+          <div>
+            <span>TRAFFIC</span>
+            <b id="traffic">Light</b>
+          </div>
         </div>
       </section>
 
@@ -77,15 +119,37 @@
           <small>TODAY’S CALENDAR · 7:00 AM–7:00 PM</small>
           <div id="calendar" class="calendar"></div>
         </div>
+
         <aside>
           <section>
             <small>TODAY’S FOCUS</small>
             <ol>
-              <li><i>01</i><div><b>Finish Galleria and Central Transport bids</b><span><em class="deadline-pill">Due tomorrow · 5:00 PM</em></span></div></li>
-              <li><i>02</i><div><b>Complete three overdue callbacks</b><span>Best opening: 11:00 AM–1:00 PM.</span></div></li>
-              <li><i>03</i><div><b>Respond to five priority emails</b><span>Two require approval.</span></div></li>
+              <li>
+                <i>01</i>
+                <div>
+                  <b>Finish Galleria and Central Transport bids</b>
+                  <span><em class="deadline-pill">Due tomorrow · 5:00 PM</em></span>
+                </div>
+              </li>
+
+              <li>
+                <i>02</i>
+                <div>
+                  <b>Complete three overdue callbacks</b>
+                  <span>Best opening: 11:00 AM–1:00 PM.</span>
+                </div>
+              </li>
+
+              <li>
+                <i>03</i>
+                <div>
+                  <b>Respond to five priority emails</b>
+                  <span>Two require approval.</span>
+                </div>
+              </li>
             </ol>
           </section>
+
           <div class="quick">
             <button data-panel="callbacks">Callbacks <b>3 overdue</b></button>
             <button data-panel="emails">Emails <b>5 require action</b></button>
@@ -96,30 +160,166 @@
     </div>
   </section>
 
-  <section id="appointments" class="page"><div class="sheet content-medium"><div class="sheet-head"><div><small>APPOINTMENTS</small><h3>Your day, with room to pivot.</h3></div></div><div id="apptList" class="list"></div></div></section>
-  <section id="conversations" class="page"><div class="sheet content-wide"><div class="sheet-head"><div><small>CONVERSATIONS</small><h3>Calls, texts, and email in one place.</h3></div></div><div class="cards"><article><small>CALL</small><h4>Scott Schuster</h4><p>Voicemail left July 29.</p><button>Call</button><button>Text</button></article><article><small>EMAIL</small><h4>David Kim</h4><p>Central Transport proposal due midweek.</p><button>Open draft</button></article><article><small>TEXT</small><h4>TJ</h4><p>Follow up regarding Sunset Ridge.</p><button>Text</button><button>Call</button></article></div></div></section>
-  <section id="tasks" class="page"><div class="sheet content-narrow"><div class="sheet-head"><div><small>TASKS</small><h3>Commitments James is protecting.</h3></div></div><div class="tasks"><label><input type="checkbox"> Finish Galleria bid <span>Due tomorrow</span></label><label><input type="checkbox"> Finish Central Transport proposal <span>Due midweek</span></label><label><input type="checkbox"> Return Scott Schuster’s call <span>Overdue</span></label><label><input type="checkbox"> Send pricing follow-up to TJ <span>Today</span></label></div></div></section>
-  <section id="travel" class="page"><div class="sheet content-narrow"><div class="sheet-head"><div><small>TRAVEL</small><h3>Trips beyond today’s route.</h3></div></div><div class="cards one compact-cards"><article><h4>No upcoming travel booked</h4><p>Flights, hotels, rental cars, boarding details, and business trips will appear here.</p></article></div></div></section>
-  <section id="files" class="page"><div class="sheet content-wide"><div class="sheet-head"><div><small>FILES</small><h3>The documents your day depends on.</h3></div></div><div class="cards"><article><small>PDF</small><h4>Central Transport Proposal v4</h4><p>Updated yesterday</p></article><article><small>PDF</small><h4>Galleria Bid Package</h4><p>Due tomorrow</p></article><article><small>IMG</small><h4>Generator Photos — Fort Apache</h4><p>8 images</p></article></div></div></section>
-  <section id="insights" class="page">
-  <div class="sheet content-narrow recommendation-sheet">
-    <div class="sheet-head">
-      <div>
-        <small>ASK JAMES</small>
-        <h3>What do you want to decide?</h3>
+  <section id="appointments" class="page">
+    <div class="sheet content-medium">
+      <div class="sheet-head">
+        <div>
+          <small>APPOINTMENTS</small>
+          <h3>Your day, with room to pivot.</h3>
+        </div>
+      </div>
+      <div id="apptList" class="list"></div>
+    </div>
+  </section>
+
+  <section id="conversations" class="page">
+    <div class="sheet content-wide">
+      <div class="sheet-head">
+        <div>
+          <small>CONVERSATIONS</small>
+          <h3>Calls, texts, and email in one place.</h3>
+        </div>
+      </div>
+
+      <div class="cards">
+        <article>
+          <small>CALL</small>
+          <h4>Scott Schuster</h4>
+          <p>Voicemail left July 29.</p>
+          <button>Call</button>
+          <button>Text</button>
+        </article>
+
+        <article>
+          <small>EMAIL</small>
+          <h4>David Kim</h4>
+          <p>Central Transport proposal due midweek.</p>
+          <button>Open draft</button>
+        </article>
+
+        <article>
+          <small>TEXT</small>
+          <h4>TJ</h4>
+          <p>Follow up regarding Sunset Ridge.</p>
+          <button>Text</button>
+          <button>Call</button>
+        </article>
       </div>
     </div>
+  </section>
 
-    <div class="james-question">
-      <textarea
-        id="jamesQuestion"
-        rows="5"
-        placeholder="Ask James anything... for example: Should I buy this company?"
-      ></textarea>
+  <section id="tasks" class="page">
+    <div class="sheet content-narrow">
+      <div class="sheet-head">
+        <div>
+          <small>TASKS</small>
+          <h3>Commitments James is protecting.</h3>
+        </div>
+      </div>
 
-      <button id="askJamesButton">Ask James</button>
-
-      <div id="jamesAnswer"></div>
+      <div class="tasks">
+        <label><input type="checkbox"> Finish Galleria bid <span>Due tomorrow</span></label>
+        <label><input type="checkbox"> Finish Central Transport proposal <span>Due midweek</span></label>
+        <label><input type="checkbox"> Return Scott Schuster’s call <span>Overdue</span></label>
+        <label><input type="checkbox"> Send pricing follow-up to TJ <span>Today</span></label>
+      </div>
     </div>
+  </section>
+
+  <section id="travel" class="page">
+    <div class="sheet content-narrow">
+      <div class="sheet-head">
+        <div>
+          <small>TRAVEL</small>
+          <h3>Trips beyond today’s route.</h3>
+        </div>
+      </div>
+
+      <div class="cards one compact-cards">
+        <article>
+          <h4>No upcoming travel booked</h4>
+          <p>Flights, hotels, rental cars, boarding details, and business trips will appear here.</p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <section id="files" class="page">
+    <div class="sheet content-wide">
+      <div class="sheet-head">
+        <div>
+          <small>FILES</small>
+          <h3>The documents your day depends on.</h3>
+        </div>
+      </div>
+
+      <div class="cards">
+        <article>
+          <small>PDF</small>
+          <h4>Central Transport Proposal v4</h4>
+          <p>Updated yesterday</p>
+        </article>
+
+        <article>
+          <small>PDF</small>
+          <h4>Galleria Bid Package</h4>
+          <p>Due tomorrow</p>
+        </article>
+
+        <article>
+          <small>IMG</small>
+          <h4>Generator Photos — Fort Apache</h4>
+          <p>8 images</p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <section id="insights" class="page">
+    <div class="sheet content-narrow recommendation-sheet">
+
+      <div class="sheet-head">
+        <div>
+          <small>ASK JAMES</small>
+          <h3>What do you want to decide?</h3>
+        </div>
+      </div>
+
+      <div class="james-question">
+        <textarea
+          id="jamesQuestion"
+          rows="5"
+          placeholder="Ask James anything... for example: Should I buy this company?"
+        ></textarea>
+
+        <button id="askJamesButton">Ask James</button>
+        <div id="jamesAnswer"></div>
+      </div>
+    </div>
+  </section>
+
+  <div id="backdrop" class="backdrop">
+    <aside class="panel">
+      <div class="panel-head">
+        <div>
+          <small id="panelKicker"></small>
+          <h3 id="panelTitle"></h3>
+        </div>
+        <button id="close">×</button>
+      </div>
+
+      <div id="panelBody"></div>
+    </aside>
   </div>
-</section>
+
+  <footer>
+    <span>JAMES · VERSION 0.1.4 ALPHA</span>
+    <span>GETJAMES.AI</span>
+  </footer>
+
+</main>
+
+<script src="app.js"></script>
+
+</body>
+</html>
