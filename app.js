@@ -166,10 +166,14 @@ function intro(){
   }, 1450);
 
   // Speech is additive. The visual sequence never waits on autoplay permission.
-  setTimeout(() => {
+  const introOrb = $('#intro .orb.big');
+
+if (introOrb) {
+  introOrb.onclick = () => {
     const hello = `${$('#introGreeting').textContent} I've prepared your briefing. Before I finalize today's route, where are we starting? Home, office, or somewhere else?`;
     speak(hello);
-  }, 1650);
+  };
+}
 
   // Keep the intro waiting for the user's start-location answer. No auto-finish copy.
   prompt.classList.remove('answered');
