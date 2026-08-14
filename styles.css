@@ -102,3 +102,36 @@ ol li{padding:17px 0}
   0%,100%{transform:scale(.985);opacity:.62}
   50%{transform:scale(1.035);opacity:1}
 }
+/* Ask James workspace */
+.james-workspace {
+  width: 100%;
+}
+
+.james-input-area {
+  width: 60%;
+  max-width: 900px;
+}
+
+#jamesQuestion {
+  width: 100%;
+  min-height: 180px;
+  box-sizing: border-box;
+  resize: vertical;
+}
+
+.james-response-area {
+  width: 100%;
+  margin-top: 28px;
+}
+
+.james-answer {
+  width: 100%;
+  line-height: 1.6;
+}
+
+/* Keep Ask James comfortable on iPad and smaller screens */
+@media (max-width: 900px) {
+  .james-input-area {
+    width: 100%;
+  }
+}
