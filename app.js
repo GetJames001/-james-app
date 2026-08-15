@@ -214,7 +214,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
       const data = await response.json();
 
-      if (!data.ok) const rec = data.final_recommendation;
+      if (!data.ok) {
+  $('#jamesAnswer').textContent =
+    data.message || 'James could not complete the analysis.';
+  return;
+}
+
+const rec = data.final_recommendation;
 
 if (!rec) {
   $('#jamesAnswer').innerHTML =
