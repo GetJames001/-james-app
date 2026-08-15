@@ -210,23 +210,56 @@ document.addEventListener('DOMContentLoaded', () => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ question })
-      });
+      })
 
       const data = await response.json();
 
-      if (!data.ok) {
-        $('#jamesAnswer').textContent =
-          data.message || 'James could not complete the analysis.';
-        return;
-      }
+      if (!data.ok) const rec = data.final_recommendation;
 
-      const rec = data.final_recommendation;
+if (!rec) {
+  $('#jamesAnswer').innerHTML =
+    '<p>James completed the Council review but did not produce a final recommendation.</p>';
+  return;
+}
 
-      $('#jamesAnswer').innerHTML = rec
-        ? `<h4>${rec.recommendation}</h4>
-           <p>Confidence: ${Math.round((rec.confidence?.score || 0) * 100)}% · ${rec.confidence?.label || ''}</p>`
-        : '<p>James completed the Council review but did not produce a final recommendation.</p>';
+const reasons = Array.isArray(rec.reasons) ? rec.reasons : [];
+const keyFacts = Array.isArray(rec.key_facts) ? rec.key_facts : [];
+const risks = Array.isArray(rec.risks) ? rec.risks : [];
+const changes = Array.isArray(rec.what_would_change_the_answer)
+  ? rec.what_would_change_the_answer
+  : [];
 
+$('#jamesAnswer').innerHTML = `
+  <h4>${rec.recommendation || 'Council recommendation'}</h4>
+
+  <p>
+    <strong>Confidence:</strong>
+    ${Math.round((rec.confidence?.score || 0) * 100)}%
+    · ${rec.confidence?.label || ''}
+  </p>
+
+  ${reasons.length ? `
+    <h5>Why</h5>
+    <ul>${reasons.map(x => `<li>${x}</li>`).join('')}</ul>
+  ` : ''}
+
+  ${keyFacts.length ? `
+    <h5>Key facts</h5>
+    <ul>${keyFacts.map(x => `<li>${x}</li>`).join('')}</ul>
+  ` : ''}
+
+  ${risks.length ? `
+    <h5>Risks</h5>
+    <ul>${risks.map(x => `<li>${x}</li>`).join('')}</ul>
+  ` : ''}
+
+  ${changes.length ? `
+    <h5>What would change the answer</h5>
+    <ul>${changes.map(x => `<li>${x}</li>`).join('')}</ul>
+  ` : ''}
+`;
+
+      
     } catch (err) {
       $('#jamesAnswer').textContent = 'James could not reach the Council.';
     }
