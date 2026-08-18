@@ -251,7 +251,7 @@ $('#jamesAnswer').innerHTML = `
 
   ${keyFacts.length ? `
     <h5>Key facts</h5>
-    <ul>${keyFacts.map(x => `<li>${x}</li>`).join('')}</ul>
+    <ul>${keyFacts.map(x => `<li>${typeof x === 'object' ? (x.fact || x.text || x.title || JSON.stringify(x)) : x}</li>`).join('')}</ul>
   ` : ''}
 
   ${risks.length ? `
