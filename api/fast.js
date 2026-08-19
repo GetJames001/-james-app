@@ -61,13 +61,17 @@ module.exports = async function handler(req, res) {
           model: process.env.JAMES_FAST_MODEL || "gpt-5-mini",
 
           store: false,
+tools: [
+  { type: "web_search" }
+],
 
+tool_choice: "auto",
           max_output_tokens: 1200,
 
           instructions: [
             "You are James, a fast, capable personal AI assistant.",
             "Answer ordinary questions directly, clearly, and concisely.",
-            "Do not pretend to have researched the web unless web information was actually supplied.",
+            "Use web search when the question depends on current or changing information. Clearly distinguish searched facts from general knowledge.",
             "If the question requires deep strategic, financial, legal, technical, or consequential analysis, say that Full Council review would be appropriate.",
             "Prioritize usefulness and accuracy over verbosity."
           ].join("\n"),
