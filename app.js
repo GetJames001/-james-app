@@ -178,7 +178,33 @@ if (introOrb) {
   // Keep the intro waiting for the user's start-location answer. No auto-finish copy.
   prompt.classList.remove('answered');
 }
+function shouldUseCouncil(question) {
+  const q = String(question || '').toLowerCase();
 
+  const councilSignals = [
+    'should i',
+    'recommend',
+    'strategy',
+    'strategic',
+    'financial',
+    'finance',
+    'legal',
+    'contract',
+    'risk',
+    'investment',
+    'buy this',
+    'sell this',
+    'business decision',
+    'analyze',
+    'analyse',
+    'compare options',
+    'pros and cons',
+    'full council',
+    'council review'
+  ];
+
+  return councilSignals.some(signal => q.includes(signal));
+}
 document.addEventListener('DOMContentLoaded', () => {
   $$('[data-start]').forEach(b => b.onclick = () => finishIntro(b.dataset.start));
   buildCalendar();
@@ -202,11 +228,12 @@ document.addEventListener('DOMContentLoaded', () => {
   $('#askJamesButton').onclick = async () => {
     const question = $('#jamesQuestion').value.trim();
     if (!question) return;
-
+const useCouncil = shouldUseCouncil(question);
+const endpoint = useCouncil ? '/api/council' : '/api/fast';
     $('#jamesAnswer').textContent = 'James is thinking...';
 
     try {
-      const response = await fetch('/api/council', {
+      const response = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ question })
@@ -219,7 +246,11 @@ document.addEventListener('DOMContentLoaded', () => {
     data.message || 'James could not complete the analysis.';
   return;
 }
-
+if (!useCouncil) {
+  $('#jamesAnswer').textContent =
+    data.answer || 'James could not produce an answer.';
+  return;
+}
 const rec = data.final_recommendation;
 
 if (!rec) {
