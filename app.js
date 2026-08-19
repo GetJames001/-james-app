@@ -177,6 +177,43 @@ if (introOrb) {
 
   // Keep the intro waiting for the user's start-location answer. No auto-finish copy.
   prompt.classList.remove('answered');
+}function detectUtility(question) {
+  const q = String(question || '').toLowerCase();
+
+  if (
+    q.includes('what time') ||
+    q.includes('current time') ||
+    q.includes('time in ')
+  ) {
+    return 'time';
+  }
+
+  if (
+    q.includes('weather') ||
+    q.includes('temperature') ||
+    q.includes('forecast')
+  ) {
+    return 'weather';
+  }
+
+  if (
+    q.includes('directions') ||
+    q.includes('how far') ||
+    q.includes('drive time') ||
+    q.includes('route to')
+  ) {
+    return 'directions';
+  }
+
+  if (
+    q.includes('score') ||
+    q.includes('who won') ||
+    q.includes('game tonight')
+  ) {
+    return 'sports';
+  }
+
+  return null;
 }
 function shouldUseCouncil(question) {
   const q = String(question || '').toLowerCase();
@@ -228,7 +265,8 @@ document.addEventListener('DOMContentLoaded', () => {
   $('#askJamesButton').onclick = async () => {
     const question = $('#jamesQuestion').value.trim();
     if (!question) return;
-const useCouncil = shouldUseCouncil(question);
+const utility = detectUtility(question);
+const useCouncil = !utility && shouldUseCouncil(question);
 const endpoint = useCouncil ? '/api/council' : '/api/fast';
     $('#jamesAnswer').textContent = 'James is thinking...';
 
