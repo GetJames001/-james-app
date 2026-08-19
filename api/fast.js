@@ -96,10 +96,14 @@ tool_choice: "auto",
     }
 
     const answer =
-      data.output
-        ?.flatMap(item => item.content || [])
-        ?.find(item => item.type === "output_text")
-        ?.text || "";
+  data.output_text ||
+  data.output
+    ?.flatMap(item => item.content || [])
+    ?.filter(item => item.type === "output_text")
+    ?.map(item => item.text || "")
+    ?.join("\n")
+    ?.trim() ||
+  "";
 
     return res.status(200).json({
       ok: true,
