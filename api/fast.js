@@ -65,7 +65,7 @@ tools: [
 ],
 
 tool_choice: "auto",
-          max_output_tokens: 1200,
+          max_output_tokens: 4000,
 
           instructions: [
             "You are James, a fast, capable personal AI assistant.",
