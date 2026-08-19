@@ -117,12 +117,14 @@ console.log("James Fast debug:", {
     ?.join("\n")
     ?.trim() ||
   "";
-
+const cleanedAnswer = answer
+  .replace(/\n## Highlights:[\s\S]*$/i, "")
+  .trim();
     return res.status(200).json({
       ok: true,
       mode: "fast",
       duration_ms: Date.now() - started,
-      answer
+      answer: cleanedAnswer
     });
 
   } catch (err) {
