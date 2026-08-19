@@ -59,7 +59,9 @@ module.exports = async function handler(req, res) {
 
         body: JSON.stringify({
           model: process.env.JAMES_FAST_MODEL || "gpt-5-mini",
-
+reasoning: {
+  effort: "minimal"
+},
           store: false,
 tools: [
   { type: "web_search" }
