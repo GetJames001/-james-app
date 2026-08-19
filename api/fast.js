@@ -61,27 +61,7 @@ module.exports = async function handler(req, res) {
           model: process.env.JAMES_FAST_MODEL || "gpt-5-mini",
         store: false,
 tools: [
-  {
-    type: "web_search",
-    filters: {
-      allowed_domains: [
-        "apnews.com",
-        "reuters.com",
-        "bbc.com",
-        "nytimes.com",
-        "wsj.com",
-        "ft.com",
-        "cnn.com",
-        "npr.org",
-        "whitehouse.gov",
-        "congress.gov",
-        "justice.gov",
-        "state.gov",
-        "treasury.gov",
-        "sec.gov"
-      ]
-    }
-  }
+  { type: "web_search" }
 ],
 tool_choice: "auto",
           max_output_tokens: 4000,
