@@ -82,20 +82,7 @@ tool_choice: "auto",
     );
 
     const data = await response.json();
-console.log("James Fast debug:", {
-  status: data.status,
-  incomplete_details: data.incomplete_details,
-  output_types: Array.isArray(data.output)
-    ? data.output.map(item => ({
-        type: item.type,
-        status: item.status,
-        content_types: Array.isArray(item.content)
-          ? item.content.map(c => c.type)
-          : []
-      }))
-    : [],
-  usage: data.usage
-});
+
     if (!response.ok) {
       console.error("James Fast OpenAI error:", data);
 
