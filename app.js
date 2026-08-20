@@ -219,7 +219,7 @@ function shouldUseCouncil(question) {
   const q = String(question || '').toLowerCase();
 
   const councilSignals = [
-    'should i',
+    
     'recommend',
     'strategy',
     'strategic',
@@ -239,7 +239,24 @@ function shouldUseCouncil(question) {
     'full council',
     'council review'
   ];
+const highConsequenceShouldI =
+  q.includes('should i') &&
+  (
+    q.includes('invest') ||
+    q.includes('buy') ||
+    q.includes('sell') ||
+    q.includes('sign') ||
+    q.includes('contract') ||
+    q.includes('agreement') ||
+    q.includes('hire') ||
+    q.includes('fire') ||
+    q.includes('loan') ||
+    q.includes('debt') ||
+    q.includes('expand') ||
+    q.includes('acquire')
+  );
 
+if (highConsequenceShouldI) return true;
   return councilSignals.some(signal => q.includes(signal));
 }
 document.addEventListener('DOMContentLoaded', () => {
