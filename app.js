@@ -214,6 +214,21 @@ if (introOrb) {
   }
 
   return null;
+}function shouldUseGoogleSearch(question) {
+  const q = String(question || "").toLowerCase();
+
+  const googleSignals = [
+    "news",
+    "latest",
+    "breaking",
+    "headlines",
+    "current events",
+    "recent developments",
+    "what happened today",
+    "top stories"
+  ];
+
+  return googleSignals.some(signal => q.includes(signal));
 }
 function shouldUseCouncil(question) {
   const q = String(question || '').toLowerCase();
@@ -284,8 +299,8 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!question) return;
 const utility = detectUtility(question);
 const useCouncil = !utility && shouldUseCouncil(question);
-const endpoint = useCouncil ? '/api/council' : '/api/fast';
-    $('#jamesAnswer').textContent = 'James is thinking...';
+const useGoogle = !utility && !useCouncil && shouldUseGoogleSearch(question);
+const endpoint = useCouncil ? '/api/council' : useGoogle ? '/api/google-search-test' : '/api/fast';
 
     try {
       const response = await fetch(endpoint, {
