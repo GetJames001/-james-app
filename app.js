@@ -291,9 +291,12 @@ const endpoint = useCouncil ? '/api/council' : '/api/fast';
       const response = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ question })
-      })
-
+        body: JSON.stringify({
+  question,
+  timezone: Intl.DateTimeFormat().resolvedOptions().timeZone
+})
+})
+          
       const data = await response.json();
 
       if (!data.ok) {
