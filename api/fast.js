@@ -73,8 +73,11 @@ module.exports = async function handler(req, res) {
           store: false,
 
           tools: [
-            { type: "web_search" }
-          ],
+  {
+    type: "web_search",
+    search_context_size: "low"
+  }
+],
 
           tool_choice: "auto",
 
