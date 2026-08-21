@@ -44,7 +44,7 @@ module.exports = async function handler(req, res) {
     });
   }
 
-  
+const started = Date.now();  
 const timezone = String(req.body?.timezone || "UTC");
 
 const currentDate = new Intl.DateTimeFormat("en-US", {
