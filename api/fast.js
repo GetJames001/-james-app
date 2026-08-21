@@ -107,10 +107,44 @@ tool_choice: "auto",
 const cleanedAnswer = answer
   .replace(/\n## Highlights:[\s\S]*$/i, "")
   .trim();
+    const trustedDomains = [
+  "apnews.com",
+  "reuters.com",
+  "bbc.com",
+  "nytimes.com",
+  "wsj.com",
+  "ft.com",
+  "npr.org",
+  "cnn.com",
+  "whitehouse.gov",
+  "congress.gov",
+  "justice.gov",
+  "state.gov",
+  "treasury.gov",
+  "sec.gov"
+];
+
+const citedDomains = [
+  ...cleanedAnswer.matchAll(/https?:\/\/(?:www\.)?([^/\s)]+)/gi)
+].map(match => match[1].toLowerCase());
+
+const weakDomains = [
+  ...new Set(
+    citedDomains.filter(domain =>
+      !trustedDomains.some(
+        trusted =>
+          domain === trusted ||
+          domain.endsWith(`.${trusted}`)
+      )
+    )
+  )
+];
     return res.status(200).json({
       ok: true,
       mode: "fast",
       duration_ms: Date.now() - started,
+      source_quality: weakDomains.length ? "mixed" : "trusted",
+weak_domains: weakDomains,
       answer: cleanedAnswer
     });
 
