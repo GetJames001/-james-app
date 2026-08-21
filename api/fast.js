@@ -45,12 +45,15 @@ module.exports = async function handler(req, res) {
   }
 
   
-const currentDate = now.toLocaleDateString("en-US", {
+const timezone = String(req.body?.timezone || "UTC");
+
+const currentDate = new Intl.DateTimeFormat("en-US", {
+  timeZone: timezone,
   weekday: "long",
   year: "numeric",
   month: "long",
   day: "numeric"
-});
+}).format(new Date());
 
 
   try {
