@@ -299,8 +299,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!question) return;
 const utility = detectUtility(question);
 const useCouncil = !utility && shouldUseCouncil(question);
-const useGoogle = !utility && !useCouncil && shouldUseGoogleSearch(question);
-const endpoint = useCouncil ? '/api/council' : useGoogle ? '/api/google-search-test' : '/api/fast';
+const endpoint = useCouncil ? '/api/council' : '/api/fast';
 $('#jamesAnswer').textContent = 'James is thinking...';
     try {
       const response = await fetch(endpoint, {
