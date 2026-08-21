@@ -44,17 +44,17 @@ module.exports = async function handler(req, res) {
     });
   }
 
-const started = Date.now();  
-const timezone = String(req.body?.timezone || "UTC");
+  const started = Date.now();
 
-const currentDate = new Intl.DateTimeFormat("en-US", {
-  timeZone: timezone,
-  weekday: "long",
-  year: "numeric",
-  month: "long",
-  day: "numeric"
-}).format(new Date());
+  const timezone = String(req.body?.timezone || "UTC");
 
+  const currentDate = new Intl.DateTimeFormat("en-US", {
+    timeZone: timezone,
+    weekday: "long",
+    year: "numeric",
+    month: "long",
+    day: "numeric"
+  }).format(new Date());
 
   try {
     const response = await fetch(
@@ -69,11 +69,15 @@ const currentDate = new Intl.DateTimeFormat("en-US", {
 
         body: JSON.stringify({
           model: process.env.JAMES_FAST_MODEL || "gpt-5-mini",
-        store: false,
-tools: [
-  { type: "web_search" }
-],
-tool_choice: "auto",
+
+          store: false,
+
+          tools: [
+            { type: "web_search" }
+          ],
+
+          tool_choice: "auto",
+
           max_output_tokens: 4000,
 
           instructions: [
@@ -82,7 +86,7 @@ tool_choice: "auto",
             "Answer ordinary questions directly, clearly, and concisely.",
             "Use web search when the question depends on current or changing information. Clearly distinguish searched facts from general knowledge.",
             "When using web search, prioritize primary sources and highly reputable outlets such as government agencies, official organizations, Reuters, AP, BBC, Financial Times, Wall Street Journal, New York Times, and other established sources. Avoid low-quality aggregators or local outlets when stronger sources cover the same story. Cross-check important claims across more than one credible source when practical.",
-            "Do not append a separate duplicate links or highlights section after the answer unless the user asks for sources.","For news and breaking-current-information answers, include a story only when it is supported by at least one primary source or major national outlet such as AP, Reuters, NPR, BBC, Financial Times, Wall Street Journal, New York Times, or an official government source. Prefer the original publisher over affiliate, syndicated, aggregator, or local mirror pages. If strong-source coverage is unavailable, say so rather than substituting a weaker source.",
+            "Do not append a separate duplicate links or highlights section after the answer unless the user asks for sources.",
             "For straightforward current-information requests, do not ask follow-up questions unless the request is genuinely ambiguous. Use a reasonable default interpretation, perform the search, and return the answer immediately. For requests like 'top news today,' summarize the leading stories across several reputable national sources without asking the user to choose a source first.",
             "Prioritize usefulness and accuracy over verbosity."
           ].join("\n"),
@@ -107,55 +111,58 @@ tool_choice: "auto",
     }
 
     const answer =
-  data.output_text ||
-  data.output
-    ?.flatMap(item => item.content || [])
-    ?.filter(item => item.type === "output_text")
-    ?.map(item => item.text || "")
-    ?.join("\n")
-    ?.trim() ||
-  "";
-const cleanedAnswer = answer
-  .replace(/\n## Highlights:[\s\S]*$/i, "")
-  .trim();
+      data.output_text ||
+      data.output
+        ?.flatMap(item => item.content || [])
+        ?.filter(item => item.type === "output_text")
+        ?.map(item => item.text || "")
+        ?.join("\n")
+        ?.trim() ||
+      "";
+
+    const cleanedAnswer = answer
+      .replace(/\n## Highlights:[\s\S]*$/i, "")
+      .trim();
+
     const trustedDomains = [
-  "apnews.com",
-  "reuters.com",
-  "bbc.com",
-  "nytimes.com",
-  "wsj.com",
-  "ft.com",
-  "npr.org",
-  "cnn.com",
-  "whitehouse.gov",
-  "congress.gov",
-  "justice.gov",
-  "state.gov",
-  "treasury.gov",
-  "sec.gov"
-];
+      "apnews.com",
+      "reuters.com",
+      "bbc.com",
+      "nytimes.com",
+      "wsj.com",
+      "ft.com",
+      "npr.org",
+      "cnn.com",
+      "whitehouse.gov",
+      "congress.gov",
+      "justice.gov",
+      "state.gov",
+      "treasury.gov",
+      "sec.gov"
+    ];
 
-const citedDomains = [
-  ...cleanedAnswer.matchAll(/https?:\/\/(?:www\.)?([^/\s)]+)/gi)
-].map(match => match[1].toLowerCase());
+    const citedDomains = [
+      ...cleanedAnswer.matchAll(/https?:\/\/(?:www\.)?([^/\s)]+)/gi)
+    ].map(match => match[1].toLowerCase());
 
-const weakDomains = [
-  ...new Set(
-    citedDomains.filter(domain =>
-      !trustedDomains.some(
-        trusted =>
-          domain === trusted ||
-          domain.endsWith(`.${trusted}`)
+    const weakDomains = [
+      ...new Set(
+        citedDomains.filter(domain =>
+          !trustedDomains.some(
+            trusted =>
+              domain === trusted ||
+              domain.endsWith(`.${trusted}`)
+          )
+        )
       )
-    )
-  )
-];
+    ];
+
     return res.status(200).json({
       ok: true,
       mode: "fast",
       duration_ms: Date.now() - started,
       source_quality: weakDomains.length ? "mixed" : "trusted",
-weak_domains: weakDomains,
+      weak_domains: weakDomains,
       answer: cleanedAnswer
     });
 
