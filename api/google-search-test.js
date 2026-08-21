@@ -15,12 +15,12 @@ module.exports = async function handler(req, res) {
     return res.status(204).end();
   }
 
-  if (req.method !== "POST") {
-    return res.status(405).json({
-      ok: false,
-      error: "METHOD_NOT_ALLOWED"
-    });
-  }
+  if (!["GET", "POST"].includes(req.method)) {
+  return res.status(405).json({
+    ok: false,
+    error: "METHOD_NOT_ALLOWED"
+  });
+}
 
   if (!process.env.GEMINI_API_KEY) {
     return res.status(500).json({
@@ -29,8 +29,17 @@ module.exports = async function handler(req, res) {
     });
   }
 
-  const question = String(req.body?.question || "").trim();
-  const timezone = String(req.body?.timezone || "UTC");
+  const question = String(
+  req.method === "GET"
+    ? req.query?.question || ""
+    : req.body?.question || ""
+).trim();
+
+const timezone = String(
+  req.method === "GET"
+    ? req.query?.timezone || "UTC"
+    : req.body?.timezone || "UTC"
+);
 
   if (!question) {
     return res.status(400).json({
