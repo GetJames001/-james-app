@@ -45,7 +45,6 @@ module.exports = async function handler(req, res) {
   }
 
   
-const now = new Date();
 const currentDate = now.toLocaleDateString("en-US", {
   weekday: "long",
   year: "numeric",
