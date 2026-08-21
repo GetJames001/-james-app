@@ -44,7 +44,15 @@ module.exports = async function handler(req, res) {
     });
   }
 
-  const started = Date.now();
+  
+const now = new Date();
+const currentDate = now.toLocaleDateString("en-US", {
+  weekday: "long",
+  year: "numeric",
+  month: "long",
+  day: "numeric"
+});
+
 
   try {
     const response = await fetch(
@@ -67,6 +75,7 @@ tool_choice: "auto",
           max_output_tokens: 4000,
 
           instructions: [
+            `The current date is ${currentDate}. Interpret "today", "tomorrow", and other relative dates from this date.`,
             "You are James, a fast, capable personal AI assistant.",
             "Answer ordinary questions directly, clearly, and concisely.",
             "Use web search when the question depends on current or changing information. Clearly distinguish searched facts from general knowledge.",
