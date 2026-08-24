@@ -144,11 +144,22 @@ export default async function handler(req, res) {
 
     const text = await response.text();
 
-let data;
+let data = text;
+
 try {
   data = JSON.parse(text);
 } catch {
-  data =data;
+  const dataLine = text
+    .split("\n")
+    .find(line => line.startsWith("data:"));
+
+  if (dataLine) {
+    try {
+      data = JSON.parse(dataLine.slice(5).trim());
+    } catch {
+      data = dataLine.slice(5).trim();
+    }
+  }
 }
 
     return res.status(response.status).json({
