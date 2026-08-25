@@ -293,7 +293,37 @@ document.addEventListener('DOMContentLoaded', () => {
   $('#backdrop').onclick = e => { if(e.target === $('#backdrop')) closePanel(); };
   $('#jamesOrb').onclick = () => { setOrbState('listening'); speak(); setTimeout(() => setOrbState('idle'), 3200); };
   
-  intro();
+  intro();const SpeechRecognition =
+  window.SpeechRecognition || window.webkitSpeechRecognition;
+
+const voiceJamesButton = $("#voiceJamesButton");
+
+if (SpeechRecognition && voiceJamesButton) {
+  const recognition = new SpeechRecognition();
+
+  recognition.lang = "en-US";
+  recognition.interimResults = false;
+  recognition.maxAlternatives = 1;
+
+  voiceJamesButton.onclick = () => {
+    voiceJamesButton.textContent = "🎤 Listening...";
+    recognition.start();
+  };
+
+  recognition.onresult = (event) => {
+    const transcript = event.results[0][0].transcript;
+    $("#jamesQuestion").value = transcript;
+    voiceJamesButton.textContent = "🎤 Speak";
+  };
+
+  recognition.onerror = () => {
+    voiceJamesButton.textContent = "🎤 Speak";
+  };
+
+  recognition.onend = () => {
+    voiceJamesButton.textContent = "🎤 Speak";
+  };
+}
   $('#askJamesButton').onclick = async () => {
     const question = $('#jamesQuestion').value.trim();
     if (!question) return;
