@@ -81,7 +81,7 @@ module.exports = async function handler(req, res) {
 
           tool_choice: "auto",
 
-          max_output_tokens: 4000,
+          max_output_tokens: 800,
 
           instructions: [
             `The current date is ${currentDate}. Interpret "today", "tomorrow", and other relative dates from this date.`,
