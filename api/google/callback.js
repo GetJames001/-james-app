@@ -38,16 +38,43 @@ if (!state || !expectedState || state !== expectedState) {
       }),
     });
 
-    const tokens = await tokenResponse.json();
+   const tokens = await tokenResponse.json();
 
-    if (!tokenResponse.ok) {
-      console.error("Google token exchange failed", {
-        error: tokens.error,
-        description: tokens.error_description,
-      });
+if (!tokenResponse.ok) {
+  console.error("Google token exchange failed", {
+    error: tokens.error,
+    description: tokens.error_description,
+  });
 
-      return res.status(500).send("Google Calendar connection failed.");
-    }
+  return res.status(500).send("Google Calendar connection failed.");
+}
+
+if (!tokens.refresh_token) {
+  console.error("Google did not return a refresh token.");
+  return res
+    .status(500)
+    .send("Google Calendar connection could not be saved.");
+}
+
+const redisResponse = await fetch(process.env.KV_REST_API_URL, {
+  method: "POST",
+  headers: {
+    Authorization: `Bearer ${process.env.KV_REST_API_TOKEN}`,
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify([
+    "SET",
+    "google:refresh_token",
+    tokens.refresh_token,
+  ]),
+});
+
+if (!redisResponse.ok) {
+  console.error("Failed to save Google refresh token to Redis.");
+  return res
+    .status(500)
+    .send("Google Calendar connection could not be saved.");
+}
 
     return res.status(200).send(`
       <!doctype html>
