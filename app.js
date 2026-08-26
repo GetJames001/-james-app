@@ -324,6 +324,7 @@ if (SpeechRecognition && voiceJamesButton) {
     voiceJamesButton.textContent = "🎤 Speak";
   };
 }
+  let jamesConversation = [];
   $('#askJamesButton').onclick = async () => {
     const question = $('#jamesQuestion').value.trim();
     if (!question) return;
@@ -332,11 +333,21 @@ const useCouncil = !utility && shouldUseCouncil(question);
 const endpoint = useCouncil ? '/api/council' : '/api/fast';
 $('#jamesAnswer').textContent = 'James is thinking...';
     try {
+      const contextualQuestion = useCouncil
+  ? question
+  : [
+      "Recent conversation:",
+      ...jamesConversation.map(
+        item => `${item.role === "user" ? "User" : "James"}: ${item.text}`
+      ),
+      `User: ${question}`,
+      "Answer the user's latest message using the recent conversation when relevant."
+    ].join("\n");
       const response = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-  question,
+  question: contextualQuestion,
   timezone: Intl.DateTimeFormat().resolvedOptions().timeZone
 })
 })
@@ -349,8 +360,19 @@ $('#jamesAnswer').textContent = 'James is thinking...';
   return;
 }
 if (!useCouncil) {
-  $('#jamesAnswer').textContent =
-    data.answer || 'James could not produce an answer.';
+  const answer = data.answer || "James could not produce an answer.";
+
+  $("#jamesAnswer").textContent = answer;
+
+  jamesConversation.push(
+    { role: "user", text: question },
+    { role: "assistant", text: answer }
+  );
+
+  jamesConversation = jamesConversation.slice(-8);
+
+  $("#jamesQuestion").value = "";
+
   return;
 }
 const rec = data.final_recommendation;
