@@ -311,10 +311,14 @@ if (SpeechRecognition && voiceJamesButton) {
   };
 
   recognition.onresult = (event) => {
-    const transcript = event.results[0][0].transcript;
-    $("#jamesQuestion").value = transcript;
-    voiceJamesButton.textContent = "🎤 Speak";
-  };
+  const transcript = event.results[0][0].transcript;
+  $("#jamesQuestion").value = transcript;
+  voiceJamesButton.textContent = "🎤 Speak";
+
+  setTimeout(() => {
+    $("#askJamesButton").click();
+  }, 700);
+};
 
   recognition.onerror = () => {
     voiceJamesButton.textContent = "🎤 Speak";
