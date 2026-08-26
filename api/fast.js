@@ -95,7 +95,7 @@ module.exports = async function handler(req, res) {
             "Prioritize usefulness and accuracy over verbosity."
           ].join("\n"),
 
-          input: question
+          input: `User local date: ${currentDate} (${timezone}). ${question}`
         })
       }
     );
