@@ -58,53 +58,100 @@ export default async function handler(req, res) {
       });
     }
 
-    // 3. Pull upcoming events from the user's primary Google calendar
-    const now = new Date();
-    const sevenDaysFromNow = new Date(
-      now.getTime() + 7 * 24 * 60 * 60 * 1000
-    );
+    // 3. Get the calendars available to this Google account
+const calendarListResponse = await fetch(
+  "https://www.googleapis.com/calendar/v3/users/me/calendarList",
+  {
+    headers: {
+      Authorization: `Bearer ${tokenData.access_token}`,
+    },
+  }
+);
 
-    const calendarParams = new URLSearchParams({
-      timeMin: now.toISOString(),
-      timeMax: sevenDaysFromNow.toISOString(),
-      singleEvents: "true",
-      orderBy: "startTime",
-      maxResults: "50",
-    });
+const calendarListData = await calendarListResponse.json();
 
-    const calendarResponse = await fetch(
-      `https://www.googleapis.com/calendar/v3/calendars/primary/events?${calendarParams.toString()}`,
-      {
-        headers: {
-          Authorization: `Bearer ${tokenData.access_token}`,
-        },
-      }
-    );
+if (!calendarListResponse.ok) {
+  console.error("Google calendar list failed", calendarListData);
 
-    const calendarData = await calendarResponse.json();
+  return res.status(500).json({
+    error: "Could not load Google calendars.",
+  });
+}
 
-    if (!calendarResponse.ok) {
-      console.error("Google Calendar read failed", calendarData);
+// Ignore holiday calendars, but include the user's selected calendars
+const calendars = (calendarListData.items || []).filter((calendar) => {
+  const name = (calendar.summary || "").toLowerCase();
 
-      return res.status(500).json({
-        error: "Could not read Google Calendar events.",
-      });
+  return (
+    calendar.selected !== false &&
+    !name.includes("holiday")
+  );
+});
+
+// 4. Pull upcoming events from all relevant calendars
+const now = new Date();
+const sevenDaysFromNow = new Date(
+  now.getTime() + 7 * 24 * 60 * 60 * 1000
+);
+
+const allEvents = [];
+
+for (const calendar of calendars) {
+  const calendarParams = new URLSearchParams({
+    timeMin: now.toISOString(),
+    timeMax: sevenDaysFromNow.toISOString(),
+    singleEvents: "true",
+    orderBy: "startTime",
+    maxResults: "50",
+  });
+
+  const calendarResponse = await fetch(
+    `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(
+      calendar.id
+    )}/events?${calendarParams.toString()}`,
+    {
+      headers: {
+        Authorization: `Bearer ${tokenData.access_token}`,
+      },
     }
+  );
 
-    const events = (calendarData.items || []).map((event) => ({
+  const calendarData = await calendarResponse.json();
+
+  if (!calendarResponse.ok) {
+    console.error(
+      `Google Calendar read failed for ${calendar.summary || calendar.id}`,
+      calendarData
+    );
+
+    continue;
+  }
+
+  for (const event of calendarData.items || []) {
+    allEvents.push({
       id: event.id,
+      calendarId: calendar.id,
+      calendarName: calendar.summary || "",
       title: event.summary || "Untitled event",
       location: event.location || "",
       start: event.start?.dateTime || event.start?.date || null,
       end: event.end?.dateTime || event.end?.date || null,
       allDay: Boolean(event.start?.date),
-    }));
-
-    return res.status(200).json({
-      connected: true,
-      count: events.length,
-      events,
     });
+  }
+}
+
+// 5. Sort everything into one unified schedule
+allEvents.sort((a, b) => {
+  return new Date(a.start) - new Date(b.start);
+});
+
+return res.status(200).json({
+  connected: true,
+  calendarCount: calendars.length,
+  count: allEvents.length,
+  events: allEvents,
+});
   } catch (error) {
     console.error("Google Calendar events error:", error);
 
