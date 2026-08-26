@@ -55,7 +55,7 @@ module.exports = async function handler(req, res) {
     month: "long",
     day: "numeric"
   }).format(new Date());
-  console.log("[Fast James date]", { timezone, currentDate });
+  
   try {
     const response = await fetch(
       "https://api.openai.com/v1/responses",
