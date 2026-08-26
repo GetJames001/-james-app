@@ -26,6 +26,7 @@ function nextAppointment(){
 
 function updateHero(){
   const appt = nextAppointment();
+  if (!appt) return;
   const travel = events.find(e => e[4] === 'travel' && e[3].includes(appt[2])) || ['','','','18 min'];
   const drive = parseInt(travel[3],10) || 18;
   const start = timeToDate(appt[0]);
