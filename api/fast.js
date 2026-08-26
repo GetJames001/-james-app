@@ -84,7 +84,8 @@ module.exports = async function handler(req, res) {
           max_output_tokens: 800,
 
           instructions: [
-            `The current date is ${currentDate}. Interpret "today", "tomorrow", and other relative dates from this date.`,
+            `The user's local date is ${currentDate} in timezone ${timezone}. This is the authoritative date for the conversation.`,
+`For "today", "tonight", "tomorrow", "yesterday", and other relative dates, always use the user's local date and timezone above. Do not substitute UTC, server time, or a date inferred from web-search results.`,
             "You are James, a fast, capable personal AI assistant.",
             "Answer ordinary questions directly, clearly, and concisely.",
             "Use web search when the question depends on current or changing information. Clearly distinguish searched facts from general knowledge.",
