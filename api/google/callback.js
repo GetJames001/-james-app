@@ -1,6 +1,19 @@
 export default async function handler(req, res) {
   const { code, error } = req.query;
+const state = req.query.state;
 
+const cookies = Object.fromEntries(
+  (req.headers.cookie || "")
+    .split(";")
+    .map(cookie => cookie.trim().split("="))
+    .filter(parts => parts.length === 2)
+);
+
+const expectedState = cookies.google_oauth_state;
+
+if (!state || !expectedState || state !== expectedState) {
+  return res.status(400).send("Invalid Google authorization state.");
+}
   if (error) {
     return res.status(400).send(`Google authorization failed: ${error}`);
   }
