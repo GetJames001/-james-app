@@ -285,7 +285,7 @@ async function loadLiveGoogleEvents() {
     }
 
     liveEvents = data.events;
-
+window.liveEvents = liveEvents;
     console.log('Live Google events loaded:', liveEvents.length);
   } catch (error) {
     console.error('Could not load live Google events:', error);
