@@ -292,8 +292,17 @@ window.liveEvents = liveEvents;
     console.error('Could not load live Google events:', error);
   }
 }
+function convertLiveEventsForBriefing() {
+  return liveEvents.map(event => [
+    event.start,
+    event.end,
+    event.title,
+    event.location || event.calendarName || 'Appointment'
+  ]);
+}
 document.addEventListener('DOMContentLoaded', () => {
   loadLiveGoogleEvents();
+  
   $$('[data-start]').forEach(b => b.onclick = () => finishIntro(b.dataset.start));
   buildCalendar();
   updateHero();
