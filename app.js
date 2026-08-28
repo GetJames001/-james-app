@@ -15,6 +15,7 @@ const events = [
   ['17:15','18:15','Available','Open time','open'],
   ['18:15','19:00','Central Transport','Bid Review']
 ];
+let liveEvents = [];
 
 const mins = (t) => { const [h,m] = t.split(':').map(Number); return (h-7)*60+m; };
 const pretty = (t) => { let [h,m] = t.split(':').map(Number); const s = h >= 12 ? 'PM' : 'AM'; h = h % 12 || 12; return `${h}:${String(m).padStart(2,'0')} ${s}`; };
@@ -274,7 +275,24 @@ const highConsequenceShouldI =
 if (highConsequenceShouldI) return true;
   return councilSignals.some(signal => q.includes(signal));
 }
+async function loadLiveGoogleEvents() {
+  try {
+    const response = await fetch('/api/google/events');
+    const data = await response.json();
+
+    if (!response.ok || !data.connected || !Array.isArray(data.events)) {
+      throw new Error('Google Calendar events unavailable.');
+    }
+
+    liveEvents = data.events;
+
+    console.log('Live Google events loaded:', liveEvents.length);
+  } catch (error) {
+    console.error('Could not load live Google events:', error);
+  }
+}
 document.addEventListener('DOMContentLoaded', () => {
+  loadLiveGoogleEvents();
   $$('[data-start]').forEach(b => b.onclick = () => finishIntro(b.dataset.start));
   buildCalendar();
   updateHero();
