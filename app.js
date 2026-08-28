@@ -1,4 +1,20 @@
-let events = [];
+const $ = (s) => document.querySelector(s);
+const $$ = (s) => [...document.querySelectorAll(s)];
+
+const events = [
+  ['08:30','09:00','Travel','18 min to Fort Apache Surgical','travel'],
+  ['09:00','10:00','Fort Apache Surgical','Site Visit'],
+  ['10:00','10:18','Travel','18 min to Advanced Surgical','travel'],
+  ['10:18','11:00','Advanced Surgical','Site Visit'],
+  ['11:00','13:00','Available','Open time','open'],
+  ['13:00','14:00','Windmill Library','Site Visit'],
+  ['14:00','14:12','Travel','12 min to Sierra Surgical','travel'],
+  ['14:30','15:15','Sierra Surgical','Follow Up'],
+  ['15:15','16:30','Available','Open time','open'],
+  ['16:30','17:15','Allegiant Stadium','Site Visit'],
+  ['17:15','18:15','Available','Open time','open'],
+  ['18:15','19:00','Central Transport','Bid Review']
+];
 
 const mins = (t) => { const [h,m] = t.split(':').map(Number); return (h-7)*60+m; };
 const pretty = (t) => { let [h,m] = t.split(':').map(Number); const s = h >= 12 ? 'PM' : 'AM'; h = h % 12 || 12; return `${h}:${String(m).padStart(2,'0')} ${s}`; };
@@ -26,7 +42,6 @@ function nextAppointment(){
 
 function updateHero(){
   const appt = nextAppointment();
-  if (!appt) return;
   const travel = events.find(e => e[4] === 'travel' && e[3].includes(appt[2])) || ['','','','18 min'];
   const drive = parseInt(travel[3],10) || 18;
   const start = timeToDate(appt[0]);
@@ -258,55 +273,11 @@ const highConsequenceShouldI =
 
 if (highConsequenceShouldI) return true;
   return councilSignals.some(signal => q.includes(signal));
-}async function loadGoogleEvents() {
-  try {
-    const response = await fetch('/api/google/events');
-    const data = await response.json();
-
-    if (!response.ok || !data.connected || !Array.isArray(data.events)) {
-      throw new Error('Google Calendar events unavailable.');
-    }
-
-    const today = new Date();
-
-    events = data.events
-      .filter(event => {
-        if (!event.start || !event.end || event.allDay) return false;
-
-        const start = new Date(event.start);
-
-        return (
-          start.getFullYear() === today.getFullYear() &&
-          start.getMonth() === today.getMonth() &&
-          start.getDate() === today.getDate()
-        );
-      })
-      .map(event => {
-        const start = new Date(event.start);
-        const end = new Date(event.end);
-
-        const toTime = date =>
-          `${String(date.getHours()).padStart(2, '0')}:${String(
-            date.getMinutes()
-          ).padStart(2, '0')}`;
-
-        return [
-          toTime(start),
-          toTime(end),
-          event.title,
-          event.location || event.calendarName || 'Appointment'
-        ];
-      });    
-    buildCalendar();
-    updateHero();
-
-  } catch (error) {
-    console.error('Could not load live Google Calendar events:', error);
-  }
 }
 document.addEventListener('DOMContentLoaded', () => {
   $$('[data-start]').forEach(b => b.onclick = () => finishIntro(b.dataset.start));
-  loadGoogleEvents();
+  buildCalendar();
+  updateHero();
   setInterval(() => { setGreeting(); updateHero(); }, 60000);
   $$('nav button').forEach(b => b.onclick = () => page(b.dataset.page));
   $$('[data-panel]').forEach(b => b.onclick = () => {
