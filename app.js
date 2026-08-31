@@ -287,7 +287,11 @@ async function loadLiveGoogleEvents() {
     liveEvents = data.events;
     window.briefingEvents = convertLiveEventsForBriefing();
 window.liveEvents = liveEvents;
-    document.title = `James (${liveEvents.length} live events)`;
+    const firstBriefingEvent = window.briefingEvents[0];
+
+document.title = firstBriefingEvent
+  ? `James ${firstBriefingEvent[0]}–${firstBriefingEvent[1]} ${firstBriefingEvent[2]}`
+  : 'James (no timed live events)';
     console.log('Live Google events loaded:', liveEvents.length);
   } catch (error) {
     console.error('Could not load live Google events:', error);
