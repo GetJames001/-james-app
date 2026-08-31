@@ -1,4 +1,4 @@
-only 1 live searchgconst $ = (s) => document.querySelector(s);
+const $ = (s) => document.querySelector(s);
 const $$ = (s) => [...document.querySelectorAll(s)];
 
 const events = [
@@ -285,32 +285,15 @@ async function loadLiveGoogleEvents() {
     }
 
     liveEvents = data.events;
-    window.briefingEvents = convertLiveEventsForBriefing();
 window.liveEvents = liveEvents;
-    
+    document.title = `James (${liveEvents.length} live events)`;
     console.log('Live Google events loaded:', liveEvents.length);
   } catch (error) {
     console.error('Could not load live Google events:', error);
   }
 }
-function convertLiveEventsForBriefing() {
-  const toTime = (value) => {
-    const date = new Date(value);
-    return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
-  };
-
-  return liveEvents
-    .filter(event => event.start && event.end && !event.allDay)
-    .map(event => [
-      toTime(event.start),
-      toTime(event.end),
-      event.title,
-      event.location || event.calendarName || 'Appointment'
-    ]);
-}
 document.addEventListener('DOMContentLoaded', () => {
   loadLiveGoogleEvents();
-  
   $$('[data-start]').forEach(b => b.onclick = () => finishIntro(b.dataset.start));
   buildCalendar();
   updateHero();
