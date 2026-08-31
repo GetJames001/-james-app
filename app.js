@@ -288,7 +288,7 @@ async function loadLiveGoogleEvents() {
     window.briefingEvents = convertLiveEventsForBriefing();
 window.liveEvents = liveEvents;
     const firstBriefingEvent = window.briefingEvents[0];
-
+if (firstBriefingEvent) $('#introGreeting').textContent = `LIVE TEST: ${firstBriefingEvent[0]}–${firstBriefingEvent[1]} ${firstBriefingEvent[2]}`;
 document.title = firstBriefingEvent
   ? `James ${firstBriefingEvent[0]}–${firstBriefingEvent[1]} ${firstBriefingEvent[2]}`
   : 'James (no timed live events)';
