@@ -285,6 +285,7 @@ async function loadLiveGoogleEvents() {
     }
 
     liveEvents = data.events;
+    window.briefingEvents = convertLiveEventsForBriefing();
 window.liveEvents = liveEvents;
     document.title = `James (${liveEvents.length} live events)`;
     console.log('Live Google events loaded:', liveEvents.length);
