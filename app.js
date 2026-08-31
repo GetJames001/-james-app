@@ -1,4 +1,4 @@
-const $ = (s) => document.querySelector(s);
+only 1 live searchgconst $ = (s) => document.querySelector(s);
 const $$ = (s) => [...document.querySelectorAll(s)];
 
 const events = [
@@ -293,12 +293,19 @@ window.liveEvents = liveEvents;
   }
 }
 function convertLiveEventsForBriefing() {
-  return liveEvents.map(event => [
-    event.start,
-    event.end,
-    event.title,
-    event.location || event.calendarName || 'Appointment'
-  ]);
+  const toTime = (value) => {
+    const date = new Date(value);
+    return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+  };
+
+  return liveEvents
+    .filter(event => event.start && event.end && !event.allDay)
+    .map(event => [
+      toTime(event.start),
+      toTime(event.end),
+      event.title,
+      event.location || event.calendarName || 'Appointment'
+    ]);
 }
 document.addEventListener('DOMContentLoaded', () => {
   loadLiveGoogleEvents();
