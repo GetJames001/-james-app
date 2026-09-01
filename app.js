@@ -16,6 +16,7 @@ const events = [
   ['18:15','19:00','Central Transport','Bid Review']
 ];
 let liveEvents = [];
+let briefingEvents = [];
 
 const mins = (t) => { const [h,m] = t.split(':').map(Number); return (h-7)*60+m; };
 const pretty = (t) => { let [h,m] = t.split(':').map(Number); const s = h >= 12 ? 'PM' : 'AM'; h = h % 12 || 12; return `${h}:${String(m).padStart(2,'0')} ${s}`; };
@@ -285,6 +286,26 @@ async function loadLiveGoogleEvents() {
     }
 
     liveEvents = data.events;
+    briefingEvents = liveEvents
+  .filter(event => event.start && event.end && !event.allDay)
+  .map(event => {
+    const start = new Date(event.start);
+    const end = new Date(event.end);
+
+    const formatTime = (date) =>
+      date.toLocaleTimeString([], {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false
+      });
+
+    return [
+      formatTime(start),
+      formatTime(end),
+      event.title,
+      event.location || event.calendarName || 'Appointment'
+    ];
+  });
 window.liveEvents = liveEvents;
     document.title = `James (${liveEvents.length} live events)`;
     console.log('Live Google events loaded:', liveEvents.length);
