@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>James Calendar Test</title>
+</head>
+
+<body>
+  <h1>James Calendar Test</h1>
+  <p id="status">Loading Google Calendar events...</p>
+  <div id="events"></div>
+
+  <script>
+    async function loadCalendarTest() {
+      const status = document.getElementById('status');
+      const eventsDiv = document.getElementById('events');
+
+      try {
+        const response = await fetch('/api/google/events');
+        const data = await response.json();
+
+        if (!response.ok || !data.connected || !Array.isArray(data.events)) {
+          throw new Error('Google Calendar events unavailable.');
+        }
+
+        const convertedEvents = data.events
+          .filter(event => event.start && event.end && !event.allDay)
+          .map(event => {
+            const start = new Date(event.start);
+            const end = new Date(event.end);
+
+            return {
+              title: event.title,
+              location: event.location || event.calendarName || 'Appointment',
+              start: start.toLocaleTimeString([], {
+                hour: 'numeric',
+                minute: '2-digit'
+              }),
+              end: end.toLocaleTimeString([], {
+                hour: 'numeric',
+                minute: '2-digit'
+              })
+            };
+          });
+
+        status.textContent = `${convertedEvents.length} live timed events loaded`;
+
+        eventsDiv.innerHTML = convertedEvents.map(event => `
+          <div style="margin-bottom: 20px;">
+            <strong>${event.start} – ${event.end}</strong><br>
+            ${event.title}<br>
+            <small>${event.location}</small>
+          </div>
+        `).join('');
+
+      } catch (error) {
+        status.textContent = 'Calendar test failed.';
+        eventsDiv.textContent = error.message;
+        console.error(error);
+      }
+    }
+
+    loadCalendarTest();
+  </script>
+</body>
+</html>
