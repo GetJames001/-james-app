@@ -307,6 +307,7 @@ async function loadLiveGoogleEvents() {
     ];
   });
 window.liveEvents = liveEvents;
+    window.briefingEvents = briefingEvents;
     document.title = `James (${liveEvents.length} live events)`;
     console.log('Live Google events loaded:', liveEvents.length);
   } catch (error) {
