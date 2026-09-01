@@ -1,7 +1,7 @@
 const $ = (s) => document.querySelector(s);
 const $$ = (s) => [...document.querySelectorAll(s)];
 
-const events = [
+let events = [
   ['08:30','09:00','Travel','18 min to Fort Apache Surgical','travel'],
   ['09:00','10:00','Fort Apache Surgical','Site Visit'],
   ['10:00','10:18','Travel','18 min to Advanced Surgical','travel'],
