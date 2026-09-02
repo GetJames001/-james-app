@@ -294,6 +294,7 @@ async function loadLiveGoogleEvents() {
     }
 
     liveEvents = data.events;
+    const allDayEvents = liveEvents.filter(event => event.allDay);
     briefingEvents = liveEvents
   .filter(event => event.start && event.end && !event.allDay)
   .sort((a, b) => new Date(a.start) - new Date(b.start))
@@ -322,6 +323,7 @@ updateHero();
 }
 window.liveEvents = liveEvents;
     window.briefingEvents = briefingEvents;
+    window.allDayEvents = allDayEvents;
     document.title = `James (${liveEvents.length} live events)`;
     console.log('Live Google events loaded:', liveEvents.length);
   } catch (error) {
