@@ -340,14 +340,17 @@ window.liveEvents = liveEvents;
     window.briefingEvents = briefingEvents;
     window.allDayEvents = allDayEvents;
     const allDayStrip = $('#allDayStrip');
+    const allDayRibbon = $('#allDayRibbon');
 
 if (allDayStrip) {
   if (allDayEvents.length) {
     allDayStrip.hidden = false;
+    if (allDayRibbon) allDayRibbon.hidden = false;
     allDayStrip.textContent =
       'ALL DAY — ' + allDayEvents.map(event => event.title).join(' · ');
   } else {
     allDayStrip.hidden = true;
+    if (allDayRibbon) allDayRibbon.hidden = true;
     allDayStrip.textContent = '';
   }
 }
