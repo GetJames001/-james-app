@@ -169,8 +169,8 @@ ol li{padding:17px 0}
   transform: rotate(180deg);
   display: flex;
   align-items: center;
-  justify-content: flex-start;
-  padding-top: 14px;
+  justify-content: flex-end;
+  padding-bottom: 14px;
   z-index: 2;
 }
 
