@@ -324,6 +324,18 @@ updateHero();
 window.liveEvents = liveEvents;
     window.briefingEvents = briefingEvents;
     window.allDayEvents = allDayEvents;
+    const allDayStrip = $('#allDayStrip');
+
+if (allDayStrip) {
+  if (allDayEvents.length) {
+    allDayStrip.hidden = false;
+    allDayStrip.textContent =
+      'ALL DAY — ' + allDayEvents.map(event => event.title).join(' · ');
+  } else {
+    allDayStrip.hidden = true;
+    allDayStrip.textContent = '';
+  }
+}
     document.title = `James (${liveEvents.length} live events)`;
     console.log('Live Google events loaded:', liveEvents.length);
   } catch (error) {
