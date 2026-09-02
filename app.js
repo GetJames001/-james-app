@@ -306,6 +306,9 @@ async function loadLiveGoogleEvents() {
       event.location || event.calendarName || 'Appointment'
     ];
   });
+    if (briefingEvents.length) {
+  events = briefingEvents;
+}
 window.liveEvents = liveEvents;
     window.briefingEvents = briefingEvents;
     document.title = `James (${liveEvents.length} live events)`;
