@@ -65,6 +65,7 @@ const drive = travel ? (parseInt(travel[3], 10) || 0) : 0;
   $('#countdown').textContent = hrs ? `${hrs} hr ${min} min` : `${min} min`;
  $('#leaveBy').textContent = travel ? leave.toLocaleTimeString([], {hour:'numeric', minute:'2-digit'}) : '—';
 $('#driveTime').textContent = travel ? `${drive} min` : '—';
+  $('#traffic').textContent = '—';
 }
 
 function buildCalendar(){
