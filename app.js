@@ -52,8 +52,8 @@ function updateHero(){
   $('#driveTime').textContent = '—';
   return;
 }
-  const travel = events.find(e => e[4] === 'travel' && e[3].includes(appt[2])) || ['','','','18 min'];
-  const drive = parseInt(travel[3],10) || 18;
+  const travel = events.find(e => e[4] === 'travel' && e[3].includes(appt[2]));
+const drive = travel ? (parseInt(travel[3], 10) || 0) : 0;
   const start = timeToDate(appt[0]);
   const leave = new Date(start.getTime() - drive * 60000);
   const now = new Date();
@@ -63,8 +63,8 @@ function updateHero(){
   $('#nextTitle').textContent = appt[2];
   $('#nextType').textContent = `${appt[3]} · ${pretty(appt[0])}`;
   $('#countdown').textContent = hrs ? `${hrs} hr ${min} min` : `${min} min`;
-  $('#leaveBy').textContent = leave.toLocaleTimeString([],{hour:'numeric',minute:'2-digit'});
-  $('#driveTime').textContent = `${drive} min`;
+ $('#leaveBy').textContent = travel ? leave.toLocaleTimeString([], {hour:'numeric', minute:'2-digit'}) : '—';
+$('#driveTime').textContent = travel ? `${drive} min` : '—';
 }
 
 function buildCalendar(){
