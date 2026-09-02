@@ -39,11 +39,12 @@ function setGreeting(){
 function nextAppointment(){
   const now = new Date();
   const appointments = events.filter(e => !e[4]);
-  return appointments.find(e => timeToDate(e[1]) > now) || appointments[0];
+ return appointments.find(e => timeToDate(e[1]) > now);
 }
 
 function updateHero(){
   const appt = nextAppointment();
+  if (!appt) return;
   const travel = events.find(e => e[4] === 'travel' && e[3].includes(appt[2])) || ['','','','18 min'];
   const drive = parseInt(travel[3],10) || 18;
   const start = timeToDate(appt[0]);
