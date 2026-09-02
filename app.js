@@ -288,7 +288,8 @@ async function loadLiveGoogleEvents() {
     liveEvents = data.events;
     briefingEvents = liveEvents
   .filter(event => event.start && event.end && !event.allDay)
-  .map(event => {
+  .sort((a, b) => new Date(a.start) - new Date(b.start))
+      .map(event => {
     const start = new Date(event.start);
     const end = new Date(event.end);
 
