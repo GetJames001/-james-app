@@ -135,3 +135,53 @@ ol li{padding:17px 0}
     width: 100%;
   }
 }
+/* All-day event visuals */
+.calendar-column {
+  position: relative;
+}
+
+#allDayStrip {
+  margin: 6px 0 10px 0;
+  padding: 7px 10px;
+  border: 1px solid rgba(185, 145, 61, 0.38);
+  border-radius: 8px;
+  background: rgba(185, 145, 61, 0.08);
+  color: #8f6a1f;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+#allDayRibbon {
+  position: absolute;
+  left: -34px;
+  top: 58px;
+  bottom: 0;
+  width: 24px;
+  border-radius: 12px;
+  background: rgba(185, 145, 61, 0.12);
+  border: 1px solid rgba(185, 145, 61, 0.32);
+  color: #8f6a1f;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  padding-top: 10px;
+  z-index: 2;
+}
+
+#allDayRibbon::after {
+  content: "";
+  position: absolute;
+  top: 54px;
+  bottom: 12px;
+  left: 50%;
+  width: 2px;
+  transform: translateX(-50%);
+  background: rgba(185, 145, 61, 0.55);
+  border-radius: 2px;
+}
