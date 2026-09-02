@@ -308,6 +308,8 @@ async function loadLiveGoogleEvents() {
   });
     if (briefingEvents.length) {
   events = briefingEvents;
+      buildCalendar();
+updateHero();
 }
 window.liveEvents = liveEvents;
     window.briefingEvents = briefingEvents;
