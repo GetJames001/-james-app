@@ -294,9 +294,24 @@ async function loadLiveGoogleEvents() {
     }
 
     liveEvents = data.events;
-    const allDayEvents = liveEvents.filter(event => event.allDay);
+    const todayKey = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-${String(new Date().getDate()).padStart(2, '0')}`;
+
+const allDayEvents = liveEvents.filter(
+  event => event.allDay && String(event.start).slice(0, 10) === todayKey
+);
     briefingEvents = liveEvents
-  .filter(event => event.start && event.end && !event.allDay)
+  .filter(event => {
+  if (!event.start || !event.end || event.allDay) return false;
+
+  const eventDate = new Date(event.start);
+  const today = new Date();
+
+  return (
+    eventDate.getFullYear() === today.getFullYear() &&
+    eventDate.getMonth() === today.getMonth() &&
+    eventDate.getDate() === today.getDate()
+  );
+})
   .sort((a, b) => new Date(a.start) - new Date(b.start))
       .map(event => {
     const start = new Date(event.start);
