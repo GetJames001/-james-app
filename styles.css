@@ -154,10 +154,10 @@ ol li{padding:17px 0}
 
 #allDayRibbon {
   position: absolute;
-  left: -34px;
+  left: -42px;
   top: 58px;
   bottom: 0;
-  width: 24px;
+  width: 30px;
   border-radius: 12px;
   background: rgba(185, 145, 61, 0.12);
   border: 1px solid rgba(185, 145, 61, 0.32);
@@ -170,7 +170,7 @@ ol li{padding:17px 0}
   display: flex;
   align-items: center;
   justify-content: flex-start;
-  padding-top: 10px;
+  padding-top: 14px;
   z-index: 2;
 }
 
