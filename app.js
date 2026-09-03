@@ -50,6 +50,7 @@ function updateHero(){
   $('#countdown').textContent = 'Done';
   $('#leaveBy').textContent = '—';
   $('#driveTime').textContent = '—';
+   $('#traffic').textContent = '—';
   return;
 }
   const travel = events.find(e => e[4] === 'travel' && e[3].includes(appt[2]));
