@@ -332,11 +332,9 @@ const allDayEvents = liveEvents.filter(
       event.location || event.calendarName || 'Appointment'
     ];
   });
-    if (briefingEvents.length) {
-  events = briefingEvents;
-      buildCalendar();
+    events = briefingEvents;
+buildCalendar();
 updateHero();
-}
 window.liveEvents = liveEvents;
     window.briefingEvents = briefingEvents;
     window.allDayEvents = allDayEvents;
