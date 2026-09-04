@@ -185,3 +185,14 @@ ol li{padding:17px 0}
   background: rgba(185, 145, 61, 0.55);
   border-radius: 2px;
 }
+/* James Executive White — foundation */
+body{
+  background:#f7f8fa;
+  color:#211d18;
+}
+
+.briefing-sheet{
+  background:#ffffff;
+  border:1px solid rgba(33,29,24,.08);
+  box-shadow:0 18px 50px rgba(25,30,40,.06);
+}
