@@ -485,3 +485,10 @@ nav{
 .brief-grid aside li b{
   color:#171a1f;
 }
+/* Executive White — calendar time contrast */
+.calendar .time,
+.calendar .hour,
+.calendar .time-label{
+  color:#171a1f;
+  font-weight:500;
+}
