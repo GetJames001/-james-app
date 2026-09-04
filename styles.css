@@ -204,3 +204,12 @@ body{
   border:1px solid rgba(33,29,24,.10);
   box-shadow:0 12px 32px rgba(33,40,50,.07);
 }
+/* Executive White — Today's Focus */
+.brief-grid aside{
+  border-left:1px solid rgba(33,29,24,.08);
+  padding-left:26px;
+}
+
+.brief-grid aside section{
+  border-bottom:1px solid rgba(33,29,24,.08);
+}
