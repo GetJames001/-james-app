@@ -395,3 +395,25 @@ nav button.active{
 .quick button{
   color:#1769aa;
 }
+/* Executive White — selective gold, neutral labels */
+.next-label,
+.brief-grid small,
+.intel-card span,
+.next-meta span{
+  color:#66707a;
+}
+
+.deadline-pill{
+  color:#7f5a1f;
+  background:rgba(202,161,91,.12);
+  border-color:rgba(202,161,91,.22);
+}
+
+.brief-grid aside > section > small,
+.calendar-column > small{
+  color:#6b737c;
+}
+
+.quick button b{
+  color:#1f2933;
+}
