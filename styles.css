@@ -333,3 +333,11 @@ header{
   color:#211d18;
   border-bottom:2px solid #c6a15b;
 }
+/* Executive White — James signature mark */
+.james-signature{
+  display:block;
+  width:118px;
+  height:auto;
+  object-fit:contain;
+  margin-bottom:3px;
+}
