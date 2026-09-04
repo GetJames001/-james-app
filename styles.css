@@ -304,3 +304,7 @@ header{
   color:#756c61;
   font-size:.78rem;
 }
+/* Executive White — remove legacy status text */
+.weather-status{
+  display:none;
+}
