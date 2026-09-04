@@ -213,3 +213,50 @@ body{
 .brief-grid aside section{
   border-bottom:1px solid rgba(33,29,24,.08);
 }
+
+/* Executive White — intelligence strip */
+.intel-strip{
+  display:grid;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:12px;
+  margin:14px 0 18px;
+}
+
+.intel-card{
+  background:#ffffff;
+  border:1px solid rgba(33,29,24,.10);
+  border-radius:10px;
+  padding:16px 18px;
+  min-height:92px;
+  box-shadow:0 10px 26px rgba(33,40,50,.05);
+}
+
+.intel-card span{
+  display:block;
+  font-size:.68rem;
+  letter-spacing:.11em;
+  font-weight:700;
+  color:#756c61;
+  margin-bottom:8px;
+}
+
+.intel-card strong{
+  display:block;
+  font-size:1.6rem;
+  line-height:1.05;
+  color:#211d18;
+  font-weight:500;
+}
+
+.intel-card small{
+  display:block;
+  margin-top:6px;
+  color:#756c61;
+  font-size:.8rem;
+}
+
+@media(max-width:900px){
+  .intel-strip{
+    grid-template-columns:repeat(2,minmax(0,1fr));
+  }
+}
