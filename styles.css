@@ -438,3 +438,21 @@ nav button.active{
   color:#6b737c;
   border-color:rgba(33,29,24,.10);
 }
+/* Executive White — brighter white field */
+body{
+  background:#ffffff;
+}
+
+.briefing-sheet{
+  background:#ffffff;
+}
+
+.intel-card,
+.next-card{
+  background:#ffffff;
+}
+
+header,
+nav{
+  background:rgba(255,255,255,.94);
+}
