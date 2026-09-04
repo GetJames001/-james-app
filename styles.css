@@ -341,3 +341,29 @@ header{
   object-fit:contain;
   margin-bottom:3px;
 }
+/* Executive White — cool premium palette */
+body{
+  background:#f7f8fa;
+  color:#211d18;
+}
+
+header,
+nav{
+  background:rgba(255,255,255,.82);
+}
+
+.briefing-sheet{
+  background:#ffffff;
+}
+
+.intel-card,
+.next-card{
+  background:#ffffff;
+  border-color:rgba(33,29,24,.10);
+}
+
+.greeting h2,
+.sheet-head h3,
+.next-main h4{
+  color:#171a1f;
+}
