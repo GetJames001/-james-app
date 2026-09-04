@@ -367,3 +367,31 @@ nav{
 .next-main h4{
   color:#171a1f;
 }
+/* Executive White — crisp accent palette */
+body{
+  color:#171a1f;
+}
+
+.intel-card span,
+.next-label,
+.brief-grid small,
+.next-meta span{
+  color:#68707c;
+}
+
+.intel-icon{
+  stroke:#1769aa;
+}
+
+nav button{
+  color:#4f5965;
+}
+
+nav button.active{
+  color:#0b4f8a;
+  border-bottom-color:#0b4f8a;
+}
+
+.quick button{
+  color:#1769aa;
+}
