@@ -260,3 +260,13 @@ body{
     grid-template-columns:repeat(2,minmax(0,1fr));
   }
 }
+.intel-icon{
+  width:24px;
+  height:24px;
+  margin-bottom:10px;
+  fill:none;
+  stroke:#607784;
+  stroke-width:1.7;
+  stroke-linecap:round;
+  stroke-linejoin:round;
+}
