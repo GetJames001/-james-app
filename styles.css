@@ -270,3 +270,37 @@ body{
   stroke-linecap:round;
   stroke-linejoin:round;
 }
+/* Executive White — refined top identity */
+header{
+  padding:18px 24px 16px;
+  border-bottom:1px solid rgba(33,29,24,.08);
+  background:rgba(255,255,255,.72);
+}
+
+.brand b{
+  letter-spacing:.22em;
+  font-size:1rem;
+  font-weight:600;
+  color:#211d18;
+}
+
+.brand small{
+  display:block;
+  margin-top:3px;
+  font-size:.68rem;
+  letter-spacing:.08em;
+  color:#756c61;
+}
+
+.greeting h2{
+  margin:0;
+  font-weight:500;
+  letter-spacing:-.02em;
+  color:#211d18;
+}
+
+.greeting p{
+  margin:4px 0 0;
+  color:#756c61;
+  font-size:.78rem;
+}
