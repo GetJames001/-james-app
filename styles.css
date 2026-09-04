@@ -456,3 +456,32 @@ header,
 nav{
   background:rgba(255,255,255,.94);
 }
+/* Executive White — inky contrast pass */
+.intel-card span,
+.next-label,
+.next-meta span,
+.calendar-column > small,
+.brief-grid aside > section > small{
+  color:#20242a;
+}
+
+.intel-card strong,
+.quick button b,
+.brief-grid aside b{
+  color:#11151a;
+  font-weight:700;
+}
+
+.calendar{
+  color:#20242a;
+}
+
+.calendar .time,
+.calendar .event,
+.calendar .event strong{
+  color:#20242a;
+}
+
+.brief-grid aside li b{
+  color:#171a1f;
+}
