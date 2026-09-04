@@ -417,3 +417,24 @@ nav button.active{
 .quick button b{
   color:#1f2933;
 }
+/* Executive White — refined premium gold */
+.deadline-pill{
+  color:#8a641c;
+  background:rgba(198,154,63,.10);
+  border-color:rgba(198,154,63,.24);
+}
+
+#allDayRibbon{
+  color:#8a641c;
+  background:rgba(198,154,63,.07);
+  border-color:rgba(198,154,63,.20);
+}
+
+#allDayRibbon::after{
+  background:rgba(198,154,63,.48);
+}
+
+#allDayStrip{
+  color:#6b737c;
+  border-color:rgba(33,29,24,.10);
+}
