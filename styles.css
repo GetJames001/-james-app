@@ -497,3 +497,18 @@ nav{
   color:#171a1f;
   font-weight:600;
 }
+/* Quick action rows — icon alignment */
+.quick button{
+  display:grid;
+  grid-template-columns:24px 1fr auto;
+  align-items:center;
+  column-gap:10px;
+  text-align:left;
+}
+
+.quick-icon{
+  width:16px;
+  height:16px;
+  display:block;
+  stroke:#1769aa;
+}
