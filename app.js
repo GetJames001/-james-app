@@ -360,6 +360,31 @@ if (allDayStrip) {
     console.error('Could not load live Google events:', error);
   }
 }
+async function loadLiveWeather() {
+  const tempEl = $('#weatherTemp');
+  const detailEl = $('#weatherDetail');
+
+  if (!tempEl || !detailEl || !navigator.geolocation) return;
+
+  navigator.geolocation.getCurrentPosition(async ({ coords }) => {
+    try {
+      const url =
+        `https://api.open-meteo.com/v1/forecast?latitude=${coords.latitude}` +
+        `&longitude=${coords.longitude}` +
+        `&current=temperature_2m,weather_code&temperature_unit=fahrenheit`;
+
+      const response = await fetch(url);
+      const data = await response.json();
+
+      if (!response.ok || !data.current) throw new Error('Weather unavailable');
+
+      tempEl.textContent = `${Math.round(data.current.temperature_2m)}°`;
+      detailEl.textContent = 'Live conditions';
+    } catch (error) {
+      console.error('Could not load live weather:', error);
+    }
+  });
+}
 document.addEventListener('DOMContentLoaded', () => {
   loadLiveGoogleEvents();
   $$('[data-start]').forEach(b => b.onclick = () => finishIntro(b.dataset.start));
