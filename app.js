@@ -379,7 +379,20 @@ async function loadLiveWeather() {
       if (!response.ok || !data.current) throw new Error('Weather unavailable');
 
       tempEl.textContent = `${Math.round(data.current.temperature_2m)}°`;
-      detailEl.textContent = 'Live conditions';
+      const code = data.current.weather_code;
+
+const condition =
+  code === 0 ? 'Clear' :
+  code <= 3 ? 'Partly cloudy' :
+  code <= 48 ? 'Foggy' :
+  code <= 67 ? 'Rain' :
+  code <= 77 ? 'Snow' :
+  code <= 82 ? 'Rain showers' :
+  code <= 86 ? 'Snow showers' :
+  code >= 95 ? 'Thunderstorms' :
+  'Current conditions';
+
+detailEl.textContent = condition;
     } catch (error) {
       console.error('Could not load live weather:', error);
     }
