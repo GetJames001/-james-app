@@ -387,6 +387,7 @@ async function loadLiveWeather() {
 }
 document.addEventListener('DOMContentLoaded', () => {
   loadLiveGoogleEvents();
+    loadLiveWeather();
   $$('[data-start]').forEach(b => b.onclick = () => finishIntro(b.dataset.start));
   buildCalendar();
   updateHero();
