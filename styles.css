@@ -516,3 +516,32 @@ nav{
 .james-signature{
   width:132px;
 }
+/* Mail card — work / personal identity */
+.mail-split{
+  margin-top:8px;
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+}
+
+.mail-row{
+  display:flex;
+  align-items:center;
+  gap:7px;
+  font-size:.78rem;
+  font-weight:700;
+  letter-spacing:.08em;
+}
+
+.mail-row strong{
+  margin-left:auto;
+  color:#11151a;
+}
+
+.mail-work .mail-envelope{
+  color:#1769aa;
+}
+
+.mail-personal .mail-envelope{
+  color:#b48a2f;
+}
