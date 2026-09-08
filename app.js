@@ -456,8 +456,14 @@ document.addEventListener('DOMContentLoaded', () => {
   loadLiveGoogleEvents();
     loadLiveWeather();
   loadPersonalMicrosoftMail();
-  $('#personalMailRow').onclick = openPersonalMailPanel;
-$('#closePersonalMail').onclick = () => $('#personalMailPanel').hidden = true;
+ const personalMailRow = $('#personalMailRow');
+const closePersonalMail = $('#closePersonalMail');
+
+if (personalMailRow) personalMailRow.onclick = openPersonalMailPanel;
+if (closePersonalMail) closePersonalMail.onclick = () => {
+  const panel = $('#personalMailPanel');
+  if (panel) panel.hidden = true;
+};
   $$('[data-start]').forEach(b => b.onclick = () => finishIntro(b.dataset.start));
   buildCalendar();
   updateHero();
