@@ -412,6 +412,7 @@ async function loadPersonalMicrosoftMail() {
     }
 
     personalMailCount.textContent = `${data.unreadCount} unread`;
+    window.personalMicrosoftMessages = Array.isArray(data.messages) ? data.messages : [];
   } catch (error) {
     console.error('Could not load Personal Microsoft Mail:', error);
 
@@ -420,11 +421,43 @@ async function loadPersonalMicrosoftMail() {
       personalMailCount.textContent = '—';
     }
   }
-}
+function openPersonalMailPanel() {
+  const panel = $('#personalMailPanel');
+  const container = $('#personalMailMessages');
+
+  if (!panel || !container) return;
+
+  const messages = Array.isArray(window.personalMicrosoftMessages)
+    ? window.personalMicrosoftMessages
+    : [];
+
+  container.innerHTML = '';
+
+  messages.forEach(message => {
+    const item = document.createElement('div');
+    item.className = 'personal-mail-message';
+
+    const sender = document.createElement('strong');
+    sender.textContent = message.sender || 'Unknown sender';
+
+    const subject = document.createElement('div');
+    subject.textContent = message.subject || '(No subject)';
+
+    const preview = document.createElement('small');
+    preview.textContent = message.preview || '';
+
+    item.append(sender, subject, preview);
+    container.appendChild(item);
+  });
+
+  panel.hidden = false;
+}}
 document.addEventListener('DOMContentLoaded', () => {
   loadLiveGoogleEvents();
     loadLiveWeather();
   loadPersonalMicrosoftMail();
+  $('#personalMailRow').onclick = openPersonalMailPanel;
+$('#closePersonalMail').onclick = () => $('#personalMailPanel').hidden = true;
   $$('[data-start]').forEach(b => b.onclick = () => finishIntro(b.dataset.start));
   buildCalendar();
   updateHero();
