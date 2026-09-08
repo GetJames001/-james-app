@@ -84,12 +84,36 @@ export default async function handler(req, res) {
         error: "Microsoft Mail could not be read.",
       });
     }
+const messagesResponse = await fetch(
+  "https://graph.microsoft.com/v1.0/me/mailFolders/inbox/messages?$top=10&$select=id,subject,from,receivedDateTime,isRead,bodyPreview&$orderby=receivedDateTime%20desc",
+  {
+    headers: {
+      Authorization: `Bearer ${tokens.access_token}`,
+    },
+  }
+);
 
+const messagesData = await messagesResponse.json();
+
+const messages = messagesResponse.ok && Array.isArray(messagesData.value)
+  ? messagesData.value.map(message => ({
+      id: message.id,
+      subject: message.subject || "(No subject)",
+      sender:
+        message.from?.emailAddress?.name ||
+        message.from?.emailAddress?.address ||
+        "Unknown sender",
+      receivedDateTime: message.receivedDateTime,
+      isRead: message.isRead,
+      preview: message.bodyPreview || "",
+    }))
+  : [];
     return res.status(200).json({
       connected: true,
       account,
       unreadCount: inbox.unreadItemCount ?? 0,
       totalCount: inbox.totalItemCount ?? 0,
+      messages,
     });
   } catch (err) {
     console.error("Microsoft Mail endpoint error:", err);
