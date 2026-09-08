@@ -403,7 +403,7 @@ async function loadPersonalMicrosoftMail() {
     const response = await fetch('/api/microsoft/mail?account=personal');
     const data = await response.json();
 
-    const personalMailCount = $('#personalMailCount');
+    const personalMailCount = $('#personalEmailCount');
     if (!personalMailCount) return;
 
     if (!response.ok || !data.connected) {
@@ -415,7 +415,7 @@ async function loadPersonalMicrosoftMail() {
   } catch (error) {
     console.error('Could not load Personal Microsoft Mail:', error);
 
-    const personalMailCount = $('#personalMailCount');
+    const personalMailCount = $('#personalEmailCount');
     if (personalMailCount) {
       personalMailCount.textContent = '—';
     }
