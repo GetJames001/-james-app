@@ -398,9 +398,33 @@ detailEl.textContent = condition;
     }
   });
 }
+async function loadPersonalMicrosoftMail() {
+  try {
+    const response = await fetch('/api/microsoft/mail?account=personal');
+    const data = await response.json();
+
+    const personalMailCount = $('#personalMailCount');
+    if (!personalMailCount) return;
+
+    if (!response.ok || !data.connected) {
+      personalMailCount.textContent = '—';
+      return;
+    }
+
+    personalMailCount.textContent = `${data.unreadCount} unread`;
+  } catch (error) {
+    console.error('Could not load Personal Microsoft Mail:', error);
+
+    const personalMailCount = $('#personalMailCount');
+    if (personalMailCount) {
+      personalMailCount.textContent = '—';
+    }
+  }
+}
 document.addEventListener('DOMContentLoaded', () => {
   loadLiveGoogleEvents();
     loadLiveWeather();
+  loadPersonalMicrosoftMail();
   $$('[data-start]').forEach(b => b.onclick = () => finishIntro(b.dataset.start));
   buildCalendar();
   updateHero();
