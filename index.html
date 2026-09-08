@@ -122,7 +122,7 @@
     <strong id="workEmailCount"></strong>
   </div>
 
-  <div class="mail-row mail-personal">
+  <div class="mail-row mail-personal" id="personalMailRow">
     <span>PERSONAL</span>
    <span class="mail-envelope">
   <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.7">
@@ -240,7 +240,13 @@
       </div>
     </div>
   </section>
-
+<div id="personalMailPanel" class="personal-mail-panel" hidden>
+  <div class="personal-mail-panel-header">
+    <h3>Personal Mail</h3>
+    <button id="closePersonalMail" type="button">Close</button>
+  </div>
+  <div id="personalMailMessages"></div>
+</div>
   <section id="appointments" class="page">
     <div class="sheet content-medium">
       <div class="sheet-head">
