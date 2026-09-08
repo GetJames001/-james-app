@@ -7,12 +7,18 @@ export default async function handler(req, res) {
     return res.status(500).send("Microsoft Client ID is not configured.");
   }
 
-  const state = crypto.randomBytes(24).toString("hex");
+ const account = req.query.account;
 
-  res.setHeader(
-    "Set-Cookie",
-    `microsoft_oauth_state=${state}; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=600`
-  );
+if (!["personal", "work"].includes(account)) {
+  return res.status(400).send("Choose personal or work Microsoft account.");
+}
+
+const state = crypto.randomBytes(24).toString("hex");
+
+res.setHeader("Set-Cookie", [
+  `microsoft_oauth_state=${state}; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=600`,
+  `microsoft_oauth_account=${account}; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=600`,
+]);
 
   const params = new URLSearchParams({
     client_id: clientId,
