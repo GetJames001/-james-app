@@ -412,6 +412,7 @@ async function loadPersonalMicrosoftMail() {
     }
 
     personalMailCount.textContent = `${data.unreadCount} unread`;
+    window.personalMicrosoftMessages = Array.isArray(data.messages) ? data.messages : [];
   } catch (error) {
     console.error('Could not load Personal Microsoft Mail:', error);
 
@@ -439,6 +440,10 @@ document.addEventListener('DOMContentLoaded', () => {
     }[type];
     panel(type.toUpperCase(), b.textContent.trim(), data.map(x => `<div class="panel-item"><b>${x[0]}</b><span>${x[1]}</span><button>Open</button><button>Call</button><button>Message</button></div>`).join(''));
   });
+  const personalMailRow = $('#personalMailRow');
+if (personalMailRow) {
+  personalMailRow.onclick = () => panel('MAIL', 'Personal Mail', '');
+}
   $('#close').onclick = closePanel;
   $('#backdrop').onclick = e => { if(e.target === $('#backdrop')) closePanel(); };
   $('#jamesOrb').onclick = () => { setOrbState('listening'); speak(); setTimeout(() => setOrbState('idle'), 3200); };
