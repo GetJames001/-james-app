@@ -442,7 +442,7 @@ document.addEventListener('DOMContentLoaded', () => {
   });
   const personalMailRow = $('#personalMailRow');
 if (personalMailRow) {
-  personalMailRow.onclick = () => panel('MAIL', 'Personal Mail', '');
+  personalMailRow.onclick = () => page('personalMail');
 }
   $('#close').onclick = closePanel;
   $('#backdrop').onclick = e => { if(e.target === $('#backdrop')) closePanel(); };
