@@ -471,7 +471,17 @@ emailFrame.srcdoc =
   `<html><body><p>${message.preview || "No message content."}</p></body></html>`;
 
 detailBody.appendChild(emailFrame);
+const replyButton = document.createElement("button");
+replyButton.id = "personalMailReplyButton";
+replyButton.type = "button";
+replyButton.textContent = "Reply";
+replyButton.style.marginTop = "16px";
 
+replyButton.onclick = () => {
+  alert("Reply composer coming next.");
+};
+
+detailBody.appendChild(replyButton);
   page('personalMailDetail');
 };
     list.appendChild(row);
