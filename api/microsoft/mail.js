@@ -85,10 +85,11 @@ export default async function handler(req, res) {
       });
     }
 const messagesResponse = await fetch(
-  "https://graph.microsoft.com/v1.0/me/mailFolders/inbox/messages?$top=10&$select=id,subject,from,receivedDateTime,isRead,bodyPreview&$orderby=receivedDateTime%20desc",
+  "https://graph.microsoft.com/v1.0/me/mailFolders/inbox/messages?$top=10&$select=id,subject,from,receivedDateTime,isRead,bodyPreview,body&$orderby=receivedDateTime%20desc",
   {
     headers: {
       Authorization: `Bearer ${tokens.access_token}`,
+      Prefer: 'outlook.body-content-type="text"'
     },
   }
 );
@@ -106,6 +107,7 @@ const messages = messagesResponse.ok && Array.isArray(messagesData.value)
       receivedDateTime: message.receivedDateTime,
       isRead: message.isRead,
       preview: message.bodyPreview || "",
+    body: message.body?.content || ''
     }))
   : [];
     return res.status(200).json({
