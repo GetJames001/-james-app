@@ -444,6 +444,10 @@ document.addEventListener('DOMContentLoaded', () => {
 if (personalMailRow) {
   personalMailRow.onclick = () => page('personalMail');
 }
+  const personalMailBack = $('#personalMailBack');
+if (personalMailBack) {
+  personalMailBack.onclick = () => page('briefing');
+}
   $('#close').onclick = closePanel;
   $('#backdrop').onclick = e => { if(e.target === $('#backdrop')) closePanel(); };
   $('#jamesOrb').onclick = () => { setOrbState('listening'); speak(); setTimeout(() => setOrbState('idle'), 3200); };
