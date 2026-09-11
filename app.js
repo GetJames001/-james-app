@@ -440,6 +440,22 @@ if (message.isRead === false) {
   subject.textContent = '● ' + subject.textContent;
 }
     row.append(subject, sender, received, preview);
+    row.onclick = () => {
+  $('#personalMailDetailSubject').textContent =
+    message.subject || '(No subject)';
+
+  $('#personalMailDetailMeta').textContent =
+    `${message.sender || 'Unknown sender'} · ${
+      message.receivedDateTime
+        ? new Date(message.receivedDateTime).toLocaleString()
+        : ''
+    }`;
+
+  $('#personalMailDetailBody').textContent =
+    message.body || message.preview || '';
+
+  page('personalMailDetail');
+};
     list.appendChild(row);
   });
 }
