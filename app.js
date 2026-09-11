@@ -425,7 +425,21 @@ function renderPersonalMicrosoftMail(messages = []) {
     const preview = document.createElement('span');
     preview.textContent = message.preview || '';
 
-    row.append(subject, sender, preview);
+    
+const received = document.createElement('span');
+received.textContent = message.receivedDateTime
+  ? new Date(message.receivedDateTime).toLocaleString([], {
+      month: 'short',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit'
+    })
+  : '';
+
+if (message.isRead === false) {
+  subject.textContent = '● ' + subject.textContent;
+}
+    row.append(subject, sender, received, preview);
     list.appendChild(row);
   });
 }
