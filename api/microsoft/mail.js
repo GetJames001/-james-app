@@ -89,7 +89,7 @@ const messagesResponse = await fetch(
   {
     headers: {
       Authorization: `Bearer ${tokens.access_token}`,
-      Prefer: 'outlook.body-content-type="text"'
+      Prefer: 'outlook.body-content-type="html"'
     },
   }
 );
