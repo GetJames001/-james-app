@@ -451,15 +451,26 @@ if (message.isRead === false) {
         : ''
     }`;
 
-  const rawBody = message.body || message.preview || '';
+  const detailBody = $("#personalMailDetailBody");
 
-const cleanBody = rawBody
-  .replace(/https?:\/\/[^\s<>"']+/g, '[link]')
-  .replace(/[ \t]+\n/g, '\n')
-  .replace(/\n{3,}/g, '\n\n')
-  .trim();
+detailBody.replaceChildren();
 
-$('#personalMailDetailBody').textContent = cleanBody;
+const emailFrame = document.createElement("iframe");
+
+emailFrame.setAttribute("sandbox", "");
+emailFrame.setAttribute("referrerpolicy", "no-referrer");
+
+emailFrame.style.width = "100%";
+emailFrame.style.minHeight = "700px";
+emailFrame.style.border = "0";
+emailFrame.style.background = "#fff";
+emailFrame.style.borderRadius = "8px";
+
+emailFrame.srcdoc =
+  message.body ||
+  `<html><body><p>${message.preview || "No message content."}</p></body></html>`;
+
+detailBody.appendChild(emailFrame);
 
   page('personalMailDetail');
 };
