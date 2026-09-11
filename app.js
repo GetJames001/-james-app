@@ -398,6 +398,37 @@ detailEl.textContent = condition;
     }
   });
 }
+function renderPersonalMicrosoftMail(messages = []) {
+  const list = $('#personalMailMessages');
+  if (!list) return;
+
+  list.replaceChildren();
+
+  if (!messages.length) {
+    const empty = document.createElement('div');
+    empty.className = 'panel-item';
+    empty.textContent = 'No recent messages.';
+    list.appendChild(empty);
+    return;
+  }
+
+  messages.forEach(message => {
+    const row = document.createElement('div');
+    row.className = 'panel-item';
+
+    const subject = document.createElement('b');
+    subject.textContent = message.subject || '(No subject)';
+
+    const sender = document.createElement('span');
+    sender.textContent = message.sender || 'Unknown sender';
+
+    const preview = document.createElement('span');
+    preview.textContent = message.preview || '';
+
+    row.append(subject, sender, preview);
+    list.appendChild(row);
+  });
+}
 async function loadPersonalMicrosoftMail() {
   try {
     const response = await fetch('/api/microsoft/mail?account=personal');
@@ -413,6 +444,7 @@ async function loadPersonalMicrosoftMail() {
 
     personalMailCount.textContent = `${data.unreadCount} unread`;
     window.personalMicrosoftMessages = Array.isArray(data.messages) ? data.messages : [];
+    renderPersonalMicrosoftMail(window.personalMicrosoftMessages);
   } catch (error) {
     console.error('Could not load Personal Microsoft Mail:', error);
 
