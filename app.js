@@ -478,7 +478,40 @@ replyButton.textContent = "Reply";
 replyButton.style.marginTop = "16px";
 
 replyButton.onclick = () => {
-  alert("Reply composer coming next.");
+  const existingComposer = $("#personalMailReplyComposer");
+  if (existingComposer) existingComposer.remove();
+
+  const composer = document.createElement("div");
+  composer.id = "personalMailReplyComposer";
+
+  const replyBox = document.createElement("textarea");
+  replyBox.id = "personalMailReplyText";
+  replyBox.placeholder = "Write your reply...";
+  replyBox.rows = 8;
+  replyBox.style.width = "100%";
+  replyBox.style.marginTop = "16px";
+
+  const sendButton = document.createElement("button");
+  sendButton.type = "button";
+  sendButton.textContent = "Send";
+  sendButton.style.marginTop = "10px";
+
+  const cancelButton = document.createElement("button");
+  cancelButton.type = "button";
+  cancelButton.textContent = "Cancel";
+  cancelButton.style.margin = "10px 0 0 8px";
+
+  sendButton.onclick = () => {
+    alert("Send wiring comes next.");
+  };
+
+  cancelButton.onclick = () => {
+    composer.remove();
+  };
+
+  composer.append(replyBox, sendButton, cancelButton);
+  detailBody.appendChild(composer);
+  replyBox.focus();
 };
 
 detailBody.appendChild(replyButton);
