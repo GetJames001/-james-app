@@ -510,6 +510,10 @@ if (personalMailRow) {
 if (personalMailBack) {
   personalMailBack.onclick = () => page('briefing');
 }
+  const personalMailDetailBack = $('#personalMailDetailBack');
+if (personalMailDetailBack) {
+  personalMailDetailBack.onclick = () => page('personalMail');
+}
   $('#close').onclick = closePanel;
   $('#backdrop').onclick = e => { if(e.target === $('#backdrop')) closePanel(); };
   $('#jamesOrb').onclick = () => { setOrbState('listening'); speak(); setTimeout(() => setOrbState('idle'), 3200); };
