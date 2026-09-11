@@ -451,8 +451,15 @@ if (message.isRead === false) {
         : ''
     }`;
 
-  $('#personalMailDetailBody').textContent =
-    message.body || message.preview || '';
+  const rawBody = message.body || message.preview || '';
+
+const cleanBody = rawBody
+  .replace(/https?:\/\/[^\s<>"']+/g, '[link]')
+  .replace(/[ \t]+\n/g, '\n')
+  .replace(/\n{3,}/g, '\n\n')
+  .trim();
+
+$('#personalMailDetailBody').textContent = cleanBody;
 
   page('personalMailDetail');
 };
