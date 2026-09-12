@@ -44,7 +44,7 @@ export default async function handler(req, res) {
           client_secret: process.env.MICROSOFT_CLIENT_SECRET,
           refresh_token: refreshToken,
           grant_type: "refresh_token",
-          scope: "openid profile offline_access User.Read Mail.Read",
+          scope: "openid profile offline_access User.Read Mail.Read Mail.Send",
         }),
       }
     );
