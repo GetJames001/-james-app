@@ -501,9 +501,45 @@ replyButton.onclick = () => {
   cancelButton.textContent = "Cancel";
   cancelButton.style.margin = "10px 0 0 8px";
 
-  sendButton.onclick = () => {
-    alert("Send wiring comes next.");
-  };
+ sendButton.onclick = async () => {
+  const replyText = replyBox.value.trim();
+
+  if (!replyText) {
+    alert("Write a reply first.");
+    return;
+  }
+
+  sendButton.disabled = true;
+  sendButton.textContent = "Sending...";
+
+  try {
+    const response = await fetch("/api/microsoft/mail?account=personal", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        messageId: message.id,
+        replyText,
+      }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok || !data.sent) {
+      throw new Error(data.error || "Reply failed.");
+    }
+
+    composer.remove();
+    alert("Reply sent.");
+  } catch (error) {
+    console.error("Personal mail reply failed", error);
+    alert("James could not send the reply.");
+  } finally {
+    sendButton.disabled = false;
+    sendButton.textContent = "Send";
+  }
+};
 
   cancelButton.onclick = () => {
     composer.remove();
