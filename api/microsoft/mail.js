@@ -63,7 +63,47 @@ export default async function handler(req, res) {
         error: "Microsoft Mail token refresh failed.",
       });
     }
+if (req.method === "POST") {
+  const { messageId, replyText } = req.body || {};
 
+  if (!messageId || !replyText?.trim()) {
+    return res.status(400).json({
+      sent: false,
+      error: "Message ID and reply text are required.",
+    });
+  }
+
+  const replyResponse = await fetch(
+    `https://graph.microsoft.com/v1.0/me/messages/${encodeURIComponent(
+      messageId
+    )}/reply`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${tokens.access_token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        comment: replyText.trim(),
+      }),
+    }
+  );
+
+  if (!replyResponse.ok) {
+    const replyError = await replyResponse.text();
+
+    console.error("Microsoft reply failed", replyError);
+
+    return res.status(500).json({
+      sent: false,
+      error: "Microsoft could not send the reply.",
+    });
+  }
+
+  return res.status(200).json({
+    sent: true,
+  });
+}
     const graphResponse = await fetch(
       "https://graph.microsoft.com/v1.0/me/mailFolders/inbox?$select=unreadItemCount,totalItemCount",
       {
