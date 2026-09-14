@@ -53,6 +53,10 @@ ol li{padding:17px 0}
 .intro.phase-return .intro-copy{opacity:0;transform:translateY(10px);transition:.55s ease}
 .intro-copy p.quiet{opacity:0;transition:.25s ease}
 
+html.james-session-active #intro {
+  display: none !important;
+}
+
 /* The orb is James: one persistent control in the upper-right on every page. */
 .status-cluster{gap:15px;align-items:center}
 .persistent-orb{position:relative;flex:0 0 auto;width:46px;height:46px;transition:transform .25s ease,box-shadow .3s ease,filter .3s ease}
