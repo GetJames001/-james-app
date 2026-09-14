@@ -106,6 +106,7 @@ function buildCalendar(){
 }
 
 function page(id){
+  sessionStorage.setItem('jamesCurrentPage', id);
   $$('nav button').forEach(b => b.classList.toggle('active', b.dataset.page === id));
   $$('.page').forEach(p => p.classList.toggle('active', p.id === id));
   if(id === 'insights'){
@@ -168,6 +169,8 @@ if(introDate === new Date().toDateString()){
   $('#intro').classList.add('hide');
   $('#app').classList.remove('frosted');
   $('#app').classList.add('clear');
+  const savedPage = sessionStorage.getItem('jamesCurrentPage') || 'briefing';
+page(savedPage);
   return;
 }
   const saved = localStorage.getItem('jamesStart');
