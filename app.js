@@ -136,6 +136,7 @@ function setOrbState(state='idle'){
 function finishIntro(startLocation){
   if(introFinished) return;
   introFinished = true;
+  sessionStorage.setItem('jamesIntroDate', new Date().toDateString());
   $('#intro').classList.add('hide');
 $('#app').classList.remove('frosted');
 $('#app').classList.add('clear');
@@ -160,6 +161,15 @@ $('#app').classList.add('clear');
 }
 
 function intro(){
+  const introDate = sessionStorage.getItem('jamesIntroDate');
+
+if(introDate === new Date().toDateString()){
+  introFinished = true;
+  $('#intro').classList.add('hide');
+  $('#app').classList.remove('frosted');
+  $('#app').classList.add('clear');
+  return;
+}
   const saved = localStorage.getItem('jamesStart');
   const introEl = $('#intro');
   const summary = $('#introSummary');
