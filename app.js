@@ -428,6 +428,7 @@ function renderPersonalMicrosoftMail(messages = []) {
   messages.forEach(message => {
     const row = document.createElement('div');
     row.className = 'panel-item';
+    row.dataset.messageId = message.id;
 
     const subject = document.createElement('b');
     subject.textContent = message.subject || '(No subject)';
@@ -454,6 +455,7 @@ if (message.isRead === false) {
 }
     row.append(subject, sender, received, preview);
     row.onclick = () => {
+      sessionStorage.setItem('jamesOpenPersonalMailId', message.id);
   $('#personalMailDetailSubject').textContent =
     message.subject || '(No subject)';
 
@@ -568,6 +570,19 @@ detailBody.appendChild(replyButton);
 };
     list.appendChild(row);
   });
+  const savedMailId = sessionStorage.getItem('jamesOpenPersonalMailId');
+const savedPage = sessionStorage.getItem('jamesCurrentPage');
+
+if (savedPage === 'personalMailDetail' && savedMailId) {
+  const savedRow = list.querySelector(`[data-message-id="${CSS.escape(savedMailId)}"]`);
+
+  if (savedRow) {
+    savedRow.click();
+  } else {
+    sessionStorage.removeItem('jamesOpenPersonalMailId');
+    page('personalMail');
+  }
+}
 }
 async function loadPersonalMicrosoftMail() {
   try {
