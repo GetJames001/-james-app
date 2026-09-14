@@ -91,7 +91,7 @@ const calendars = (calendarListData.items || []).filter((calendar) => {
 // 4. Pull upcoming events from all relevant calendars
 const now = new Date();
 const sevenDaysFromNow = new Date(
-  now.getTime() + 7 * 24 * 60 * 60 * 1000
+  now.getTime() + 90 * 24 * 60 * 60 * 1000
 );
 
 const allEvents = [];
