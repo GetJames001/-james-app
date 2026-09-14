@@ -1,7 +1,7 @@
 const $ = (s) => document.querySelector(s);
 const $$ = (s) => [...document.querySelectorAll(s)];
 
-
+let events = [];
 let liveEvents = [];
 let briefingEvents = [];
 
