@@ -1,20 +1,7 @@
 const $ = (s) => document.querySelector(s);
 const $$ = (s) => [...document.querySelectorAll(s)];
 
-let events = [
-  ['08:30','09:00','Travel','18 min to Fort Apache Surgical','travel'],
-  ['09:00','10:00','Fort Apache Surgical','Site Visit'],
-  ['10:00','10:18','Travel','18 min to Advanced Surgical','travel'],
-  ['10:18','11:00','Advanced Surgical','Site Visit'],
-  ['11:00','13:00','Available','Open time','open'],
-  ['13:00','14:00','Windmill Library','Site Visit'],
-  ['14:00','14:12','Travel','12 min to Sierra Surgical','travel'],
-  ['14:30','15:15','Sierra Surgical','Follow Up'],
-  ['15:15','16:30','Available','Open time','open'],
-  ['16:30','17:15','Allegiant Stadium','Site Visit'],
-  ['17:15','18:15','Available','Open time','open'],
-  ['18:15','19:00','Central Transport','Bid Review']
-];
+
 let liveEvents = [];
 let briefingEvents = [];
 
