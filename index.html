@@ -9,7 +9,11 @@
 </head>
 
 <body>
-
+<script>
+  if (sessionStorage.getItem('jamesIntroDate') === new Date().toDateString()) {
+    document.documentElement.classList.add('james-session-active');
+  }
+</script>
 <section id="intro" class="intro" aria-label="James introduction">
   <div class="intro-stage" aria-hidden="true">
     <div class="orb big"><span>J</span></div>
