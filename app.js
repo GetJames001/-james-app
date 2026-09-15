@@ -26,7 +26,7 @@ function setGreeting(){
 function nextAppointment(){
   const now = new Date();
   const appointments = events.filter(e => !e[4]);
- return appointments.find(e => timeToDate(e[1]) > now);
+ return appointments.find(e => timeToDate(e[0]) > now);
 }
 
 function updateHero(){
