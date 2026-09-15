@@ -4,11 +4,60 @@ const $$ = (s) => [...document.querySelectorAll(s)];
 let events = [];
 let liveEvents = [];
 let briefingEvents = [];
+let tasks = [];
+let activeTaskFilter = "all";
 
 const mins = (t) => { const [h,m] = t.split(':').map(Number); return (h-7)*60+m; };
 const pretty = (t) => { let [h,m] = t.split(':').map(Number); const s = h >= 12 ? 'PM' : 'AM'; h = h % 12 || 12; return `${h}:${String(m).padStart(2,'0')} ${s}`; };
 const timeToDate = (t) => { const [h,m] = t.split(':').map(Number); const d = new Date(); d.setHours(h,m,0,0); return d; };
+function renderTaskPad() {
+  const list = $("#taskList");
+  if (!list) return;
 
+  const visibleTasks = tasks.filter(task =>
+    activeTaskFilter === "all" || task.domain === activeTaskFilter
+  );
+
+  $$(".task-filter").forEach(button => {
+    button.classList.toggle(
+      "active",
+      button.dataset.taskFilter === activeTaskFilter
+    );
+  });
+
+  if (!visibleTasks.length) {
+    list.innerHTML = `
+      <div id="taskEmpty" class="task-empty">
+        <b>No tasks yet.</b>
+        <span>Tasks James is protecting will appear here.</span>
+      </div>
+    `;
+    return;
+  }
+
+  list.innerHTML = "";
+
+  visibleTasks.forEach(task => {
+    const row = document.createElement("div");
+    row.className = "task-row";
+    row.dataset.taskId = task.id;
+
+    const checkbox = document.createElement("input");
+    checkbox.type = "checkbox";
+    checkbox.checked = task.status === "completed";
+
+    const title = document.createElement("span");
+    title.className = "task-title";
+    title.textContent = task.title;
+
+    const meta = document.createElement("span");
+    meta.className = "task-meta";
+    meta.textContent = task.dueLabel || "";
+
+    row.append(checkbox, title, meta);
+    list.appendChild(row);
+  });
+}
 function greetingForHour(hour){
   if(hour < 12) return 'Good Morning, Michael';
   if(hour < 18) return 'Good Afternoon, Michael';
@@ -600,6 +649,14 @@ document.addEventListener('DOMContentLoaded', () => {
   loadLiveGoogleEvents();
     loadLiveWeather();
   loadPersonalMicrosoftMail();
+  renderTaskPad();
+
+$$(".task-filter").forEach(button => {
+  button.onclick = () => {
+    activeTaskFilter = button.dataset.taskFilter || "all";
+    renderTaskPad();
+  };
+});
   $$('[data-start]').forEach(b => b.onclick = () => finishIntro(b.dataset.start));
   buildCalendar();
   updateHero();
