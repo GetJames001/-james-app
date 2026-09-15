@@ -88,9 +88,13 @@ const calendars = (calendarListData.items || []).filter((calendar) => {
   );
 });
 
-// 4. Pull upcoming events from all relevant calendars
+// 4. Pull events from a 24-hour lookback so the full current day
+// remains available after refresh. The client filters the results to today.
 const now = new Date();
-const sevenDaysFromNow = new Date(
+const startOfTodayWindow = new Date(
+  now.getTime() - 24 * 60 * 60 * 1000
+);
+const ninetyDaysFromNow = new Date(
   now.getTime() + 90 * 24 * 60 * 60 * 1000
 );
 
@@ -98,8 +102,8 @@ const allEvents = [];
 
 for (const calendar of calendars) {
   const calendarParams = new URLSearchParams({
-    timeMin: now.toISOString(),
-    timeMax: sevenDaysFromNow.toISOString(),
+    timeMin: startOfTodayWindow.toISOString(),
+    timeMax: ninetyDaysFromNow.toISOString(),
     singleEvents: "true",
     orderBy: "startTime",
     maxResults: "50",
