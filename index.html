@@ -327,12 +327,18 @@
         </div>
       </div>
 
-      <div class="tasks">
-        <label><input type="checkbox"> Finish Galleria bid <span>Due tomorrow</span></label>
-        <label><input type="checkbox"> Finish Central Transport proposal <span>Due midweek</span></label>
-        <label><input type="checkbox"> Return Scott Schuster’s call <span>Overdue</span></label>
-        <label><input type="checkbox"> Send pricing follow-up to TJ <span>Today</span></label>
-      </div>
+      <div class="task-toolbar" aria-label="Task filters">
+  <button type="button" class="task-filter active" data-task-filter="all">All</button>
+  <button type="button" class="task-filter" data-task-filter="work">Work</button>
+  <button type="button" class="task-filter" data-task-filter="personal">Personal</button>
+</div>
+
+<div id="taskList" class="tasks">
+  <div id="taskEmpty" class="task-empty">
+    <b>No tasks yet.</b>
+    <span>Tasks James is protecting will appear here.</span>
+  </div>
+</div>
     </div>
   </section>
 
