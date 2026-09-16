@@ -9,9 +9,17 @@ const handlers = {
 };
 
 export default async function handler(req, res) {
-  const action = Array.isArray(req.query.action)
-    ? req.query.action[0]
-    : req.query.action;
+ const queryAction = Array.isArray(req.query.action)
+  ? req.query.action[0]
+  : req.query.action;
+
+const pathAction = (req.url || "")
+  .split("?")[0]
+  .split("/")
+  .filter(Boolean)
+  .pop();
+
+const action = queryAction || pathAction;
 
   const selectedHandler = handlers[action];
 
