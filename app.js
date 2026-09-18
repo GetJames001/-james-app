@@ -111,9 +111,46 @@ async function saveTasks() {
     return false;
   }
 }
+async function createTask() {
+  const titleInput = $("#taskTitleInput");
+  const domainInput = $("#taskDomainInput");
+
+  const title = titleInput?.value.trim();
+
+  if (!title) {
+    titleInput?.focus();
+    return;
+  }
+
+  const newTask = {
+    id: `task-${Date.now()}`,
+    title,
+    domain: domainInput?.value === "personal" ? "personal" : "work",
+    status: "open",
+    dueLabel: "",
+  };
+
+  tasks.unshift(newTask);
+  renderTaskPad();
+
+  const saved = await saveTasks();
+
+  if (!saved) {
+    tasks = tasks.filter(task => task.id !== newTask.id);
+    renderTaskPad();
+    return;
+  }
+
+  titleInput.value = "";
+  titleInput.focus();
+}
 if (document.readyState === "loading") {
-  document.addEventListener("DOMContentLoaded", loadTasks, { once: true });
+  document.addEventListener("DOMContentLoaded", () => {
+    $("#taskAddButton")?.addEventListener("click", createTask);
+    loadTasks();
+  }, { once: true });
 } else {
+  $("#taskAddButton")?.addEventListener("click", createTask);
   loadTasks();
 }
 function greetingForHour(hour){
