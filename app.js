@@ -47,12 +47,19 @@ function renderTaskPad() {
     checkbox.checked = task.status === "completed";
     checkbox.addEventListener("change", async () => {
   const previousStatus = task.status;
-  task.status = checkbox.checked ? "completed" : "open";
+const previousUpdatedAt = task.updatedAt;
+const previousCompletedAt = task.completedAt;
 
+const now = new Date().toISOString();
+task.status = checkbox.checked ? "completed" : "open";
+task.updatedAt = now;
+task.completedAt = checkbox.checked ? now : null;
   const saved = await saveTasks();
 
   if (!saved) {
     task.status = previousStatus;
+    task.updatedAt = previousUpdatedAt;
+task.completedAt = previousCompletedAt;
     renderTaskPad();
   }
 });
@@ -121,14 +128,17 @@ async function createTask() {
     titleInput?.focus();
     return;
   }
-
+const now = new Date().toISOString();
   const newTask = {
-    id: `task-${Date.now()}`,
-    title,
-    domain: domainInput?.value === "personal" ? "personal" : "work",
-    status: "open",
-    dueLabel: "",
-  };
+  id: `task-${Date.now()}`,
+  title,
+  domain: domainInput?.value === "personal" ? "personal" : "work",
+  status: "open",
+  dueLabel: "",
+  createdAt: now,
+  updatedAt: now,
+  completedAt: null,
+};
 
   tasks.unshift(newTask);
   renderTaskPad();
