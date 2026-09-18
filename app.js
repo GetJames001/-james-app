@@ -45,6 +45,17 @@ function renderTaskPad() {
     const checkbox = document.createElement("input");
     checkbox.type = "checkbox";
     checkbox.checked = task.status === "completed";
+    checkbox.addEventListener("change", async () => {
+  const previousStatus = task.status;
+  task.status = checkbox.checked ? "completed" : "open";
+
+  const saved = await saveTasks();
+
+  if (!saved) {
+    task.status = previousStatus;
+    renderTaskPad();
+  }
+});
 
     const title = document.createElement("span");
     title.className = "task-title";
@@ -57,6 +68,53 @@ function renderTaskPad() {
     row.append(checkbox, title, meta);
     list.appendChild(row);
   });
+}
+async function loadTasks() {
+  try {
+    const response = await fetch("/api/tasks", {
+      cache: "no-store",
+    });
+
+    if (!response.ok) {
+      throw new Error(`Tasks request failed with ${response.status}`);
+    }
+
+    const data = await response.json();
+    tasks = Array.isArray(data.tasks) ? data.tasks : [];
+    renderTaskPad();
+  } catch (error) {
+    console.error("Task load failed:", error);
+    tasks = [];
+    renderTaskPad();
+  }
+}
+async function saveTasks() {
+  try {
+    const response = await fetch("/api/tasks", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ tasks }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Task save failed with ${response.status}`);
+    }
+
+    const data = await response.json();
+    tasks = Array.isArray(data.tasks) ? data.tasks : tasks;
+    renderTaskPad();
+    return true;
+  } catch (error) {
+    console.error("Task save failed:", error);
+    return false;
+  }
+}
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", loadTasks, { once: true });
+} else {
+  loadTasks();
 }
 function greetingForHour(hour){
   if(hour < 12) return 'Good Morning, Michael';
