@@ -312,7 +312,19 @@
           <h3>Commitments James is protecting.</h3>
         </div>
       </div>
-
+<div class="task-create">
+  <input
+    id="taskTitleInput"
+    type="text"
+    placeholder="What should James protect?"
+    autocomplete="off"
+  >
+  <select id="taskDomainInput" aria-label="Task type">
+    <option value="work">Work</option>
+    <option value="personal">Personal</option>
+  </select>
+  <button id="taskAddButton" type="button">Add task</button>
+</div>
       <div class="task-toolbar" aria-label="Task filters">
   <button type="button" class="task-filter active" data-task-filter="all">All</button>
   <button type="button" class="task-filter" data-task-filter="work">Work</button>
