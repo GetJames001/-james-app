@@ -514,43 +514,71 @@ if (allDayStrip) {
     console.error('Could not load live Google events:', error);
   }
 }
-async function loadLiveWeather() {
+async function loadWeatherForCoordinates({ latitude, longitude }, tempEl, detailEl) {
+  try {
+    const url =
+      `https://api.open-meteo.com/v1/forecast?latitude=${latitude}` +
+      `&longitude=${longitude}` +
+      `&current=temperature_2m,weather_code&temperature_unit=fahrenheit`;
+
+    const response = await fetch(url);
+    const data = await response.json();
+
+    if (!response.ok || !data.current) throw new Error('Weather unavailable');
+
+    tempEl.textContent = `${Math.round(data.current.temperature_2m)}°`;
+    const code = data.current.weather_code;
+
+    const condition =
+      code === 0 ? 'Clear' :
+      code <= 3 ? 'Partly cloudy' :
+      code <= 48 ? 'Foggy' :
+      code <= 67 ? 'Rain' :
+      code <= 77 ? 'Snow' :
+      code <= 82 ? 'Rain showers' :
+      code <= 86 ? 'Snow showers' :
+      code >= 95 ? 'Thunderstorms' :
+      'Current conditions';
+
+    detailEl.textContent = condition;
+  } catch (error) {
+    tempEl.textContent = '—';
+    detailEl.textContent = 'Weather unavailable';
+    console.error('Could not load live weather:', error);
+  }
+}
+
+function loadLiveWeather() {
   const tempEl = $('#weatherTemp');
   const detailEl = $('#weatherDetail');
 
-  if (!tempEl || !detailEl || !navigator.geolocation) return;
+  if (!tempEl || !detailEl) return;
 
-  navigator.geolocation.getCurrentPosition(async ({ coords }) => {
-    try {
-      const url =
-        `https://api.open-meteo.com/v1/forecast?latitude=${coords.latitude}` +
-        `&longitude=${coords.longitude}` +
-        `&current=temperature_2m,weather_code&temperature_unit=fahrenheit`;
+  detailEl.textContent = 'Locating…';
 
-      const response = await fetch(url);
-      const data = await response.json();
+  const showLocationUnavailable = (error) => {
+    tempEl.textContent = '—';
+    detailEl.textContent = 'Location unavailable';
 
-      if (!response.ok || !data.current) throw new Error('Weather unavailable');
-
-      tempEl.textContent = `${Math.round(data.current.temperature_2m)}°`;
-      const code = data.current.weather_code;
-
-const condition =
-  code === 0 ? 'Clear' :
-  code <= 3 ? 'Partly cloudy' :
-  code <= 48 ? 'Foggy' :
-  code <= 67 ? 'Rain' :
-  code <= 77 ? 'Snow' :
-  code <= 82 ? 'Rain showers' :
-  code <= 86 ? 'Snow showers' :
-  code >= 95 ? 'Thunderstorms' :
-  'Current conditions';
-
-detailEl.textContent = condition;
-    } catch (error) {
-      console.error('Could not load live weather:', error);
+    if (error) {
+      console.warn('Could not determine device location:', error);
     }
-  });
+  };
+
+  if (!navigator.geolocation) {
+    showLocationUnavailable();
+    return;
+  }
+
+  navigator.geolocation.getCurrentPosition(
+    ({ coords }) => loadWeatherForCoordinates(coords, tempEl, detailEl),
+    showLocationUnavailable,
+    {
+      enableHighAccuracy: false,
+      timeout: 8000,
+      maximumAge: 15 * 60 * 1000
+    }
+  );
 }
 function renderPersonalMicrosoftMail(messages = []) {
   const list = $('#personalMailMessages');
