@@ -514,11 +514,6 @@ if (allDayStrip) {
     console.error('Could not load live Google events:', error);
   }
 }
-const DEFAULT_WEATHER_COORDINATES = {
-  latitude: 36.1716,
-  longitude: -115.1391
-};
-
 async function loadWeatherForCoordinates({ latitude, longitude }, tempEl, detailEl) {
   try {
     const url =
@@ -561,22 +556,23 @@ function loadLiveWeather() {
 
   detailEl.textContent = 'Locating…';
 
-  const useDefaultLocation = (error) => {
-    if (error) {
-      console.warn('Could not determine device location; using Las Vegas:', error);
-    }
+  const showLocationUnavailable = (error) => {
+    tempEl.textContent = '—';
+    detailEl.textContent = 'Location unavailable';
 
-    loadWeatherForCoordinates(DEFAULT_WEATHER_COORDINATES, tempEl, detailEl);
+    if (error) {
+      console.warn('Could not determine device location:', error);
+    }
   };
 
   if (!navigator.geolocation) {
-    useDefaultLocation();
+    showLocationUnavailable();
     return;
   }
 
   navigator.geolocation.getCurrentPosition(
     ({ coords }) => loadWeatherForCoordinates(coords, tempEl, detailEl),
-    useDefaultLocation,
+    showLocationUnavailable,
     {
       enableHighAccuracy: false,
       timeout: 8000,

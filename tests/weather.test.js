@@ -77,17 +77,11 @@ test('loads live weather from the device location with a bounded lookup', async 
   assert.equal(harness.elements['#weatherDetail'].textContent, 'Clear');
 });
 
-test('falls back to Las Vegas when the device location cannot be resolved', async () => {
+test('shows location unavailable when the device location cannot be resolved', async () => {
   const harness = createHarness({
     geolocation: {
       getCurrentPosition(_success, error) {
         error({ code: 2, message: 'Position unavailable' });
-      }
-    },
-    response: {
-      ok: true,
-      async json() {
-        return { current: { temperature_2m: 94.2, weather_code: 1 } };
       }
     }
   });
@@ -95,15 +89,29 @@ test('falls back to Las Vegas when the device location cannot be resolved', asyn
   harness.loadWeather();
   await flushPromises();
 
-  const requestUrl = new URL(harness.fetchCalls[0]);
-  assert.equal(requestUrl.searchParams.get('latitude'), '36.1716');
-  assert.equal(requestUrl.searchParams.get('longitude'), '-115.1391');
-  assert.equal(harness.elements['#weatherTemp'].textContent, '94°');
-  assert.equal(harness.elements['#weatherDetail'].textContent, 'Partly cloudy');
+  assert.equal(harness.fetchCalls.length, 0);
+  assert.equal(harness.elements['#weatherTemp'].textContent, '—');
+  assert.equal(harness.elements['#weatherDetail'].textContent, 'Location unavailable');
 });
 
-test('falls back when geolocation is unavailable and reports API failures', async () => {
+test('shows location unavailable when geolocation is unavailable', async () => {
+  const harness = createHarness({});
+
+  harness.loadWeather();
+  await flushPromises();
+
+  assert.equal(harness.fetchCalls.length, 0);
+  assert.equal(harness.elements['#weatherTemp'].textContent, '—');
+  assert.equal(harness.elements['#weatherDetail'].textContent, 'Location unavailable');
+});
+
+test('reports API failures after obtaining a device location', async () => {
   const harness = createHarness({
+    geolocation: {
+      getCurrentPosition(success) {
+        success({ coords: { latitude: 35.9, longitude: -115.2 } });
+      }
+    },
     response: {
       ok: false,
       async json() {
