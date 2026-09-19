@@ -515,16 +515,35 @@ if (allDayStrip) {
   }
 }
 const WEATHER_LOCATION_TIMEOUT_MS = 8000;
+const WEATHER_REQUEST_TIMEOUT_MS = 8000;
 
 async function loadWeatherForCoordinates({ latitude, longitude }, tempEl, detailEl) {
+  const controller = typeof AbortController === 'function'
+    ? new AbortController()
+    : null;
+  let timeoutId;
+
   try {
     const url =
       `https://api.open-meteo.com/v1/forecast?latitude=${latitude}` +
       `&longitude=${longitude}` +
       `&current=temperature_2m,weather_code&temperature_unit=fahrenheit`;
 
-    const response = await fetch(url);
-    const data = await response.json();
+    const timeout = new Promise((_, reject) => {
+      timeoutId = setTimeout(() => {
+        controller?.abort();
+        reject(new Error('Weather request timed out'));
+      }, WEATHER_REQUEST_TIMEOUT_MS);
+    });
+    const request = (async () => {
+      const response = controller
+        ? await fetch(url, { signal: controller.signal })
+        : await fetch(url);
+      const data = await response.json();
+
+      return { response, data };
+    })();
+    const { response, data } = await Promise.race([request, timeout]);
 
     if (!response.ok || !data.current) throw new Error('Weather unavailable');
 
@@ -547,6 +566,8 @@ async function loadWeatherForCoordinates({ latitude, longitude }, tempEl, detail
     tempEl.textContent = '—';
     detailEl.textContent = 'Weather unavailable';
     console.error('Could not load live weather:', error);
+  } finally {
+    clearTimeout(timeoutId);
   }
 }
 
