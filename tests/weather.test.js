@@ -12,6 +12,8 @@ function createHarness({ geolocation, response }) {
     '#weatherDetail': { textContent: '—' }
   };
   const fetchCalls = [];
+  const timers = new Map();
+  let nextTimerId = 1;
 
   const context = vm.createContext({
     console: { error() {}, log() {}, warn() {} },
@@ -29,6 +31,14 @@ function createHarness({ geolocation, response }) {
       fetchCalls.push(url);
       return response;
     },
+    setTimeout(callback, delay) {
+      const id = nextTimerId++;
+      timers.set(id, { callback, delay });
+      return id;
+    },
+    clearTimeout(id) {
+      timers.delete(id);
+    },
     navigator: geolocation ? { geolocation } : {},
     window: {}
   });
@@ -38,6 +48,12 @@ function createHarness({ geolocation, response }) {
   return {
     elements,
     fetchCalls,
+    runTimers() {
+      const pendingTimers = [...timers.values()];
+      timers.clear();
+      pendingTimers.forEach(({ callback }) => callback());
+      return pendingTimers.map(({ delay }) => delay);
+    },
     loadWeather() {
       vm.runInContext('loadLiveWeather()', context);
     }
@@ -98,6 +114,24 @@ test('shows location unavailable when geolocation is unavailable', async () => {
   const harness = createHarness({});
 
   harness.loadWeather();
+  await flushPromises();
+
+  assert.equal(harness.fetchCalls.length, 0);
+  assert.equal(harness.elements['#weatherTemp'].textContent, '—');
+  assert.equal(harness.elements['#weatherDetail'].textContent, 'Location unavailable');
+});
+
+test('shows location unavailable when geolocation invokes neither callback', async () => {
+  const harness = createHarness({
+    geolocation: {
+      getCurrentPosition() {}
+    }
+  });
+
+  harness.loadWeather();
+
+  assert.equal(harness.elements['#weatherDetail'].textContent, 'Locating…');
+  assert.deepEqual(harness.runTimers(), [8000]);
   await flushPromises();
 
   assert.equal(harness.fetchCalls.length, 0);

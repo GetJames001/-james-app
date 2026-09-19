@@ -514,6 +514,8 @@ if (allDayStrip) {
     console.error('Could not load live Google events:', error);
   }
 }
+const WEATHER_LOCATION_TIMEOUT_MS = 8000;
+
 async function loadWeatherForCoordinates({ latitude, longitude }, tempEl, detailEl) {
   try {
     const url =
@@ -570,15 +572,42 @@ function loadLiveWeather() {
     return;
   }
 
-  navigator.geolocation.getCurrentPosition(
-    ({ coords }) => loadWeatherForCoordinates(coords, tempEl, detailEl),
-    showLocationUnavailable,
-    {
-      enableHighAccuracy: false,
-      timeout: 8000,
-      maximumAge: 15 * 60 * 1000
-    }
+  let locationSettled = false;
+  let watchdogId;
+
+  const settleLocation = (callback) => (...args) => {
+    if (locationSettled) return;
+
+    locationSettled = true;
+    clearTimeout(watchdogId);
+    callback(...args);
+  };
+
+  const handleLocationSuccess = settleLocation(
+    ({ coords }) => loadWeatherForCoordinates(coords, tempEl, detailEl)
   );
+  const handleLocationError = settleLocation(showLocationUnavailable);
+
+  watchdogId = setTimeout(
+    () => handleLocationError(
+      new Error('Geolocation timed out without a browser callback')
+    ),
+    WEATHER_LOCATION_TIMEOUT_MS
+  );
+
+  try {
+    navigator.geolocation.getCurrentPosition(
+      handleLocationSuccess,
+      handleLocationError,
+      {
+        enableHighAccuracy: false,
+        timeout: WEATHER_LOCATION_TIMEOUT_MS,
+        maximumAge: 15 * 60 * 1000
+      }
+    );
+  } catch (error) {
+    handleLocationError(error);
+  }
 }
 function renderPersonalMicrosoftMail(messages = []) {
   const list = $('#personalMailMessages');
