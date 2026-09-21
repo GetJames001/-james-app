@@ -100,7 +100,10 @@ test('uses the browser timezone when converting Google event timestamps', () => 
 });
 
 test('anchors event labels at the top and stacks mail counts on narrow screens', () => {
-  assert.match(styles, /\.event\{\s*display:block;/);
+  assert.match(
+    styles,
+    /\.event\{\s*display:flex;[\s\S]*justify-content:flex-start;[\s\S]*align-items:stretch;/
+  );
   assert.match(
     styles,
     /@media\(max-width:650px\)[\s\S]*\.mail-row\{[\s\S]*display:grid;[\s\S]*grid-template-columns:minmax\(0,1fr\) auto;/

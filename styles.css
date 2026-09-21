@@ -561,7 +561,10 @@ nav{
 }
 
 .event{
-  display:block;
+  display:flex;
+  flex-direction:column;
+  justify-content:flex-start;
+  align-items:stretch;
   left:var(--event-left);
   right:var(--event-right);
 }
