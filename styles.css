@@ -552,3 +552,42 @@ nav{
 .mail-personal .mail-envelope{
   color:#b48a2f;
 }
+
+/* Keep calendar geometry and narrow mail content aligned with responsive rows. */
+.calendar{
+  --calendar-hour-height:60px;
+  --event-left:78px;
+  --event-right:8px;
+}
+
+.event{
+  display:block;
+  left:var(--event-left);
+  right:var(--event-right);
+}
+
+@media(max-width:650px){
+  .calendar{
+    --calendar-hour-height:52px;
+    --event-left:64px;
+  }
+
+  .mail-row{
+    display:grid;
+    grid-template-columns:minmax(0,1fr) auto;
+    gap:3px 6px;
+  }
+
+  .intel-card .mail-row > span{
+    margin-bottom:0;
+  }
+
+  .intel-card .mail-row > strong{
+    grid-column:1 / -1;
+    min-width:0;
+    margin-left:0;
+    font-size:.8rem;
+    line-height:1.2;
+    overflow-wrap:anywhere;
+  }
+}
