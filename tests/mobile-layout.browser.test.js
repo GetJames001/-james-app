@@ -199,14 +199,12 @@ test('responsive calendar and mail layout survive live viewport changes', async 
     assert.ok(portrait.fieldDay.labelOffset < 12);
     assert.ok(Math.abs(portrait.markerTop - portrait.expectedMarkerTop) < 0.1);
 
-    await page.locator('.event').filter({ hasText: 'FIELD DAY' }).click({
-      position: { x: 10, y: 10 }
-    });
+    await page.locator('.event').filter({ hasText: 'FIELD DAY' }).click();
+    await page.locator('#backdrop.open').waitFor({ state: 'visible' });
     assert.equal(await page.locator('#panelTitle').innerText(), 'FIELD DAY');
     await page.locator('#close').click();
-    await page.locator('.event').filter({ hasText: 'Michael 1:1' }).click({
-      position: { x: 10, y: 10 }
-    });
+    await page.locator('.event').filter({ hasText: 'Michael 1:1' }).click();
+    await page.locator('#backdrop.open').waitFor({ state: 'visible' });
     assert.equal(await page.locator('#panelTitle').innerText(), 'Michael 1:1');
     await page.locator('#close').click();
 
