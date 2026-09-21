@@ -157,17 +157,25 @@ async function calendarMetrics(page) {
   });
 }
 
-async function waitForGeometry(page, hourHeight, michaelTop) {
+async function waitForGeometry(page, viewportWidth, hourHeight, michaelTop) {
   await page.waitForFunction(
-    ({ expectedHourHeight, expectedMichaelTop }) => {
+    ({ expectedViewportWidth, expectedHourHeight, expectedMichaelTop }) => {
       const hour = document.querySelector('.hour');
+      const fieldDay = [...document.querySelectorAll('.event')]
+        .find(event => event.querySelector('b')?.textContent === 'FIELD DAY');
       const michael = [...document.querySelectorAll('.event')]
         .find(event => event.querySelector('b')?.textContent === 'Michael 1:1');
-      return hour && michael &&
+      return hour && fieldDay && michael &&
+        window.innerWidth === expectedViewportWidth &&
         Math.abs(hour.getBoundingClientRect().height - expectedHourHeight) < 0.1 &&
-        Math.abs(Number.parseFloat(michael.style.top) - expectedMichaelTop) < 0.1;
+        Math.abs(Number.parseFloat(michael.style.top) - expectedMichaelTop) < 0.1 &&
+        fieldDay.getBoundingClientRect().right <= michael.getBoundingClientRect().left;
     },
-    { expectedHourHeight: hourHeight, expectedMichaelTop: michaelTop }
+    {
+      expectedViewportWidth: viewportWidth,
+      expectedHourHeight: hourHeight,
+      expectedMichaelTop: michaelTop
+    }
   );
 }
 
@@ -189,7 +197,7 @@ test('responsive calendar and mail layout survive live viewport changes', async 
     await page.goto(`http://127.0.0.1:${port}`, { waitUntil: 'networkidle' });
     await page.getByText('Michael 1:1', { exact: true }).first().waitFor();
 
-    await waitForGeometry(page, 52, 234);
+    await waitForGeometry(page, 390, 52, 234);
     const portrait = await calendarMetrics(page);
     assert.equal(portrait.fieldDay.top, 0);
     assert.equal(portrait.fieldDay.height, 364);
@@ -209,7 +217,7 @@ test('responsive calendar and mail layout survive live viewport changes', async 
     await page.locator('#close').click();
 
     await page.setViewportSize({ width: 844, height: 390 });
-    await waitForGeometry(page, 60, 270);
+    await waitForGeometry(page, 844, 60, 270);
     const landscape = await calendarMetrics(page);
     assert.equal(landscape.fieldDay.height, 420);
     assert.equal(landscape.michael.height, 30);
@@ -217,24 +225,25 @@ test('responsive calendar and mail layout survive live viewport changes', async 
     assert.ok(Math.abs(landscape.markerTop - landscape.expectedMarkerTop) < 0.1);
 
     await page.setViewportSize({ width: 390, height: 844 });
-    await waitForGeometry(page, 52, 234);
+    await waitForGeometry(page, 390, 52, 234);
     const portraitAgain = await calendarMetrics(page);
     assert.equal(portraitAgain.fieldDay.height, portrait.fieldDay.height);
     assert.equal(portraitAgain.michael.top, portrait.michael.top);
 
     await page.setViewportSize({ width: 768, height: 1024 });
-    await waitForGeometry(page, 60, 270);
+    await waitForGeometry(page, 768, 60, 270);
     const ipadNarrow = await calendarMetrics(page);
     await page.setViewportSize({ width: 834, height: 1112 });
-    await waitForGeometry(page, 60, 270);
+    await waitForGeometry(page, 834, 60, 270);
     const ipadWide = await calendarMetrics(page);
     assert.notEqual(ipadNarrow.fieldDay.right, ipadWide.fieldDay.right);
     assert.equal(ipadNarrow.michael.top, ipadWide.michael.top);
+    assert.ok(ipadWide.fieldDay.right <= ipadWide.michael.left);
 
     await page.getByRole('button', { name: 'Appointments' }).click();
     await page.setViewportSize({ width: 390, height: 844 });
     await page.getByRole('button', { name: 'Briefing' }).click();
-    await waitForGeometry(page, 52, 234);
+    await waitForGeometry(page, 390, 52, 234);
     const reopened = await calendarMetrics(page);
     assert.equal(reopened.fieldDay.height, 364);
     assert.equal(reopened.michael.top, 234);
