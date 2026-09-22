@@ -1,7 +1,12 @@
 {
   "functions": {
     "api/[...route].js": {
-      "includeFiles": "index.html"
+      "includeFiles": [
+        "index.html",
+        "app.js",
+        "calendar-test.html",
+        "council-test.html"
+      ]
     },
     "api/council.js": {
       "maxDuration": 120
@@ -19,6 +24,18 @@
     {
       "source": "/login",
       "destination": "/login.html"
+    },
+    {
+      "source": "/app.js",
+      "destination": "/api/app?asset=app.js"
+    },
+    {
+      "source": "/calendar-test.html",
+      "destination": "/api/app?document=calendar-test.html"
+    },
+    {
+      "source": "/council-test.html",
+      "destination": "/api/app?document=council-test.html"
     }
   ]
 }

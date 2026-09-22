@@ -252,6 +252,30 @@ test("the application shell redirects unauthenticated visitors to the login page
   assert.match(String(res.headers["Cache-Control"]), /no-store/);
 });
 
+test("fixture-bearing application JavaScript is not exposed without a session", async () => {
+  const app = require("../lib/routes/app.js");
+  let res = mockRes();
+  await app(request("GET", {
+    host: "www.getjames.ai",
+    origin: "https://www.getjames.ai",
+    query: { asset: "app.js" }
+  }), res);
+  assert.equal(res.statusCode, 401);
+  assert.deepEqual(res.body, { ok: false, error: "UNAUTHORIZED" });
+  assert.doesNotMatch(JSON.stringify(res.body), /Scott Schuster/);
+
+  res = mockRes();
+  await app(request("GET", {
+    authorized: true,
+    host: "www.getjames.ai",
+    origin: "https://www.getjames.ai",
+    query: { asset: "app.js" }
+  }), res);
+  assert.equal(res.statusCode, 200);
+  assert.match(res.headers["Content-Type"], /text\/javascript/);
+  assert.match(res.body, /loadPersonalMicrosoftMail/);
+});
+
 test("authorization is host-agnostic while same-origin CSRF follows each entry URL", async () => {
   const session = require("../lib/routes/session.js");
   for (const host of [
