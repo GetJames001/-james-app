@@ -1,6 +1,6 @@
 {
   "functions": {
-    "api/[...route].js": {
+    "api/gateway.js": {
       "includeFiles": "*.{html,js}"
     },
     "api/council.js": {
@@ -10,27 +10,47 @@
   "rewrites": [
     {
       "source": "/",
-      "destination": "/api/app"
+      "destination": "/api/gateway?route=app"
     },
     {
       "source": "/index.html",
-      "destination": "/api/app"
+      "destination": "/api/gateway?route=app"
     },
     {
       "source": "/login",
       "destination": "/login.html"
     },
     {
+      "source": "/api/app",
+      "destination": "/api/gateway?route=app"
+    },
+    {
+      "source": "/api/health",
+      "destination": "/api/gateway?route=health"
+    },
+    {
+      "source": "/api/auth/login",
+      "destination": "/api/gateway?route=auth/login"
+    },
+    {
+      "source": "/api/auth/logout",
+      "destination": "/api/gateway?route=auth/logout"
+    },
+    {
+      "source": "/api/auth/session",
+      "destination": "/api/gateway?route=auth/session"
+    },
+    {
       "source": "/app.js",
-      "destination": "/api/app?asset=app.js"
+      "destination": "/api/gateway?route=app&asset=app.js"
     },
     {
       "source": "/calendar-test.html",
-      "destination": "/api/app?document=calendar-test.html"
+      "destination": "/api/gateway?route=app&document=calendar-test.html"
     },
     {
       "source": "/council-test.html",
-      "destination": "/api/app?document=council-test.html"
+      "destination": "/api/gateway?route=app&document=council-test.html"
     }
   ]
 }

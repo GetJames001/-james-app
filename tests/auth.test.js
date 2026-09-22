@@ -77,13 +77,13 @@ test("every private API rejects an unauthenticated direct request without metada
   }
 });
 
-test("deployed catch-all routes preserve the same authentication boundary", async () => {
-  const router = require("../api/[...route].js");
+test("deployed gateway routes preserve the same authentication boundary", async () => {
+  const router = require("../api/gateway.js");
 
   for (const route of [["health"], ["auth", "session"], ["auth", "logout"]]) {
     const res = mockRes();
     await router(request(route.at(-1) === "logout" ? "POST" : "GET", {
-      query: { route }
+      query: { route: route.join("/") }
     }), res);
     assert.equal(res.statusCode, 401, route.join("/"));
     assert.deepEqual(res.body, { ok: false, error: "UNAUTHORIZED" });
@@ -107,7 +107,7 @@ test("API inventory explicitly classifies every deployed function within the Hob
     "api/google/callback.js",
     "api/microsoft/callback.js"
   ]);
-  const mixedFunctions = new Set(["api/[...route].js"]);
+  const mixedFunctions = new Set(["api/gateway.js"]);
   const expectedProtected = new Set([
     "api/council.js",
     "api/fast.js",
@@ -127,7 +127,7 @@ test("API inventory explicitly classifies every deployed function within the Hob
   for (const file of expectedProtected) {
     assert.match(fs.readFileSync(path.join(root, file), "utf8"), /requireAuth|sessionFromRequest/);
   }
-  assert.match(fs.readFileSync(path.join(root, "api/[...route].js"), "utf8"), /auth\/login/);
+  assert.match(fs.readFileSync(path.join(root, "api/gateway.js"), "utf8"), /auth\/login/);
 });
 
 test("forged, expired, future, malformed, and wrong-identity sessions fail closed", () => {

@@ -14,9 +14,7 @@ const handlers = new Map([
 ]);
 
 module.exports = async function handler(req, res) {
-  const route = Array.isArray(req.query.route)
-    ? req.query.route.join("/")
-    : String(req.query.route || "");
+  const route = String(req.query.route || "");
   const selectedHandler = handlers.get(route);
 
   if (!selectedHandler) {

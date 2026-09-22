@@ -5,7 +5,7 @@ This package is the deployment bridge between the current James website and the 
 ## Files to add to the James repository
 
 - `api/council.js`
-- `api/[...route].js` (application, authentication, and health routes)
+- `api/gateway.js` (application, authentication, and health routes)
 - `lib/` (all files)
 - `vercel.json`
 - `package.json`
