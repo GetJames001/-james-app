@@ -25,7 +25,13 @@ jobs:
     runs-on: windows-latest
     timeout-minutes: 5
     steps:
+      # The repository contains a legacy filename ending in a dot, which NTFS
+      # cannot materialize. Check out only this local helper for the Windows
+      # compatibility job; the complete tree is exercised by the Linux job.
       - uses: actions/checkout@v4
+        with:
+          sparse-checkout: tools/Generate-JamesPreviewCredentials.ps1
+          sparse-checkout-cone-mode: false
       - name: Verify credential helper with Windows PowerShell 5.1
         shell: powershell
         run: |
