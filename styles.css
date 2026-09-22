@@ -529,6 +529,9 @@ nav{
   display:flex;
   flex-direction:column;
   gap:10px;
+  min-width:0;
+  -webkit-text-size-adjust:100%;
+  text-size-adjust:100%;
 }
 
 .mail-row{
@@ -551,4 +554,59 @@ nav{
 
 .mail-personal .mail-envelope{
   color:#b48a2f;
+}
+
+/* Keep calendar geometry and narrow mail content aligned with responsive rows. */
+.calendar{
+  --calendar-hour-height:60px;
+  --event-left:78px;
+  --event-right:8px;
+}
+
+.event{
+  display:flex;
+  flex-direction:column;
+  justify-content:flex-start;
+  align-items:stretch;
+  left:var(--event-left);
+  right:var(--event-right);
+}
+
+@media(max-width:650px){
+  .calendar{
+    --calendar-hour-height:52px;
+    --event-left:64px;
+  }
+
+  .mail-row{
+    display:grid;
+    grid-template-columns:auto minmax(0,1fr);
+    gap:3px 6px;
+    min-width:0;
+  }
+
+  .intel-card .mail-row > span{
+    margin-bottom:0;
+  }
+
+  .intel-card .mail-row > strong{
+    grid-column:1 / -1;
+    width:100%;
+    max-width:100%;
+    min-width:0;
+    margin-left:0;
+    font-size:.8rem;
+    line-height:1.2;
+    white-space:normal;
+    overflow-wrap:normal;
+    word-break:normal;
+  }
+}
+
+@media(max-width:430px){
+  .mail-card{
+    min-width:0;
+    padding-left:14px;
+    padding-right:14px;
+  }
 }

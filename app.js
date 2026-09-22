@@ -6,10 +6,165 @@ let liveEvents = [];
 let briefingEvents = [];
 let tasks = [];
 let activeTaskFilter = "all";
+let calendarResizeObserver;
+let calendarRelayoutFrame;
+let calendarRelayoutForced = false;
+let lastCalendarGeometry = '';
 
 const mins = (t) => { const [h,m] = t.split(':').map(Number); return (h-7)*60+m; };
 const pretty = (t) => { let [h,m] = t.split(':').map(Number); const s = h >= 12 ? 'PM' : 'AM'; h = h % 12 || 12; return `${h}:${String(m).padStart(2,'0')} ${s}`; };
 const timeToDate = (t) => { const [h,m] = t.split(':').map(Number); const d = new Date(); d.setHours(h,m,0,0); return d; };
+
+function calendarPixelsPerMinute(calendar) {
+  const hour = calendar.querySelector('.hour');
+  const configuredHeight = parseFloat(
+    getComputedStyle(calendar).getPropertyValue('--calendar-hour-height')
+  );
+  const hourHeight = configuredHeight || hour?.getBoundingClientRect().height || 60;
+  return hourHeight / 60;
+}
+
+function calendarEventLayouts(calendarEvents, pixelsPerMinute) {
+  const layouts = calendarEvents.map((event, index) => ({
+    event,
+    index,
+    start: mins(event[0]),
+    end: mins(event[1]),
+    lane: 0,
+    laneCount: 1
+  }));
+  const appointments = layouts
+    .filter(({ event }) => !event[4])
+    .sort((a, b) => a.start - b.start || b.end - a.end);
+  let active = [];
+  let group = [];
+
+  const finishGroup = () => {
+    const laneCount = group.reduce(
+      (count, item) => Math.max(count, item.lane + 1),
+      1
+    );
+    group.forEach(item => { item.laneCount = laneCount; });
+    group = [];
+  };
+
+  appointments.forEach(item => {
+    active = active.filter(activeItem => activeItem.end > item.start);
+    if (!active.length && group.length) finishGroup();
+
+    const occupiedLanes = new Set(active.map(activeItem => activeItem.lane));
+    while (occupiedLanes.has(item.lane)) item.lane += 1;
+
+    active.push(item);
+    group.push(item);
+  });
+  if (group.length) finishGroup();
+
+  return layouts
+    .sort((a, b) => a.index - b.index)
+    .map(layout => ({
+      ...layout,
+      top: layout.start * pixelsPerMinute,
+      height: Math.max(18, (layout.end - layout.start) * pixelsPerMinute)
+    }));
+}
+
+function positionEventLane(button, calendar, { lane, laneCount }) {
+  button.classList.remove('event-overlap');
+  button.style.removeProperty('left');
+  button.style.removeProperty('right');
+  if (laneCount < 2 || !calendar.clientWidth) return;
+
+  const styles = getComputedStyle(calendar);
+  const leftInset = parseFloat(styles.getPropertyValue('--event-left')) || 78;
+  const rightInset = parseFloat(styles.getPropertyValue('--event-right')) || 8;
+  const gap = 4;
+  const availableWidth = calendar.clientWidth - leftInset - rightInset;
+  const laneWidth = (availableWidth - gap * (laneCount - 1)) / laneCount;
+
+  button.classList.add('event-overlap');
+  button.style.left = `${leftInset + lane * (laneWidth + gap)}px`;
+  button.style.right = `${rightInset + (laneCount - lane - 1) * (laneWidth + gap)}px`;
+}
+
+function relayoutCalendar({ force = false, allowHidden = false } = {}) {
+  const calendar = $('#calendar');
+  if (!calendar) return false;
+
+  const visible = calendar.clientWidth > 0 && calendar.getClientRects().length > 0;
+  if (!visible && !allowHidden) return false;
+
+  const pixelsPerMinute = calendarPixelsPerMinute(calendar);
+  const geometry = `${calendar.clientWidth}:${pixelsPerMinute}`;
+  if (visible && !force && geometry === lastCalendarGeometry) return false;
+
+  calendarEventLayouts(events, pixelsPerMinute).forEach(layout => {
+    const eventButton = calendar.querySelector(
+      `.event[data-event-index="${layout.index}"]`
+    );
+    if (!eventButton) return;
+
+    eventButton.style.top = `${layout.top}px`;
+    eventButton.style.height = `${layout.height}px`;
+    positionEventLane(eventButton, calendar, layout);
+  });
+
+  const now = new Date();
+  const nowMinutes = (now.getHours() - 7) * 60 + now.getMinutes();
+  const marker = calendar.querySelector('.now');
+  if (marker) {
+    marker.style.top = `${Math.max(
+      0,
+      Math.min(720 * pixelsPerMinute, nowMinutes * pixelsPerMinute)
+    )}px`;
+  }
+
+  if (visible) lastCalendarGeometry = geometry;
+  return true;
+}
+
+function scheduleCalendarRelayout(force = false) {
+  calendarRelayoutForced ||= force;
+  if (calendarRelayoutFrame) return;
+
+  calendarRelayoutFrame = requestAnimationFrame(() => {
+    const shouldForce = calendarRelayoutForced;
+    calendarRelayoutFrame = undefined;
+    calendarRelayoutForced = false;
+    relayoutCalendar({ force: shouldForce });
+  });
+}
+
+function observeCalendarLayout() {
+  const calendar = $('#calendar');
+  if (!calendar || calendarResizeObserver) return;
+
+  if (typeof ResizeObserver === 'function') {
+    calendarResizeObserver = new ResizeObserver(() => scheduleCalendarRelayout());
+    calendarResizeObserver.observe(calendar);
+  } else {
+    calendarResizeObserver = { fallback: true };
+    window.addEventListener('resize', () => scheduleCalendarRelayout());
+  }
+}
+
+function toBriefingEvent(event) {
+  const start = new Date(event.start);
+  const end = new Date(event.end);
+  const formatTime = (date) =>
+    date.toLocaleTimeString([], {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false
+    });
+
+  return [
+    formatTime(start),
+    formatTime(end),
+    event.title,
+    event.location || event.calendarName || 'Appointment'
+  ];
+}
 function renderTaskPad() {
   const list = $("#taskList");
   if (!list) return;
@@ -212,6 +367,7 @@ $('#driveTime').textContent = travel ? `${drive} min` : '—';
 
 function buildCalendar(){
   const c = $('#calendar');
+  lastCalendarGeometry = '';
   c.innerHTML = '';
   for(let h=7; h<=19; h++){
     const r = document.createElement('div');
@@ -219,14 +375,11 @@ function buildCalendar(){
     r.innerHTML = `<span>${h>12?h-12:h}:00 ${h>=12?'PM':'AM'}</span>`;
     c.appendChild(r);
   }
-  events.forEach(e => {
-    const top = mins(e[0]);
-    const height = Math.max(18, mins(e[1]) - mins(e[0]));
+  events.forEach((e, index) => {
     if(e[4] === 'open') return; // open time is intentionally represented by whitespace
     const b = document.createElement('button');
     b.className = `event ${e[4] || ''}`;
-    b.style.top = `${top}px`;
-    b.style.height = `${height}px`;
+    b.dataset.eventIndex = index;
     if(e[4] === 'travel'){
       b.setAttribute('aria-label', e[3]);
       b.title = e[3];
@@ -237,12 +390,10 @@ function buildCalendar(){
     b.onclick = () => panel(e[4] === 'travel' ? 'TRAVEL' : 'APPOINTMENT', e[4] === 'travel' ? 'Route' : e[2], `<div class="panel-item"><b>${pretty(e[0])}–${pretty(e[1])}</b><span>${e[3]}</span>${e[4] === 'travel' ? '' : '<button>Call</button><button>Text</button><button>Email</button><button>Move</button><button>Notes</button><button>Files</button>'}</div>`);
     c.appendChild(b);
   });
-  const now = new Date();
-  const top = Math.max(0, Math.min(720, (now.getHours()-7)*60 + now.getMinutes()));
   const n = document.createElement('div');
   n.className = 'now';
-  n.style.top = `${top}px`;
   c.appendChild(n);
+  relayoutCalendar({ force: true, allowHidden: true });
   $('#apptList').innerHTML = events.filter(e => e[4] !== 'open' && e[4] !== 'travel').map(e => `<article><div>${pretty(e[0])}</div><div><h4>${e[2]}</h4><p>${e[3]}</p></div><button data-a="${e[2]}">Open</button></article>`).join('');
 }
 
@@ -250,6 +401,7 @@ function page(id){
   sessionStorage.setItem('jamesCurrentPage', id);
   $$('nav button').forEach(b => b.classList.toggle('active', b.dataset.page === id));
   $$('.page').forEach(p => p.classList.toggle('active', p.id === id));
+  if(id === 'briefing') scheduleCalendarRelayout(true);
   if(id === 'insights'){
     $('#jamesNav').classList.remove('has-recommendation');
     const cue = $('#jamesNav .recommendation-cue');
@@ -469,24 +621,7 @@ const allDayEvents = liveEvents.filter(
   );
 })
   .sort((a, b) => new Date(a.start) - new Date(b.start))
-      .map(event => {
-    const start = new Date(event.start);
-    const end = new Date(event.end);
-
-    const formatTime = (date) =>
-      date.toLocaleTimeString([], {
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: false
-      });
-
-    return [
-      formatTime(start),
-      formatTime(end),
-      event.title,
-      event.location || event.calendarName || 'Appointment'
-    ];
-  });
+      .map(toBriefingEvent);
     events = briefingEvents;
 buildCalendar();
 updateHero();
@@ -792,6 +927,7 @@ $$(".task-filter").forEach(button => {
 });
   $$('[data-start]').forEach(b => b.onclick = () => finishIntro(b.dataset.start));
   buildCalendar();
+  observeCalendarLayout();
   updateHero();
   setInterval(() => { setGreeting(); updateHero(); }, 60000);
   $$('nav button').forEach(b => b.onclick = () => page(b.dataset.page));
