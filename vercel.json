@@ -1,12 +1,7 @@
 {
   "functions": {
     "api/[...route].js": {
-      "includeFiles": [
-        "index.html",
-        "app.js",
-        "calendar-test.html",
-        "council-test.html"
-      ]
+      "includeFiles": "*.{html,js}"
     },
     "api/council.js": {
       "maxDuration": 120
