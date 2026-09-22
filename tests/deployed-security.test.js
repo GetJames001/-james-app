@@ -5,12 +5,16 @@ const os = require("node:os");
 const path = require("node:path");
 const test = require("node:test");
 
-const runAuthorizedProbe = process.env.JAMES_SECURITY_USE_VERCEL_CLI === "1";
+const runWithVercelCli = process.env.JAMES_SECURITY_USE_VERCEL_CLI === "1";
+const runWithAutomationBypass = process.env.JAMES_SECURITY_USE_AUTOMATION_BYPASS === "1";
+const runAuthorizedProbe = runWithVercelCli || runWithAutomationBypass;
 const previewUrls = String(process.env.JAMES_SECURITY_PREVIEW_URLS || "")
   .split(",")
   .map(value => value.trim().replace(/\/$/, ""))
   .filter(Boolean);
 const vercelCommand = process.env.JAMES_VERCEL_CLI_COMMAND || "vercel";
+const curlCommand = process.env.JAMES_CURL_COMMAND || "curl";
+const automationBypassSecret = String(process.env.VERCEL_AUTOMATION_BYPASS_SECRET || "");
 
 const privateSignatures = [
   "Your Morning Briefing",
@@ -53,6 +57,12 @@ function validatePreviewUrls() {
   }
 }
 
+function validateAutomationBypassSecret(value) {
+  assert.ok(value, "the encrypted Vercel automation-bypass secret is required");
+  assert.ok(Buffer.byteLength(value, "utf8") <= 4096, "the automation-bypass secret is invalid");
+  assert.doesNotMatch(value, /[\r\n]/, "the automation-bypass secret is invalid");
+}
+
 function parseHeaderFile(contents) {
   const blocks = contents
     .split(/\r?\n\r?\n/)
@@ -78,15 +88,17 @@ function authorizedRequest(baseUrl, requestTarget, options = {}) {
   const temporaryDirectory = fs.mkdtempSync(path.join(os.tmpdir(), "james-gateway-probe-"));
   const headerFile = path.join(temporaryDirectory, "headers.txt");
   const bodyFile = path.join(temporaryDirectory, "body.txt");
+  const bypassHeaderFile = path.join(temporaryDirectory, "bypass-header.txt");
   const method = options.method || "GET";
-  const args = [
-    "curl",
-    "/",
-    "--deployment",
-    baseUrl,
-    "--",
+  const curlArgs = [
     "--silent",
     "--show-error",
+    "--connect-timeout",
+    "10",
+    "--max-time",
+    "25",
+    "--proto",
+    "=https",
     "--path-as-is",
     "--request-target",
     requestTarget,
@@ -98,24 +110,40 @@ function authorizedRequest(baseUrl, requestTarget, options = {}) {
     "%{http_code}"
   ];
 
-  if (method === "HEAD") args.push("--head");
-  else if (method !== "GET") args.push("--request", method);
+  if (method !== "GET") curlArgs.push("--request", method);
 
   for (const [name, value] of Object.entries(options.headers || {})) {
-    args.push("--header", `${name}: ${value}`);
+    curlArgs.push("--header", `${name}: ${value}`);
   }
 
   try {
-    const result = childProcess.spawnSync(vercelCommand, args, {
+    let command;
+    let args;
+
+    if (runWithAutomationBypass) {
+      validateAutomationBypassSecret(automationBypassSecret);
+      fs.writeFileSync(
+        bypassHeaderFile,
+        `x-vercel-protection-bypass: ${automationBypassSecret}\n`,
+        { encoding: "utf8", flag: "wx", mode: 0o600 }
+      );
+      command = curlCommand;
+      args = ["--header", `@${bypassHeaderFile}`, ...curlArgs, `${baseUrl}/`];
+    } else {
+      command = vercelCommand;
+      args = ["curl", "/", "--deployment", baseUrl, "--", ...curlArgs];
+    }
+
+    const result = childProcess.spawnSync(command, args, {
       encoding: "utf8",
       timeout: 30_000,
       maxBuffer: 1024 * 1024
     });
     if (result.error) throw result.error;
-    assert.equal(result.status, 0, `vercel curl failed: ${String(result.stderr || "").trim()}`);
+    assert.equal(result.status, 0, "protected Preview request failed");
 
     const statusMatch = String(result.stdout || "").match(/(\d{3})\s*$/);
-    assert.ok(statusMatch, "vercel curl did not report an HTTP status");
+    assert.ok(statusMatch, "protected Preview request did not report an HTTP status");
     return {
       status: Number(statusMatch[1]),
       headers: parseHeaderFile(fs.readFileSync(headerFile, "utf8")),
@@ -133,6 +161,11 @@ function headerValues(response, name) {
 function assertGatewayResponse(response, expectedStatus, label) {
   assert.equal(response.status, expectedStatus, label);
   assert.deepEqual(headerValues(response, "x-application-gateway"), ["enforced"], label);
+  assert.doesNotMatch(
+    headerValues(response, "location").join(", "),
+    /vercel\.com\/sso-api/i,
+    `${label}: Vercel Authentication intercepted the request`
+  );
   assert.match(headerValues(response, "cache-control").join(", "), /\bprivate\b/i, label);
   assert.match(headerValues(response, "cache-control").join(", "), /\bno-store\b/i, label);
   for (const signature of privateSignatures) {
@@ -149,9 +182,14 @@ function assertUnauthorized(response, label, options = {}) {
   }
 }
 
-test("deployed gateway probe is pinned to authenticated Vercel CLI and raw request targets", () => {
+test("deployed gateway probe supports protected automation without exposing its secret", () => {
   const source = fs.readFileSync(__filename, "utf8");
   assert.match(source, /JAMES_SECURITY_USE_VERCEL_CLI/);
+  assert.match(source, /JAMES_SECURITY_USE_AUTOMATION_BYPASS/);
+  assert.match(source, /VERCEL_AUTOMATION_BYPASS_SECRET/);
+  assert.match(source, /x-vercel-protection-bypass/);
+  assert.match(source, /mode: 0o600/);
+  assert.match(source, /`@\$\{bypassHeaderFile\}`/);
   assert.match(source, /"--request-target"/);
   assert.match(source, /"--path-as-is"/);
   assert.match(source, /x-application-gateway/);
@@ -161,11 +199,23 @@ test("deployed gateway probe is pinned to authenticated Vercel CLI and raw reque
   assert.deepEqual(alternateMethods, ["HEAD", "POST", "OPTIONS", "PUT"]);
 });
 
-test("authorized Vercel CLI reaches both protected Preview application gateways", {
+test("automation-bypass validation rejects missing, oversized, or multiline values", () => {
+  assert.throws(() => validateAutomationBypassSecret(""), /required/);
+  assert.throws(() => validateAutomationBypassSecret("x".repeat(4097)), /invalid/);
+  assert.throws(() => validateAutomationBypassSecret("value\nsecond-header"), /invalid/);
+});
+
+test("authorized automation reaches both protected Preview application gateways", {
   skip: runAuthorizedProbe
     ? false
-    : "Deferred: authorize Vercel CLI locally, then set JAMES_SECURITY_USE_VERCEL_CLI=1."
+    : "Deferred: an authorized manual GitHub Actions re-run must supply the encrypted bypass secret."
 }, () => {
+  assert.notEqual(
+    runWithVercelCli && runWithAutomationBypass,
+    true,
+    "select exactly one protected-deployment authorization mechanism"
+  );
+  if (runWithAutomationBypass) validateAutomationBypassSecret(automationBypassSecret);
   validatePreviewUrls();
 
   for (const baseUrl of previewUrls) {
