@@ -24,17 +24,16 @@ function authorizedRequest(method, body = {}) {
     method,
     body,
     headers: {
-      cookie: `james_session=${token}`,
+      cookie: `__Host-james_session=${token}`,
       host: "www.getjames.ai",
-      origin: "https://www.getjames.ai",
-      "x-forwarded-proto": "https"
+      origin: "https://www.getjames.ai"
     }
   };
 }
 
 test("Council rejects unauthenticated requests before endpoint metadata", async () => {
   const res = mockRes();
-  await handler({ method: "GET", body: {}, headers: {} }, res);
+  await handler({ method: "GET", body: {}, headers: { host: "www.getjames.ai" } }, res);
   assert.equal(res.statusCode, 401);
   assert.deepEqual(res.body, { ok: false, error: "UNAUTHORIZED" });
 });

@@ -11,6 +11,8 @@ process.env.JAMES_SESSION_SECRET = "test-session-secret-that-is-at-least-thirty-
 process.env.JAMES_AUTH_PASSWORD_HASH = auth.hashPassword("correct horse battery staple", {
   salt: Buffer.alloc(16, 7)
 });
+process.env.KV_REST_API_URL = "https://rate-limit.example.test";
+process.env.KV_REST_API_TOKEN = "test-rate-limit-token";
 
 function mockRes() {
   return {
@@ -31,22 +33,38 @@ function mockRes() {
 }
 
 function request(method = "GET", options = {}) {
-  const headers = { ...(options.headers || {}) };
+  const headers = { host: "www.getjames.ai", ...(options.headers || {}) };
   if (options.authorized) {
     const token = auth.createSessionToken(process.env.JAMES_AUTH_EMAIL, options.sessionOptions);
-    headers.cookie = `james_session=${token}`;
+    headers.cookie = `${auth.SESSION_COOKIE}=${token}`;
   }
   if (options.origin !== undefined) headers.origin = options.origin;
   if (options.host) headers.host = options.host;
-  if (options.host) headers["x-forwarded-host"] = options.host;
-  headers["x-forwarded-proto"] = options.protocol || "https";
+  if (options.forwardedHost) headers["x-forwarded-host"] = options.forwardedHost;
+  if (options.forwardedProto) headers["x-forwarded-proto"] = options.forwardedProto;
 
-  return {
+  const req = {
     method,
     headers,
     body: options.body || {},
     query: options.query || {}
   };
+  if (options.resource) req.jamesResource = options.resource;
+  if (options.socket) req.socket = options.socket;
+  return req;
+}
+
+async function withAllowedRateLimit(callback) {
+  const originalFetch = global.fetch;
+  global.fetch = async () => ({
+    ok: true,
+    async json() { return { result: [0, 0] }; }
+  });
+  try {
+    return await callback();
+  } finally {
+    global.fetch = originalFetch;
+  }
 }
 
 const protectedEndpoints = [
@@ -80,12 +98,12 @@ test("every private API rejects an unauthenticated direct request without metada
 test("deployed gateway routes preserve the same authentication boundary", async () => {
   const router = require("../api/gateway.js");
 
-  for (const route of [["health"], ["auth", "session"], ["auth", "logout"]]) {
+  for (const route of ["api/health", "api/auth/session", "api/auth/logout"]) {
     const res = mockRes();
-    await router(request(route.at(-1) === "logout" ? "POST" : "GET", {
-      query: { route: route.join("/") }
+    await router(request(route.endsWith("logout") ? "POST" : "GET", {
+      query: { path: route }
     }), res);
-    assert.equal(res.statusCode, 401, route.join("/"));
+    assert.equal(res.statusCode, 401, route);
     assert.deepEqual(res.body, { ok: false, error: "UNAUTHORIZED" });
     assert.match(String(res.headers["Cache-Control"]), /private/);
     assert.match(String(res.headers["Cache-Control"]), /no-store/);
@@ -130,29 +148,22 @@ test("API inventory explicitly classifies every deployed function within the Hob
   assert.match(fs.readFileSync(path.join(root, "api/gateway.js"), "utf8"), /auth\/login/);
 });
 
-test("Vercel routes enforce the gateway before serving protected static files", () => {
+test("Vercel routes send every normalized path through the fail-closed gateway", () => {
   const config = JSON.parse(fs.readFileSync(path.join(root, "vercel.json"), "utf8"));
-  const filesystemIndex = config.routes.findIndex(route => route.handle === "filesystem");
-  assert.ok(filesystemIndex > 0);
-
-  for (const source of [
-    "^/$",
-    "^/index\\.html$",
-    "^/api/auth/session$",
-    "^/app\\.js$",
-    "^/calendar-test\\.html$",
-    "^/council-test\\.html$"
-  ]) {
-    const routeIndex = config.routes.findIndex(route => route.src === source);
-    assert.ok(routeIndex >= 0, source);
-    assert.ok(routeIndex < filesystemIndex, `${source} must precede filesystem handling`);
-  }
+  assert.deepEqual(config.routes, [{
+    src: "^/(.*)$",
+    dest: "/api/gateway?path=$1"
+  }]);
+  assert.equal(config.routes.some(route => route.handle === "filesystem"), false);
 });
 
 test("forged, expired, future, malformed, and wrong-identity sessions fail closed", () => {
   const now = 2000000000;
   const valid = auth.createSessionToken(process.env.JAMES_AUTH_EMAIL, { now });
-  assert.equal(auth.verifySessionToken(valid, { now }).sub, process.env.JAMES_AUTH_EMAIL);
+  assert.equal(auth.verifySessionToken(valid, { now }).sub, "owner");
+  const publicPayload = JSON.parse(Buffer.from(valid.split(".")[1], "base64url").toString("utf8"));
+  assert.equal(publicPayload.sub, "owner");
+  assert.doesNotMatch(JSON.stringify(publicPayload), /michael|example/i);
 
   const forged = `${valid.slice(0, -1)}${valid.endsWith("a") ? "b" : "a"}`;
   assert.equal(auth.verifySessionToken(forged, { now }), null);
@@ -183,13 +194,13 @@ test("login is same-origin only and issues a hardened session cookie", async () 
   assert.equal(res.headers["Set-Cookie"], undefined);
 
   res = mockRes();
-  await login(request("POST", {
+  await withAllowedRateLimit(() => login(request("POST", {
     host: "www.getjames.ai",
     origin: "https://www.getjames.ai",
     body: { email: process.env.JAMES_AUTH_EMAIL, password: "correct horse battery staple" }
-  }), res);
+  }), res));
   assert.equal(res.statusCode, 200);
-  assert.match(res.headers["Set-Cookie"], /^james_session=/);
+  assert.match(res.headers["Set-Cookie"], /^__Host-james_session=/);
   assert.match(res.headers["Set-Cookie"], /HttpOnly/);
   assert.match(res.headers["Set-Cookie"], /Secure/);
   assert.match(res.headers["Set-Cookie"], /SameSite=Strict/);
@@ -230,7 +241,8 @@ test("authorized requests preserve app, session, health, and stored Tasks behavi
   let res = mockRes();
   await require("../lib/routes/session.js")(request("GET", sameOrigin), res);
   assert.equal(res.statusCode, 200);
-  assert.equal(res.body.identity, process.env.JAMES_AUTH_EMAIL);
+  assert.equal(typeof res.body.expiresAt, "number");
+  assert.equal(Object.hasOwn(res.body, "identity"), false);
 
   res = mockRes();
   await require("../lib/routes/health.js")(request("GET", sameOrigin), res);
@@ -277,7 +289,8 @@ test("fixture-bearing application JavaScript is not exposed without a session", 
   await app(request("GET", {
     host: "www.getjames.ai",
     origin: "https://www.getjames.ai",
-    query: { asset: "app.js" }
+    query: {},
+    resource: { asset: "app.js" }
   }), res);
   assert.equal(res.statusCode, 401);
   assert.deepEqual(res.body, { ok: false, error: "UNAUTHORIZED" });
@@ -288,15 +301,17 @@ test("fixture-bearing application JavaScript is not exposed without a session", 
     authorized: true,
     host: "www.getjames.ai",
     origin: "https://www.getjames.ai",
-    query: { asset: "app.js" }
+    query: {},
+    resource: { asset: "app.js" }
   }), res);
   assert.equal(res.statusCode, 200);
   assert.match(res.headers["Content-Type"], /text\/javascript/);
   assert.match(res.body, /loadPersonalMicrosoftMail/);
 });
 
-test("authorization is host-agnostic while same-origin CSRF follows each entry URL", async () => {
+test("authorization accepts only configured production and exact deployment hosts", async () => {
   const session = require("../lib/routes/session.js");
+  process.env.VERCEL_URL = "james-production-id.vercel.app";
   for (const host of [
     "www.getjames.ai",
     "getjames.ai",
@@ -311,6 +326,7 @@ test("authorization is host-agnostic while same-origin CSRF follows each entry U
     }), res);
     assert.equal(res.statusCode, 200, host);
   }
+  delete process.env.VERCEL_URL;
 });
 
 test("OAuth callbacks stay public only behind their existing state checks", async () => {
@@ -319,8 +335,140 @@ test("OAuth callbacks stay public only behind their existing state checks", asyn
     require("../api/microsoft/callback.js")
   ]) {
     const res = mockRes();
-    await handler(request("GET", { query: {} }), res);
+    await handler(request("GET", { query: {}, host: "www.getjames.ai" }), res);
     assert.equal(res.statusCode, 400);
     assert.match(String(res.headers["Cache-Control"]), /no-store/);
   }
+});
+
+test("encoded, normalized, trailing-slash, query-bearing, and alternate-method routes fail closed", async () => {
+  const gateway = require("../api/gateway.js");
+  const variants = [
+    "%69ndex.html",
+    "index.html/",
+    "%63alendar-test.html",
+    "%63ouncil-test.html",
+    "%61pp.js",
+    "%2561pp.js",
+    "./index.html",
+    "assets/../app.js",
+    "app.js",
+    "styles.css",
+    "calendar-test.html",
+    "council-test.html",
+    "assets/james-signature-v2.png"
+  ];
+
+  for (const route of variants) {
+    for (const method of ["GET", "HEAD", "POST", "OPTIONS"]) {
+      const res = mockRes();
+      await gateway(request(method, { query: { path: route, cacheBust: "review" } }), res);
+      assert.equal(res.statusCode, 401, `${method} /${route}`);
+      assert.notEqual(typeof res.body === "string" && /Your Morning Briefing|Scott Schuster/.test(res.body), true);
+      assert.match(String(res.headers["Cache-Control"]), /no-store/);
+    }
+  }
+
+  const root = mockRes();
+  await gateway(request("GET", { query: { path: "", cacheBust: "review" } }), root);
+  assert.equal(root.statusCode, 302);
+  assert.equal(root.headers.Location, "/login");
+});
+
+test("host and origin checks ignore spoofed forwarded values and reject unknown hosts", async () => {
+  const session = require("../lib/routes/session.js");
+
+  let res = mockRes();
+  await session(request("GET", {
+    authorized: true,
+    host: "www.getjames.ai",
+    forwardedHost: "attacker.example",
+    forwardedProto: "http"
+  }), res);
+  assert.equal(res.statusCode, 200, "forwarded host and proto must not override Host");
+
+  res = mockRes();
+  await session(request("GET", {
+    authorized: true,
+    host: "attacker.example",
+    forwardedHost: "www.getjames.ai",
+    forwardedProto: "https"
+  }), res);
+  assert.equal(res.statusCode, 403, "unknown Host must not be rescued by forwarded headers");
+
+  for (const origin of [
+    "http://www.getjames.ai",
+    "https://www.getjames.ai/path",
+    "https://attacker.example"
+  ]) {
+    res = mockRes();
+    assert.equal(auth.requestOrigin(request("POST", {
+      host: "www.getjames.ai",
+      origin,
+      forwardedHost: "www.getjames.ai",
+      forwardedProto: "https"
+    })), null, origin);
+  }
+});
+
+test("invalid and expired logout sessions are cleared with matching secure attributes", async () => {
+  const logout = require("../lib/routes/logout.js");
+  const expired = auth.createSessionToken(process.env.JAMES_AUTH_EMAIL, { now: 1000, ttl: 10 });
+
+  for (const cookie of [
+    `${auth.SESSION_COOKIE}=forged`,
+    `${auth.SESSION_COOKIE}=${expired}`
+  ]) {
+    const res = mockRes();
+    await logout(request("POST", {
+      headers: { cookie },
+      host: "www.getjames.ai",
+      origin: "https://www.getjames.ai",
+      sessionOptions: { now: 2000 }
+    }), res);
+    assert.equal(res.statusCode, 401);
+    assert.ok(Array.isArray(res.headers["Set-Cookie"]));
+    for (const cleared of res.headers["Set-Cookie"]) {
+      assert.match(cleared, /Path=\//);
+      assert.match(cleared, /HttpOnly/);
+      assert.match(cleared, /Secure/);
+      assert.match(cleared, /SameSite=Strict/);
+      assert.match(cleared, /Max-Age=0/);
+    }
+  }
+});
+
+test("OAuth callback failures never reflect provider-controlled text", async () => {
+  const cases = [
+    {
+      handler: require("../api/google/callback.js"),
+      cookie: "google_oauth_state=expected",
+      expected: "Google authorization was not completed."
+    },
+    {
+      handler: require("../api/microsoft/callback.js"),
+      cookie: "microsoft_oauth_state=expected; microsoft_oauth_account=personal",
+      expected: "Microsoft authorization was not completed."
+    }
+  ];
+
+  for (const entry of cases) {
+    const res = mockRes();
+    await entry.handler(request("GET", {
+      headers: { cookie: entry.cookie },
+      query: { state: "expected", error: "<script>provider detail</script>" }
+    }), res);
+    assert.equal(res.statusCode, 400);
+    assert.equal(res.body, entry.expected);
+    assert.doesNotMatch(res.body, /provider detail|script/);
+  }
+});
+
+test("public login content is generic, no-store, and contains no configured identity", async () => {
+  const res = mockRes();
+  await require("../lib/routes/login-page.js")(request("GET"), res);
+  assert.equal(res.statusCode, 200);
+  assert.match(String(res.headers["Cache-Control"]), /no-store/);
+  assert.doesNotMatch(res.body, /Michael|michael@example\.com|configured identity/i);
+  assert.match(res.body, /private James workspace/i);
 });

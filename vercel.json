@@ -1,59 +1,14 @@
 {
   "functions": {
     "api/gateway.js": {
-      "includeFiles": "*.{html,js}"
-    },
-    "api/council.js": {
+      "includeFiles": "{*.html,*.js,*.css,*.png,assets/**/*.png}",
       "maxDuration": 120
     }
   },
   "routes": [
     {
-      "src": "^/$",
-      "dest": "/api/gateway?route=app"
-    },
-    {
-      "src": "^/index\\.html$",
-      "dest": "/api/gateway?route=app"
-    },
-    {
-      "src": "^/login$",
-      "dest": "/login.html"
-    },
-    {
-      "src": "^/api/app$",
-      "dest": "/api/gateway?route=app"
-    },
-    {
-      "src": "^/api/health$",
-      "dest": "/api/gateway?route=health"
-    },
-    {
-      "src": "^/api/auth/login$",
-      "dest": "/api/gateway?route=auth/login"
-    },
-    {
-      "src": "^/api/auth/logout$",
-      "dest": "/api/gateway?route=auth/logout"
-    },
-    {
-      "src": "^/api/auth/session$",
-      "dest": "/api/gateway?route=auth/session"
-    },
-    {
-      "src": "^/app\\.js$",
-      "dest": "/api/gateway?route=app&asset=app.js"
-    },
-    {
-      "src": "^/calendar-test\\.html$",
-      "dest": "/api/gateway?route=app&document=calendar-test.html"
-    },
-    {
-      "src": "^/council-test\\.html$",
-      "dest": "/api/gateway?route=app&document=council-test.html"
-    },
-    {
-      "handle": "filesystem"
+      "src": "^/(.*)$",
+      "dest": "/api/gateway?path=$1"
     }
   ]
 }

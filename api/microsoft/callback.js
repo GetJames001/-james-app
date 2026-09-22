@@ -1,7 +1,8 @@
-const { privateNoStore } = require("../../lib/auth.js");
+const { privateNoStore, requireAllowedHost } = require("../../lib/auth.js");
 
 module.exports = async function handler(req, res) {
   privateNoStore(res);
+  if (!requireAllowedHost(req, res)) return;
 
   if (req.method !== "GET") {
     res.setHeader("Allow", "GET");
@@ -34,7 +35,7 @@ module.exports = async function handler(req, res) {
   }
 
   if (error) {
-    return res.status(400).send(`Microsoft authorization failed: ${error}`);
+    return res.status(400).send("Microsoft authorization was not completed.");
   }
 
   if (!code) {
