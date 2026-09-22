@@ -130,6 +130,25 @@ test("API inventory explicitly classifies every deployed function within the Hob
   assert.match(fs.readFileSync(path.join(root, "api/gateway.js"), "utf8"), /auth\/login/);
 });
 
+test("Vercel routes enforce the gateway before serving protected static files", () => {
+  const config = JSON.parse(fs.readFileSync(path.join(root, "vercel.json"), "utf8"));
+  const filesystemIndex = config.routes.findIndex(route => route.handle === "filesystem");
+  assert.ok(filesystemIndex > 0);
+
+  for (const source of [
+    "^/$",
+    "^/index\\.html$",
+    "^/api/auth/session$",
+    "^/app\\.js$",
+    "^/calendar-test\\.html$",
+    "^/council-test\\.html$"
+  ]) {
+    const routeIndex = config.routes.findIndex(route => route.src === source);
+    assert.ok(routeIndex >= 0, source);
+    assert.ok(routeIndex < filesystemIndex, `${source} must precede filesystem handling`);
+  }
+});
+
 test("forged, expired, future, malformed, and wrong-identity sessions fail closed", () => {
   const now = 2000000000;
   const valid = auth.createSessionToken(process.env.JAMES_AUTH_EMAIL, { now });
