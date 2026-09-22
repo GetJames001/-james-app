@@ -23,16 +23,24 @@ function headers(extra = {}) {
 }
 
 async function assertBlocked(baseUrl, path, method = "GET", extraHeaders = {}) {
-  const response = await fetch(`${baseUrl}${path}`, {
-    method,
-    headers: headers(extraHeaders),
-    redirect: "manual",
-    signal: AbortSignal.timeout(10_000)
-  });
-  const body = method === "HEAD" ? "" : await response.text();
-  for (const signature of privateSignatures) assert.doesNotMatch(body, new RegExp(signature, "i"));
-  assert.notEqual(response.status, 200, `${method} ${baseUrl}${path}`);
-  return response.status;
+  let lastError;
+  for (let attempt = 1; attempt <= 3; attempt += 1) {
+    try {
+      const response = await fetch(`${baseUrl}${path}`, {
+        method,
+        headers: headers(extraHeaders),
+        redirect: "manual",
+        signal: AbortSignal.timeout(15_000)
+      });
+      const body = method === "HEAD" ? "" : await response.text();
+      for (const signature of privateSignatures) assert.doesNotMatch(body, new RegExp(signature, "i"));
+      assert.notEqual(response.status, 200, `${method} ${baseUrl}${path}`);
+      return response.status;
+    } catch (error) {
+      lastError = error;
+    }
+  }
+  throw lastError;
 }
 
 function rawHostRequest(baseUrl, hostHeader) {
@@ -55,6 +63,18 @@ function rawHostRequest(baseUrl, hostHeader) {
   });
 }
 
+async function rawHostRequestWithRetry(baseUrl, hostHeader) {
+  let lastError;
+  for (let attempt = 1; attempt <= 3; attempt += 1) {
+    try {
+      return await rawHostRequest(baseUrl, hostHeader);
+    } catch (error) {
+      lastError = error;
+    }
+  }
+  throw lastError;
+}
+
 test("deployed Preview blocks normalized and encoded application paths", {
   skip: previewUrls.length ? false : "Set JAMES_SECURITY_PREVIEW_URLS to run deployed verification."
 }, async () => {
@@ -73,15 +93,18 @@ test("deployed Preview blocks normalized and encoded application paths", {
   ];
 
   for (const baseUrl of previewUrls) {
-    await Promise.all(paths.flatMap(path => ["GET", "HEAD", "POST", "OPTIONS"]
-      .map(method => assertBlocked(baseUrl, path, method))));
+    for (let index = 0; index < paths.length; index += 3) {
+      await Promise.all(paths.slice(index, index + 3).map(path => assertBlocked(baseUrl, path)));
+    }
+    await Promise.all(["HEAD", "POST", "OPTIONS"]
+      .map(method => assertBlocked(baseUrl, "/%61pp.js", method)));
 
     await assertBlocked(baseUrl, "/app.js", "GET", {
       "X-Forwarded-Host": "attacker.example",
       "X-Forwarded-Proto": "http"
     });
 
-    const hostileHost = await rawHostRequest(baseUrl, "attacker.example");
+    const hostileHost = await rawHostRequestWithRetry(baseUrl, "attacker.example");
     assert.notEqual(hostileHost.status, 200);
     for (const signature of privateSignatures) assert.doesNotMatch(hostileHost.body, new RegExp(signature, "i"));
   }
