@@ -106,10 +106,14 @@ test('anchors event labels at the top and stacks mail counts on narrow screens',
   );
   assert.match(
     styles,
-    /@media\(max-width:650px\)[\s\S]*\.mail-row\{[\s\S]*display:grid;[\s\S]*grid-template-columns:minmax\(0,1fr\) auto;/
+    /@media\(max-width:650px\)[\s\S]*\.mail-row\{[\s\S]*display:grid;[\s\S]*grid-template-columns:auto minmax\(0,1fr\);/
   );
   assert.match(
     styles,
-    /\.intel-card \.mail-row > strong\{[\s\S]*grid-column:1 \/ -1;[\s\S]*font-size:\.8rem;[\s\S]*overflow-wrap:anywhere;/
+    /\.intel-card \.mail-row > strong\{[\s\S]*grid-column:1 \/ -1;[\s\S]*width:100%;[\s\S]*font-size:\.8rem;[\s\S]*overflow-wrap:normal;/
+  );
+  assert.match(
+    styles,
+    /\.mail-split\{[\s\S]*-webkit-text-size-adjust:100%;[\s\S]*text-size-adjust:100%;/
   );
 });

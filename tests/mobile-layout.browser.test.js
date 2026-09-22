@@ -85,7 +85,7 @@ function createServer() {
     if (url.pathname === '/api/microsoft/mail') {
       json(response, {
         connected: true,
-        unreadCount: 987654,
+        unreadCount: 37,
         messages: [{
           id: 'mail-1',
           subject: 'Mobile mail test',
@@ -179,6 +179,89 @@ async function waitForGeometry(page, viewportWidth, hourHeight, michaelTop) {
   );
 }
 
+async function mailMetrics(page) {
+  return page.evaluate(() => {
+    const personalRow = document.querySelector('#personalMailRow');
+    const count = document.querySelector('#personalEmailCount');
+    const mailCard = personalRow.closest('.intel-card');
+    const callbacksCard = [...document.querySelectorAll('.intel-card')]
+      .find(card => card.querySelector(':scope > span')?.textContent.trim() === 'CALLBACKS');
+    const rect = element => {
+      const bounds = element.getBoundingClientRect();
+      return {
+        left: bounds.left,
+        right: bounds.right,
+        top: bounds.top,
+        bottom: bounds.bottom,
+        width: bounds.width,
+        height: bounds.height
+      };
+    };
+    const textRange = document.createRange();
+    textRange.selectNodeContents(count);
+    const textRects = [...textRange.getClientRects()].map(bounds => ({
+      left: bounds.left,
+      right: bounds.right,
+      top: bounds.top,
+      bottom: bounds.bottom,
+      width: bounds.width,
+      height: bounds.height
+    }));
+    const labels = [...mailCard.querySelectorAll(':scope > span, .mail-row > span:first-child')]
+      .map(element => ({
+        text: element.textContent.trim(),
+        fontSize: Number.parseFloat(getComputedStyle(element).fontSize),
+        bounds: rect(element)
+      }));
+    const icons = [...mailCard.querySelectorAll('svg')].map(rect);
+    const countStyle = getComputedStyle(count);
+    const stripStyle = getComputedStyle(mailCard.parentElement);
+
+    return {
+      viewportWidth: window.innerWidth,
+      value: count.textContent,
+      count: rect(count),
+      textRects,
+      countFontSize: Number.parseFloat(countStyle.fontSize),
+      countLineHeight: Number.parseFloat(countStyle.lineHeight),
+      countOverflow: countStyle.overflow,
+      textSizeAdjust: countStyle.webkitTextSizeAdjust || countStyle.textSizeAdjust,
+      mailCard: rect(mailCard),
+      callbacksCard: rect(callbacksCard),
+      labels,
+      icons,
+      gridColumns: stripStyle.gridTemplateColumns
+    };
+  });
+}
+
+function assertMailContained(metrics) {
+  const tolerance = 0.5;
+  assert.equal(metrics.value, '37 unread');
+  assert.ok(metrics.countFontSize >= 12, `count font is ${metrics.countFontSize}px`);
+  assert.ok(metrics.countLineHeight >= 14, `count line-height is ${metrics.countLineHeight}px`);
+  assert.equal(metrics.countOverflow, 'visible');
+  assert.ok(metrics.textRects.length > 0);
+  for (const bounds of metrics.textRects) {
+    assert.ok(bounds.left >= metrics.mailCard.left - tolerance);
+    assert.ok(bounds.right <= metrics.mailCard.right + tolerance);
+    assert.ok(bounds.top >= metrics.mailCard.top - tolerance);
+    assert.ok(bounds.bottom <= metrics.mailCard.bottom + tolerance);
+  }
+  assert.ok(metrics.mailCard.right <= metrics.callbacksCard.left + tolerance);
+  for (const label of metrics.labels) {
+    assert.ok(label.text.length > 0);
+    assert.ok(label.fontSize >= 10, `${label.text} font is ${label.fontSize}px`);
+    assert.ok(label.bounds.width > 0 && label.bounds.height > 0);
+  }
+  assert.ok(metrics.icons.length >= 3);
+  for (const icon of metrics.icons) {
+    assert.ok(icon.width >= 15 && icon.height >= 15);
+    assert.ok(icon.left >= metrics.mailCard.left - tolerance);
+    assert.ok(icon.right <= metrics.mailCard.right + tolerance);
+  }
+}
+
 test('responsive calendar and mail layout survive live viewport changes', async () => {
   const server = createServer();
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
@@ -248,13 +331,8 @@ test('responsive calendar and mail layout survive live viewport changes', async 
     assert.equal(reopened.fieldDay.height, 364);
     assert.equal(reopened.michael.top, 234);
 
-    const mailBounds = await page.evaluate(() => {
-      const count = document.querySelector('#personalEmailCount').getBoundingClientRect();
-      const card = document.querySelector('#personalMailRow').closest('.intel-card').getBoundingClientRect();
-      return { countLeft: count.left, countRight: count.right, cardLeft: card.left, cardRight: card.right };
-    });
-    assert.ok(mailBounds.countLeft >= mailBounds.cardLeft);
-    assert.ok(mailBounds.countRight <= mailBounds.cardRight);
+    const mail = await mailMetrics(page);
+    assertMailContained(mail);
     await page.locator('#personalMailRow').click();
     assert.equal(await page.locator('.page.active').getAttribute('id'), 'personalMail');
     await page.locator('#personalMailBack').click();
@@ -267,10 +345,82 @@ test('responsive calendar and mail layout survive live viewport changes', async 
       ipadNarrow,
       ipadWide,
       reopened,
-      mailBounds
+      mail
     }));
 
     await context.close();
+  } finally {
+    await browser.close();
+    await new Promise(resolve => server.close(resolve));
+  }
+});
+
+test('live Personal Mail value stays readable across Android phone widths', async () => {
+  const server = createServer();
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+  const { port } = server.address();
+  const browser = await chromium.launch({ headless: true });
+
+  try {
+    const context = await browser.newContext({
+      timezoneId: timeZone,
+      viewport: { width: 320, height: 800 },
+      deviceScaleFactor: 3,
+      hasTouch: true,
+      isMobile: true,
+      userAgent: 'Mozilla/5.0 (Linux; Android 15; Pixel 9) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.0.0 Mobile Safari/537.36'
+    });
+    const page = await context.newPage();
+    await page.addInitScript(() => {
+      sessionStorage.setItem('jamesIntroDate', new Date().toDateString());
+    });
+    await page.goto(`http://127.0.0.1:${port}`, { waitUntil: 'networkidle' });
+    await page.locator('#personalEmailCount').filter({ hasText: '37 unread' }).waitFor();
+
+    const phoneEvidence = [];
+    for (const width of [320, 360, 390, 412, 430]) {
+      await page.setViewportSize({ width, height: 844 });
+      await page.waitForFunction(expectedWidth => window.innerWidth === expectedWidth, width);
+      const metrics = await mailMetrics(page);
+      assert.equal(metrics.viewportWidth, width);
+      assertMailContained(metrics);
+      phoneEvidence.push(metrics);
+    }
+
+    await page.locator('#personalMailRow').click();
+    assert.equal(await page.locator('.page.active').getAttribute('id'), 'personalMail');
+    await page.locator('#personalMailBack').click();
+    assert.equal(await page.locator('.page.active').getAttribute('id'), 'briefing');
+
+    console.log('ANDROID_MAIL_EVIDENCE', JSON.stringify(phoneEvidence));
+    await context.close();
+
+    const layoutContext = await browser.newContext({
+      timezoneId: timeZone,
+      viewport: { width: 768, height: 1024 }
+    });
+    const layoutPage = await layoutContext.newPage();
+    await layoutPage.addInitScript(() => {
+      sessionStorage.setItem('jamesIntroDate', new Date().toDateString());
+    });
+    await layoutPage.goto(`http://127.0.0.1:${port}`, { waitUntil: 'networkidle' });
+    await layoutPage.locator('#personalEmailCount').filter({ hasText: '37 unread' }).waitFor();
+
+    const ipad = await mailMetrics(layoutPage);
+    assertMailContained(ipad);
+    assert.equal(ipad.mailCard.top, ipad.callbacksCard.top);
+    assert.equal(ipad.mailCard.width, ipad.callbacksCard.width);
+
+    await layoutPage.setViewportSize({ width: 1024, height: 900 });
+    await layoutPage.waitForFunction(() => window.innerWidth === 1024);
+    const desktop = await mailMetrics(layoutPage);
+    assertMailContained(desktop);
+    assert.equal(desktop.mailCard.top, desktop.callbacksCard.top);
+    assert.equal(desktop.mailCard.width, desktop.callbacksCard.width);
+    assert.notEqual(ipad.gridColumns, desktop.gridColumns);
+
+    console.log('WIDE_MAIL_EVIDENCE', JSON.stringify({ ipad, desktop }));
+    await layoutContext.close();
   } finally {
     await browser.close();
     await new Promise(resolve => server.close(resolve));
