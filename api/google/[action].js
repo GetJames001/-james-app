@@ -1,6 +1,6 @@
-const statusHandler = require("./_status.js");
-const calendarsHandler = require("./_calendars.js");
-const eventsHandler = require("./_events.js");
+const statusHandler = require("../../lib/google/status.js");
+const calendarsHandler = require("../../lib/google/calendars.js");
+const eventsHandler = require("../../lib/google/events.js");
 const { requireAuth } = require("../../lib/auth.js");
 
 const handlers = {

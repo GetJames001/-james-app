@@ -50,20 +50,20 @@ function request(method = "GET", options = {}) {
 }
 
 const protectedEndpoints = [
-  ["/api/health", require("../api/health.js"), request("GET")],
+  ["/api/health", require("../lib/routes/health.js"), request("GET")],
   ["/api/tasks", require("../api/tasks.js"), request("GET")],
   ["/api/fast", require("../api/fast.js"), request("POST")],
   ["/api/council", require("../api/council.js"), request("POST")],
   ["/api/google/status", require("../api/google/[action].js"), request("GET", { query: { action: "status" } })],
-  ["/api/google/_status", require("../api/google/_status.js"), request("GET")],
-  ["/api/google/_calendars", require("../api/google/_calendars.js"), request("GET")],
-  ["/api/google/_events", require("../api/google/_events.js"), request("GET")],
+  ["/api/google/_status", require("../api/google/[action].js"), request("GET", { query: { action: "_status" } })],
+  ["/api/google/_calendars", require("../api/google/[action].js"), request("GET", { query: { action: "_calendars" } })],
+  ["/api/google/_events", require("../api/google/[action].js"), request("GET", { query: { action: "_events" } })],
   ["/api/google/connect", require("../api/google/connect.js"), request("GET")],
   ["/api/microsoft/mail", require("../api/microsoft/mail.js"), request("GET")],
   ["/api/microsoft/triage", require("../api/microsoft/triage.js"), request("POST")],
   ["/api/microsoft/connect", require("../api/microsoft/connect.js"), request("GET")],
-  ["/api/auth/session", require("../api/auth/session.js"), request("GET")],
-  ["/api/auth/logout", require("../api/auth/logout.js"), request("POST")]
+  ["/api/auth/session", require("../lib/routes/session.js"), request("GET")],
+  ["/api/auth/logout", require("../lib/routes/logout.js"), request("POST")]
 ];
 
 test("every private API rejects an unauthenticated direct request without metadata", async () => {
@@ -77,7 +77,22 @@ test("every private API rejects an unauthenticated direct request without metada
   }
 });
 
-test("API inventory explicitly classifies every deployed function", () => {
+test("deployed catch-all routes preserve the same authentication boundary", async () => {
+  const router = require("../api/[...route].js");
+
+  for (const route of [["health"], ["auth", "session"], ["auth", "logout"]]) {
+    const res = mockRes();
+    await router(request(route.at(-1) === "logout" ? "POST" : "GET", {
+      query: { route }
+    }), res);
+    assert.equal(res.statusCode, 401, route.join("/"));
+    assert.deepEqual(res.body, { ok: false, error: "UNAUTHORIZED" });
+    assert.match(String(res.headers["Cache-Control"]), /private/);
+    assert.match(String(res.headers["Cache-Control"]), /no-store/);
+  }
+});
+
+test("API inventory explicitly classifies every deployed function within the Hobby limit", () => {
   const apiFiles = [];
   function walk(directory) {
     for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
@@ -89,22 +104,15 @@ test("API inventory explicitly classifies every deployed function", () => {
   walk(path.join(root, "api"));
 
   const publicFunctions = new Set([
-    "api/auth/login.js",
     "api/google/callback.js",
     "api/microsoft/callback.js"
   ]);
+  const mixedFunctions = new Set(["api/[...route].js"]);
   const expectedProtected = new Set([
-    "api/app.js",
-    "api/auth/logout.js",
-    "api/auth/session.js",
     "api/council.js",
     "api/fast.js",
     "api/google/[action].js",
-    "api/google/_calendars.js",
-    "api/google/_events.js",
-    "api/google/_status.js",
     "api/google/connect.js",
-    "api/health.js",
     "api/microsoft/connect.js",
     "api/microsoft/mail.js",
     "api/microsoft/triage.js",
@@ -113,11 +121,13 @@ test("API inventory explicitly classifies every deployed function", () => {
 
   assert.deepEqual(
     new Set(apiFiles),
-    new Set([...publicFunctions, ...expectedProtected])
+    new Set([...publicFunctions, ...mixedFunctions, ...expectedProtected])
   );
+  assert.ok(apiFiles.length <= 12, `Vercel Hobby function limit exceeded: ${apiFiles.length}`);
   for (const file of expectedProtected) {
     assert.match(fs.readFileSync(path.join(root, file), "utf8"), /requireAuth|sessionFromRequest/);
   }
+  assert.match(fs.readFileSync(path.join(root, "api/[...route].js"), "utf8"), /auth\/login/);
 });
 
 test("forged, expired, future, malformed, and wrong-identity sessions fail closed", () => {
@@ -142,7 +152,7 @@ test("forged, expired, future, malformed, and wrong-identity sessions fail close
 });
 
 test("login is same-origin only and issues a hardened session cookie", async () => {
-  const login = require("../api/auth/login.js");
+  const login = require("../lib/routes/login.js");
 
   let res = mockRes();
   await login(request("POST", {
@@ -174,7 +184,7 @@ test("all mutating endpoints reject a valid session from a cross-site origin", a
     ["fast", require("../api/fast.js"), { question: "test" }, {}],
     ["council", require("../api/council.js"), { question: "test" }, {}],
     ["triage", require("../api/microsoft/triage.js"), { messages: [{ id: "1" }] }, {}],
-    ["logout", require("../api/auth/logout.js"), {}, {}]
+    ["logout", require("../lib/routes/logout.js"), {}, {}]
   ];
 
   for (const [name, handler, body, query] of mutations) {
@@ -199,17 +209,17 @@ test("authorized requests preserve app, session, health, and stored Tasks behavi
   };
 
   let res = mockRes();
-  await require("../api/auth/session.js")(request("GET", sameOrigin), res);
+  await require("../lib/routes/session.js")(request("GET", sameOrigin), res);
   assert.equal(res.statusCode, 200);
   assert.equal(res.body.identity, process.env.JAMES_AUTH_EMAIL);
 
   res = mockRes();
-  await require("../api/health.js")(request("GET", sameOrigin), res);
+  await require("../lib/routes/health.js")(request("GET", sameOrigin), res);
   assert.equal(res.statusCode, 200);
   assert.equal(res.body.service, "james-live-council");
 
   res = mockRes();
-  await require("../api/app.js")(request("GET", sameOrigin), res);
+  await require("../lib/routes/app.js")(request("GET", sameOrigin), res);
   assert.equal(res.statusCode, 200);
   assert.match(res.body, /Your Morning Briefing/);
 
@@ -232,7 +242,7 @@ test("authorized requests preserve app, session, health, and stored Tasks behavi
 
 test("the application shell redirects unauthenticated visitors to the login page", async () => {
   const res = mockRes();
-  await require("../api/app.js")(request("GET", {
+  await require("../lib/routes/app.js")(request("GET", {
     host: "www.getjames.ai",
     origin: "https://www.getjames.ai"
   }), res);
@@ -243,7 +253,7 @@ test("the application shell redirects unauthenticated visitors to the login page
 });
 
 test("authorization is host-agnostic while same-origin CSRF follows each entry URL", async () => {
-  const session = require("../api/auth/session.js");
+  const session = require("../lib/routes/session.js");
   for (const host of [
     "www.getjames.ai",
     "getjames.ai",
