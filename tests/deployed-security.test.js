@@ -223,7 +223,7 @@ test("authorized automation reaches both protected Preview application gateways"
       const response = authorizedRequest(baseUrl, entry.target);
       assertGatewayResponse(response, 302, `${baseUrl}: ${entry.name}`);
       assert.deepEqual(headerValues(response, "location"), ["/login"], entry.name);
-      assert.equal(response.body, "Redirecting...\\n", entry.name);
+      assert.equal(response.body, "Redirecting...\n", entry.name);
     }
 
     for (const entry of unauthorizedCases) {
