@@ -81,7 +81,9 @@ const protectedEndpoints = [
   ["/api/microsoft/triage", require("../api/microsoft/triage.js"), request("POST")],
   ["/api/microsoft/connect", require("../api/microsoft/connect.js"), request("GET")],
   ["/api/auth/session", require("../lib/routes/session.js"), request("GET")],
-  ["/api/auth/logout", require("../lib/routes/logout.js"), request("POST")]
+  ["/api/auth/logout", require("../lib/routes/logout.js"), request("POST", {
+    origin: "https://www.getjames.ai"
+  })]
 ];
 
 test("every private API rejects an unauthenticated direct request without metadata", async () => {
@@ -101,8 +103,10 @@ test("deployed gateway routes preserve the same authentication boundary", async 
   for (const route of ["api/health", "api/auth/session", "api/auth/logout"]) {
     const res = mockRes();
     await router(request(route.endsWith("logout") ? "POST" : "GET", {
+      origin: route.endsWith("logout") ? "https://www.getjames.ai" : undefined,
       query: { path: route }
     }), res);
+    assert.equal(res.headers["X-Application-Gateway"], "enforced", route);
     assert.equal(res.statusCode, 401, route);
     assert.deepEqual(res.body, { ok: false, error: "UNAUTHORIZED" });
     assert.match(String(res.headers["Cache-Control"]), /private/);
@@ -228,6 +232,9 @@ test("all mutating endpoints reject a valid session from a cross-site origin", a
     }), res);
     assert.equal(res.statusCode, 403, name);
     assert.deepEqual(res.body, { ok: false, error: "FORBIDDEN" }, name);
+    if (name === "logout") {
+      assert.equal(res.headers["Set-Cookie"], undefined, "cross-site logout must not clear cookies");
+    }
   }
 });
 
@@ -411,30 +418,101 @@ test("host and origin checks ignore spoofed forwarded values and reject unknown 
   }
 });
 
-test("invalid and expired logout sessions are cleared with matching secure attributes", async () => {
-  const logout = require("../lib/routes/logout.js");
-  const expired = auth.createSessionToken(process.env.JAMES_AUTH_EMAIL, { now: 1000, ttl: 10 });
+function assertLogoutCookiesCleared(res) {
+  const cookies = res.headers["Set-Cookie"];
+  assert.ok(Array.isArray(cookies));
+  assert.equal(cookies.length, 2);
+  assert.match(cookies[0], /^__Host-james_session=;/);
+  assert.match(cookies[1], /^james_session=;/);
 
-  for (const cookie of [
-    `${auth.SESSION_COOKIE}=forged`,
-    `${auth.SESSION_COOKIE}=${expired}`
-  ]) {
+  for (const cookie of cookies) {
+    assert.match(cookie, /; Path=\//);
+    assert.match(cookie, /; HttpOnly/);
+    assert.match(cookie, /; Secure/);
+    assert.match(cookie, /; SameSite=Strict/);
+    assert.match(cookie, /; Max-Age=0/);
+    assert.match(cookie, /; Priority=High/);
+    assert.doesNotMatch(cookie, /; Domain=/i);
+  }
+}
+
+test("hostile logout requests cannot emit cookie deletion headers or mutate request state", async () => {
+  const logout = require("../lib/routes/logout.js");
+  const hostileCases = [
+    {
+      name: "cross-site origin",
+      options: {
+        authorized: true,
+        host: "www.getjames.ai",
+        origin: "https://attacker.example"
+      }
+    },
+    {
+      name: "missing origin",
+      options: {
+        authorized: true,
+        host: "www.getjames.ai"
+      }
+    },
+    {
+      name: "hostile Host with trusted forwarded values",
+      options: {
+        authorized: true,
+        host: "attacker.example",
+        origin: "https://attacker.example",
+        forwardedHost: "www.getjames.ai",
+        forwardedProto: "https"
+      }
+    }
+  ];
+
+  for (const { name, options } of hostileCases) {
+    const req = request("POST", options);
+    const res = mockRes();
+    await logout(req, res);
+    assert.equal(res.statusCode, 403, name);
+    assert.deepEqual(res.body, { ok: false, error: "FORBIDDEN" }, name);
+    assert.equal(res.headers["Set-Cookie"], undefined, name);
+    assert.equal(req.jamesIdentity, undefined, name);
+  }
+});
+
+test("same-origin logout clears valid, invalid, expired, malformed, and legacy cookies", async () => {
+  const logout = require("../lib/routes/logout.js");
+  const valid = auth.createSessionToken(process.env.JAMES_AUTH_EMAIL);
+  const forged = `${valid.slice(0, -1)}${valid.endsWith("a") ? "b" : "a"}`;
+  const expired = auth.createSessionToken(process.env.JAMES_AUTH_EMAIL, {
+    now: Math.floor(Date.now() / 1000) - 120,
+    ttl: 30
+  });
+
+  const cases = [
+    { name: "valid", cookie: `${auth.SESSION_COOKIE}=${valid}`, status: 200 },
+    { name: "invalid signature", cookie: `${auth.SESSION_COOKIE}=${forged}`, status: 401 },
+    { name: "expired", cookie: `${auth.SESSION_COOKIE}=${expired}`, status: 401 },
+    { name: "malformed", cookie: `${auth.SESSION_COOKIE}=not-a-session`, status: 401 },
+    { name: "legacy only", cookie: "james_session=legacy-value", status: 401 },
+    {
+      name: "valid with legacy",
+      cookie: `${auth.SESSION_COOKIE}=${valid}; james_session=legacy-value`,
+      status: 200
+    }
+  ];
+
+  for (const entry of cases) {
     const res = mockRes();
     await logout(request("POST", {
-      headers: { cookie },
+      headers: { cookie: entry.cookie },
       host: "www.getjames.ai",
-      origin: "https://www.getjames.ai",
-      sessionOptions: { now: 2000 }
+      origin: "https://www.getjames.ai"
     }), res);
-    assert.equal(res.statusCode, 401);
-    assert.ok(Array.isArray(res.headers["Set-Cookie"]));
-    for (const cleared of res.headers["Set-Cookie"]) {
-      assert.match(cleared, /Path=\//);
-      assert.match(cleared, /HttpOnly/);
-      assert.match(cleared, /Secure/);
-      assert.match(cleared, /SameSite=Strict/);
-      assert.match(cleared, /Max-Age=0/);
-    }
+    assert.equal(res.statusCode, entry.status, entry.name);
+    assert.deepEqual(
+      res.body,
+      entry.status === 200 ? { ok: true } : { ok: false, error: "UNAUTHORIZED" },
+      entry.name
+    );
+    assertLogoutCookiesCleared(res);
   }
 });
 

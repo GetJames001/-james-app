@@ -20,3 +20,16 @@ jobs:
       - run: npm ci
       - run: npx playwright install --with-deps chromium
       - run: npm test
+
+  windows-powershell-compatibility:
+    runs-on: windows-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify credential helper with Windows PowerShell 5.1
+        shell: powershell
+        run: |
+          if ($PSVersionTable.PSVersion.Major -ne 5) {
+            throw "Expected Windows PowerShell 5.1."
+          }
+          .\tools\Generate-JamesPreviewCredentials.ps1 -SelfTest

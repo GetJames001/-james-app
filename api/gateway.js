@@ -39,6 +39,9 @@ function requestedPath(req) {
 }
 
 module.exports = async function handler(req, res) {
+  // Constant, non-sensitive marker used to distinguish this application
+  // boundary from Vercel Authentication or another upstream response.
+  res.setHeader("X-Application-Gateway", "enforced");
   privateNoStore(res);
   if (!requireAllowedHost(req, res)) return;
 

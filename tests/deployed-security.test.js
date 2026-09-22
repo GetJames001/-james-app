@@ -1,12 +1,16 @@
 const assert = require("node:assert/strict");
-const https = require("node:https");
+const childProcess = require("node:child_process");
+const fs = require("node:fs");
+const os = require("node:os");
+const path = require("node:path");
 const test = require("node:test");
 
+const runAuthorizedProbe = process.env.JAMES_SECURITY_USE_VERCEL_CLI === "1";
 const previewUrls = String(process.env.JAMES_SECURITY_PREVIEW_URLS || "")
   .split(",")
   .map(value => value.trim().replace(/\/$/, ""))
   .filter(Boolean);
-const bypassSecret = String(process.env.VERCEL_AUTOMATION_BYPASS_SECRET || "");
+const vercelCommand = process.env.JAMES_VERCEL_CLI_COMMAND || "vercel";
 
 const privateSignatures = [
   "Your Morning Briefing",
@@ -15,97 +19,218 @@ const privateSignatures = [
   "loadPersonalMicrosoftMail"
 ];
 
-function headers(extra = {}) {
-  return {
-    ...(bypassSecret ? { "x-vercel-protection-bypass": bypassSecret } : {}),
-    ...extra
-  };
-}
+const unauthorizedCases = [
+  { name: "trailing-slash index", target: "/index.html/" },
+  { name: "encoded internal calendar page", target: "/%63alendar-test.html" },
+  { name: "encoded internal council page", target: "/%63ouncil-test.html" },
+  { name: "encoded application JavaScript", target: "/%61pp.js" },
+  { name: "double-encoded application JavaScript", target: "/%2561pp.js" },
+  { name: "query-bearing application JavaScript", target: "/app.js?cache=security-review" },
+  { name: "private stylesheet", target: "/styles.css" },
+  { name: "private image asset", target: "/assets/james-signature-v2.png" },
+  { name: "encoded dot and slash", target: "/.%2findex.html" },
+  { name: "unknown route", target: "/unknown-private-route" },
+  { name: "private Tasks API", target: "/api/tasks?cache=security-review" }
+];
 
-async function assertBlocked(baseUrl, path, method = "GET", extraHeaders = {}) {
-  let lastError;
-  for (let attempt = 1; attempt <= 3; attempt += 1) {
-    try {
-      const response = await fetch(`${baseUrl}${path}`, {
-        method,
-        headers: headers(extraHeaders),
-        redirect: "manual",
-        signal: AbortSignal.timeout(15_000)
-      });
-      const body = method === "HEAD" ? "" : await response.text();
-      for (const signature of privateSignatures) assert.doesNotMatch(body, new RegExp(signature, "i"));
-      assert.notEqual(response.status, 200, `${method} ${baseUrl}${path}`);
-      return response.status;
-    } catch (error) {
-      lastError = error;
-    }
+const redirectCases = [
+  { name: "application root", target: "/" },
+  { name: "encoded index", target: "/%69ndex.html" },
+  { name: "raw dot-segment index", target: "/a/../index.html" },
+  { name: "query-bearing index", target: "/index.html?cache=security-review" }
+];
+
+const alternateMethods = ["HEAD", "POST", "OPTIONS", "PUT"];
+
+function validatePreviewUrls() {
+  assert.equal(previewUrls.length, 2, "provide the immutable and branch Preview URLs");
+  assert.equal(new Set(previewUrls).size, 2, "Preview URLs must be distinct");
+  for (const value of previewUrls) {
+    const parsed = new URL(value);
+    assert.equal(parsed.protocol, "https:");
+    assert.match(parsed.hostname, /\.vercel\.app$/);
+    assert.equal(parsed.pathname, "/");
   }
-  throw lastError;
 }
 
-function rawHostRequest(baseUrl, hostHeader) {
-  const target = new URL(baseUrl);
-  return new Promise((resolve, reject) => {
-    const req = https.request({
-      hostname: target.hostname,
-      path: "/api/auth/session",
-      method: "GET",
-      headers: headers({ Host: hostHeader, "X-Forwarded-Host": target.hostname, "X-Forwarded-Proto": "https" })
-    }, response => {
-      let body = "";
-      response.setEncoding("utf8");
-      response.on("data", chunk => { body += chunk; });
-      response.on("end", () => resolve({ status: response.statusCode, body }));
-    });
-    req.on("error", reject);
-    req.setTimeout(10_000, () => req.destroy(new Error("deployed hostile-host request timed out")));
-    req.end();
-  });
-}
+function parseHeaderFile(contents) {
+  const blocks = contents
+    .split(/\r?\n\r?\n/)
+    .map(value => value.trim())
+    .filter(value => /^HTTP\//i.test(value));
+  assert.ok(blocks.length > 0, "curl did not return an HTTP response header block");
 
-async function rawHostRequestWithRetry(baseUrl, hostHeader) {
-  let lastError;
-  for (let attempt = 1; attempt <= 3; attempt += 1) {
-    try {
-      return await rawHostRequest(baseUrl, hostHeader);
-    } catch (error) {
-      lastError = error;
-    }
+  const lines = blocks.at(-1).split(/\r?\n/);
+  const headers = new Map();
+  for (const line of lines.slice(1)) {
+    const separator = line.indexOf(":");
+    if (separator < 1) continue;
+    const name = line.slice(0, separator).trim().toLowerCase();
+    const value = line.slice(separator + 1).trim();
+    const existing = headers.get(name) || [];
+    existing.push(value);
+    headers.set(name, existing);
   }
-  throw lastError;
+  return headers;
 }
 
-test("deployed Preview blocks normalized and encoded application paths", {
-  skip: previewUrls.length ? false : "Set JAMES_SECURITY_PREVIEW_URLS to run deployed verification."
-}, async () => {
-  const paths = [
-    "/%69ndex.html",
-    "/index.html/",
-    "/%63alendar-test.html",
-    "/%63ouncil-test.html",
-    "/%61pp.js",
-    "/%2561pp.js",
-    "/app.js?cache=review",
-    "/calendar-test.html?cache=review",
-    "/a/../index.html",
-    "/.%2findex.html",
-    "/api/tasks?cache=review"
+function authorizedRequest(baseUrl, requestTarget, options = {}) {
+  const temporaryDirectory = fs.mkdtempSync(path.join(os.tmpdir(), "james-gateway-probe-"));
+  const headerFile = path.join(temporaryDirectory, "headers.txt");
+  const bodyFile = path.join(temporaryDirectory, "body.txt");
+  const method = options.method || "GET";
+  const args = [
+    "curl",
+    "/",
+    "--deployment",
+    baseUrl,
+    "--",
+    "--silent",
+    "--show-error",
+    "--path-as-is",
+    "--request-target",
+    requestTarget,
+    "--dump-header",
+    headerFile,
+    "--output",
+    bodyFile,
+    "--write-out",
+    "%{http_code}"
   ];
 
-  for (const baseUrl of previewUrls) {
-    for (let index = 0; index < paths.length; index += 3) {
-      await Promise.all(paths.slice(index, index + 3).map(path => assertBlocked(baseUrl, path)));
-    }
-    await Promise.all(["HEAD", "POST", "OPTIONS"]
-      .map(method => assertBlocked(baseUrl, "/%61pp.js", method)));
+  if (method === "HEAD") args.push("--head");
+  else if (method !== "GET") args.push("--request", method);
 
-    await assertBlocked(baseUrl, "/app.js", "GET", {
-      "X-Forwarded-Host": "attacker.example",
-      "X-Forwarded-Proto": "http"
+  for (const [name, value] of Object.entries(options.headers || {})) {
+    args.push("--header", `${name}: ${value}`);
+  }
+
+  try {
+    const result = childProcess.spawnSync(vercelCommand, args, {
+      encoding: "utf8",
+      timeout: 30_000,
+      maxBuffer: 1024 * 1024
     });
+    if (result.error) throw result.error;
+    assert.equal(result.status, 0, `vercel curl failed: ${String(result.stderr || "").trim()}`);
 
-    const hostileHost = await rawHostRequestWithRetry(baseUrl, "attacker.example");
-    assert.notEqual(hostileHost.status, 200);
-    for (const signature of privateSignatures) assert.doesNotMatch(hostileHost.body, new RegExp(signature, "i"));
+    const statusMatch = String(result.stdout || "").match(/(\d{3})\s*$/);
+    assert.ok(statusMatch, "vercel curl did not report an HTTP status");
+    return {
+      status: Number(statusMatch[1]),
+      headers: parseHeaderFile(fs.readFileSync(headerFile, "utf8")),
+      body: fs.readFileSync(bodyFile, "utf8")
+    };
+  } finally {
+    fs.rmSync(temporaryDirectory, { recursive: true, force: true });
+  }
+}
+
+function headerValues(response, name) {
+  return response.headers.get(name.toLowerCase()) || [];
+}
+
+function assertGatewayResponse(response, expectedStatus, label) {
+  assert.equal(response.status, expectedStatus, label);
+  assert.deepEqual(headerValues(response, "x-application-gateway"), ["enforced"], label);
+  assert.match(headerValues(response, "cache-control").join(", "), /\bprivate\b/i, label);
+  assert.match(headerValues(response, "cache-control").join(", "), /\bno-store\b/i, label);
+  for (const signature of privateSignatures) {
+    assert.doesNotMatch(response.body, new RegExp(signature, "i"), `${label}: ${signature}`);
+  }
+}
+
+function assertUnauthorized(response, label, options = {}) {
+  assertGatewayResponse(response, 401, label);
+  if (!options.head) {
+    assert.deepEqual(JSON.parse(response.body), { ok: false, error: "UNAUTHORIZED" }, label);
+  } else {
+    assert.equal(response.body, "", label);
+  }
+}
+
+test("deployed gateway probe is pinned to authenticated Vercel CLI and raw request targets", () => {
+  const source = fs.readFileSync(__filename, "utf8");
+  assert.match(source, /JAMES_SECURITY_USE_VERCEL_CLI/);
+  assert.match(source, /"--request-target"/);
+  assert.match(source, /"--path-as-is"/);
+  assert.match(source, /x-application-gateway/);
+  assert.doesNotMatch(source, /assert\.notEqual\(response\.status,\s*200/);
+  assert.ok(unauthorizedCases.some(entry => entry.target === "/%2561pp.js"));
+  assert.ok(redirectCases.some(entry => entry.target === "/a/../index.html"));
+  assert.deepEqual(alternateMethods, ["HEAD", "POST", "OPTIONS", "PUT"]);
+});
+
+test("authorized Vercel CLI reaches both protected Preview application gateways", {
+  skip: runAuthorizedProbe
+    ? false
+    : "Deferred: authorize Vercel CLI locally, then set JAMES_SECURITY_USE_VERCEL_CLI=1."
+}, () => {
+  validatePreviewUrls();
+
+  for (const baseUrl of previewUrls) {
+    for (const entry of redirectCases) {
+      const response = authorizedRequest(baseUrl, entry.target);
+      assertGatewayResponse(response, 302, `${baseUrl}: ${entry.name}`);
+      assert.deepEqual(headerValues(response, "location"), ["/login"], entry.name);
+      assert.equal(response.body, "", entry.name);
+    }
+
+    for (const entry of unauthorizedCases) {
+      assertUnauthorized(
+        authorizedRequest(baseUrl, entry.target),
+        `${baseUrl}: ${entry.name}`
+      );
+    }
+
+    for (const method of alternateMethods) {
+      assertUnauthorized(
+        authorizedRequest(baseUrl, "/%61pp.js", { method }),
+        `${baseUrl}: ${method} encoded app.js`,
+        { head: method === "HEAD" }
+      );
+    }
+
+    const forwardedHeaders = authorizedRequest(baseUrl, "/api/auth/session", {
+      headers: {
+        "X-Forwarded-Host": "attacker.example",
+        "X-Forwarded-Proto": "http"
+      }
+    });
+    assertUnauthorized(forwardedHeaders, `${baseUrl}: spoofed forwarded headers`);
+
+    const hostileOriginLogout = authorizedRequest(baseUrl, "/api/auth/logout", {
+      method: "POST",
+      headers: { Origin: "https://attacker.example" }
+    });
+    assertGatewayResponse(hostileOriginLogout, 403, `${baseUrl}: hostile logout Origin`);
+    assert.deepEqual(
+      JSON.parse(hostileOriginLogout.body),
+      { ok: false, error: "FORBIDDEN" }
+    );
+    assert.deepEqual(headerValues(hostileOriginLogout, "set-cookie"), []);
+
+    const sameOriginLogout = authorizedRequest(baseUrl, "/api/auth/logout", {
+      method: "POST",
+      headers: { Origin: baseUrl }
+    });
+    assertUnauthorized(sameOriginLogout, `${baseUrl}: same-origin logout without app session`);
+    const clearedCookies = headerValues(sameOriginLogout, "set-cookie");
+    assert.equal(clearedCookies.length, 2);
+    assert.match(clearedCookies[0], /^__Host-james_session=;/);
+    assert.match(clearedCookies[1], /^james_session=;/);
+    for (const cookie of clearedCookies) {
+      assert.match(cookie, /Path=\//);
+      assert.match(cookie, /HttpOnly/);
+      assert.match(cookie, /Secure/);
+      assert.match(cookie, /SameSite=Strict/);
+      assert.match(cookie, /Max-Age=0/);
+    }
+
+    const hostileHost = authorizedRequest(baseUrl, "/api/auth/session", {
+      headers: { Host: "attacker.example" }
+    });
+    assertGatewayResponse(hostileHost, 403, `${baseUrl}: hostile Host`);
+    assert.deepEqual(JSON.parse(hostileHost.body), { ok: false, error: "FORBIDDEN" });
   }
 });
