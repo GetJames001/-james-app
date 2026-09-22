@@ -26,7 +26,8 @@ async function assertBlocked(baseUrl, path, method = "GET", extraHeaders = {}) {
   const response = await fetch(`${baseUrl}${path}`, {
     method,
     headers: headers(extraHeaders),
-    redirect: "manual"
+    redirect: "manual",
+    signal: AbortSignal.timeout(10_000)
   });
   const body = method === "HEAD" ? "" : await response.text();
   for (const signature of privateSignatures) assert.doesNotMatch(body, new RegExp(signature, "i"));
@@ -49,6 +50,7 @@ function rawHostRequest(baseUrl, hostHeader) {
       response.on("end", () => resolve({ status: response.statusCode, body }));
     });
     req.on("error", reject);
+    req.setTimeout(10_000, () => req.destroy(new Error("deployed hostile-host request timed out")));
     req.end();
   });
 }
@@ -71,12 +73,8 @@ test("deployed Preview blocks normalized and encoded application paths", {
   ];
 
   for (const baseUrl of previewUrls) {
-    for (const path of paths) {
-      await assertBlocked(baseUrl, path);
-      await assertBlocked(baseUrl, path, "HEAD");
-      await assertBlocked(baseUrl, path, "POST");
-      await assertBlocked(baseUrl, path, "OPTIONS");
-    }
+    await Promise.all(paths.flatMap(path => ["GET", "HEAD", "POST", "OPTIONS"]
+      .map(method => assertBlocked(baseUrl, path, method))));
 
     await assertBlocked(baseUrl, "/app.js", "GET", {
       "X-Forwarded-Host": "attacker.example",
