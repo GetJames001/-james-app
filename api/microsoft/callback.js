@@ -1,4 +1,13 @@
-export default async function handler(req, res) {
+const { privateNoStore } = require("../../lib/auth.js");
+
+module.exports = async function handler(req, res) {
+  privateNoStore(res);
+
+  if (req.method !== "GET") {
+    res.setHeader("Allow", "GET");
+    return res.status(405).send("Method not allowed.");
+  }
+
   const { code, error, state } = req.query;
 
   const cookies = Object.fromEntries(
@@ -14,6 +23,11 @@ export default async function handler(req, res) {
   if (!state || !expectedState || state !== expectedState) {
     return res.status(400).send("Invalid Microsoft authorization state.");
   }
+
+  res.setHeader("Set-Cookie", [
+    "microsoft_oauth_state=; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=0",
+    "microsoft_oauth_account=; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=0",
+  ]);
 
   if (!["personal", "work"].includes(account)) {
     return res.status(400).send("Microsoft account type is missing.");

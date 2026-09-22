@@ -1,7 +1,24 @@
 {
   "functions": {
+    "api/app.js": {
+      "includeFiles": "index.html"
+    },
     "api/council.js": {
       "maxDuration": 120
     }
-  }
+  },
+  "rewrites": [
+    {
+      "source": "/",
+      "destination": "/api/app"
+    },
+    {
+      "source": "/index.html",
+      "destination": "/api/app"
+    },
+    {
+      "source": "/login",
+      "destination": "/login.html"
+    }
+  ]
 }

@@ -1,4 +1,13 @@
-export default async function handler(req, res) {
+const { privateNoStore } = require("../../lib/auth.js");
+
+module.exports = async function handler(req, res) {
+  privateNoStore(res);
+
+  if (req.method !== "GET") {
+    res.setHeader("Allow", "GET");
+    return res.status(405).send("Method not allowed.");
+  }
+
   const { code, error } = req.query;
 const state = req.query.state;
 
@@ -14,6 +23,10 @@ const expectedState = cookies.google_oauth_state;
 if (!state || !expectedState || state !== expectedState) {
   return res.status(400).send("Invalid Google authorization state.");
 }
+res.setHeader(
+  "Set-Cookie",
+  "google_oauth_state=; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=0"
+);
   if (error) {
     return res.status(400).send(`Google authorization failed: ${error}`);
   }

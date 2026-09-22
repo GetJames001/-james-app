@@ -1,6 +1,7 @@
-import statusHandler from "./_status.js";
-import calendarsHandler from "./_calendars.js";
-import eventsHandler from "./_events.js";
+const statusHandler = require("./_status.js");
+const calendarsHandler = require("./_calendars.js");
+const eventsHandler = require("./_events.js");
+const { requireAuth } = require("../../lib/auth.js");
 
 const handlers = {
   status: statusHandler,
@@ -8,7 +9,15 @@ const handlers = {
   events: eventsHandler,
 };
 
-export default async function handler(req, res) {
+module.exports = async function handler(req, res) {
+  const session = requireAuth(req, res);
+  if (!session) return;
+
+  if (req.method !== "GET") {
+    res.setHeader("Allow", "GET");
+    return res.status(405).json({ ok: false, error: "METHOD_NOT_ALLOWED" });
+  }
+
   const action = Array.isArray(req.query.action)
     ? req.query.action[0]
     : req.query.action;
