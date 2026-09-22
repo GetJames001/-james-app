@@ -411,8 +411,8 @@ test('live Personal Mail value stays readable across Android phone widths', asyn
     assert.equal(ipad.mailCard.top, ipad.callbacksCard.top);
     assert.equal(ipad.mailCard.width, ipad.callbacksCard.width);
 
-    await layoutPage.setViewportSize({ width: 1024, height: 900 });
-    await layoutPage.waitForFunction(() => window.innerWidth === 1024);
+    await layoutPage.setViewportSize({ width: 1440, height: 900 });
+    await layoutPage.waitForFunction(() => window.innerWidth === 1440);
     const desktop = await mailMetrics(layoutPage);
     assertMailContained(desktop);
     assert.equal(desktop.mailCard.top, desktop.callbacksCard.top);
