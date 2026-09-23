@@ -84,12 +84,8 @@ function parseHeaderFile(contents) {
   return headers;
 }
 
-function authorizedRequest(baseUrl, requestTarget, options = {}) {
-  const temporaryDirectory = fs.mkdtempSync(path.join(os.tmpdir(), "james-gateway-probe-"));
-  const headerFile = path.join(temporaryDirectory, "headers.txt");
-  const bodyFile = path.join(temporaryDirectory, "body.txt");
-  const bypassHeaderFile = path.join(temporaryDirectory, "bypass-header.txt");
-  const method = options.method || "GET";
+function buildCurlArgs(requestTarget, options) {
+  const { method, headers, headerFile, bodyFile } = options;
   const curlArgs = [
     "--silent",
     "--show-error",
@@ -105,16 +101,43 @@ function authorizedRequest(baseUrl, requestTarget, options = {}) {
     "--dump-header",
     headerFile,
     "--output",
-    bodyFile,
+    method === "HEAD" ? os.devNull : bodyFile,
     "--write-out",
     "%{http_code}"
   ];
 
-  if (method !== "GET") curlArgs.push("--request", method);
+  // --request HEAD changes only the verb, so curl still expects response-body
+  // bytes advertised by Content-Length and reports code 18 for a correct HEAD
+  // response. --head enables curl's actual no-body HEAD response semantics.
+  if (method === "HEAD") curlArgs.push("--head");
+  else if (method !== "GET") curlArgs.push("--request", method);
 
-  for (const [name, value] of Object.entries(options.headers || {})) {
+  for (const [name, value] of Object.entries(headers)) {
     curlArgs.push("--header", `${name}: ${value}`);
   }
+  return curlArgs;
+}
+
+function sanitizedCurlError(stderr, secret = automationBypassSecret) {
+  let value = String(stderr || "");
+  if (secret) value = value.split(secret).join("[redacted]");
+  value = value.replace(/[\r\n]+/g, " ").replace(/[^\x20-\x7e]/g, "?").trim();
+  return value.slice(0, 300) || "no stderr";
+}
+
+function authorizedRequest(baseUrl, requestTarget, options = {}) {
+  const temporaryDirectory = fs.mkdtempSync(path.join(os.tmpdir(), "james-gateway-probe-"));
+  const headerFile = path.join(temporaryDirectory, "headers.txt");
+  const bodyFile = path.join(temporaryDirectory, "body.txt");
+  const bypassHeaderFile = path.join(temporaryDirectory, "bypass-header.txt");
+  const method = options.method || "GET";
+  const requestLabel = `${method} ${new URL(baseUrl).hostname}${requestTarget}`;
+  const curlArgs = buildCurlArgs(requestTarget, {
+    method,
+    headers: options.headers || {},
+    headerFile,
+    bodyFile
+  });
 
   try {
     let command;
@@ -139,15 +162,21 @@ function authorizedRequest(baseUrl, requestTarget, options = {}) {
       timeout: 30_000,
       maxBuffer: 1024 * 1024
     });
-    if (result.error) throw result.error;
-    assert.equal(result.status, 0, "protected Preview request failed");
+    if (result.error) {
+      throw new Error(`${requestLabel}: protected Preview request could not start`);
+    }
+    assert.equal(
+      result.status,
+      0,
+      `${requestLabel}: curl exited ${result.status}; ${sanitizedCurlError(result.stderr)}`
+    );
 
     const statusMatch = String(result.stdout || "").match(/(\d{3})\s*$/);
     assert.ok(statusMatch, "protected Preview request did not report an HTTP status");
     return {
       status: Number(statusMatch[1]),
       headers: parseHeaderFile(fs.readFileSync(headerFile, "utf8")),
-      body: fs.readFileSync(bodyFile, "utf8")
+      body: method === "HEAD" ? "" : fs.readFileSync(bodyFile, "utf8")
     };
   } finally {
     fs.rmSync(temporaryDirectory, { recursive: true, force: true });
@@ -203,6 +232,27 @@ test("automation-bypass validation rejects missing, oversized, or multiline valu
   assert.throws(() => validateAutomationBypassSecret(""), /required/);
   assert.throws(() => validateAutomationBypassSecret("x".repeat(4097)), /invalid/);
   assert.throws(() => validateAutomationBypassSecret("value\nsecond-header"), /invalid/);
+});
+
+test("HEAD probes use curl HEAD semantics without disabling transfer validation", () => {
+  const args = buildCurlArgs("/%61pp.js", {
+    method: "HEAD",
+    headers: {},
+    headerFile: "headers.txt",
+    bodyFile: "body.txt"
+  });
+  assert.deepEqual(args.slice(args.indexOf("--request-target"), args.indexOf("--request-target") + 2), [
+    "--request-target",
+    "/%61pp.js"
+  ]);
+  assert.ok(args.includes("--head"));
+  assert.equal(args.includes("--request"), false);
+  assert.equal(args[args.indexOf("--output") + 1], os.devNull);
+  assert.equal(args.includes("--ignore-content-length"), false);
+  assert.equal(
+    sanitizedCurlError("curl: (18) partial transfer\nprivate-test-value", "private-test-value"),
+    "curl: (18) partial transfer [redacted]"
+  );
 });
 
 test("authorized automation reaches both protected Preview application gateways", {
