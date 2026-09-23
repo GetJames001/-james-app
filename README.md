@@ -5,7 +5,7 @@ This package is the deployment bridge between the current James website and the 
 ## Files to add to the James repository
 
 - `api/council.js`
-- `api/health.js`
+- `api/gateway.js` (application, authentication, and health routes)
 - `lib/` (all files)
 - `vercel.json`
 - `package.json`
@@ -22,6 +22,23 @@ Do **not** put the key inside any GitHub file.
 Optional:
 
 `JAMES_DEFAULT_MODEL`
+
+## Private prototype authentication
+
+James requires three server-only Vercel Environment Variables:
+
+- `JAMES_AUTH_EMAIL` — the exact single allowed sign-in identity.
+- `JAMES_AUTH_PASSWORD_HASH` — a PBKDF2-SHA256 password hash, never a plaintext password.
+- `JAMES_SESSION_SECRET` — an independently generated random value of at least 32 bytes.
+
+Generate Preview credentials locally with the Windows-friendly instructions in
+`docs/PREVIEW-CREDENTIAL-SETUP.md`. Never place the plaintext password or generated
+secrets in frontend code, a URL, browser storage, Git, chat, or logs.
+
+The application session lasts eight hours in an `HttpOnly`, `Secure`,
+`SameSite=Strict` cookie. Keep Vercel Authentication enabled for all deployments
+until this application boundary has passed review and has been deployed to
+production.
 
 ## After deploy
 

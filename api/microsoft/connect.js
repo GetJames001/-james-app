@@ -1,6 +1,15 @@
-import crypto from "crypto";
+const crypto = require("node:crypto");
+const { requireAuth } = require("../../lib/auth.js");
 
-export default async function handler(req, res) {
+module.exports = async function handler(req, res) {
+  const session = requireAuth(req, res);
+  if (!session) return;
+
+  if (req.method !== "GET") {
+    res.setHeader("Allow", "GET");
+    return res.status(405).send("Method not allowed.");
+  }
+
   const clientId = process.env.MICROSOFT_CLIENT_ID;
 
   if (!clientId) {

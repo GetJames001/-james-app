@@ -4,7 +4,8 @@
   "private": true,
   "description": "Vercel-ready live Executive Council endpoint for James.",
   "scripts": {
-    "test": "node --test tests/*.test.js"
+    "test": "node --test tests/*.test.js",
+    "test:deployed-security": "node --test tests/deployed-security.test.js"
   },
   "devDependencies": {
     "playwright": "1.62.1"

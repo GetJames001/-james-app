@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="robots" content="noindex,nofollow,noarchive">
+  <meta name="referrer" content="no-referrer">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; connect-src 'self'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; form-action 'self'; base-uri 'none'">
+  <title>James — Private Access</title>
+  <style>
+    :root{color-scheme:light;--paper:#f6f7f8;--ink:#211d18;--muted:#756c61;--gold:#9a7a32;--line:rgba(198,161,91,.32)}
+    *{box-sizing:border-box}
+    body{margin:0;min-height:100vh;display:grid;place-items:center;padding:24px;background:radial-gradient(circle at 50% 18%,#fff,#ede9e3 70%);font-family:Inter,system-ui,-apple-system,sans-serif;color:var(--ink)}
+    main{width:min(100%,430px);padding:34px;border:1px solid var(--line);border-radius:20px;background:rgba(255,255,255,.76);box-shadow:0 18px 55px rgba(40,30,20,.1)}
+    small{display:block;color:var(--gold);font-weight:700;letter-spacing:.22em}
+    h1{font:2.4rem Georgia,serif;font-weight:400;margin:8px 0 10px}
+    p{color:var(--muted);line-height:1.5}
+    label{display:block;margin-top:18px;font-size:.82rem;font-weight:700;letter-spacing:.08em}
+    input{width:100%;margin-top:7px;padding:13px 14px;border:1px solid var(--line);border-radius:10px;background:white;font:inherit}
+    button{width:100%;margin-top:22px;padding:13px;border:0;border-radius:999px;background:linear-gradient(180deg,#9a752d,#80601f);color:white;font:inherit;font-weight:700;cursor:pointer}
+    button:disabled{opacity:.55;cursor:wait}
+    #message{min-height:24px;margin:14px 0 0;color:#8a3f38;font-size:.9rem}
+  </style>
+</head>
+<body>
+  <main>
+    <small>PRIVATE ACCESS</small>
+    <h1>Welcome back.</h1>
+    <p>Sign in to open this private James workspace.</p>
+    <form id="loginForm">
+      <label for="email">EMAIL</label>
+      <input id="email" name="email" type="email" autocomplete="username" required>
+      <label for="password">PASSWORD</label>
+      <input id="password" name="password" type="password" autocomplete="current-password" required>
+      <button id="submitButton" type="submit">Sign in</button>
+      <p id="message" role="alert" aria-live="polite"></p>
+    </form>
+  </main>
+  <script>
+    const form = document.querySelector('#loginForm');
+    const button = document.querySelector('#submitButton');
+    const message = document.querySelector('#message');
+
+    form.addEventListener('submit', async event => {
+      event.preventDefault();
+      button.disabled = true;
+      message.textContent = '';
+
+      try {
+        const response = await fetch('/api/auth/login', {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            email: form.email.value,
+            password: form.password.value
+          })
+        });
+
+        if (!response.ok) throw new Error('Sign-in failed');
+        window.location.replace('/');
+      } catch {
+        message.textContent = 'James could not verify those credentials.';
+        form.password.value = '';
+        form.password.focus();
+      } finally {
+        button.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>

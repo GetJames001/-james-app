@@ -1,5 +1,11 @@
+const { requireAuth } = require("../../lib/auth.js");
+
 module.exports = async function handler(req, res) {
+  const session = requireAuth(req, res, { csrf: req.method === "POST" });
+  if (!session) return;
+
   if (req.method !== "POST") {
+    res.setHeader("Allow", "POST");
     return res.status(405).json({
       ok: false,
       error: "METHOD_NOT_ALLOWED"
