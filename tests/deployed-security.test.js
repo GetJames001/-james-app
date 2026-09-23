@@ -202,6 +202,29 @@ function assertGatewayResponse(response, expectedStatus, label) {
   }
 }
 
+function assertVercelEdgeHostRejection(response, label) {
+  assert.equal(response.status, 404, label);
+  assert.deepEqual(headerValues(response, "x-application-gateway"), [], `${label}: gateway must not run`);
+  assert.deepEqual(headerValues(response, "x-vercel-error"), ["DEPLOYMENT_NOT_FOUND"], label);
+  assert.deepEqual(headerValues(response, "server"), ["Vercel"], label);
+  assert.deepEqual(headerValues(response, "content-type"), ["text/plain; charset=utf-8"], label);
+  assert.deepEqual(
+    headerValues(response, "cache-control"),
+    ["public, max-age=0, must-revalidate"],
+    label
+  );
+  assert.deepEqual(headerValues(response, "location"), [], label);
+  assert.deepEqual(headerValues(response, "set-cookie"), [], label);
+  assert.match(
+    response.body,
+    /^The deployment could not be found on Vercel\.\n\nDEPLOYMENT_NOT_FOUND\n\n[a-z0-9]+::[a-z0-9-]+\n$/,
+    label
+  );
+  for (const signature of privateSignatures) {
+    assert.doesNotMatch(response.body, new RegExp(signature, "i"), `${label}: ${signature}`);
+  }
+}
+
 function assertUnauthorized(response, label, options = {}) {
   assertGatewayResponse(response, 401, label);
   if (!options.head) {
@@ -253,6 +276,29 @@ test("HEAD probes use curl HEAD semantics without disabling transfer validation"
     sanitizedCurlError("curl: (18) partial transfer\nprivate-test-value", "private-test-value"),
     "curl: (18) partial transfer [redacted]"
   );
+});
+
+test("forged Host probes require Vercel's fixed pre-gateway rejection", () => {
+  const response = {
+    status: 404,
+    headers: new Map([
+      ["x-vercel-error", ["DEPLOYMENT_NOT_FOUND"]],
+      ["server", ["Vercel"]],
+      ["content-type", ["text/plain; charset=utf-8"]],
+      ["cache-control", ["public, max-age=0, must-revalidate"]]
+    ]),
+    body: "The deployment could not be found on Vercel.\n\nDEPLOYMENT_NOT_FOUND\n\npdx1::review-1234-abcd\n"
+  };
+  assertVercelEdgeHostRejection(response, "hostile Host fixture");
+
+  response.headers.set("x-application-gateway", ["enforced"]);
+  assert.throws(
+    () => assertVercelEdgeHostRejection(response, "hostile Host fixture"),
+    /gateway must not run/
+  );
+  response.headers.delete("x-application-gateway");
+  response.body = "arbitrary not-found response";
+  assert.throws(() => assertVercelEdgeHostRejection(response, "hostile Host fixture"));
 });
 
 test("authorized automation reaches both protected Preview application gateways", {
@@ -330,7 +376,6 @@ test("authorized automation reaches both protected Preview application gateways"
     const hostileHost = authorizedRequest(baseUrl, "/api/auth/session", {
       headers: { Host: "attacker.example" }
     });
-    assertGatewayResponse(hostileHost, 403, `${baseUrl}: hostile Host`);
-    assert.deepEqual(JSON.parse(hostileHost.body), { ok: false, error: "FORBIDDEN" });
+    assertVercelEdgeHostRejection(hostileHost, `${baseUrl}: hostile Host`);
   }
 });

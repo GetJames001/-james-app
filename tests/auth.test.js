@@ -384,6 +384,7 @@ test("encoded, normalized, trailing-slash, query-bearing, and alternate-method r
 
 test("host and origin checks ignore spoofed forwarded values and reject unknown hosts", async () => {
   const session = require("../lib/routes/session.js");
+  const gateway = require("../api/gateway.js");
 
   let res = mockRes();
   await session(request("GET", {
@@ -402,6 +403,19 @@ test("host and origin checks ignore spoofed forwarded values and reject unknown 
     forwardedProto: "https"
   }), res);
   assert.equal(res.statusCode, 403, "unknown Host must not be rescued by forwarded headers");
+
+  res = mockRes();
+  await gateway(request("GET", {
+    host: "attacker.example",
+    forwardedHost: "www.getjames.ai",
+    forwardedProto: "https",
+    query: { path: "api/auth/session" }
+  }), res);
+  assert.equal(res.statusCode, 403, "a hostile Host reaching the application gateway must fail closed");
+  assert.deepEqual(res.body, { ok: false, error: "FORBIDDEN" });
+  assert.equal(res.headers["X-Application-Gateway"], "enforced");
+  assert.match(String(res.headers["Cache-Control"]), /\bprivate\b/);
+  assert.match(String(res.headers["Cache-Control"]), /\bno-store\b/);
 
   for (const origin of [
     "http://www.getjames.ai",
