@@ -1,0 +1,137 @@
+name: James Protected Preview Security Gate
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, reopened, synchronize]
+
+permissions:
+  contents: read
+  deployments: read
+  pull-requests: read
+
+jobs:
+  manual-authorization:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      authorized: ${{ steps.gate.outputs.authorized }}
+      head_sha: ${{ steps.gate.outputs.head_sha }}
+      preview_urls: ${{ steps.gate.outputs.preview_urls }}
+    steps:
+      - name: Require an owner-initiated exact-head re-run
+        id: gate
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          EVENT_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          EVENT_HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          EVENT_HEAD_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          ORIGINAL_ACTOR: ${{ github.actor }}
+          TRIGGERING_ACTOR: ${{ github.triggering_actor }}
+          RUN_ATTEMPT: ${{ github.run_attempt }}
+        run: |
+          set -euo pipefail
+          set +x
+          echo "authorized=false" >> "$GITHUB_OUTPUT"
+
+          if [[ "$RUN_ATTEMPT" == "1" ]]; then
+            echo "::notice::Protected Preview verification is intentionally skipped on ordinary CI. After the encrypted repository secret is configured, the repository owner must manually select Re-run all jobs for this exact workflow run."
+            exit 0
+          fi
+
+          if [[ "$GITHUB_REPOSITORY" != "GetJames001/-james-app" || "$PR_NUMBER" != "9" ]]; then
+            echo "::error::This protected verification is restricted to James PR #9."
+            exit 1
+          fi
+          if [[ "$ORIGINAL_ACTOR" != "GetJames001" || "$TRIGGERING_ACTOR" != "GetJames001" ]]; then
+            echo "::error::Only the repository owner may initiate the protected verification re-run."
+            exit 1
+          fi
+          if [[ "$EVENT_HEAD_REF" != "security-single-user-auth" || "$EVENT_HEAD_REPOSITORY" != "$GITHUB_REPOSITORY" ]]; then
+            echo "::error::The protected verification must run from the expected same-repository branch."
+            exit 1
+          fi
+          if [[ "$EVENT_BASE_SHA" != "4da3dec2f6d03e8ae368289f926b521c96922c1e" ]]; then
+            echo "::error::PR #9 no longer has the reviewed base revision."
+            exit 1
+          fi
+
+          current_head=$(gh api "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER" --jq '.head.sha')
+          current_base=$(gh api "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER" --jq '.base.sha')
+          current_state=$(gh api "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER" --jq '.state')
+          if [[ "$current_head" != "$EVENT_HEAD_SHA" || "$current_base" != "$EVENT_BASE_SHA" || "$current_state" != "open" ]]; then
+            echo "::error::The selected workflow run is stale or PR #9 is no longer open at its expected base."
+            exit 1
+          fi
+
+          deployment_id=$(gh api "repos/$GITHUB_REPOSITORY/deployments?sha=$EVENT_HEAD_SHA&per_page=30" \
+            --jq '[.[] | select(.environment == "Preview" and .creator.login == "vercel[bot]")] | sort_by(.created_at) | last | .id')
+          if [[ -z "$deployment_id" || "$deployment_id" == "null" ]]; then
+            echo "::error::No Vercel Preview deployment exists for the exact PR head."
+            exit 1
+          fi
+
+          immutable_url=$(gh api "repos/$GITHUB_REPOSITORY/deployments/$deployment_id/statuses?per_page=30" \
+            --jq '[.[] | select(.state == "success" and .creator.login == "vercel[bot]")] | sort_by(.created_at) | last | .environment_url')
+          branch_url="https://james-app-git-security-single-user-auth-james-cb7a.vercel.app"
+          if [[ -z "$immutable_url" || "$immutable_url" == "null" || "$immutable_url" == "$branch_url" ]]; then
+            echo "::error::The exact-head immutable Preview URL is unavailable or not distinct from the branch Preview."
+            exit 1
+          fi
+
+          node - "$immutable_url" "$branch_url" <<'NODE'
+          for (const value of process.argv.slice(2)) {
+            const parsed = new URL(value);
+            if (parsed.protocol !== "https:" || !parsed.hostname.endsWith(".vercel.app") || parsed.pathname !== "/") {
+              throw new Error("Preview deployment metadata contained an unexpected URL.");
+            }
+          }
+          NODE
+
+          echo "head_sha=$EVENT_HEAD_SHA" >> "$GITHUB_OUTPUT"
+          echo "preview_urls=$immutable_url,$branch_url" >> "$GITHUB_OUTPUT"
+          echo "authorized=true" >> "$GITHUB_OUTPUT"
+          echo "Exact-head owner authorization and both Preview deployment URLs verified."
+
+  protected-preview-security:
+    needs: manual-authorization
+    if: needs.manual-authorization.outputs.authorized == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.manual-authorization.outputs.head_sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Verify checked-out exact head
+        shell: bash
+        env:
+          EXPECTED_HEAD_SHA: ${{ needs.manual-authorization.outputs.head_sha }}
+        run: |
+          set -euo pipefail
+          set +x
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD_SHA"
+      - name: Probe both protected Preview application gateways
+        shell: bash
+        env:
+          JAMES_SECURITY_USE_AUTOMATION_BYPASS: "1"
+          JAMES_SECURITY_PREVIEW_URLS: ${{ needs.manual-authorization.outputs.preview_urls }}
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.JAMES_VERCEL_AUTOMATION_BYPASS }}
+        run: |
+          set -euo pipefail
+          set +x
+          if [[ -z "${VERCEL_AUTOMATION_BYPASS_SECRET:-}" ]]; then
+            echo "::error::Encrypted repository secret JAMES_VERCEL_AUTOMATION_BYPASS is not configured."
+            exit 1
+          fi
+          echo "::add-mask::$VERCEL_AUTOMATION_BYPASS_SECRET"
+          trap 'unset VERCEL_AUTOMATION_BYPASS_SECRET' EXIT
+          npm run test:deployed-security

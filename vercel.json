@@ -1,7 +1,14 @@
 {
   "functions": {
-    "api/council.js": {
+    "api/gateway.js": {
+      "includeFiles": "{*.html,*.js,*.css,*.png,assets/**/*.png}",
       "maxDuration": 120
     }
-  }
+  },
+  "routes": [
+    {
+      "src": "^/(.*)$",
+      "dest": "/api/gateway?path=$1"
+    }
+  ]
 }

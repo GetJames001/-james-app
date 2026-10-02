@@ -1,4 +1,14 @@
-export default async function handler(req, res) {
+const { requireAuth } = require("../../lib/auth.js");
+
+module.exports = async function handler(req, res) {
+  const session = requireAuth(req, res, { csrf: req.method === "POST" });
+  if (!session) return;
+
+  if (!["GET", "POST"].includes(req.method)) {
+    res.setHeader("Allow", "GET, POST");
+    return res.status(405).json({ ok: false, error: "METHOD_NOT_ALLOWED" });
+  }
+
   const account = req.query.account;
 
   if (!["personal", "work"].includes(account)) {

@@ -13,17 +13,14 @@
  */
 
 const { runExecutiveCouncil } = require("../lib/live-council-e2e.js");
+const { requireAuth } = require("../lib/auth.js");
 
 module.exports = async function handler(req, res) {
-  // Basic CORS for same-site browser use. Tighten allowed origin later if needed.
-  res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
-
-  if (req.method === "OPTIONS") {
-    return res.status(204).end();
-  }
+  const session = requireAuth(req, res, { csrf: req.method === "POST" });
+  if (!session) return;
 
   if (req.method !== "POST") {
+    res.setHeader("Allow", "POST");
     return res.status(405).json({
       ok: false,
       error: "METHOD_NOT_ALLOWED"

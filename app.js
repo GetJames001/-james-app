@@ -930,7 +930,21 @@ $$(".task-filter").forEach(button => {
   observeCalendarLayout();
   updateHero();
   setInterval(() => { setGreeting(); updateHero(); }, 60000);
-  $$('nav button').forEach(b => b.onclick = () => page(b.dataset.page));
+  $$('nav button[data-page]').forEach(b => b.onclick = () => page(b.dataset.page));
+  const logoutButton = $('#logoutButton');
+  if (logoutButton) {
+    logoutButton.onclick = async () => {
+      logoutButton.disabled = true;
+      try {
+        await fetch('/api/auth/logout', {
+          method: 'POST',
+          credentials: 'same-origin'
+        });
+      } finally {
+        window.location.replace('/login');
+      }
+    };
+  }
   $$('[data-panel]').forEach(b => b.onclick = () => {
     const type = b.dataset.panel;
     const data = {

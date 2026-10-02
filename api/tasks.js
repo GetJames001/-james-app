@@ -1,3 +1,4 @@
+const { requireAuth } = require("../lib/auth.js");
 const TASKS_KEY = "james:tasks";
 
 async function redis(command) {
@@ -17,10 +18,11 @@ async function redis(command) {
   return response.json();
 }
 
-export default async function handler(req, res) {
-  try {
-    res.setHeader("Cache-Control", "no-store");
+module.exports = async function handler(req, res) {
+  const session = requireAuth(req, res, { csrf: req.method === "POST" });
+  if (!session) return;
 
+  try {
     // GET /api/tasks
     // Load Michael's persistent Task Pad.
     if (req.method === "GET") {

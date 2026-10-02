@@ -1,35 +1,57 @@
+const assert = require("node:assert/strict");
+const test = require("node:test");
 const handler = require("../api/council.js");
+const { createSessionToken } = require("../lib/auth.js");
 
-function mockRes(){
+process.env.JAMES_AUTH_EMAIL = "michael@example.com";
+process.env.JAMES_SESSION_SECRET = "test-session-secret-that-is-at-least-thirty-two-bytes";
+
+function mockRes() {
   return {
-    statusCode:200,
-    headers:{},
-    body:null,
-    setHeader(k,v){this.headers[k]=v;},
-    status(n){this.statusCode=n; return this;},
-    json(v){this.body=v; return this;},
-    end(){return this;}
+    statusCode: 200,
+    headers: {},
+    body: null,
+    setHeader(key, value) { this.headers[key] = value; },
+    status(value) { this.statusCode = value; return this; },
+    json(value) { this.body = value; return this; },
+    end() { return this; }
   };
 }
 
-(async()=>{
-  let res=mockRes();
-  await handler({method:"GET",body:{}},res);
-  console.log("GET:",res.statusCode,res.body?.error);
-  if(res.statusCode!==405) process.exit(1);
+function authorizedRequest(method, body = {}) {
+  const token = createSessionToken(process.env.JAMES_AUTH_EMAIL);
+  return {
+    method,
+    body,
+    headers: {
+      cookie: `__Host-james_session=${token}`,
+      host: "www.getjames.ai",
+      origin: "https://www.getjames.ai"
+    }
+  };
+}
 
-  const old=process.env.OPENAI_API_KEY;
+test("Council rejects unauthenticated requests before endpoint metadata", async () => {
+  const res = mockRes();
+  await handler({ method: "GET", body: {}, headers: { host: "www.getjames.ai" } }, res);
+  assert.equal(res.statusCode, 401);
+  assert.deepEqual(res.body, { ok: false, error: "UNAUTHORIZED" });
+});
+
+test("Council retains method and configuration behavior for an authorized user", async () => {
+  let res = mockRes();
+  await handler(authorizedRequest("GET"), res);
+  assert.equal(res.statusCode, 405);
+  assert.equal(res.body.error, "METHOD_NOT_ALLOWED");
+
+  const oldKey = process.env.OPENAI_API_KEY;
   delete process.env.OPENAI_API_KEY;
-
-  res=mockRes();
-  await handler({method:"POST",body:{question:"Test"}},res);
-  console.log("NO KEY:",res.statusCode,res.body?.error);
-  if(res.statusCode!==500 || res.body?.error!=="OPENAI_API_KEY_NOT_CONFIGURED") process.exit(2);
-
-  res=mockRes();
-  await handler({method:"POST",body:{}},res);
-  // Key check comes before question validation in this version; still must not leak anything.
-  console.log("EMPTY BODY WITHOUT KEY:",res.statusCode,res.body?.error);
-
-  if(old) process.env.OPENAI_API_KEY=old;
-})();
+  try {
+    res = mockRes();
+    await handler(authorizedRequest("POST", { question: "Test" }), res);
+    assert.equal(res.statusCode, 500);
+    assert.equal(res.body.error, "OPENAI_API_KEY_NOT_CONFIGURED");
+  } finally {
+    if (oldKey) process.env.OPENAI_API_KEY = oldKey;
+  }
+});
