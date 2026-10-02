@@ -42,6 +42,16 @@ test('briefing drawers expose empty integration states instead of sample actions
   assert.doesNotMatch(app, /data\.map\(/);
 });
 
+test('header and spoken briefing do not present fixed weather, traffic, or deadline claims', () => {
+  const deployedShell = `${index}\n${app}`;
+
+  assert.match(index, /Weather details below/);
+  assert.match(index, /Traffic not connected/);
+  assert.doesNotMatch(deployedShell, /82°\s*·\s*Sunny/i);
+  assert.doesNotMatch(deployedShell, /Light traffic/i);
+  assert.doesNotMatch(deployedShell, /Galleria bid is due tomorrow/i);
+});
+
 test('task storage remains persistent and is not seeded or cleared by this cleanup', () => {
   const tasksApi = fs.readFileSync(path.join(root, 'api', 'tasks.js'), 'utf8');
 
