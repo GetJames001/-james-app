@@ -122,10 +122,68 @@ test('deduplicates concurrent triggers and enforces the minimum interval', async
   assert.equal(h.requests.length, 1);
 
   h.setTime(15_001);
-  h.controller.refresh('manuap¤ì(ÍÍÉÐ¹ÅÕ°¡ ¹ÉÅÕÍÑÌ¹±¹Ñ °È¤ì)ô¤ì()ÑÍÐ Á½±±Ì½¹±äÝ¡¥±AÉÍ½¹°5¥°¥Ì½Á¸¹Ñ¡½Õµ¹Ð¥ÌÙ¥Í¥±°Íå¹ ¤ôøì(½¹ÍÐ ô¡É¹ÍÌ¡ìÑ¡5¥°èÍå¹ ¤ôø¡ìÕ¹É
-½Õ¹ÐèÔô¤ô¤ì( ¹½¹ÑÉ½±±È¹ÍÑÉÐ ¤ì(ÍÍÉÐ¹ÅÕ°¡ ¹½¹ÑÉ½±±È¹¥ÍA½±±¥¹ ¤°±Í¤ì(( ¹ÍÑQ¥µ ÄÙ|ÀÀÀ¤ì( ¹ÍÑ5¥±=Á¸¡ÑÉÕ¤ì( ¹½¹ÑÉ½±±È¹Á
-¡¹ ¤ì(ÍÍÉÐ¹ÅÕ°¡ ¹½¹ÑÉ½±±È¹¥ÍA½±±¥¹ ¤°ÑÉÕ¤ì(ÍÍÉÐ¹ÅÕ°¡ ¹¥¹ÑÉÙ±MÑÉÑÌ ¤°Ä¤ì(( ¹ÍÑQ¥µ ÜÙ|ÀÀÀ¤ì( ¹Ñ¥¬ ¤ì(Ý¥ÐAÉ½µ¥Í¹ÉÍ½±Ù ¤ì(( ¹ÍÑY¥Í¥±¡±Í¤ì( ¹½Õµ¹ÑQÉÐ¹¥ÍÁÑ  Ù¥Í¥¥±¥Ñå¡¹¤ì(ÍÍÉÐ¹ÅÕ°¡ ¹½¹ÑÉ½±±È¹¥ÍA½±±¥¹ ¤°±Í¤ì(ÍÍÉÐ¹ÅÕ°¡ ¹¥¹ÑÉÙ±MÑ½ÁÌ ¤°Ä¤ì(( ¹ÍÑQ¥µ àÉ|ÀÀÀ¤ì( ¹ÍÑY¥Í¥±¡ÑÉÕ¤ì( ¹½Õµ¹ÑQÉÐ¹¥ÍÁÑ  Ù¥Í¥¥±¥Ñå¡¹¤ì(ÍÍÉÐ¹ÅÕ°¡ ¹½¹ÑÉ½±±È¹¥ÍA½±±¥¹ ¤°ÑÉÕ¤ì(( ¹ÍÑ5¥±=Á¸¡±Í¤ì( ¹½¹ÑÉ½±±È¹Á
-¡¹ ¤ì(ÍÍÉÐ¹ÅÕ°¡ ¹½¹ÑÉ½±±È¹¥ÍA½±±¥¹ ¤°±Í¤ì(ÍÍÉÐ¹ÅÕ°¡ ¹¥¹ÑÉÙ±MÑ½ÁÌ ¤°È¤ì)ô¤ì()ÑÍÐ ÍÑ½ÁÌÑ¥µÉÌ¹±¥ÍÑ¹ÉÌÝ¡¸ÍÑ½ÁÁ° ¤ôøì(½¹ÍÐ ô¡É¹ÍÌ¡ìÑ¡5¥°èÍå¹ ¤ôø¡ìÕ¹É
-½Õ¹ÐèÔô¤ô¤ì( ¹ÍÑ5¥±=Á¸¡ÑÉÕ¤ì( ¹½¹ÑÉ½±±È¹ÍÑÉÐ ¤ì(ÍÍÉÐ¹ÅÕ°¡ ¹½Õµ¹ÑQÉÐ¹¡Ì Ù¥Í¥¥±¥Ñå¡¹¤°ÑÉÕ¤ì(ÍÍÉÐ¹ÅÕ°¡ ¹Ý¥¹½ÝQÉÐ¹¡Ì ÁÍ¡½Ü¤°ÑÉÕ¤ì(ÍÍÉÐ¹ÅÕ°¡ ¹½¹ÑÉ½±±È¹¥ÍA½±±¥¹ ¤°ÑÉÕ¤ì(( ¹½¹ÑÉ½±±È¹ÍÑ½À ¤ì(ÍÍÉÐ¹ÅÕ°¡ ¹½Õµ¹ÑQÉÐ¹¡Ì Ù¥Í¥¥±¥Ñå¡¹¤°±Í¤ì(ÍÍÉÐ¹ÅÕ°¡ ¹Ý¥¹½ÝQÉÐ¹¡Ì ÁÍ¡½Ü¤°±Í¤ì(ÍÍÉÐ¹ÅÕ°¡ ¹½¹ÑÉ½±±È¹¥ÍA½±±¥¹ ¤°±Í¤ì)ô¤ì()ÑÍÐ ÉÁ½ÉÑÌÑÉ¹Í¥¹Ð¥±ÕÉÌÝ¥Ñ¡½ÕÐÉÁ±¥¹Ñ¡±ÍÐÍÕÍÍÕ°ÍÑÑ°Íå¹ ¤ôøì(½¹ÍÐ ô¡É¹ÍÌ ¤ì( ¹½¹ÑÉ½±±È¹ÍÑÉÐ ¤ì( ¹ÉÅÕÍÑÍlÁt¹ÉÍ½±Ù¡ìÕ¹É
-½Õ¹ÐèÔô¤ì(Ý¥Ð±ÕÍ¡AÉ½µ¥ÍÌ ¤ì(ÍÍÉÐ¹ÁÅÕ°¡ ¹ÍÕÍÍÌ°mìÑèìÕ¹É
-½Õ¹ÐèÔô°ÉÍ½¸è¥¹¥Ñ¥°õt¤ì(( ¹ÍÑQ¥µ ÄÙ|ÀÀÀ¤ì( ¹½¹ÑÉ½±±È¹ÉÉÍ  Á½±°¤ì( ¹ÉÅÕÍÑÍlÅt¹É©Ð¡¹ÜÉÉ½È ÑµÁ½ÉÉäÁÉ½Ù¥È¥±ÕÉ¤¤ì(Ý¥Ð±ÕÍ¡AÉ½µ¥ÍÌ ¤ì((ÍÍÉÐ¹ÅÕ°¡ ¹ÍÕÍÍÌ¹±¹Ñ °Ä¤ì(ÍÍÉÐ¹ÅÕ°¡ ¹¥±ÕÉÌ¹±¹Ñ °Ä¤ì(ÍÍÉÐ¹ÅÕ°¡ ¹¥±ÕÉÍlÁt¹ÉÍ½¸°Á½±°¤ì)ô¤ì
+  h.controller.refresh('manual');
+  assert.equal(h.requests.length, 2);
+});
+
+test('polls only while Personal Mail is open and the document is visible', async () => {
+  const h = harness({ fetchMail: async () => ({ unreadCount: 5 }) });
+  h.controller.start();
+  assert.equal(h.controller.isPolling(), false);
+
+  h.setTime(16_000);
+  h.setMailOpen(true);
+  h.controller.pageChanged();
+  assert.equal(h.controller.isPolling(), true);
+  assert.equal(h.intervalStarts(), 1);
+
+  h.setTime(76_000);
+  h.tick();
+  await Promise.resolve();
+
+  h.setVisible(false);
+  h.documentTarget.dispatch('visibilitychange');
+  assert.equal(h.controller.isPolling(), false);
+  assert.equal(h.intervalStops(), 1);
+
+  h.setTime(82_000);
+  h.setVisible(true);
+  h.documentTarget.dispatch('visibilitychange');
+  assert.equal(h.controller.isPolling(), true);
+
+  h.setMailOpen(false);
+  h.controller.pageChanged();
+  assert.equal(h.controller.isPolling(), false);
+  assert.equal(h.intervalStops(), 2);
+});
+
+test('stops timers and listeners when stopped', () => {
+  const h = harness({ fetchMail: async () => ({ unreadCount: 5 }) });
+  h.setMailOpen(true);
+  h.controller.start();
+  assert.equal(h.documentTarget.has('visibilitychange'), true);
+  assert.equal(h.windowTarget.has('pageshow'), true);
+  assert.equal(h.controller.isPolling(), true);
+
+  h.controller.stop();
+  assert.equal(h.documentTarget.has('visibilitychange'), false);
+  assert.equal(h.windowTarget.has('pageshow'), false);
+  assert.equal(h.controller.isPolling(), false);
+});
+
+test('reports transient failures without replacing the last successful state', async () => {
+  const h = harness();
+  h.controller.start();
+  h.requests[0].resolve({ unreadCount: 5 });
+  await flushPromises();
+  assert.deepEqual(h.successes, [{ data: { unreadCount: 5 }, reason: 'initial' }]);
+
+  h.setTime(16_000);
+  h.controller.refresh('poll');
+  h.requests[1].reject(new Error('temporary provider failure'));
+  await flushPromises();
+
+  assert.equal(h.successes.length, 1);
+  assert.equal(h.failures.length, 1);
+  assert.equal(h.failures[0].reason, 'poll');
+});
