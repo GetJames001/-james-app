@@ -945,14 +945,19 @@ $$(".task-filter").forEach(button => {
       }
     };
   }
-  $$('[data-panel]').forEach(b => b.onclick = () => {
+  $('[data-panel]').forEach(b => b.onclick = () => {
     const type = b.dataset.panel;
-    const data = {
-      callbacks:[['Scott Schuster','North Las Vegas Fire'],['TJ','Sunset Ridge Post Acute'],['Mission Pines','Initial call required']],
-      emails:[['Ron Jeet','Generator quote confirmation'],['Maria Lopez','Galleria bid documents'],['David Kim','Central Transport proposal']],
-      proposals:[['Galleria Bid','Due tomorrow at 5:00 PM'],['Central Transport','Requested by midweek']]
-    }[type];
-    panel(type.toUpperCase(), b.textContent.trim(), data.map(x => `<div class="panel-item"><b>${x[0]}</b><span>${x[1]}</span><button>Open</button><button>Call</button><button>Message</button></div>`).join(''));
+    const emptyStates = {
+      callbacks: ['No callbacks available', 'This view is not connected to a callback source.'],
+      emails: ['No email shortcuts available', 'Use Personal Mail for live messages.'],
+      proposals: ['No proposals available', 'This view is not connected to a proposal or file source.']
+    };
+    const [title, detail] = emptyStates[type];
+    panel(
+      type.toUpperCase(),
+      b.textContent.trim(),
+      `<div class="panel-item"><b>${title}</b><span>${detail}</span></div>`
+    );
   });
   const personalMailRow = $('#personalMailRow');
 if (personalMailRow) {
