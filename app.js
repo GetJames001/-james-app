@@ -10,6 +10,8 @@ let calendarResizeObserver;
 let calendarRelayoutFrame;
 let calendarRelayoutForced = false;
 let lastCalendarGeometry = '';
+let personalMailRefreshController;
+let hasSuccessfulPersonalMailLoad = false;
 
 const mins = (t) => { const [h,m] = t.split(':').map(Number); return (h-7)*60+m; };
 const pretty = (t) => { let [h,m] = t.split(':').map(Number); const s = h >= 12 ? 'PM' : 'AM'; h = h % 12 || 12; return `${h}:${String(m).padStart(2,'0')} ${s}`; };
@@ -402,6 +404,7 @@ function page(id){
   $$('nav button').forEach(b => b.classList.toggle('active', b.dataset.page === id));
   $$('.page').forEach(p => p.classList.toggle('active', p.id === id));
   if(id === 'briefing') scheduleCalendarRelayout(true);
+  if(personalMailRefreshController) personalMailRefreshController.pageChanged();
   if(id === 'insights'){
     $('#jamesNav').classList.remove('has-recommendation');
     const cue = $('#jamesNav .recommendation-cue');
@@ -888,35 +891,67 @@ if (savedPage === 'personalMailDetail' && savedMailId) {
   }
 }
 }
-async function loadPersonalMicrosoftMail() {
-  try {
-    const response = await fetch('/api/microsoft/mail?account=personal');
-    const data = await response.json();
+async function requestPersonalMicrosoftMail() {
+  const response = await fetch('/api/microsoft/mail?account=personal');
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.error || 'Personal Mail refresh failed.');
+  return data;
+}
 
-    const personalMailCount = $('#personalEmailCount');
-    if (!personalMailCount) return;
+function applyPersonalMicrosoftMail(data) {
+  const personalMailCount = $('#personalEmailCount');
+  if (!personalMailCount) return;
 
-    if (!response.ok || !data.connected) {
-      personalMailCount.textContent = '—';
-      return;
-    }
-
-    personalMailCount.textContent = `${data.unreadCount} unread`;
-    window.personalMicrosoftMessages = Array.isArray(data.messages) ? data.messages : [];
-    renderPersonalMicrosoftMail(window.personalMicrosoftMessages);
-  } catch (error) {
-    console.error('Could not load Personal Microsoft Mail:', error);
-
-    const personalMailCount = $('#personalEmailCount');
-    if (personalMailCount) {
-      personalMailCount.textContent = '—';
-    }
+  if (!data.connected) {
+    personalMailCount.textContent = '—';
+    window.personalMicrosoftMessages = [];
+    renderPersonalMicrosoftMail([]);
+    hasSuccessfulPersonalMailLoad = true;
+    return;
   }
+
+  personalMailCount.textContent = `${data.unreadCount} unread`;
+  window.personalMicrosoftMessages = Array.isArray(data.messages) ? data.messages : [];
+  renderPersonalMicrosoftMail(window.personalMicrosoftMessages);
+  hasSuccessfulPersonalMailLoad = true;
+}
+
+function handlePersonalMicrosoftMailError(error) {
+  console.error('Could not refresh Personal Microsoft Mail:', error);
+  if (hasSuccessfulPersonalMailLoad) return;
+  const personalMailCount = $('#personalEmailCount');
+  if (personalMailCount) personalMailCount.textContent = '—';
+}
+
+function loadPersonalMicrosoftMail() {
+  if (personalMailRefreshController) {
+    return personalMailRefreshController.refresh('manual');
+  }
+  return requestPersonalMicrosoftMail()
+    .then(data => {
+      applyPersonalMicrosoftMail(data);
+      return data;
+    })
+    .catch(error => {
+      handlePersonalMicrosoftMailError(error);
+      return { error };
+    });
 }
 document.addEventListener('DOMContentLoaded', () => {
   loadLiveGoogleEvents();
     loadLiveWeather();
-  loadPersonalMicrosoftMail();
+  personalMailRefreshController = PersonalMailRefresh.createPersonalMailRefreshController({
+    fetchMail: requestPersonalMicrosoftMail,
+    onSuccess: applyPersonalMicrosoftMail,
+    onError: handlePersonalMicrosoftMailError,
+    isVisible: () => document.visibilityState === 'visible',
+    isMailOpen: () =>
+      $('#personalMail')?.classList.contains('active') ||
+      $('#personalMailDetail')?.classList.contains('active'),
+    documentTarget: document,
+    windowTarget: window
+  });
+  personalMailRefreshController.start();
   renderTaskPad();
 
 $$(".task-filter").forEach(button => {

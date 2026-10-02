@@ -316,6 +316,54 @@ test("fixture-bearing application JavaScript is not exposed without a session", 
   assert.match(res.body, /loadPersonalMicrosoftMail/);
 });
 
+test("gateway serves the Personal Mail refresh asset only to authenticated GET and HEAD requests", async () => {
+  const gateway = require("../api/gateway.js");
+  const route = "mail-refresh.js";
+
+  let res = mockRes();
+  await gateway(request("GET", {
+    authorized: true,
+    host: "www.getjames.ai",
+    query: { path: route }
+  }), res);
+  assert.equal(res.statusCode, 200);
+  assert.equal(res.headers["X-Application-Gateway"], "enforced");
+  assert.equal(res.headers["Content-Type"], "text/javascript; charset=utf-8");
+  assert.match(res.body, /createPersonalMailRefreshController/);
+
+  res = mockRes();
+  await gateway(request("HEAD", {
+    authorized: true,
+    host: "www.getjames.ai",
+    query: { path: route }
+  }), res);
+  assert.equal(res.statusCode, 200);
+  assert.equal(res.headers["X-Application-Gateway"], "enforced");
+  assert.equal(res.headers["Content-Type"], "text/javascript; charset=utf-8");
+  assert.equal(res.body, null);
+
+  res = mockRes();
+  await gateway(request("GET", {
+    host: "www.getjames.ai",
+    query: { path: route }
+  }), res);
+  assert.equal(res.statusCode, 401);
+  assert.equal(res.headers["X-Application-Gateway"], "enforced");
+  assert.deepEqual(res.body, { ok: false, error: "UNAUTHORIZED" });
+
+  for (const method of ["POST", "PUT", "PATCH", "DELETE", "OPTIONS"]) {
+    res = mockRes();
+    await gateway(request(method, {
+      authorized: true,
+      host: "www.getjames.ai",
+      query: { path: route }
+    }), res);
+    assert.equal(res.statusCode, 405, method);
+    assert.equal(res.headers["X-Application-Gateway"], "enforced", method);
+    assert.equal(res.headers.Allow, "GET, HEAD", method);
+  }
+});
+
 test("authorization accepts only configured production and exact deployment hosts", async () => {
   const session = require("../lib/routes/session.js");
   process.env.VERCEL_URL = "james-production-id.vercel.app";
@@ -360,6 +408,7 @@ test("encoded, normalized, trailing-slash, query-bearing, and alternate-method r
     "./index.html",
     "assets/../app.js",
     "app.js",
+    "mail-refresh.js",
     "styles.css",
     "calendar-test.html",
     "council-test.html",
