@@ -375,6 +375,52 @@ test('responsive calendar and mail layout survive live viewport changes', async 
   }
 });
 
+test('transient Personal Mail refresh failure preserves the populated rendered state', async () => {
+  const server = createServer();
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+  const { port } = server.address();
+  const browser = await chromium.launch({ headless: true });
+
+  try {
+    const context = await browser.newContext({
+      timezoneId: timeZone,
+      viewport: { width: 390, height: 844 }
+    });
+    const page = await context.newPage();
+    await page.addInitScript(() => {
+      sessionStorage.setItem('jamesIntroDate', new Date().toDateString());
+    });
+    await page.goto(`http://127.0.0.1:${port}`, { waitUntil: 'networkidle' });
+    await page.locator('#personalEmailCount').filter({ hasText: '37 unread' }).waitFor();
+    await page.locator('#personalMailRow').click();
+    await page.locator('#personalMailMessages .panel-item b', { hasText: 'Mobile mail test' }).waitFor();
+
+    const before = {
+      count: await page.locator('#personalEmailCount').innerText(),
+      messages: await page.locator('#personalMailMessages .panel-item').allTextContents()
+    };
+
+    await page.evaluate(() => {
+      handlePersonalMicrosoftMailError(new Error('temporary provider failure'));
+    });
+
+    assert.equal(await page.locator('#personalEmailCount').innerText(), before.count);
+    assert.deepEqual(
+      await page.locator('#personalMailMessages .panel-item').allTextContents(),
+      before.messages
+    );
+    assert.equal(
+      await page.locator('#personalMailMessages .panel-item b', { hasText: 'Mobile mail test' }).count(),
+      1
+    );
+
+    await context.close();
+  } finally {
+    await browser.close();
+    await new Promise(resolve => server.close(resolve));
+  }
+});
+
 test('live Personal Mail value stays readable across Android phone widths', async () => {
   const server = createServer();
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
