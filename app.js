@@ -945,7 +945,7 @@ $$(".task-filter").forEach(button => {
       }
     };
   }
-  $('[data-panel]').forEach(b => b.onclick = () => {
+  $$('[data-panel]').forEach(b => b.onclick = () => {
     const type = b.dataset.panel;
     const emptyStates = {
       callbacks: ['No callbacks available', 'This view is not connected to a callback source.'],
