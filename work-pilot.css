@@ -1,0 +1,15 @@
+.work-pilot p { line-height: 1.5; }
+.work-pilot .pilot-toolbar { display:flex; flex-wrap:wrap; gap:12px; align-items:center; margin:20px 0; }
+.work-pilot label { display:flex; flex-direction:column; gap:6px; font-size:16px; }
+.work-pilot input,.work-pilot select,.work-pilot button,.work-pilot a { font:inherit; }
+.work-pilot input,.work-pilot select { max-width:100%; min-height:44px; padding:8px; border:1px solid #c7b27c; border-radius:8px; box-sizing:border-box; }
+.work-pilot button,.work-pilot a { min-height:44px; padding:10px 16px; border-radius:8px; }
+.work-pilot button:disabled { opacity:.55; cursor:not-allowed; }
+.work-pilot article,.work-pilot #pilotPreview,.work-pilot #pilotRestorePreview { padding:16px; margin:12px 0; border:1px solid #dacda9; border-radius:12px; overflow-wrap:anywhere; }
+.work-pilot h4 { margin:0 0 8px; }
+.work-pilot ul { padding-left:24px; }
+.work-pilot [hidden] { display:none!important; }
+.work-pilot .pilot-record-meta { color:#655c4b; font-size:16px; }
+@media(max-width:600px) { .work-pilot .pilot-toolbar { align-items:stretch; flex-direction:column; } .work-pilot label,.work-pilot input { width:100%; } }
+/* The pilot adds one destination; retain all navigation at narrow widths. */
+#nav { flex-wrap:wrap; }

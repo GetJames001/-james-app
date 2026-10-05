@@ -59,6 +59,9 @@ module.exports = async function handler(req, res) {
   if (
     route === "app.js" ||
     route === "mail-refresh.js" ||
+    route === "work-pilot.js" ||
+    route === "work-pilot-ui.js" ||
+    route === "work-pilot.css" ||
     route === "styles.css" ||
     route === "james-orb-v1.png" ||
     route.startsWith("assets/")

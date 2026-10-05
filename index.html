@@ -6,6 +6,7 @@
   <meta name="theme-color" content="#11100f">
   <title>James — Morning Briefing</title>
   <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="work-pilot.css">
 </head>
 
 <body>
@@ -70,6 +71,7 @@
     <button data-page="appointments">Appointments</button>
     <button data-page="conversations">Conversations</button>
     <button data-page="tasks">Tasks</button>
+    <button data-page="workPilot">Work pilot</button>
     <button data-page="travel">Travel</button>
     <button data-page="files">Files</button>
     <button id="jamesNav" class="james-nav" data-page="insights">
@@ -323,6 +325,29 @@
     </div>
   </section>
 
+  <section id="workPilot" class="page">
+    <div class="sheet content-narrow work-pilot">
+      <div class="sheet-head"><div><small>SYNTHETIC WORKDAY PILOT</small><h3>Review your next actions.</h3></div></div>
+      <p>Test records only. This pilot does not update your calendar, Tasks or company systems.</p>
+      <p id="pilotMemoryNote">Records stay in memory on this page. Export a backup before refreshing or signing out; there is no cross-device sync.</p>
+      <div class="pilot-toolbar">
+        <button id="pilotFixture" type="button">Load test records</button>
+        <a href="assets/workday-pilot-synthetic.csv" download>Download test CSV</a>
+        <label>Source namespace <input id="pilotNamespace" value="synthetic-demo" maxlength="64" autocomplete="off"></label>
+        <label>Import test CSV <input id="pilotCSV" type="file" accept=".csv,text/csv"></label>
+      </div>
+      <p id="pilotStatus" role="status" aria-live="polite">No test records imported.</p>
+      <div id="pilotPreview" hidden></div>
+      <div class="pilot-toolbar">
+        <button id="pilotExport" type="button" disabled>Export backup</button>
+        <label>Restore test backup <input id="pilotRestore" type="file" accept=".json,application/json"></label>
+        <button id="pilotClear" type="button" disabled>Clear pilot</button>
+      </div>
+      <div id="pilotRestorePreview" hidden></div>
+      <div id="pilotRecords"></div>
+    </div>
+  </section>
+
   <section id="travel" class="page">
     <div class="sheet content-narrow">
       <div class="sheet-head">
@@ -414,6 +439,8 @@
 
 <script src="mail-refresh.js"></script>
 <script src="app.js"></script>
+<script src="work-pilot.js"></script>
+<script src="work-pilot-ui.js"></script>
 
 </body>
 </html>
