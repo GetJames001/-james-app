@@ -364,6 +364,44 @@ test("gateway serves the Personal Mail refresh asset only to authenticated GET a
   }
 });
 
+test("gateway protects and serves each Workday Pilot resource with its exact content type", async () => {
+  const gateway = require("../api/gateway.js");
+  const resources = [
+    ["work-pilot.js", "text/javascript; charset=utf-8"],
+    ["work-pilot-ui.js", "text/javascript; charset=utf-8"],
+    ["work-pilot.css", "text/css; charset=utf-8"],
+    ["assets/workday-pilot-synthetic.csv", "text/csv; charset=utf-8"]
+  ];
+  for (const [route, contentType] of resources) {
+    const expected = fs.readFileSync(path.join(root, route), "utf8");
+    assert.ok(expected.length > 0, route);
+    for (const method of ["GET", "HEAD"]) {
+      const res = mockRes();
+      await gateway(request(method, { authorized: true, query: { path: route } }), res);
+      assert.equal(res.statusCode, 200, `${route} ${method}`);
+      assert.equal(res.headers["X-Application-Gateway"], "enforced");
+      assert.equal(res.headers["Content-Type"], contentType);
+      assert.match(res.headers["Cache-Control"], /private/);
+      assert.match(res.headers["Cache-Control"], /no-store/);
+      assert.equal(res.body, method === "GET" ? expected : null);
+    }
+    for (const method of ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]) {
+      const res = mockRes();
+      await gateway(request(method, { query: { path: route } }), res);
+      assert.equal(res.statusCode, 401, `${route} unauthenticated ${method}`);
+      assert.equal(res.headers["X-Application-Gateway"], "enforced");
+      assert.deepEqual(res.body, { ok: false, error: "UNAUTHORIZED" });
+    }
+    for (const method of ["POST", "PUT", "PATCH", "DELETE", "OPTIONS"]) {
+      const res = mockRes();
+      await gateway(request(method, { authorized: true, query: { path: route } }), res);
+      assert.equal(res.statusCode, 405, `${route} authenticated ${method}`);
+      assert.equal(res.headers.Allow, "GET, HEAD");
+      assert.equal(res.headers["X-Application-Gateway"], "enforced");
+    }
+  }
+});
+
 test("authorization accepts only configured production and exact deployment hosts", async () => {
   const session = require("../lib/routes/session.js");
   process.env.VERCEL_URL = "james-production-id.vercel.app";

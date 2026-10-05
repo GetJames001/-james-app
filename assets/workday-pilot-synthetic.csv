@@ -1,0 +1,11 @@
+source_record_id,account_id,site_id,account_name,action_type,next_action,status,site_name,category,priority,due_date,contact_name,contact_status,equipment_confidence,address,proposed_date,proposed_start,proposed_end,notes
+RENEW-01,ACCT-01,SITE-01,Synthetic Cedar,renewal,Review renewal follow-up,open,North site,generator,high,2026-10-06,Demo contact A,verified,verified,,2026-10-06,09:00,09:30,Synthetic demonstration only
+PROSPECT-01,ACCT-02,SITE-02,Synthetic Juniper,prospect,Qualify generator opportunity,open,East site,generator,normal,,Demo contact B,unknown,unknown,,,,,No confirmed date or address
+CALL-01,ACCT-01,SITE-03,Synthetic Cedar,callback,Return requested callback,open,South site,generator,normal,2026-10-06,Demo contact A,verified,unverified,,,,,Same account and contact; separate site
+QUOTE-01,ACCT-03,SITE-04,Synthetic Maple,quote,Review draft quote inputs,open,West site,generator,high,2026-10-07,Demo contact C,verified,unverified,,2026-10-06,10:00,10:30,Do not send any quote
+MEET-01,ACCT-04,SITE-05,Synthetic Internal,other,Attend fixed synthetic meeting,open,Demo office,other,high,2026-10-06,,verified,verified,,2026-10-06,08:00,09:00,Fixed commitment for pilot
+COMP-01,ACCT-05,SITE-06,Synthetic Willow,follow_up,Qualify by phone first,open,Demo site,compressor,low,,Demo contact D,unknown,unknown,,,,,Unqualified compressor; do not schedule
+MISSED-01,ACCT-06,SITE-07,Synthetic Birch,renewal,Review missed renewal carryover,open,Demo site,generator,high,2026-10-05,Demo contact E,verified,verified,,,,,Missed does not mean completed
+DONE-01,ACCT-07,SITE-08,Synthetic Ash,callback,Confirmed synthetic follow-up completed,closed,Demo site,generator,low,2026-10-05,Demo contact F,verified,verified,,,,,History retained; not outstanding
+LEGACY-01,ACCT-08,SITE-09,Synthetic Elm,prospect,Verify legacy contact first,open,Demo site,generator,low,,Demo legacy contact,legacy,unknown,,,,,Old contact is unverified
+OLD-01,ACCT-09,SITE-10,Synthetic Oak,other,Review outdated source before acting,open,Demo site,other,low,2026-08-04,,unknown,unknown,,,,,Historical date; never silently treated as current obligation
