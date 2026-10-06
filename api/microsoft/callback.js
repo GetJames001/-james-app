@@ -1,3 +1,4 @@
+const { microsoftRedirectUri } = require("../../lib/microsoft/oauth.js");
 const { privateNoStore, requireAllowedHost } = require("../../lib/auth.js");
 
 module.exports = async function handler(req, res) {
@@ -55,7 +56,7 @@ module.exports = async function handler(req, res) {
           client_secret: process.env.MICROSOFT_CLIENT_SECRET,
           code,
           redirect_uri:
-            "https://james-app-seven.vercel.app/api/microsoft/callback",
+            microsoftRedirectUri(req),
           grant_type: "authorization_code",
           scope: account === "personal"
             ? "openid profile offline_access User.Read Mail.ReadWrite Mail.Send"
