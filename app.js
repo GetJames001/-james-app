@@ -12,6 +12,10 @@ let calendarRelayoutForced = false;
 let lastCalendarGeometry = '';
 let personalMailRefreshController;
 let hasSuccessfulPersonalMailLoad = false;
+let calendarRefreshController;
+let calendarSyncState = { hasData:false, state:'loading', complete:false, fetchedAt:null };
+let displayedCalendarDate = '';
+let knownCalendarSources = new Map();
 
 const mins = (t) => { const [h,m] = t.split(':').map(Number); return (h-7)*60+m; };
 const pretty = (t) => { let [h,m] = t.split(':').map(Number); const s = h >= 12 ? 'PM' : 'AM'; h = h % 12 || 12; return `${h}:${String(m).padStart(2,'0')} ${s}`; };
@@ -30,8 +34,8 @@ function calendarEventLayouts(calendarEvents, pixelsPerMinute) {
   const layouts = calendarEvents.map((event, index) => ({
     event,
     index,
-    start: mins(event[0]),
-    end: mins(event[1]),
+    start: Math.max(0, mins(event[0])),
+    end: Math.min(720, mins(event[1])),
     lane: 0,
     laneCount: 1
   }));
@@ -337,15 +341,20 @@ function setGreeting(){
 function nextAppointment(){
   const now = new Date();
   const appointments = events.filter(e => !e[4]);
- return appointments.find(e => timeToDate(e[0]) > now);
+ return appointments.find(e => (e[5] ? new Date(e[5].end) : timeToDate(e[1])) > now);
 }
 
 function updateHero(){
+  if(!calendarSyncState.hasData) {
+    $('#nextTitle').textContent=calendarSyncState.state==='loading'?'Checking calendar…':'Calendar unavailable';
+    $('#nextType').textContent='No verified calendar result yet.';
+    ['countdown','leaveBy','driveTime','traffic'].forEach(id=>$('#'+id).textContent='—');return;
+  }
   const appt = nextAppointment();
  if (!appt) {
-  $('#nextTitle').textContent = 'No more appointments today';
-  $('#nextType').textContent = 'Your calendar is clear';
-  $('#countdown').textContent = 'Done';
+  $('#nextTitle').textContent = calendarSyncState.complete && calendarSyncState.state!=='stale' ? 'No more timed appointments today' : 'No more timed appointments in available data';
+  $('#nextType').textContent = calendarSyncState.complete && calendarSyncState.state!=='stale' ? 'No remaining timed events in the selected Google calendars.' : 'Coverage is incomplete or stale; your calendar may contain more events.';
+  $('#countdown').textContent = calendarSyncState.complete && calendarSyncState.state!=='stale' ? 'Done' : '—';
   $('#leaveBy').textContent = '—';
   $('#driveTime').textContent = '—';
    $('#traffic').textContent = '—';
@@ -353,7 +362,7 @@ function updateHero(){
 }
   const travel = events.find(e => e[4] === 'travel' && e[3].includes(appt[2]));
 const drive = travel ? (parseInt(travel[3], 10) || 0) : 0;
-  const start = timeToDate(appt[0]);
+  const start = appt[5] ? new Date(appt[5].start) : timeToDate(appt[0]);
   const leave = new Date(start.getTime() - drive * 60000);
   const now = new Date();
   const diff = Math.max(0, start - now);
@@ -361,42 +370,45 @@ const drive = travel ? (parseInt(travel[3], 10) || 0) : 0;
   const min = Math.floor((diff % 3600000) / 60000);
   $('#nextTitle').textContent = appt[2];
   $('#nextType').textContent = `${appt[3]} · ${pretty(appt[0])}`;
-  $('#countdown').textContent = hrs ? `${hrs} hr ${min} min` : `${min} min`;
+  $('#countdown').textContent = start <= now ? 'In progress' : hrs ? `${hrs} hr ${min} min` : `${min} min`;
  $('#leaveBy').textContent = travel ? leave.toLocaleTimeString([], {hour:'numeric', minute:'2-digit'}) : '—';
 $('#driveTime').textContent = travel ? `${drive} min` : '—';
   $('#traffic').textContent = '—';
 }
 
+function openCalendarEvent(event) {
+  panel(event[4]==='travel'?'TRAVEL':'APPOINTMENT',event[2],'');
+  const body=$('#panelBody'), detail=document.createElement('div');detail.className='panel-item';
+  const time=document.createElement('b');
+  time.textContent=event[5] ? `${new Date(event[5].start).toLocaleString()} – ${new Date(event[5].end).toLocaleString()}` : `${pretty(event[0])}–${pretty(event[1])}`;
+  const location=document.createElement('span');location.textContent=event[3];
+  const source=document.createElement('p');source.textContent=event[5]?.calendarName ? `Source calendar: ${event[5].calendarName}` : 'Google Calendar';
+  const readOnly=document.createElement('p');readOnly.textContent='Read-only event. Make changes in your source calendar.';
+  detail.append(time,location,source,readOnly);body.append(detail);
+}
 function buildCalendar(){
-  const c = $('#calendar');
-  lastCalendarGeometry = '';
-  c.innerHTML = '';
-  for(let h=7; h<=19; h++){
-    const r = document.createElement('div');
-    r.className = 'hour';
-    r.innerHTML = `<span>${h>12?h-12:h}:00 ${h>=12?'PM':'AM'}</span>`;
-    c.appendChild(r);
+  const c=$('#calendar');lastCalendarGeometry='';c.replaceChildren();
+  for(let h=7;h<=19;h++) {
+    const r=document.createElement('div');r.className='hour';const span=document.createElement('span');
+    span.textContent=`${h>12?h-12:h}:00 ${h>=12?'PM':'AM'}`;r.append(span);c.append(r);
   }
-  events.forEach((e, index) => {
-    if(e[4] === 'open') return; // open time is intentionally represented by whitespace
-    const b = document.createElement('button');
-    b.className = `event ${e[4] || ''}`;
-    b.dataset.eventIndex = index;
-    if(e[4] === 'travel'){
-      b.setAttribute('aria-label', e[3]);
-      b.title = e[3];
-      b.innerHTML = '';
-    } else {
-      b.innerHTML = `<b>${e[2]}</b><small>${e[3]}</small>`;
-    }
-    b.onclick = () => panel(e[4] === 'travel' ? 'TRAVEL' : 'APPOINTMENT', e[4] === 'travel' ? 'Route' : e[2], `<div class="panel-item"><b>${pretty(e[0])}–${pretty(e[1])}</b><span>${e[3]}</span>${e[4] === 'travel' ? '' : '<button>Call</button><button>Text</button><button>Email</button><button>Move</button><button>Notes</button><button>Files</button>'}</div>`);
-    c.appendChild(b);
+  events.forEach((e,index)=>{
+    if(e[4]==='open' || mins(e[1])<=0 || mins(e[0])>=720)return;
+    const button=document.createElement('button');button.className=`event ${e[4] || ''}`;button.dataset.eventIndex=index;
+    if(e[4]==='travel'){button.setAttribute('aria-label',e[3]);button.title=e[3];}
+    else {const title=document.createElement('b'),location=document.createElement('small');title.textContent=e[2];location.textContent=e[3];button.append(title,location);}
+    button.onclick=()=>openCalendarEvent(e);c.append(button);
   });
-  const n = document.createElement('div');
-  n.className = 'now';
-  c.appendChild(n);
-  relayoutCalendar({ force: true, allowHidden: true });
-  $('#apptList').innerHTML = events.filter(e => e[4] !== 'open' && e[4] !== 'travel').map(e => `<article><div>${pretty(e[0])}</div><div><h4>${e[2]}</h4><p>${e[3]}</p></div><button data-a="${e[2]}">Open</button></article>`).join('');
+  const marker=document.createElement('div');marker.className='now';c.append(marker);relayoutCalendar({force:true,allowHidden:true});
+  const list=$('#apptList');list.replaceChildren();
+  (window.allDayEvents || []).forEach(event=>{
+    const article=document.createElement('article'),label=document.createElement('div'),details=document.createElement('div'),title=document.createElement('h4'),source=document.createElement('p');
+    label.textContent='All day';title.textContent=event.title;source.textContent=`${event.calendarName || 'Google Calendar'} · ${event.start} to ${event.end} (end date exclusive)`;details.append(title,source);article.append(label,details);list.append(article);
+  });
+  events.filter(e=>e[4]!=='open' && e[4]!=='travel').forEach(e=>{
+    const article=document.createElement('article'),time=document.createElement('div'),details=document.createElement('div'),title=document.createElement('h4'),location=document.createElement('p'),button=document.createElement('button');
+    time.textContent=pretty(e[0]);title.textContent=e[2];location.textContent=e[3];details.append(title,location);button.textContent='Open';button.onclick=()=>openCalendarEvent(e);article.append(time,details,button);list.append(article);
+  });
 }
 
 function page(id){
@@ -405,6 +417,7 @@ function page(id){
   $$('.page').forEach(p => p.classList.toggle('active', p.id === id));
   if(id === 'briefing') scheduleCalendarRelayout(true);
   if(personalMailRefreshController) personalMailRefreshController.pageChanged();
+  if(calendarRefreshController) calendarRefreshController.pageChanged();
   if(id === 'insights'){
     $('#jamesNav').classList.remove('has-recommendation');
     const cue = $('#jamesNav .recommendation-cue');
@@ -595,63 +608,42 @@ const highConsequenceShouldI =
 if (highConsequenceShouldI) return true;
   return councilSignals.some(signal => q.includes(signal));
 }
-async function loadLiveGoogleEvents() {
-  try {
-    const response = await fetch('/api/google/events');
-    const data = await response.json();
-
-    if (!response.ok || !data.connected || !Array.isArray(data.events)) {
-      throw new Error('Google Calendar events unavailable.');
-    }
-
-    liveEvents = data.events;
-    const todayKey = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-${String(new Date().getDate()).padStart(2, '0')}`;
-
-const allDayEvents = liveEvents.filter(
-  event => event.allDay && String(event.start).slice(0, 10) === todayKey
-);
-    briefingEvents = liveEvents
-  .filter(event => {
-  if (!event.start || !event.end || event.allDay) return false;
-
-  const eventDate = new Date(event.start);
-  const today = new Date();
-
-  return (
-    eventDate.getFullYear() === today.getFullYear() &&
-    eventDate.getMonth() === today.getMonth() &&
-    eventDate.getDate() === today.getDate()
-  );
-})
-  .sort((a, b) => new Date(a.start) - new Date(b.start))
-      .map(toBriefingEvent);
-    events = briefingEvents;
-buildCalendar();
-updateHero();
-window.liveEvents = liveEvents;
-    window.briefingEvents = briefingEvents;
-    window.allDayEvents = allDayEvents;
-    const allDayStrip = $('#allDayStrip');
-    const allDayRibbon = $('#allDayRibbon');
-
-if (allDayStrip) {
-  if (allDayEvents.length) {
-    allDayStrip.hidden = false;
-    if (allDayRibbon) allDayRibbon.hidden = false;
-    allDayStrip.textContent =
-      'ALL DAY — ' + allDayEvents.map(event => event.title).join(' · ');
-  } else {
-    allDayStrip.hidden = true;
-    if (allDayRibbon) allDayRibbon.hidden = true;
-    allDayStrip.textContent = '';
-  }
+function renderCalendarDay() {
+  const selected=JamesCalendarSync.eventsForDay(liveEvents,new Date());
+  displayedCalendarDate=selected.date;briefingEvents=selected.timed;events=briefingEvents;
+  window.liveEvents=liveEvents;window.briefingEvents=briefingEvents;window.allDayEvents=selected.allDay;
+  if(selected.invalidCount)calendarSyncState.complete=false;
+  const strip=$('#allDayStrip'),ribbon=$('#allDayRibbon');
+  if(strip){strip.hidden=!selected.allDay.length;strip.textContent=selected.allDay.length?'ALL DAY — '+selected.allDay.map(e=>e.title).join(' · '):'';}
+  if(ribbon)ribbon.hidden=!selected.allDay.length;
+  buildCalendar();updateHero();
 }
-    document.title = `James (${liveEvents.length} live events)`;
-    console.log('Live Google events loaded:', liveEvents.length);
-  } catch (error) {
-    console.error('Could not load live Google events:', error);
-  }
+function calendarStatus(text) { const element=$('#calendarSyncStatus');if(element)element.textContent=text; }
+async function requestGoogleEvents() {
+  calendarStatus(calendarSyncState.hasData?'Refreshing Google Calendar; showing last received events…':'Checking Google Calendar…');
+  return JamesCalendarSync.readCalendar(fetch);
 }
+function applyGoogleEvents(data) {
+  liveEvents=JamesCalendarSync.mergePartial(liveEvents,data);
+  calendarSyncState={hasData:true,state:data.complete===false || data.partial===true?'partial':'fresh',complete:data.complete!==false && data.partial!==true,fetchedAt:data.fetchedAt || new Date().toISOString()};
+  const sources=$('#calendarSyncSources');
+  if(sources) {
+    if(data.complete!==false && data.partial!==true)knownCalendarSources.clear();
+    (data.calendars || []).forEach(c=>knownCalendarSources.set(c.id,c.name || 'Unnamed calendar'));
+    const names=[...knownCalendarSources.values()];
+    sources.textContent=`Google sources: ${names.length?names.join(' · '):(Array.isArray(data.calendars) && calendarSyncState.complete?'No selected non-holiday calendars':'Source names unavailable')} · Display timezone: ${Intl.DateTimeFormat().resolvedOptions().timeZone}. Read-only.`;
+  }
+  renderCalendarDay();
+  const timestamp=new Date(calendarSyncState.fetchedAt).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'});
+  const dayLabel=displayedCalendarDate;
+  calendarStatus(calendarSyncState.complete ? `Updated ${timestamp}. Showing ${dayLabel}; selected Google calendars read successfully.` : `Incomplete coverage at ${timestamp}. Showing available and previously received events for ${dayLabel}; some source events may be missing or stale.`);
+}
+function googleEventsFailed() {
+  calendarSyncState.state=calendarSyncState.hasData?'stale':'unavailable';
+  calendarStatus(calendarSyncState.hasData?'Refresh failed. Keeping previously received events; they may be stale.':'Google Calendar unavailable. Your schedule has not been verified.');
+  if(calendarSyncState.hasData)renderCalendarDay();else updateHero();
+}
+function loadLiveGoogleEvents() { return calendarRefreshController ? calendarRefreshController.refresh('manual') : Promise.resolve({skipped:'not-started'}); }
 async function loadWeatherForCoordinates({ latitude, longitude }, tempEl, detailEl) {
   try {
     const url =
@@ -938,8 +930,17 @@ function loadPersonalMicrosoftMail() {
     });
 }
 document.addEventListener('DOMContentLoaded', () => {
-  loadLiveGoogleEvents();
-    loadLiveWeather();
+  calendarRefreshController=JamesCalendarSync.createCalendarRefreshController({
+    fetchEvents:requestGoogleEvents,onSuccess:applyGoogleEvents,onError:googleEventsFailed,
+    isVisible:()=>document.visibilityState==='visible',
+    isCalendarOpen:()=>$('#briefing')?.classList.contains('active') || $('#appointments')?.classList.contains('active'),
+    documentTarget:document,windowTarget:window
+  });
+  calendarRefreshController.start();
+  ['calendarRefreshButton','appointmentsRefreshButton'].forEach(id=>$('#'+id)?.addEventListener('click',()=>loadLiveGoogleEvents()));
+  window.addEventListener('pagehide',()=>calendarRefreshController.stop());
+  window.addEventListener('pageshow',event=>{if(event.persisted)window.location.reload();});
+  loadLiveWeather();
   personalMailRefreshController = PersonalMailRefresh.createPersonalMailRefreshController({
     fetchMail: requestPersonalMicrosoftMail,
     onSuccess: applyPersonalMicrosoftMail,
@@ -964,12 +965,13 @@ $$(".task-filter").forEach(button => {
   buildCalendar();
   observeCalendarLayout();
   updateHero();
-  setInterval(() => { setGreeting(); updateHero(); }, 60000);
+  setInterval(() => { setGreeting(); if(calendarSyncState.hasData && displayedCalendarDate!==`${new Date().getFullYear()}-${String(new Date().getMonth()+1).padStart(2,'0')}-${String(new Date().getDate()).padStart(2,'0')}`)renderCalendarDay();else updateHero(); }, 60000);
   $$('nav button[data-page]').forEach(b => b.onclick = () => page(b.dataset.page));
   const logoutButton = $('#logoutButton');
   if (logoutButton) {
     logoutButton.onclick = async () => {
       logoutButton.disabled = true;
+      calendarRefreshController.stop();
       try {
         await fetch('/api/auth/logout', {
           method: 'POST',

@@ -316,9 +316,8 @@ test("fixture-bearing application JavaScript is not exposed without a session", 
   assert.match(res.body, /loadPersonalMicrosoftMail/);
 });
 
-test("gateway serves the Personal Mail refresh asset only to authenticated GET and HEAD requests", async () => {
+for (const [route, marker] of [["mail-refresh.js", /createPersonalMailRefreshController/], ["calendar-sync.js", /createCalendarRefreshController/]]) test(`gateway protects and serves ${route} only to authenticated GET and HEAD requests`, async () => {
   const gateway = require("../api/gateway.js");
-  const route = "mail-refresh.js";
 
   let res = mockRes();
   await gateway(request("GET", {
@@ -329,7 +328,7 @@ test("gateway serves the Personal Mail refresh asset only to authenticated GET a
   assert.equal(res.statusCode, 200);
   assert.equal(res.headers["X-Application-Gateway"], "enforced");
   assert.equal(res.headers["Content-Type"], "text/javascript; charset=utf-8");
-  assert.match(res.body, /createPersonalMailRefreshController/);
+  assert.match(res.body, marker);
 
   res = mockRes();
   await gateway(request("HEAD", {
