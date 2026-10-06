@@ -45,7 +45,7 @@
     </div>
 
     <div class="greeting">
-      <h2 id="mainGreeting">Good Morning, Michael</h2>
+      <h2 id="mainGreeting">Welcome, Michael</h2>
       <p id="dateTime"></p>
     </div>
 
@@ -70,6 +70,7 @@
     <button data-page="appointments">Appointments</button>
     <button data-page="conversations">Conversations</button>
     <button data-page="tasks">Tasks</button>
+    <button data-page="capture">Capture</button>
     <button data-page="travel">Travel</button>
     <button data-page="files">Files</button>
     <button id="jamesNav" class="james-nav" data-page="insights">
@@ -144,7 +145,7 @@
    <svg class="intel-icon" viewBox="0 0 24 24" aria-hidden="true">
   <path d="M7 4h3l2 5-2 1.5a15 15 0 0 0 3.5 3.5L15 12l5 2v3c0 1.1-.9 2-2 2C10.8 19 5 13.2 5 6c0-1.1.9-2 2-2z"></path>
 </svg> <span>CALLBACKS</span>
-    <strong>—</strong>
+    <strong id="captureCallbackCount">—</strong>
     <small>—</small>
   </div>
 </div>
@@ -183,8 +184,12 @@
         <div class="calendar-column">
           <small>TODAY’S CALENDAR · 7:00 AM–7:00 PM</small>
           <p id="calendarSyncStatus" role="status" aria-live="polite">Checking Google Calendar…</p>
-          <p id="calendarSyncSources"></p>
-          <p>Read window: previous 24 hours through the next 90 days. Today’s grid shows 7 AM–7 PM; Appointments includes today’s events outside those hours and all-day events.</p>
+          <details class="calendar-sync-details">
+            <summary>Calendar details</summary>
+            <p id="calendarSyncSources"></p>
+            <p id="calendarSyncCoverage"></p>
+            <p>Read window: previous 24 hours through the next 90 days. Today’s grid shows 7 AM–7 PM; Appointments includes today’s events outside those hours and all-day events.</p>
+          </details>
           <button id="calendarRefreshButton" type="button">Refresh calendar</button>
           <div id="allDayStrip" hidden></div>
           <div id="allDayRibbon" hidden>ALL DAY</div>
@@ -261,6 +266,30 @@
     <div id="personalMailDetailBody"></div>
   </div>
 </section>
+  <section id="capture" class="page">
+    <div class="sheet content-medium">
+      <h3>Capture what comes next.</h3>
+      <p>Save callbacks, next actions and appointment drafts in James. Drafts are not added to Google Calendar. Use your keyboard’s dictation microphone if helpful.</p>
+      <form id="captureForm">
+        <label>Type <select name="type"><option value="callback">Callback</option><option value="next_action">Next action</option><option value="appointment_draft">Appointment draft</option></select></label>
+        <label>Area <select name="domain"><option value="work">Work</option><option value="personal">Personal</option></select></label>
+        <label>Title <input name="title" required maxlength="200" autocomplete="off"></label>
+        <label>Contact (optional) <input name="contact" maxlength="200" autocomplete="off"></label>
+        <label>Notes <textarea name="notes" maxlength="2000"></textarea></label>
+        <label>Due date (optional) <input name="dueDate" type="date"></label>
+        <p>For appointment drafts only: times use this device’s timezone, <b id="captureTimezone"></b>. Repeated clock-change times require an unambiguous alternative.</p>
+        <label>Start <input name="start" type="datetime-local"></label>
+        <label>End <input name="end" type="datetime-local"></label>
+        <label>Status <select name="status"><option value="open">Open</option><option value="completed">Completed</option></select></label>
+        <button type="submit">Review</button><button id="captureNew" type="button">New record</button>
+        <label>Show <select name="filter"><option value="all">Work and Personal</option><option value="work">Work</option><option value="personal">Personal</option></select></label>
+      </form>
+      <div id="captureConfirm" hidden><p id="captureReview"></p><button id="captureSave" type="button">Save in James</button><button id="captureBack" type="button">Back to editing</button></div>
+      <p id="captureStatus" role="status" aria-live="polite">Loading captured records…</p>
+      <button id="captureRefresh" type="button">Refresh records</button>
+      <div id="captureList"></div>
+    </div>
+  </section>
   <section id="appointments" class="page">
     <div class="sheet content-medium">
       <div class="sheet-head">
@@ -420,6 +449,7 @@
 
 <script src="mail-refresh.js"></script>
 <script src="calendar-sync.js"></script>
+<script src="capture.js"></script>
 <script src="app.js"></script>
 
 </body>

@@ -15,6 +15,7 @@ const microsoftConnect = require("./microsoft/connect.js");
 const microsoftMail = require("./microsoft/mail.js");
 const microsoftTriage = require("./microsoft/triage.js");
 const tasks = require("./tasks.js");
+const capture = require("../lib/routes/capture.js");
 
 const exactHandlers = new Map([
   ["api/health", health],
@@ -29,7 +30,8 @@ const exactHandlers = new Map([
   ["api/microsoft/connect", microsoftConnect],
   ["api/microsoft/mail", microsoftMail],
   ["api/microsoft/triage", microsoftTriage],
-  ["api/tasks", tasks]
+  ["api/tasks", tasks],
+  ["api/capture", capture]
 ]);
 
 function requestedPath(req) {
@@ -60,6 +62,7 @@ module.exports = async function handler(req, res) {
     route === "app.js" ||
     route === "mail-refresh.js" ||
     route === "calendar-sync.js" ||
+    route === "capture.js" ||
     route === "styles.css" ||
     route === "james-orb-v1.png" ||
     route.startsWith("assets/")

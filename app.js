@@ -636,11 +636,12 @@ function applyGoogleEvents(data) {
   renderCalendarDay();
   const timestamp=new Date(calendarSyncState.fetchedAt).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'});
   const dayLabel=displayedCalendarDate;
-  calendarStatus(calendarSyncState.complete ? `Updated ${timestamp}. Showing ${dayLabel}; selected Google calendars read successfully.` : `Incomplete coverage at ${timestamp}. Showing available and previously received events for ${dayLabel}; some source events may be missing or stale.`);
+  calendarStatus(calendarSyncState.complete ? `Calendar synced · ${timestamp}` : `Calendar incomplete · ${timestamp}. Some events may be missing or stale.`);
+  const coverage=$('#calendarSyncCoverage');if(coverage)coverage.textContent=calendarSyncState.complete ? `Showing ${dayLabel}; selected Google calendars read successfully.` : `Showing available and previously received events for ${dayLabel}. Coverage is incomplete.`;
 }
 function googleEventsFailed() {
   calendarSyncState.state=calendarSyncState.hasData?'stale':'unavailable';
-  calendarStatus(calendarSyncState.hasData?'Refresh failed. Keeping previously received events; they may be stale.':'Google Calendar unavailable. Your schedule has not been verified.');
+  calendarStatus(calendarSyncState.hasData?'Calendar refresh failed · Events may be stale.':'Calendar unavailable · Schedule not verified.');
   if(calendarSyncState.hasData)renderCalendarDay();else updateHero();
 }
 function loadLiveGoogleEvents() { return calendarRefreshController ? calendarRefreshController.refresh('manual') : Promise.resolve({skipped:'not-started'}); }
@@ -930,6 +931,8 @@ function loadPersonalMicrosoftMail() {
     });
 }
 document.addEventListener('DOMContentLoaded', () => {
+  setGreeting();
+  JamesCapture.mount();
   calendarRefreshController=JamesCalendarSync.createCalendarRefreshController({
     fetchEvents:requestGoogleEvents,onSuccess:applyGoogleEvents,onError:googleEventsFailed,
     isVisible:()=>document.visibilityState==='visible',
@@ -938,7 +941,7 @@ document.addEventListener('DOMContentLoaded', () => {
   });
   calendarRefreshController.start();
   ['calendarRefreshButton','appointmentsRefreshButton'].forEach(id=>$('#'+id)?.addEventListener('click',()=>loadLiveGoogleEvents()));
-  window.addEventListener('pagehide',()=>calendarRefreshController.stop());
+  window.addEventListener('pagehide',()=>{calendarRefreshController.stop();JamesCapture.stop();});
   window.addEventListener('pageshow',event=>{if(event.persisted)window.location.reload();});
   loadLiveWeather();
   personalMailRefreshController = PersonalMailRefresh.createPersonalMailRefreshController({
@@ -972,6 +975,7 @@ $$(".task-filter").forEach(button => {
     logoutButton.onclick = async () => {
       logoutButton.disabled = true;
       calendarRefreshController.stop();
+      JamesCapture.stop();
       try {
         await fetch('/api/auth/logout', {
           method: 'POST',
@@ -984,6 +988,7 @@ $$(".task-filter").forEach(button => {
   }
   $$('[data-panel]').forEach(b => b.onclick = () => {
     const type = b.dataset.panel;
+    if(type==='callbacks'){panel('CALLBACKS','Callbacks','');JamesCapture.renderCallbacks($('#panelBody'));return;}
     const emptyStates = {
       callbacks: ['No callbacks available', 'This view is not connected to a callback source.'],
       emails: ['No email shortcuts available', 'Use Personal Mail for live messages.'],

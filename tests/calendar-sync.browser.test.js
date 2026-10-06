@@ -31,15 +31,25 @@ test('rendered calendar keeps cached failed-source events and names, shows stale
   try{
     browser=await chromium.launch({headless:true});const page=await browser.newPage({viewport:{width:1024,height:768},timezoneId:'UTC'});
     await page.route('https://**',route=>route.abort());
+    await page.clock.install({time:new Date(date+'T15:30:00Z')});
+    await page.addInitScript(()=>sessionStorage.setItem('jamesIntroDate',new Date().toDateString()));
     await page.goto(`http://127.0.0.1:${server.address().port}`);
-    await page.waitForFunction(()=>document.querySelector('#calendarSyncStatus').textContent.includes('read successfully'));
+    await page.waitForFunction(()=>document.querySelector('#calendarSyncStatus').textContent.includes('Calendar synced'));
     assert.match(await page.locator('#calendarSyncSources').textContent(),/Synthetic work.*Synthetic personal/);
+    assert.equal(await page.locator('#mainGreeting').textContent(),'Good Afternoon, Michael');
+    assert.equal(await page.locator('.calendar-sync-details').getAttribute('open'),null);
+    assert.equal(await page.locator('#calendarSyncSources').isVisible(),false);
+    if(process.env.JAMES_CALENDAR_SCREENSHOT){await page.evaluate(()=>{document.querySelector('#intro')?.classList.add('hide');document.querySelector('#app')?.classList.remove('frosted');document.querySelector('#app')?.classList.add('clear');});await page.screenshot({path:process.env.JAMES_CALENDAR_SCREENSHOT,fullPage:true,animations:'disabled'});}
+    await page.locator('.calendar-sync-details summary').click();assert.equal(await page.locator('#calendarSyncSources').isVisible(),true);
+    await page.locator('.calendar-sync-details summary').click();
     assert.equal(await page.evaluate(()=>Boolean(window.calendarInjected)),false);
     assert.ok((await page.locator('#apptList').textContent()).includes(title));
     await page.evaluate(()=>document.querySelectorAll('.intro,.intro-overlay').forEach(el=>el.remove()));
-    await page.clock.install();await page.clock.runFor(5001);mode='partial';
+    await page.clock.runFor(5001);mode='partial';
     await page.evaluate(()=>document.querySelector('#calendarRefreshButton').click());
-    await page.waitForFunction(()=>document.querySelector('#calendarSyncStatus').textContent.includes('Incomplete coverage'));
+    await page.waitForFunction(()=>document.querySelector('#calendarSyncStatus').textContent.includes('Calendar incomplete'));
+    assert.equal(await page.locator('#calendarSyncStatus').isVisible(),true);
+    assert.equal(await page.locator('#calendarSyncStatus').evaluate(el=>el.closest('details')===null),true);
     assert.match(await page.locator('#calendarSyncSources').textContent(),/Synthetic work/);
     assert.ok((await page.locator('#apptList').textContent()).includes(title));
     await page.clock.runFor(5001);mode='failure';await page.evaluate(()=>document.querySelector('#appointmentsRefreshButton').click());
