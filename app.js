@@ -386,6 +386,32 @@ function openCalendarEvent(event) {
   const readOnly=document.createElement('p');readOnly.textContent='Read-only event. Make changes in your source calendar.';
   detail.append(time,location,source,readOnly);body.append(detail);
 }
+let appointmentDate=null, appointmentMode='day';
+function localAppointmentDate(day=new Date()){return `${day.getFullYear()}-${String(day.getMonth()+1).padStart(2,'0')}-${String(day.getDate()).padStart(2,'0')}`;}
+function shiftAppointmentDate(value,amount){const day=new Date(value+'T12:00:00');day.setDate(day.getDate()+amount);return localAppointmentDate(day);}
+function renderAppointmentView(){
+  const list=$('#apptList');if(!list)return;
+  if(!appointmentDate)appointmentDate=localAppointmentDate();
+  const today=localAppointmentDate(),minimum=today,maximum=shiftAppointmentDate(today,88);
+  if(appointmentDate<minimum || appointmentDate>maximum)appointmentDate=today;
+  const input=$('#appointmentsDate');input.value=appointmentDate;input.min=minimum;input.max=maximum;
+  $('#appointmentsPrevious').disabled=appointmentDate<=minimum;$('#appointmentsNext').disabled=appointmentDate>=maximum;
+  $('#appointmentsWeek').setAttribute('aria-pressed',String(appointmentMode==='week'));
+  $('#appointmentsToday').setAttribute('aria-pressed',String(appointmentMode==='day'&&appointmentDate===today));
+  $('#appointmentsTomorrow').setAttribute('aria-pressed',String(appointmentMode==='day'&&appointmentDate===shiftAppointmentDate(today,1)));
+  const days=JamesCalendarSync.appointmentDays(appointmentDate,appointmentMode).filter(x=>x.date<=maximum);
+  const label=day=>day.toLocaleDateString(undefined,{weekday:'long',month:'long',day:'numeric',year:'numeric'});
+  const coverage=calendarSyncState.hasData?(calendarSyncState.state==='fresh'&&calendarSyncState.complete?'Selected Google calendars read successfully.':calendarSyncState.state==='stale'?'Refresh failed; showing previously received events.':'Coverage incomplete; some events may be missing.'):'Calendar unavailable; these dates have not been verified.';
+  $('#appointmentsViewStatus').textContent=`${label(days[0].day)}${days.length>1?' through '+label(days.at(-1).day):''} · ${coverage}`;
+  list.replaceChildren();
+  for(const day of days){
+    const heading=document.createElement('h4');heading.className='appointment-day-heading';heading.textContent=label(day.day);list.append(heading);
+    const result=JamesCalendarSync.eventsForDay(liveEvents,day.day);
+    for(const event of result.allDay){const article=document.createElement('article'),time=document.createElement('div'),details=document.createElement('div'),title=document.createElement('h4'),source=document.createElement('p');time.textContent='All day';title.textContent=event.title;source.textContent=event.calendarName||'Google Calendar';details.append(title,source);article.append(time,details);list.append(article);}
+    for(const event of result.timed){const article=document.createElement('article'),time=document.createElement('div'),details=document.createElement('div'),title=document.createElement('h4'),location=document.createElement('p'),button=document.createElement('button');time.textContent=pretty(event[0]);title.textContent=event[2];location.textContent=event[3];details.append(title,location);button.textContent='Open';button.onclick=()=>openCalendarEvent(event);article.append(time,details,button);list.append(article);}
+    if(!result.timed.length&&!result.allDay.length){const empty=document.createElement('p');empty.textContent=calendarSyncState.hasData&&calendarSyncState.complete&&calendarSyncState.state==='fresh'?'No events returned for this date from the selected Google calendars.':'No events available for this date; the schedule is not verified.';list.append(empty);}
+  }
+}
 function buildCalendar(){
   const c=$('#calendar');lastCalendarGeometry='';c.replaceChildren();
   for(let h=7;h<=19;h++) {
@@ -400,15 +426,8 @@ function buildCalendar(){
     button.onclick=()=>openCalendarEvent(e);c.append(button);
   });
   const marker=document.createElement('div');marker.className='now';c.append(marker);relayoutCalendar({force:true,allowHidden:true});
-  const list=$('#apptList');list.replaceChildren();
-  (window.allDayEvents || []).forEach(event=>{
-    const article=document.createElement('article'),label=document.createElement('div'),details=document.createElement('div'),title=document.createElement('h4'),source=document.createElement('p');
-    label.textContent='All day';title.textContent=event.title;source.textContent=`${event.calendarName || 'Google Calendar'} · ${event.start} to ${event.end} (end date exclusive)`;details.append(title,source);article.append(label,details);list.append(article);
-  });
-  events.filter(e=>e[4]!=='open' && e[4]!=='travel').forEach(e=>{
-    const article=document.createElement('article'),time=document.createElement('div'),details=document.createElement('div'),title=document.createElement('h4'),location=document.createElement('p'),button=document.createElement('button');
-    time.textContent=pretty(e[0]);title.textContent=e[2];location.textContent=e[3];details.append(title,location);button.textContent='Open';button.onclick=()=>openCalendarEvent(e);article.append(time,details,button);list.append(article);
-  });
+  renderAppointmentView();
+
 }
 
 function page(id){
@@ -416,6 +435,7 @@ function page(id){
   $$('nav button').forEach(b => b.classList.toggle('active', b.dataset.page === id));
   $$('.page').forEach(p => p.classList.toggle('active', p.id === id));
   if(id === 'briefing') scheduleCalendarRelayout(true);
+  if(id === 'appointments')renderAppointmentView();
   if(personalMailRefreshController) personalMailRefreshController.pageChanged();
   if(calendarRefreshController) calendarRefreshController.pageChanged();
   if(id === 'insights'){
@@ -618,7 +638,7 @@ function renderCalendarDay() {
   if(ribbon)ribbon.hidden=!selected.allDay.length;
   buildCalendar();updateHero();
 }
-function calendarStatus(text) { const element=$('#calendarSyncStatus');if(element)element.textContent=text; }
+function calendarStatus(text) { const element=$('#calendarSyncStatus');if(element)element.textContent=text;const warning=$('#calendarVisibleWarning');if(warning){const important=/Incomplete coverage|Refresh failed|unavailable|not been verified/i.test(text);warning.hidden=!important;warning.textContent=important?text:'';} }
 async function requestGoogleEvents() {
   calendarStatus(calendarSyncState.hasData?'Refreshing Google Calendar; showing last received events…':'Checking Google Calendar…');
   return JamesCalendarSync.readCalendar(fetch);
@@ -641,7 +661,7 @@ function applyGoogleEvents(data) {
 function googleEventsFailed() {
   calendarSyncState.state=calendarSyncState.hasData?'stale':'unavailable';
   calendarStatus(calendarSyncState.hasData?'Refresh failed. Keeping previously received events; they may be stale.':'Google Calendar unavailable. Your schedule has not been verified.');
-  if(calendarSyncState.hasData)renderCalendarDay();else updateHero();
+  if(calendarSyncState.hasData)renderCalendarDay();else{updateHero();renderAppointmentView();}
 }
 function loadLiveGoogleEvents() { return calendarRefreshController ? calendarRefreshController.refresh('manual') : Promise.resolve({skipped:'not-started'}); }
 async function loadWeatherForCoordinates({ latitude, longitude }, tempEl, detailEl) {
@@ -937,6 +957,13 @@ document.addEventListener('DOMContentLoaded', () => {
     documentTarget:document,windowTarget:window
   });
   calendarRefreshController.start();
+  $('#appointmentsToday').addEventListener('click',()=>{appointmentDate=localAppointmentDate();appointmentMode='day';renderAppointmentView();});
+  $('#appointmentsTomorrow').addEventListener('click',()=>{appointmentDate=shiftAppointmentDate(localAppointmentDate(),1);appointmentMode='day';renderAppointmentView();});
+  $('#appointmentsWeek').addEventListener('click',()=>{appointmentMode=appointmentMode==='week'?'day':'week';renderAppointmentView();});
+  $('#appointmentsPrevious').addEventListener('click',()=>{appointmentDate=shiftAppointmentDate(appointmentDate||localAppointmentDate(),-1);renderAppointmentView();});
+  $('#appointmentsNext').addEventListener('click',()=>{appointmentDate=shiftAppointmentDate(appointmentDate||localAppointmentDate(),1);renderAppointmentView();});
+  $('#appointmentsDate').addEventListener('change',event=>{try{JamesCalendarSync.appointmentDays(event.target.value);appointmentDate=event.target.value;renderAppointmentView();}catch{event.target.value=appointmentDate||localAppointmentDate();}});
+  renderAppointmentView();
   ['calendarRefreshButton','appointmentsRefreshButton'].forEach(id=>$('#'+id)?.addEventListener('click',()=>loadLiveGoogleEvents()));
   window.addEventListener('pagehide',()=>calendarRefreshController.stop());
   window.addEventListener('pageshow',event=>{if(event.persisted)window.location.reload();});

@@ -36,6 +36,14 @@
     timed.sort((a,b)=>Date.parse(a[5].start)-Date.parse(b[5].start) || String(a[5].id).localeCompare(String(b[5].id)));
     return {date,timed,allDay,invalidCount};
   }
+  function appointmentDays(value, mode='day') {
+    if(!validDateOnly(value) || !['day','week'].includes(mode)) throw new Error('Invalid appointment date or view');
+    const start=new Date(value+'T12:00:00');
+    return Array.from({length:mode==='week'?7:1},(_,index)=>{
+      const day=new Date(start.getFullYear(),start.getMonth(),start.getDate()+index,12);
+      return {date:localDay(day),day};
+    });
+  }
   function mergePartial(previous, response) {
     if(response.complete !== false && response.partial !== true) return response.events.slice();
     const completed=new Set(response.completedCalendarIds || []);
@@ -79,5 +87,5 @@
       isPolling(){return controller?controller.isPolling():false;}
     };
   }
-  return {eventsForDay,mergePartial,readCalendar,createCalendarRefreshController};
+  return {appointmentDays,eventsForDay,mergePartial,readCalendar,createCalendarRefreshController};
 });
