@@ -323,7 +323,7 @@ test('responsive calendar and mail layout survive live viewport changes', async 
     assert.equal(ipadNarrow.michael.top, ipadWide.michael.top);
     assert.ok(ipadWide.fieldDay.right <= ipadWide.michael.left);
 
-    await page.getByRole('button', { name: 'Appointments' }).click();
+    await page.getByRole('button', { name: 'Appointments', exact:true }).click();
     await page.setViewportSize({ width: 390, height: 844 });
     await page.getByRole('button', { name: 'Briefing' }).click();
     await waitForGeometry(page, 390, 52, 234);

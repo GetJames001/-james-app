@@ -619,3 +619,54 @@ nav{
 #apptList article{grid-template-columns:110px minmax(0,1fr) auto}
 #apptList article>div{min-width:0;overflow-wrap:anywhere}
 @media(max-width:650px){#apptList article{grid-template-columns:72px minmax(0,1fr)}#apptList article button{max-width:100%;justify-self:start}}
+
+/* AARU midnight palette: live content and existing calendar geometry retained. */
+:root{color-scheme:dark;--paper:#071225;--night:#071225;--ink:#f3efe5;--muted:#b9c5d5;--gold:#d4bd86;--gd:#d4bd86;--gs:rgba(212,189,134,.28)}
+body{color:var(--ink);background:var(--night)}
+.app{background:radial-gradient(ellipse at 80% 0,#193453 0,transparent 45%),var(--night)}
+header,nav{background:#0b192d;border-color:var(--gs)}
+.sheet,.briefing-sheet{background:#0b1a2d;border-color:var(--gs);color:var(--ink)}
+.greeting h2,.sheet-head h3,.next-main h4,.intel-card strong,.mail-row strong,.brief-grid aside b,.brief-grid aside li b,.quick button b{color:var(--ink)}
+.intel-card{background:#10243b;border-color:var(--gs);color:var(--ink)}
+.intel-card span,.next-label,.next-meta span,.calendar-column>small,.brief-grid aside>section>small{color:var(--gold)}
+.intel-card small,.next-identity p,.greeting p{color:var(--muted)}
+.next-card{background:linear-gradient(115deg,#1a3555,#10243f);border-color:var(--gold);box-shadow:0 14px 32px #0003}
+.countdown strong{color:#e9d5a8}.next-meta{border-color:var(--gs)}
+.calendar-column{background:#293b50;border:1px solid var(--gs);border-radius:16px;padding:22px;min-width:0}
+.calendar,.calendar .hour,.calendar .hour span,.calendar .event,.calendar .event strong{color:var(--ink)}
+.calendar .hour{border-color:#64748966}.calendar .event{background:#3b4b59;border-color:#d4bd86}.calendar .event small{color:#d0d8e0}
+.calendar .event.personal{background:#354d66}.calendar .event.travel{background:#31465d}
+.brief-grid aside{border-color:var(--gs)}.brief-grid aside section,.quick button,.list article,.panel-item{border-color:var(--gs)}
+.quick button{color:var(--ink)}.quick-icon{stroke:#a8c9e9}
+.cards article,.recommendation-primary,.james-response-area{background:#142b45!important;border-color:var(--gs);color:var(--ink)}
+.panel{background:#10243b;color:var(--ink)}.panel-head{border-color:var(--gs)}.panel-head button{color:var(--ink)}
+button,input,textarea,select{color:var(--ink)}
+.list button,.cards button,.panel-item button,.task-filter,.calendar-actions button,.appointment-controls button,.quick-calendar button{background:#152c45;border:1px solid var(--gs);color:var(--ink);border-radius:999px;padding:8px 12px}
+input,textarea,select{background:#14273d;border:1px solid #8292a7}.primary{background:var(--gold);color:#10243b}
+button:focus-visible,input:focus-visible,textarea:focus-visible,summary:focus-visible{outline:3px solid #ecd399;outline-offset:3px}
+button:disabled{opacity:.4;cursor:default}
+.briefing-outlook{display:grid;grid-template-columns:minmax(0,730px) minmax(300px,380px);gap:38px;max-width:1148px;margin-top:24px;align-items:start}
+.briefing-outlook .next-card{width:100%;margin-top:0}
+.quick-calendar{background:#122740;border:1px solid var(--gs);border-radius:17px;padding:18px;min-width:0}
+.quick-calendar-heading{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.quick-calendar-heading h4{font:1.2rem Georgia,serif;margin:0;text-align:center}
+.quick-calendar-heading button{width:44px;height:44px;padding:0;font-size:24px;flex:none}
+.quick-calendar-weekdays,.quick-calendar-days{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));text-align:center}
+.quick-calendar-weekdays{font-size:.7rem;color:var(--muted);margin:12px 0 4px}
+.quick-calendar-days{gap:2px}.quick-calendar-days button{position:relative;min-height:44px;padding:5px 0 12px;border-radius:9px;border-color:transparent;background:transparent;font-size:.85rem}
+.quick-calendar-days button:hover:not(:disabled){background:#30435b;border-color:var(--gold)}.quick-calendar-days button.is-today{border-color:var(--gold);color:#f3ddb0}
+.appointment-dot{position:absolute;bottom:5px;left:calc(50% - 2px);width:4px;height:4px;border-radius:50%;background:var(--gold)}
+#quickCalendarStatus{font-size:.75rem;line-height:1.5;color:var(--muted);margin:12px 0}
+.quick-calendar-shortcuts{display:flex;flex-wrap:wrap;gap:8px}.quick-calendar-shortcuts button{min-height:44px;flex:1;font-size:.8rem;padding:8px}
+.appointment-day{margin:24px 0;padding:20px;border:1px solid var(--gs);border-radius:14px;background:#122740}
+.appointment-day-heading{font:1.4rem Georgia,serif!important;color:#e9d5a8;background:#1a3555;padding:16px;margin:-20px -20px 12px;border-radius:13px 13px 0 0;border-bottom:1px solid var(--gs)}
+.appointment-day>p{color:var(--muted);line-height:1.6}.appointment-day article:last-child{border-bottom:0}
+@media(max-width:900px){.briefing-outlook{grid-template-columns:1fr;gap:20px;max-width:none}.quick-calendar{max-width:430px;width:100%}.brief-grid aside{padding-left:0;border-left:0}}
+@media(max-width:650px){.calendar-column{padding:14px}.appointment-day{padding:14px}.appointment-day-heading{margin:-14px -14px 12px;padding:14px;font-size:1.2rem!important}}
+.briefing-outlook>*{min-width:0}.next-identity{overflow-wrap:anywhere}
+@media(max-width:900px){.briefing-outlook{grid-template-columns:minmax(0,1fr)}}
+#nav{background:#0b192d;border-color:var(--gs)}
+#nav button{color:var(--muted);background:transparent;border-color:transparent}
+#nav button.active{color:#f3ddb0;border-color:var(--gold);background:#1a3555}
+#allDayStrip{color:#e3e9f1}#allDayRibbon{color:#f3ddb0;background:#354d66;border-color:var(--gs)}
+#allDayRibbon::after{background:var(--gold)}

@@ -148,6 +148,7 @@
     <small>—</small>
   </div>
 </div>
+      <div class="briefing-outlook">
       <section class="next-card" aria-label="Next appointment">
         <div class="next-label">NEXT APPOINTMENT</div>
 
@@ -179,6 +180,13 @@
         </div>
       </section>
 
+      <section class="quick-calendar" aria-label="Calendar quick access">
+        <div class="quick-calendar-heading"><button id="quickCalendarPrevious" type="button" aria-label="Previous month">‹</button><h4 id="quickCalendarMonth"></h4><button id="quickCalendarNext" type="button" aria-label="Next month">›</button></div>
+        <div class="quick-calendar-weekdays" aria-hidden="true"><span>Sun</span><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span></div>
+        <div id="quickCalendarDays" class="quick-calendar-days"></div>
+        <p id="quickCalendarStatus" role="status"></p>
+        <div class="quick-calendar-shortcuts"><button id="quickCalendarToday" type="button">Today</button><button id="quickCalendarTomorrow" type="button">Tomorrow</button><button id="quickCalendarWeek" type="button">7 days</button></div>
+      </section></div>
       <div class="brief-grid">
         <div class="calendar-column">
           <small>TODAY’S CALENDAR · 7:00 AM–7:00 PM</small>
