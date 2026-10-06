@@ -182,10 +182,8 @@
       <div class="brief-grid">
         <div class="calendar-column">
           <small>TODAY’S CALENDAR · 7:00 AM–7:00 PM</small>
-          <p id="calendarSyncStatus" role="status" aria-live="polite">Checking Google Calendar…</p>
-          <p id="calendarSyncSources"></p>
-          <p>Read window: previous 24 hours through the next 90 days. Today’s grid shows 7 AM–7 PM; Appointments includes today’s events outside those hours and all-day events.</p>
-          <button id="calendarRefreshButton" type="button">Refresh calendar</button>
+          <div class="calendar-actions"><button id="calendarRefreshButton" type="button">Refresh calendar</button><details id="calendarDetails"><summary>Calendar details</summary><p id="calendarSyncStatus"></p><p id="calendarSyncSources"></p><p>Read window: previous 24 hours through the next 90 days. The briefing grid shows 7 AM–7 PM. Appointments lets you browse dates, including all-day and out-of-hours events.</p></details></div>
+          <p id="calendarVisibleWarning" role="status" aria-live="polite" hidden></p>
           <div id="allDayStrip" hidden></div>
           <div id="allDayRibbon" hidden>ALL DAY</div>
           <div id="calendar" class="calendar"></div>
@@ -266,9 +264,18 @@
       <div class="sheet-head">
         <div>
           <small>APPOINTMENTS</small>
-          <h3>Your day, with room to pivot.</h3>
+          <h3>Your days, with room to pivot.</h3>
         </div>
       </div>
+      <div class="appointment-controls" aria-label="Appointment date navigation">
+        <button type="button" id="appointmentsToday">Today</button>
+        <button type="button" id="appointmentsTomorrow">Tomorrow</button>
+        <button type="button" id="appointmentsWeek" aria-pressed="false">7 days</button>
+        <button type="button" id="appointmentsPrevious" aria-label="Previous day">Previous</button>
+        <label for="appointmentsDate">Date<input id="appointmentsDate" type="date"></label>
+        <button type="button" id="appointmentsNext" aria-label="Next day">Next</button>
+      </div>
+      <p id="appointmentsViewStatus" role="status" aria-live="polite"></p>
       <div id="apptList" class="list"></div>
       <p>Appointments reflect the Google calendars shown in the Briefing. Calendar access is read-only.</p>
       <button id="appointmentsRefreshButton" type="button">Refresh appointments</button>

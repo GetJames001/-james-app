@@ -8,6 +8,8 @@ const {chromium}=require('playwright');
 test('rendered calendar keeps cached failed-source events and names, shows stale status and treats provider titles as text',async()=>{
   let mode='full',reads=0;
   const date=new Date().toISOString().slice(0,10);
+  const tomorrow=new Date(Date.now()+86400000).toISOString().slice(0,10);
+  const tomorrowEvent={id:'tomorrow',calendarId:'work',calendarName:'Synthetic work',title:'Synthetic tomorrow visit',location:'Synthetic location',start:tomorrow+'T13:00:00Z',end:tomorrow+'T14:00:00Z',allDay:false};
   const title='<img src=x onerror="window.calendarInjected=true">';
   const event={id:'synthetic',calendarId:'work',calendarName:'Synthetic work',title,location:'<script>unsafe</script>',start:date+'T00:00:00Z',end:date+'T23:59:59Z',allDay:false};
   const server=http.createServer((req,res)=>{
@@ -17,7 +19,7 @@ test('rendered calendar keeps cached failed-source events and names, shows stale
       if(url.pathname==='/api/google/events'){
         reads++;assert.equal(req.method,'GET');
         if(mode==='failure'){res.statusCode=503;return res.end('{}');}
-        return res.end(JSON.stringify({connected:true,complete:mode==='full',partial:mode!=='full',fetchedAt:new Date().toISOString(),calendars:mode==='full'?[{id:'work',name:'Synthetic work'},{id:'empty',name:'Synthetic personal'}]:[{id:'empty',name:'Synthetic personal'}],completedCalendarIds:mode==='full'?['work','empty']:['empty'],events:mode==='full'?[event]:[]}));
+        return res.end(JSON.stringify({connected:true,complete:mode==='full',partial:mode!=='full',fetchedAt:new Date().toISOString(),calendars:mode==='full'?[{id:'work',name:'Synthetic work'},{id:'empty',name:'Synthetic personal'}]:[{id:'empty',name:'Synthetic personal'}],completedCalendarIds:mode==='full'?['work','empty']:['empty'],events:mode==='full'?[event,tomorrowEvent]:[]}));
       }
       if(url.pathname==='/api/auth/session')return res.end('{"ok":true,"authenticated":true}');
       if(url.pathname==='/api/tasks')return res.end('{"tasks":[]}');
@@ -37,6 +39,17 @@ test('rendered calendar keeps cached failed-source events and names, shows stale
     assert.equal(await page.evaluate(()=>Boolean(window.calendarInjected)),false);
     assert.ok((await page.locator('#apptList').textContent()).includes(title));
     await page.evaluate(()=>document.querySelectorAll('.intro,.intro-overlay').forEach(el=>el.remove()));
+    assert.equal(await page.locator('#calendarDetails').evaluate(el=>el.open),false);
+    assert.equal(await page.locator('#calendarVisibleWarning').isVisible(),false);
+    await page.evaluate(()=>document.querySelector('[data-page=appointments]').click());
+    await page.locator('#appointmentsTomorrow').click();
+    assert.match(await page.locator('#apptList').textContent(),/Synthetic tomorrow visit/);
+    assert.equal(await page.locator('#calendar').textContent().then(text=>text.includes('Synthetic tomorrow visit')),false);
+    await page.locator('#appointmentsWeek').click();
+    assert.equal(await page.locator('#apptList .appointment-day-heading').count(),7);
+    await page.locator('#appointmentsToday').click();
+    assert.ok((await page.locator('#apptList').textContent()).includes(title));
+    for(const width of [390,820,1440]){await page.setViewportSize({width,height:900});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,JSON.stringify(await page.evaluate(()=>[...document.querySelectorAll('body *')].filter(el=>el.getBoundingClientRect().right>innerWidth+1).map(el=>({tag:el.tagName,id:el.id,cls:el.className,right:el.getBoundingClientRect().right})))));}
     await page.clock.install();await page.clock.runFor(5001);mode='partial';
     await page.evaluate(()=>document.querySelector('#calendarRefreshButton').click());
     await page.waitForFunction(()=>document.querySelector('#calendarSyncStatus').textContent.includes('Incomplete coverage'));
@@ -44,6 +57,6 @@ test('rendered calendar keeps cached failed-source events and names, shows stale
     assert.ok((await page.locator('#apptList').textContent()).includes(title));
     await page.clock.runFor(5001);mode='failure';await page.evaluate(()=>document.querySelector('#appointmentsRefreshButton').click());
     await page.waitForFunction(()=>document.querySelector('#calendarSyncStatus').textContent.includes('may be stale'));
-    assert.ok((await page.locator('#apptList').textContent()).includes(title));assert.ok(reads>=3);
+    assert.ok((await page.locator('#apptList').textContent()).includes(title));assert.ok(reads>=3);assert.equal(await page.locator('#calendarVisibleWarning').evaluate(el=>el.hidden),false);await page.locator('#appointmentsTomorrow').click();assert.match(await page.locator('#apptList').textContent(),/Synthetic tomorrow visit/);assert.match(await page.locator('#appointmentsViewStatus').textContent(),/previously received/);
   }finally{if(browser)await browser.close();await new Promise(resolve=>server.close(resolve));}
 });
