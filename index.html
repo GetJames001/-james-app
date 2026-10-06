@@ -182,6 +182,10 @@
       <div class="brief-grid">
         <div class="calendar-column">
           <small>TODAY’S CALENDAR · 7:00 AM–7:00 PM</small>
+          <p id="calendarSyncStatus" role="status" aria-live="polite">Checking Google Calendar…</p>
+          <p id="calendarSyncSources"></p>
+          <p>Read window: previous 24 hours through the next 90 days. Today’s grid shows 7 AM–7 PM; Appointments includes today’s events outside those hours and all-day events.</p>
+          <button id="calendarRefreshButton" type="button">Refresh calendar</button>
           <div id="allDayStrip" hidden></div>
           <div id="allDayRibbon" hidden>ALL DAY</div>
           <div id="calendar" class="calendar"></div>
@@ -266,6 +270,8 @@
         </div>
       </div>
       <div id="apptList" class="list"></div>
+      <p>Appointments reflect the Google calendars shown in the Briefing. Calendar access is read-only.</p>
+      <button id="appointmentsRefreshButton" type="button">Refresh appointments</button>
     </div>
   </section>
 
@@ -413,6 +419,7 @@
 </main>
 
 <script src="mail-refresh.js"></script>
+<script src="calendar-sync.js"></script>
 <script src="app.js"></script>
 
 </body>
