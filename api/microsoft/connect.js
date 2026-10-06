@@ -1,3 +1,4 @@
+const { microsoftRedirectUri } = require("../../lib/microsoft/oauth.js");
 const crypto = require("node:crypto");
 const { requireAuth } = require("../../lib/auth.js");
 
@@ -32,7 +33,7 @@ res.setHeader("Set-Cookie", [
   const params = new URLSearchParams({
     client_id: clientId,
     redirect_uri:
-      "https://james-app-seven.vercel.app/api/microsoft/callback",
+      microsoftRedirectUri(req),
     response_type: "code",
     response_mode: "query",
     scope: account === "personal"
