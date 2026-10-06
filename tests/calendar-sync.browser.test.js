@@ -6,7 +6,7 @@ const path=require('node:path');
 const {chromium}=require('playwright');
 
 test('rendered calendar keeps cached failed-source events and names, shows stale status and treats provider titles as text',async()=>{
-  let mode='full',reads=0;
+  let mode='failure',reads=0;
   const date=new Date().toISOString().slice(0,10);
   const tomorrow=new Date(Date.now()+86400000).toISOString().slice(0,10);
   const tomorrowEvent={id:'tomorrow',calendarId:'work',calendarName:'Synthetic work',title:'Synthetic tomorrow visit',location:'Synthetic location',start:tomorrow+'T13:00:00Z',end:tomorrow+'T14:00:00Z',allDay:false};
@@ -34,6 +34,12 @@ test('rendered calendar keeps cached failed-source events and names, shows stale
     browser=await chromium.launch({headless:true});const page=await browser.newPage({viewport:{width:1024,height:768},timezoneId:'UTC'});
     await page.route('https://**',route=>route.abort());
     await page.goto(`http://127.0.0.1:${server.address().port}`);
+    await page.waitForFunction(()=>document.querySelector('#calendarSyncStatus').textContent.includes('unavailable'));
+    assert.equal(await page.locator('#quickCalendarStatus').textContent(),'Calendar unavailable');
+    assert.equal(await page.locator('#quickCalendarDays .appointment-dot').count(),0);
+    assert.match(await page.locator('#quickCalendarDays button:not(:disabled)').first().getAttribute('aria-label'),/Schedule not verified/);
+    await page.clock.install();await page.clock.runFor(5001);mode='full';
+    await page.evaluate(()=>document.querySelector('#calendarRefreshButton').click());
     await page.waitForFunction(()=>document.querySelector('#calendarSyncStatus').textContent.includes('read successfully'));
     assert.match(await page.locator('#calendarSyncSources').textContent(),/Synthetic work.*Synthetic personal/);
     assert.equal(await page.evaluate(()=>Boolean(window.calendarInjected)),false);
@@ -41,6 +47,33 @@ test('rendered calendar keeps cached failed-source events and names, shows stale
     await page.evaluate(()=>document.querySelectorAll('.intro,.intro-overlay').forEach(el=>el.remove()));
     assert.equal(await page.locator('#calendarDetails').evaluate(el=>el.open),false);
     assert.equal(await page.locator('#calendarVisibleWarning').isVisible(),false);
+    const tomorrowCell=page.locator('#quickCalendarDays button[data-date="'+tomorrow+'"]');
+    assert.equal(await tomorrowCell.locator('.appointment-dot').count(),1);
+    assert.equal(await page.locator('#quickCalendarPrevious').isDisabled(),true);
+    await tomorrowCell.click();
+    assert.equal(await page.locator('#appointments').evaluate(el=>el.classList.contains('active')),true);
+    assert.equal(await page.locator('#appointmentsDate').inputValue(),tomorrow);
+    assert.match(await page.locator('#apptList').textContent(),/Synthetic tomorrow visit/);
+    await page.evaluate(()=>document.querySelector('[data-page=briefing]').click());
+    await page.locator('#quickCalendarWeek').click();
+    assert.equal(await page.locator('#apptList .appointment-day').count(),7);
+    assert.equal(await page.locator('#apptList .appointment-day').first().getAttribute('data-date'),date);
+    for(const group of await page.locator('#apptList .appointment-day').all()){
+      assert.equal(await group.locator('.appointment-day-heading').count(),1);
+      assert.ok(await group.getAttribute('aria-labelledby'));
+    }
+    await page.evaluate(()=>document.querySelector('[data-page=briefing]').click());
+    await page.locator('#quickCalendarNext').click();
+    assert.equal(await page.locator('#quickCalendarPrevious').isDisabled(),false);
+    await page.locator('#quickCalendarPrevious').click();
+    for(const width of [320,390,820,1440]){
+      await page.setViewportSize({width,height:1000});
+      assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,JSON.stringify(await page.evaluate(()=>[...document.querySelectorAll('body *')].filter(el=>el.getBoundingClientRect().right>innerWidth+1).map(el=>({tag:el.tagName,id:el.id,cls:el.className,right:el.getBoundingClientRect().right})))));
+      assert.equal(await page.locator('#quickCalendarDays').evaluate(el=>getComputedStyle(el).gridTemplateColumns.split(' ').length),7);
+      assert.ok(await page.locator('#quickCalendarDays button:not(:disabled)').first().evaluate(el=>el.getBoundingClientRect().height>=44));
+      if(width===1440)assert.ok(await page.locator('.quick-calendar').evaluate(el=>el.getBoundingClientRect().left>document.querySelector('.next-card').getBoundingClientRect().right));
+      if(width===320)assert.ok(await page.locator('.quick-calendar').evaluate(el=>el.getBoundingClientRect().top>=document.querySelector('.next-card').getBoundingClientRect().bottom));
+    }
     await page.evaluate(()=>document.querySelector('[data-page=appointments]').click());
     assert.equal(await page.locator('#appointmentsPrevious').isDisabled(),true);assert.equal(await page.locator('#appointmentsDate').getAttribute('max'),await page.evaluate(()=>{const d=new Date();d.setDate(d.getDate()+88);return [d.getFullYear(),String(d.getMonth()+1).padStart(2,'0'),String(d.getDate()).padStart(2,'0')].join('-');}));await page.locator('#appointmentsTomorrow').click();
     assert.match(await page.locator('#apptList').textContent(),/Synthetic tomorrow visit/);
@@ -50,13 +83,13 @@ test('rendered calendar keeps cached failed-source events and names, shows stale
     await page.locator('#appointmentsToday').click();
     assert.ok((await page.locator('#apptList').textContent()).includes(title));
     for(const width of [390,820,1440]){await page.setViewportSize({width,height:900});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,JSON.stringify(await page.evaluate(()=>[...document.querySelectorAll('body *')].filter(el=>el.getBoundingClientRect().right>innerWidth+1).map(el=>({tag:el.tagName,id:el.id,cls:el.className,right:el.getBoundingClientRect().right})))));}
-    await page.clock.install();await page.clock.runFor(5001);mode='partial';
+    await page.clock.runFor(5001);mode='partial';
     await page.evaluate(()=>document.querySelector('#calendarRefreshButton').click());
     await page.waitForFunction(()=>document.querySelector('#calendarSyncStatus').textContent.includes('Incomplete coverage'));
     assert.match(await page.locator('#calendarSyncSources').textContent(),/Synthetic work/);
     assert.ok((await page.locator('#apptList').textContent()).includes(title));
     await page.clock.runFor(5001);mode='failure';await page.evaluate(()=>document.querySelector('#appointmentsRefreshButton').click());
     await page.waitForFunction(()=>document.querySelector('#calendarSyncStatus').textContent.includes('may be stale'));
-    assert.ok((await page.locator('#apptList').textContent()).includes(title));assert.ok(reads>=3);assert.equal(await page.locator('#calendarVisibleWarning').evaluate(el=>el.hidden),false);await page.locator('#appointmentsTomorrow').click();assert.match(await page.locator('#apptList').textContent(),/Synthetic tomorrow visit/);assert.match(await page.locator('#appointmentsViewStatus').textContent(),/previously received/);
+    assert.ok((await page.locator('#apptList').textContent()).includes(title));assert.ok(reads>=3);assert.match(await page.locator('#quickCalendarStatus').textContent(),/Refresh failed/);assert.equal(await tomorrowCell.locator('.appointment-dot').count(),1);assert.equal(await page.locator('#calendarVisibleWarning').evaluate(el=>el.hidden),false);await page.locator('#appointmentsTomorrow').click();assert.match(await page.locator('#apptList').textContent(),/Synthetic tomorrow visit/);assert.match(await page.locator('#appointmentsViewStatus').textContent(),/previously received/);
   }finally{if(browser)await browser.close();await new Promise(resolve=>server.close(resolve));}
 });
