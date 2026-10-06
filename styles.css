@@ -681,3 +681,8 @@ button:disabled{opacity:.4;cursor:default}
 .task-feedback { color:var(--muted); margin:12px 0; }
 #taskUndoButton { min-height:44px; border:1px solid var(--gold); border-radius:10px; padding:8px 16px; }
 #taskUndoButton[hidden] { display:none; }
+
+.mail-state-notice { color:var(--muted); overflow-wrap:anywhere; }
+.mail-state-notice:empty { display:none; }
+.mail-state-notice a { color:var(--gold); text-decoration:underline; }
+#personalMailReadButton { margin:16px 0 0 12px; min-height:44px; border:1px solid var(--gold); border-radius:10px; padding:8px 16px; }
