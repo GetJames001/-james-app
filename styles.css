@@ -610,3 +610,18 @@ nav{
     padding-right:14px;
   }
 }
+
+/* Direct capture uses the existing sheet and palette, with touch-sized controls. */
+#captureForm { display:grid; gap:12px; }
+#captureForm label { display:grid; gap:5px; }
+#captureForm input,#captureForm select,#captureForm textarea { width:100%;box-sizing:border-box;min-height:44px;font:inherit;padding:8px;border:1px solid #d8ccb3;border-radius:8px;background:#fff;color:#222; }
+#captureForm textarea { min-height:90px; }
+#capture button { min-height:44px; padding:8px 14px; }
+#captureConfirm { padding:16px;border:1px solid #b99746;border-radius:10px;margin-top:16px; }
+#captureConfirm[hidden] { display:none; }
+#captureList .panel-item { margin-top:12px;overflow-wrap:anywhere; }
+
+#calendarSyncStatus { margin:8px 0;color:#716750;font-size:14px; }
+.calendar-sync-details { margin:4px 0 12px;font-size:13px;color:#716750; }
+.calendar-sync-details summary { cursor:pointer;min-height:32px;display:list-item; }
+.calendar-sync-details p { margin:8px 0; }

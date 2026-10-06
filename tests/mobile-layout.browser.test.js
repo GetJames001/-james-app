@@ -82,6 +82,8 @@ function createServer() {
       return;
     }
 
+    if (url.pathname === '/api/capture') { json(response, { records: [] }); return; }
+
     if (url.pathname === '/api/microsoft/mail') {
       json(response, {
         connected: true,
@@ -348,13 +350,13 @@ test('responsive calendar and mail layout survive live viewport changes', async 
 
     await page.getByRole('button', { name: 'Briefing', exact: true }).click();
     for (const [label, expected] of [
-      ['Callbacks', 'No callbacks available'],
+      ['Callbacks', 'No open captured callbacks. Add one in Capture.'],
       ['Emails', 'No email shortcuts available'],
       ['Proposals', 'No proposals available']
     ]) {
       await page.locator(`[data-panel="${label.toLowerCase()}"]`).click();
       await page.locator('#backdrop.open').waitFor({ state: 'visible' });
-      assert.equal(await page.locator('#panelBody b').innerText(), expected);
+      assert.equal(await page.locator(label==='Callbacks'?'#panelBody':'#panelBody b').innerText(), expected);
       await page.locator('#close').click();
     }
 
