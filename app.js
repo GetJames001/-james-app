@@ -392,7 +392,7 @@ function shiftAppointmentDate(value,amount){const day=new Date(value+'T12:00:00'
 function renderAppointmentView(){
   const list=$('#apptList');if(!list)return;
   if(!appointmentDate)appointmentDate=localAppointmentDate();
-  const today=localAppointmentDate(),minimum=shiftAppointmentDate(today,-1),maximum=shiftAppointmentDate(today,89);
+  const today=localAppointmentDate(),minimum=today,maximum=shiftAppointmentDate(today,88);
   if(appointmentDate<minimum || appointmentDate>maximum)appointmentDate=today;
   const input=$('#appointmentsDate');input.value=appointmentDate;input.min=minimum;input.max=maximum;
   $('#appointmentsPrevious').disabled=appointmentDate<=minimum;$('#appointmentsNext').disabled=appointmentDate>=maximum;

@@ -42,7 +42,7 @@ test('rendered calendar keeps cached failed-source events and names, shows stale
     assert.equal(await page.locator('#calendarDetails').evaluate(el=>el.open),false);
     assert.equal(await page.locator('#calendarVisibleWarning').isVisible(),false);
     await page.evaluate(()=>document.querySelector('[data-page=appointments]').click());
-    await page.locator('#appointmentsTomorrow').click();
+    assert.equal(await page.locator('#appointmentsPrevious').isDisabled(),true);assert.equal(await page.locator('#appointmentsDate').getAttribute('max'),await page.evaluate(()=>{const d=new Date();d.setDate(d.getDate()+88);return [d.getFullYear(),String(d.getMonth()+1).padStart(2,'0'),String(d.getDate()).padStart(2,'0')].join('-');}));await page.locator('#appointmentsTomorrow').click();
     assert.match(await page.locator('#apptList').textContent(),/Synthetic tomorrow visit/);
     assert.equal(await page.locator('#calendar').textContent().then(text=>text.includes('Synthetic tomorrow visit')),false);
     await page.locator('#appointmentsWeek').click();
