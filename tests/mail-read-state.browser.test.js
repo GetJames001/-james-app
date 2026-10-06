@@ -37,6 +37,23 @@ test('only opening Mail changes read state; confirmed states/counts persist and 
     while(!release)await new Promise(resolve=>setImmediate(resolve));mode='success';release();
     await page.waitForFunction(()=>document.querySelector('#personalEmailCount').textContent==='32 unread');
     assert.doesNotMatch(await page.locator('#personalMailMessages b').textContent(),/^●/);assert.equal(await page.locator('#personalMailReadButton').textContent(),'Mark unread');
+    for (const viewport of [{width:390,height:844},{width:820,height:1180},{width:1180,height:820}]) {
+      await page.setViewportSize(viewport);
+      const layout=await page.evaluate(()=>{
+        const actions=document.querySelector('.personal-mail-actions');
+        const frame=document.querySelector('#personalMailDetailBody iframe');
+        return {above:actions.getBoundingClientRect().bottom<=frame.getBoundingClientRect().top,
+          fits:actions.getBoundingClientRect().right<=innerWidth,
+          heights:[...actions.querySelectorAll('button')].map(b=>b.getBoundingClientRect().height)};
+      });
+      assert.equal(layout.above,true,'message actions precede the email');
+      assert.equal(layout.fits,true,'actions fit phone/iPad width');
+      assert.ok(layout.heights.every(h=>h>=44),'touch targets remain accessible');
+      await page.locator('#personalMailReplyButton').click();
+      assert.equal(await page.locator('#personalMailReplyText').evaluate(el=>el===document.activeElement),true);
+      assert.equal(await page.locator('#personalMailReplyComposer').evaluate(el=>el.getBoundingClientRect().bottom<=document.querySelector('#personalMailDetailBody iframe').getBoundingClientRect().top),true,'reply composer opens above email');
+      await page.locator('#personalMailReplyComposer').getByRole('button',{name:'Cancel',exact:true}).click();
+    }
     await page.locator('#personalMailReadButton').click();await page.waitForFunction(()=>document.querySelector('#personalEmailCount').textContent==='33 unread');assert.match(await page.locator('#personalMailMessages b').textContent(),/^●/);
     const before=patches;await page.evaluate(()=>applyPersonalMicrosoftMail({connected:true,unreadCount:33,messages:window.personalMicrosoftMessages}));assert.equal(patches,before,'restoring displayed detail never marks unread back to read');
     mode='permission';await page.locator('#personalMailReadButton').click();await page.locator('#personalMailDetail .mail-state-notice a').waitFor();assert.equal(await page.locator('#personalEmailCount').textContent(),'33 unread');assert.match(await page.locator('#personalMailMessages b').textContent(),/^●/);

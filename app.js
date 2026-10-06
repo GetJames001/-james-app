@@ -939,12 +939,15 @@ emailFrame.srcdoc =
   message.body ||
   `<html><body><p>${message.preview || "No message content."}</p></body></html>`;
 
-detailBody.appendChild(emailFrame);
+const mailActions = document.createElement("div");
+mailActions.className = "personal-mail-actions";
+mailActions.setAttribute("role", "group");
+mailActions.setAttribute("aria-label", "Message actions");
+detailBody.append(mailActions, emailFrame);
 const replyButton = document.createElement("button");
 replyButton.id = "personalMailReplyButton";
 replyButton.type = "button";
 replyButton.textContent = "Reply";
-replyButton.style.marginTop = "16px";
 
 replyButton.onclick = () => {
   const existingComposer = $("#personalMailReplyComposer");
@@ -1015,11 +1018,11 @@ replyButton.onclick = () => {
   };
 
   composer.append(replyBox, sendButton, cancelButton);
-  detailBody.appendChild(composer);
+  detailBody.insertBefore(composer, emailFrame);
   replyBox.focus();
 };
 
-detailBody.appendChild(replyButton);
+mailActions.appendChild(replyButton);
 const readButton = document.createElement('button');
 readButton.id = 'personalMailReadButton';
 readButton.type = 'button';
@@ -1027,7 +1030,7 @@ readButton.onclick = () => {
   const current = (window.personalMicrosoftMessages || []).find(item => item.id === message.id);
   if (current) setPersonalMailReadState(message.id, current.isRead !== true);
 };
-detailBody.appendChild(readButton);
+mailActions.appendChild(readButton);
   page('personalMailDetail');
   updateMailStateControls();
   if (!event?.restore && message.isRead === false) setPersonalMailReadState(message.id, true);
