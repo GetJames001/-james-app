@@ -670,3 +670,14 @@ button:disabled{opacity:.4;cursor:default}
 #nav button.active{color:#f3ddb0;border-color:var(--gold);background:#1a3555}
 #allDayStrip{color:#e3e9f1}#allDayRibbon{color:#f3ddb0;background:#354d66;border-color:var(--gs)}
 #allDayRibbon::after{background:var(--gold)}
+
+/* Task actions keep completion and deletion distinct. */
+.task-row { display:flex; align-items:center; gap:12px; padding:10px 0; border-bottom:1px solid rgba(212,189,134,.18); }
+.task-title { flex:1; min-width:0; overflow-wrap:anywhere; }
+.task-actions { position:relative; flex:none; }
+.task-actions summary { cursor:pointer; list-style:none; min-width:44px; min-height:44px; display:grid; place-items:center; color:var(--gold); border:1px solid rgba(212,189,134,.35); border-radius:12px; }
+.task-actions summary::-webkit-details-marker { display:none; }
+.task-actions button { position:absolute; right:0; top:48px; z-index:5; white-space:nowrap; min-height:44px; background:#162a40; border:1px solid var(--gold); border-radius:10px; padding:10px 18px; color:var(--ink); }
+.task-feedback { color:var(--muted); margin:12px 0; }
+#taskUndoButton { min-height:44px; border:1px solid var(--gold); border-radius:10px; padding:8px 16px; }
+#taskUndoButton[hidden] { display:none; }

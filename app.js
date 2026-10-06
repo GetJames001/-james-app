@@ -5,6 +5,41 @@ let events = [];
 let liveEvents = [];
 let briefingEvents = [];
 let tasks = [];
+let taskSaving = false;
+let removedTask = null;
+function taskNotice(message) {
+  const notice = document.querySelector("#taskNotice");
+  if (notice) notice.textContent = message;
+}
+async function changeTaskList(change) {
+  if (taskSaving) return false;
+  const before = structuredClone(tasks);
+  taskSaving = true;
+  change();
+  renderTaskPad();
+  const saved = await saveTasks();
+  if (!saved) { tasks = before; taskNotice("Could not save the change. Please try again."); }
+  taskSaving = false;
+  renderTaskPad();
+  return saved;
+}
+async function deleteTask(id) {
+  const index = tasks.findIndex(task => task.id === id);
+  if (index < 0 || taskSaving) return;
+  const record = { task: structuredClone(tasks[index]), index };
+  if (await changeTaskList(() => { tasks = tasks.filter(task => task.id !== id); })) {
+    removedTask = record;
+    taskNotice("Task deleted. You can undo your last deletion until you leave or reload this page.");
+    renderTaskPad();
+  }
+}
+async function undoTaskDeletion() {
+  if (!removedTask || taskSaving) return;
+  const record = removedTask;
+  if (await changeTaskList(() => {
+    if (!tasks.some(task => task.id === record.task.id)) tasks.splice(Math.min(record.index, tasks.length), 0, record.task);
+  })) { removedTask = null; taskNotice("Task restored."); renderTaskPad(); }
+}
 let activeTaskFilter = "all";
 let calendarResizeObserver;
 let calendarRelayoutFrame;
@@ -175,6 +210,10 @@ function renderTaskPad() {
   const list = $("#taskList");
   if (!list) return;
 
+  const add = $("#taskAddButton");
+  if (add) add.disabled = taskSaving;
+  const undo = $("#taskUndoButton");
+  if (undo) { undo.hidden = !removedTask; undo.disabled = taskSaving; }
   const visibleTasks = tasks.filter(task =>
     activeTaskFilter === "all" || task.domain === activeTaskFilter
   );
@@ -206,24 +245,17 @@ function renderTaskPad() {
     const checkbox = document.createElement("input");
     checkbox.type = "checkbox";
     checkbox.checked = task.status === "completed";
+    checkbox.disabled = taskSaving;
+    checkbox.setAttribute("aria-label", `Complete ${task.title}`);
     checkbox.addEventListener("change", async () => {
-  const previousStatus = task.status;
-const previousUpdatedAt = task.updatedAt;
-const previousCompletedAt = task.completedAt;
-
-const now = new Date().toISOString();
-task.status = checkbox.checked ? "completed" : "open";
-task.updatedAt = now;
-task.completedAt = checkbox.checked ? now : null;
-  const saved = await saveTasks();
-
-  if (!saved) {
-    task.status = previousStatus;
-    task.updatedAt = previousUpdatedAt;
-task.completedAt = previousCompletedAt;
-    renderTaskPad();
-  }
-});
+      const completed = checkbox.checked;
+      await changeTaskList(() => {
+        const now = new Date().toISOString();
+        task.status = completed ? "completed" : "open";
+        task.updatedAt = now;
+        task.completedAt = completed ? now : null;
+      });
+    });
 
     const title = document.createElement("span");
     title.className = "task-title";
@@ -233,7 +265,18 @@ task.completedAt = previousCompletedAt;
     meta.className = "task-meta";
     meta.textContent = task.dueLabel || "";
 
-    row.append(checkbox, title, meta);
+    const actions = document.createElement("details");
+    actions.className = "task-actions";
+    const menu = document.createElement("summary");
+    menu.textContent = "•••";
+    menu.setAttribute("aria-label", `Actions for ${task.title}`);
+    const remove = document.createElement("button");
+    remove.type = "button";
+    remove.textContent = "Delete task";
+    remove.disabled = taskSaving;
+    remove.addEventListener("click", () => deleteTask(task.id));
+    actions.append(menu, remove);
+    row.append(checkbox, title, meta, actions);
     list.appendChild(row);
   });
 }
@@ -280,6 +323,7 @@ async function saveTasks() {
   }
 }
 async function createTask() {
+  if (taskSaving) return;
   const titleInput = $("#taskTitleInput");
   const domainInput = $("#taskDomainInput");
 
@@ -301,10 +345,7 @@ const now = new Date().toISOString();
   completedAt: null,
 };
 
-  tasks.unshift(newTask);
-  renderTaskPad();
-
-  const saved = await saveTasks();
+  const saved = await changeTaskList(() => tasks.unshift(newTask));
 
   if (!saved) {
     tasks = tasks.filter(task => task.id !== newTask.id);
@@ -315,6 +356,9 @@ const now = new Date().toISOString();
   titleInput.value = "";
   titleInput.focus();
 }
+document.addEventListener("DOMContentLoaded", () => {
+  $("#taskUndoButton")?.addEventListener("click", undoTaskDeletion);
+}, { once: true });
 if (document.readyState === "loading") {
   document.addEventListener("DOMContentLoaded", () => {
     $("#taskAddButton")?.addEventListener("click", createTask);
