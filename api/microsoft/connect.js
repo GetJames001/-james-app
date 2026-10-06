@@ -35,7 +35,9 @@ res.setHeader("Set-Cookie", [
       "https://james-app-seven.vercel.app/api/microsoft/callback",
     response_type: "code",
     response_mode: "query",
-    scope: "openid profile offline_access User.Read Mail.Read Mail.Send",
+    scope: account === "personal"
+      ? "openid profile offline_access User.Read Mail.ReadWrite Mail.Send"
+      : "openid profile offline_access User.Read Mail.Read Mail.Send",
     state,
   });
 

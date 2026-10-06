@@ -47,6 +47,72 @@ let calendarRelayoutForced = false;
 let lastCalendarGeometry = '';
 let personalMailRefreshController;
 let hasSuccessfulPersonalMailLoad = false;
+let personalMailStateVersion = 0;
+let personalMailMutationPending = 0;
+let personalMailMutationQueue = Promise.resolve();
+const personalMailStateRequests = new Map();
+function updateMailStateControls() {
+  const id = sessionStorage.getItem('jamesOpenPersonalMailId');
+  const message = (window.personalMicrosoftMessages || []).find(item => item.id === id);
+  const button = $('#personalMailReadButton');
+  if (button && message) {
+    button.disabled = personalMailMutationPending > 0;
+    button.textContent = message.isRead === true ? 'Mark unread' : 'Mark read';
+  }
+}
+function mailStateNotice(text, reconnect = false) {
+  for (const notice of $$('.mail-state-notice')) {
+    notice.replaceChildren(document.createTextNode(text));
+    if (reconnect) {
+      const link = document.createElement('a');
+      link.href = '/api/microsoft/connect?account=personal';
+      link.textContent = 'Reconnect Personal Mail';
+      notice.append(document.createTextNode(' '), link);
+    }
+  }
+}
+function setPersonalMailReadState(messageId, isRead) {
+  const key = JSON.stringify([messageId, isRead]);
+  if (personalMailStateRequests.has(key)) return personalMailStateRequests.get(key);
+  personalMailMutationPending++;
+  personalMailStateVersion++;
+  updateMailStateControls();
+  const request = personalMailMutationQueue.then(async () => {
+    mailStateNotice('Updating message status…');
+    try {
+      const response = await fetch('/api/microsoft/mail?account=personal', {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messageId, isRead }), signal: AbortSignal.timeout(15000)
+      });
+      const data = await response.json();
+      if (!response.ok || data.ok !== true || data.messageId !== messageId || data.isRead !== isRead) {
+        mailStateNotice(data.error === 'MAIL_PERMISSION_REQUIRED'
+          ? 'Reconnect Personal Mail to enable read and unread updates.'
+          : 'Could not confirm message status. Refresh Mail or try again.', data.error === 'MAIL_PERMISSION_REQUIRED');
+        return;
+      }
+      window.personalMicrosoftMessages = (window.personalMicrosoftMessages || []).map(message =>
+        message.id === messageId ? { ...message, isRead: data.isRead } : message);
+      if (data.unreadCountVerified === true && Number.isInteger(data.unreadCount) && data.unreadCount >= 0) {
+        $('#personalEmailCount').textContent = `${data.unreadCount} unread`;
+        mailStateNotice(isRead ? 'Marked read.' : 'Marked unread.');
+      } else {
+        mailStateNotice('Message status updated. Refresh Mail to verify the unread count.');
+      }
+      renderPersonalMicrosoftMail(window.personalMicrosoftMessages, { restoreDetail: false });
+    } catch {
+      mailStateNotice('Could not confirm message status. Refresh Mail or try again.');
+    } finally {
+      personalMailMutationPending--;
+      personalMailStateVersion++;
+      personalMailStateRequests.delete(key);
+      updateMailStateControls();
+    }
+  });
+  personalMailMutationQueue = request.catch(() => {});
+  personalMailStateRequests.set(key, request);
+  return request;
+}
 let calendarRefreshController;
 let calendarSyncState = { hasData:false, state:'loading', complete:false, fetchedAt:null };
 let displayedCalendarDate = '';
@@ -799,7 +865,7 @@ function loadLiveWeather() {
     }
   );
 }
-function renderPersonalMicrosoftMail(messages = []) {
+function renderPersonalMicrosoftMail(messages = [], { restoreDetail = true } = {}) {
   const list = $('#personalMailMessages');
   if (!list) return;
 
@@ -842,7 +908,7 @@ if (message.isRead === false) {
   subject.textContent = '● ' + subject.textContent;
 }
     row.append(subject, sender, received, preview);
-    row.onclick = () => {
+    row.onclick = (event) => {
       sessionStorage.setItem('jamesOpenPersonalMailId', message.id);
   $('#personalMailDetailSubject').textContent =
     message.subject || '(No subject)';
@@ -954,18 +1020,28 @@ replyButton.onclick = () => {
 };
 
 detailBody.appendChild(replyButton);
+const readButton = document.createElement('button');
+readButton.id = 'personalMailReadButton';
+readButton.type = 'button';
+readButton.onclick = () => {
+  const current = (window.personalMicrosoftMessages || []).find(item => item.id === message.id);
+  if (current) setPersonalMailReadState(message.id, current.isRead !== true);
+};
+detailBody.appendChild(readButton);
   page('personalMailDetail');
+  updateMailStateControls();
+  if (!event?.restore && message.isRead === false) setPersonalMailReadState(message.id, true);
 };
     list.appendChild(row);
   });
   const savedMailId = sessionStorage.getItem('jamesOpenPersonalMailId');
 const savedPage = sessionStorage.getItem('jamesCurrentPage');
 
-if (savedPage === 'personalMailDetail' && savedMailId) {
+if (restoreDetail && savedPage === 'personalMailDetail' && savedMailId) {
   const savedRow = list.querySelector(`[data-message-id="${CSS.escape(savedMailId)}"]`);
 
   if (savedRow) {
-    savedRow.click();
+    savedRow.onclick({ restore: true });
   } else {
     sessionStorage.removeItem('jamesOpenPersonalMailId');
     page('personalMail');
@@ -973,9 +1049,12 @@ if (savedPage === 'personalMailDetail' && savedMailId) {
 }
 }
 async function requestPersonalMicrosoftMail() {
+  if (personalMailMutationPending) throw new Error('Mail status update pending.');
+  const version = personalMailStateVersion;
   const response = await fetch('/api/microsoft/mail?account=personal');
   const data = await response.json();
   if (!response.ok) throw new Error(data.error || 'Personal Mail refresh failed.');
+  if (version !== personalMailStateVersion || personalMailMutationPending) throw new Error('Discarding an older Mail refresh.');
   return data;
 }
 

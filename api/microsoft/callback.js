@@ -57,7 +57,9 @@ module.exports = async function handler(req, res) {
           redirect_uri:
             "https://james-app-seven.vercel.app/api/microsoft/callback",
           grant_type: "authorization_code",
-          scope: "openid profile offline_access User.Read Mail.Read",
+          scope: account === "personal"
+            ? "openid profile offline_access User.Read Mail.ReadWrite Mail.Send"
+            : "openid profile offline_access User.Read Mail.Read",
         }),
       }
     );
