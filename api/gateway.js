@@ -15,6 +15,7 @@ const microsoftConnect = require("./microsoft/connect.js");
 const microsoftMail = require("./microsoft/mail.js");
 const microsoftTriage = require("./microsoft/triage.js");
 const tasks = require("./tasks.js");
+const attention = require("../lib/routes/attention.js");
 
 const exactHandlers = new Map([
   ["api/health", health],
@@ -29,7 +30,8 @@ const exactHandlers = new Map([
   ["api/microsoft/connect", microsoftConnect],
   ["api/microsoft/mail", microsoftMail],
   ["api/microsoft/triage", microsoftTriage],
-  ["api/tasks", tasks]
+  ["api/tasks", tasks],
+  ["api/attention", attention]
 ]);
 
 function requestedPath(req) {

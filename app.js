@@ -1,3 +1,5 @@
+let attentionScreen = null;
+let attentionReader = null;
 const $ = (s) => document.querySelector(s);
 const $$ = (s) => [...document.querySelectorAll(s)];
 
@@ -566,6 +568,8 @@ function buildCalendar(){
 }
 
 function page(id){
+  if(id === "attention") openAttentionSavedView();
+  else clearAttentionSavedView();
   sessionStorage.setItem('jamesCurrentPage', id);
   $$('nav button').forEach(b => b.classList.toggle('active', b.dataset.page === id));
   $$('.page').forEach(p => p.classList.toggle('active', p.id === id));
@@ -1154,6 +1158,7 @@ $$(".task-filter").forEach(button => {
   if (logoutButton) {
     logoutButton.onclick = async () => {
       logoutButton.disabled = true;
+      clearAttentionSavedView();
       calendarRefreshController.stop();
       try {
         await fetch('/api/auth/logout', {
@@ -1333,3 +1338,66 @@ $('#jamesAnswer').innerHTML = `
   };
 
 });
+
+
+(function(root){
+ 'use strict';
+ function createAttentionScreen(container,{read}){
+  const doc=container.ownerDocument;let last=null,epoch=0,refreshButton=null;
+  function node(tag,text){const e=doc.createElement(tag);if(text!==undefined)e.textContent=text;return e;}
+  function render(failed){
+   const restoreRefreshFocus=refreshButton!==null&&doc.activeElement===refreshButton;
+   container.replaceChildren();container.append(node('h1','Attention'));
+   const status=node('p',failed?(last?'Could not refresh. Showing previously loaded items.':'Attention unavailable. Try again.'):((!last||last.status==='not_checked')?'Not checked yet.':'Known items needing your attention.'));
+   status.setAttribute('role','status');container.append(status);
+   if(last){
+    if(last.evaluatedAt)container.append(node('p','Evaluated: '+last.evaluatedAt));
+    for(const c of last.coverage)container.append(node('p','Checked scope: '+c.label));
+    if(last.coverage.length===0)container.append(node('p','Email coverage has not been established.'));
+    for(const s of last.sourceHealth)container.append(node('p',(failed?'stale':s.status)+' · Last successful scan: '+(s.lastSuccessfulScanAt||'Not available')));
+    if(!last.attentionItems.length&&last.status!=='not_checked')container.append(node('p','No known items in this saved view. Other mail may not have been checked.'));
+    const list=node('ul');
+    for(const item of last.attentionItems){
+     const li=node('li');li.append(node('h2',item.title));
+     li.append(node('p',item.deadlineStatus==='exact'?'Due: '+item.deadline:item.deadlineStatus==='none'?'No deadline stated':'Deadline needs review'));
+     for(const url of item.evidenceLinks){try{const u=new URL(url);if(u.protocol!=='https:'||u.username||u.password)continue;const a=node('a','View source email');a.href=u.href;a.target='_blank';a.rel='noopener noreferrer';li.append(a);}catch{}}
+     list.append(li);
+    }container.append(list);
+    if(last.needsReview.length)container.append(node('p',last.needsReview.length+' evidence items need review.'));
+   }
+   const refresh=node('button','Refresh saved view');refresh.type='button';refresh.addEventListener('click',()=>void refreshView());container.append(refresh);refreshButton=refresh;
+   if(restoreRefreshFocus)refresh.focus();
+  }
+  async function refreshView(){const current=++epoch;try{const data=await read();if(current!==epoch)return;if(data?.schemaVersion!==1||!['available','not_checked'].includes(data.status)||!Number.isSafeInteger(data.revision)||!['attentionItems','sourceHealth','needsReview','coverage'].every(k=>Array.isArray(data[k])))throw Error('INVALID_RESPONSE');if(!data.attentionItems.every(i=>typeof i?.title==='string'&&['exact','none','unknown'].includes(i.deadlineStatus)&&Array.isArray(i.evidenceLinks))||!data.coverage.every(c=>typeof c?.label==='string'&&c.mailboxWide===false)||!data.sourceHealth.every(s=>typeof s?.status==='string'))throw Error('INVALID_ITEMS');if(data.status==='not_checked'&&(data.revision!==0||['attentionItems','sourceHealth','needsReview','coverage'].some(k=>data[k].length)))throw Error('INVALID_NOT_CHECKED');if(data.status==='available'&&data.revision<1)throw Error('INVALID_REVISION');if(last&&data.revision<last.revision)throw Error('OLD_REVISION');last=data;render(false);}catch{if(current===epoch)render(true);}}
+  function clear(){++epoch;last=null;refreshButton=null;render(false);}
+  render(false);return {refresh:refreshView,clear};
+ }
+ if(typeof module!=='undefined')module.exports={createAttentionScreen};else root.createAttentionScreen=createAttentionScreen;
+})(globalThis);
+
+// Attention transport owns only its saved-view request, never Mail refresh.
+function createAttentionSavedReader({fetchImpl=fetch,setTimer=setTimeout,clearTimer=clearTimeout}={}){
+ let active=null;
+ function cancel(){if(active){active.abort();active=null;}}
+ async function read(){
+  cancel();const controller=new AbortController();active=controller;
+  const timer=setTimer(()=>controller.abort(),10000);
+  try{
+   const response=await fetchImpl('/api/attention',{method:'GET',credentials:'same-origin',cache:'no-store',signal:controller.signal});
+   if(!response.ok)throw new Error('Attention unavailable');
+   return await response.json();
+  }finally{clearTimer(timer);if(active===controller)active=null;}
+ }
+ return {read,cancel};
+}
+function clearAttentionSavedView(){
+ if(attentionReader)attentionReader.cancel();
+ if(attentionScreen)attentionScreen.clear();
+}
+function openAttentionSavedView(){
+ const container=document.querySelector('#attentionView');
+ if(!container)return;
+ if(!attentionReader)attentionReader=createAttentionSavedReader();
+ if(!attentionScreen)attentionScreen=createAttentionScreen(container,{read:attentionReader.read});
+ void attentionScreen.refresh();
+}
