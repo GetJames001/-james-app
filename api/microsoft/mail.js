@@ -34,9 +34,24 @@ module.exports = async function handler(req, res) {
     });
 
     const redisData = await redisResponse.json();
+    // A storage outage is not evidence that the account is disconnected.
+    // Only a successful GET with an explicit missing result establishes that.
+    if (!redisResponse.ok || !redisData || typeof redisData !== "object" ||
+        Array.isArray(redisData) || redisData.error ||
+        !Object.hasOwn(redisData, "result") ||
+        (redisData.result !== null &&
+         (typeof redisData.result !== "string" || !redisData.result.trim()))) {
+      return res.status(502).json({
+        account,
+        error: "Microsoft Mail connection status could not be checked. Please retry.",
+        code: "MAIL_CONNECTION_STATUS_UNAVAILABLE",
+        messagesStatus: "unavailable",
+        coverage: { scope: "latest_inbox_page", complete: false, mailboxScanComplete: false, limit: 10 },
+      });
+    }
     const refreshToken = redisData.result;
 
-    if (!refreshToken) {
+    if (refreshToken === null) {
       return res.status(200).json({
         connected: false,
         account,
@@ -146,10 +161,23 @@ const messagesResponse = await fetch(
   }
 );
 
-const messagesData = await messagesResponse.json();
+const messageFailure = reason => res.status(502).json({
+  connected: true,
+  account,
+  error: "Microsoft Mail messages could not be refreshed. Please retry.",
+  code: "MAIL_MESSAGES_UNAVAILABLE",
+  messagesStatus: "unavailable",
+  coverage: { scope: "latest_inbox_page", complete: false, mailboxScanComplete: false, limit: 10 },
+  upstreamStatus: messagesResponse.status,
+  reason,
+});
+let messagesData;
+try { messagesData = await messagesResponse.json(); }
+catch (_) { return messageFailure("invalid_json"); }
+if (!messagesResponse.ok) return messageFailure("provider_error");
+if (!messagesData || !Array.isArray(messagesData.value)) return messageFailure("invalid_message_list");
 
-const messages = messagesResponse.ok && Array.isArray(messagesData.value)
-  ? messagesData.value.map(message => ({
+const messages = messagesData.value.map(message => ({
       id: message.id,
       subject: message.subject || "(No subject)",
       sender:
@@ -160,14 +188,19 @@ const messages = messagesResponse.ok && Array.isArray(messagesData.value)
       isRead: message.isRead,
       preview: message.bodyPreview || "",
     body: message.body?.content || ''
-    }))
-  : [];
+    }));
     return res.status(200).json({
       connected: true,
       account,
       unreadCount: inbox.unreadItemCount ?? 0,
       totalCount: inbox.totalItemCount ?? 0,
       messages,
+      messagesStatus: "available",
+      coverage: {
+        scope: "latest_inbox_page", complete: true, mailboxScanComplete: false,
+        limit: 10, returned: messages.length,
+        hasMore: typeof messagesData["@odata.nextLink"] === "string" && !!messagesData["@odata.nextLink"],
+      },
     });
   } catch (err) {
     console.error("Microsoft Mail endpoint error:", err);
