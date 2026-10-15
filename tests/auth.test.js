@@ -70,6 +70,7 @@ async function withAllowedRateLimit(callback) {
 const protectedEndpoints = [
   ["/api/health", require("../lib/routes/health.js"), request("GET")],
   ["/api/tasks", require("../api/tasks.js"), request("GET")],
+  ["/api/attention", require("../lib/routes/attention.js"), request("GET")],
   ["/api/fast", require("../api/fast.js"), request("POST")],
   ["/api/council", require("../api/council.js"), request("POST")],
   ["/api/google/status", require("../api/google/[action].js"), request("GET", { query: { action: "status" } })],
@@ -612,3 +613,4 @@ test("public login content is generic, no-store, and contains no configured iden
   assert.doesNotMatch(res.body, /Michael|michael@example\.com|configured identity/i);
   assert.match(res.body, /private James workspace/i);
 });
+

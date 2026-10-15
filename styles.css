@@ -688,3 +688,13 @@ button:disabled{opacity:.4;cursor:default}
 .personal-mail-actions { display:flex; flex-wrap:wrap; gap:10px; margin:16px 0; }
 .personal-mail-actions button { min-height:44px; border:1px solid var(--gold); border-radius:10px; padding:8px 16px; }
 #personalMailReplyComposer { margin-bottom:16px; }
+
+/* Attention saved view: scoped so accepted wardrobe and Mail layout stay intact. */
+#attentionView{max-width:850px;margin-inline:auto;padding:clamp(16px,3vw,30px);background:var(--paper);color:var(--ink);border-radius:16px;min-width:0;overflow-wrap:anywhere}
+#attentionView ul{padding:0;list-style:none}
+#attentionView li{margin-block:16px;padding:16px;border:1px solid var(--gd);border-radius:12px;min-width:0}
+#attentionView h2{font-size:1.15rem;line-height:1.4}
+#attentionView p{color:var(--ink);line-height:1.5}
+#attentionView button,#attentionView a{display:inline-block;max-width:100%;min-height:44px;padding:10px 16px;border:1px solid var(--gd);border-radius:10px;background:var(--paper);color:var(--ink);white-space:normal;overflow-wrap:anywhere}
+#attentionView a{margin:6px 8px 0 0;text-decoration:underline}
+#attentionView :focus-visible{outline:3px solid #325e8a;outline-offset:3px}
