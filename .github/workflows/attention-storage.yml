@@ -1,0 +1,31 @@
+name: Isolated Attention Redis checks
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/attention-storage.yml'
+      - 'tests/attention-redis.integration.cjs'
+      - 'lib/attention/**'
+permissions:
+  contents: read
+jobs:
+  synthetic-redis:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    services:
+      redis:
+        image: redis:7.4
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Execute synthetic storage checks inside disposable Redis
+        env:
+          ATTENTION_TEST_REDIS_CONTAINER: ${{ job.services.redis.id }}
+        run: node --test tests/attention-redis.integration.cjs
