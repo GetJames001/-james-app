@@ -71,6 +71,7 @@ const protectedEndpoints = [
   ["/api/health", require("../lib/routes/health.js"), request("GET")],
   ["/api/tasks", require("../api/tasks.js"), request("GET")],
   ["/api/wardrobe", require("../api/wardrobe.js"), request("GET")],
+  ["/api/attention", require("../lib/routes/attention.js"), request("GET")],
   ["/api/fast", require("../api/fast.js"), request("POST")],
   ["/api/council", require("../api/council.js"), request("POST")],
   ["/api/google/status", require("../api/google/[action].js"), request("GET", { query: { action: "status" } })],

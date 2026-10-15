@@ -16,6 +16,7 @@ const microsoftMail = require("./microsoft/mail.js");
 const microsoftTriage = require("./microsoft/triage.js");
 const tasks = require("./tasks.js");
 const wardrobe = require("./wardrobe.js");
+const attention = require("../lib/routes/attention.js");
 
 const exactHandlers = new Map([
   ["api/health", health],
@@ -31,6 +32,7 @@ const exactHandlers = new Map([
   ["api/microsoft/mail", microsoftMail],
   ["api/microsoft/triage", microsoftTriage],
   ["api/tasks", tasks],
+  ["api/attention", attention],
   ["api/wardrobe", wardrobe]
 ]);
 
@@ -85,4 +87,3 @@ module.exports = async function handler(req, res) {
 };
 
 module.exports.requestedPath = requestedPath;
-
