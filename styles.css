@@ -698,3 +698,6 @@ button:disabled{opacity:.4;cursor:default}
 #attentionView button,#attentionView a{display:inline-block;max-width:100%;min-height:44px;padding:10px 16px;border:1px solid var(--gd);border-radius:10px;background:var(--paper);color:var(--ink);white-space:normal;overflow-wrap:anywhere}
 #attentionView a{margin:6px 8px 0 0;text-decoration:underline}
 #attentionView :focus-visible{outline:3px solid #325e8a;outline-offset:3px}
+
+/* Decorative current-time marker must never block appointment taps. */
+.calendar .now{pointer-events:none}
