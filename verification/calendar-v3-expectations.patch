@@ -1,0 +1,54 @@
+diff --git a/tests/calendar-read.test.js b/tests/calendar-read.test.js
+index 16aafa4..374615a 100644
+--- a/tests/calendar-read.test.js
++++ b/tests/calendar-read.test.js
+@@ -122,21 +122,26 @@ test('list, per-source pages and overall events have bounded, disclosed coverage
+   res=await invoke(pageCap.handler); assert.equal(pageCap.calls.filter(c=>c.url.includes('/events?')).length,LIMITS.eventPages); assert.equal(res.body.partial,true); assert.deepEqual(res.body.completedCalendarIds,[]);
+ });
+ 
+-test('disconnected and unavailable stores/token/list fail generically without provider diagnostic logging', async () => {
++test('disconnected and unavailable stores/token/list use only fixed safe diagnostic logging', async () => {
+   const originalError=console.error;
+   const logs=[]; console.error=(...args)=>logs.push(args);
+   try {
+     const disconnected=await invoke(provider({redis:json({result:null})}).handler);
+     assert.equal(disconnected.statusCode,401);
+-    for(const config of [
+-      {redis:json({error:'provider secret'},false)},
+-      {token:json({error_description:'provider secret'},false)},
+-      {lists:[undefined]}
++    assert.deepEqual(disconnected.body,{error:'Google Calendar is not connected.'});
++    assert.deepEqual(logs,[]);
++    for(const [stage,config] of [
++      ['CONNECTION_STORE',{redis:json({error:'provider secret'},false)}],
++      ['TOKEN_REFRESH',{token:json({error_description:'provider secret'},false)}],
++      ['CALENDAR_LIST',{lists:[undefined]}]
+     ]) {
+       const res=await invoke(provider(config).handler);
+       assert.equal(res.statusCode,503); assert.doesNotMatch(JSON.stringify(res.body),/provider secret/);
++      assert.deepEqual(res.body,{error:'Could not load Google Calendar events.',code:'GOOGLE_CALENDAR_READ_FAILED',stage});
++      assert.doesNotMatch(JSON.stringify(res.body),/synthetic-access-token|synthetic-refresh-token|synthetic-store-token/);
+     }
+-    assert.deepEqual(logs,[]);
++    assert.deepEqual(logs,['CONNECTION_STORE','TOKEN_REFRESH','CALENDAR_LIST'].map(stage=>['GOOGLE_CALENDAR_READ_FAILED',{stage}]));
++    assert.doesNotMatch(JSON.stringify(logs),/provider secret|synthetic-access-token|synthetic-refresh-token|synthetic-store-token/);
+   } finally { console.error=originalError; }
+ });
+ 
+@@ -154,8 +159,14 @@ test('malformed provider dates fail the whole source without claiming successful
+   const store=provider({events:()=>json({items:[event('bad',{start:{dateTime:'2026-02-30T10:00:00Z'}})]})});
+   const res=await invoke(store.handler);assert.equal(res.statusCode,200);assert.equal(res.body.complete,false);assert.deepEqual(res.body.completedCalendarIds,[]);assert.deepEqual(res.body.events,[]);assert.equal(res.body.failedCalendars.length,1);
+ });
+-test('provider timeout is bounded and returns generic failure without token or provider diagnostics',async()=>{
++test('provider timeout is bounded and returns only fixed safe failure diagnostics',async()=>{
+   let signal;
+   const handler=createEventsHandler({fetchImpl:async(_url,options)=>{signal=options.signal;return new Promise(()=>{});},requestTimeoutMs:5,totalTimeoutMs:10});
+-  const res=await invoke(handler);assert.equal(signal.aborted,true);assert.equal(res.statusCode,503);assert.deepEqual(res.body,{error:'Could not load Google Calendar events.'});
++  const originalError=console.error;const logs=[];console.error=(...args)=>logs.push(args);
++  try {
++    const res=await invoke(handler);assert.equal(signal.aborted,true);assert.equal(res.statusCode,503);
++    assert.deepEqual(res.body,{error:'Could not load Google Calendar events.',code:'GOOGLE_CALENDAR_READ_FAILED',stage:'CONNECTION_STORE'});
++    assert.deepEqual(logs,[['GOOGLE_CALENDAR_READ_FAILED',{stage:'CONNECTION_STORE'}]]);
++    assert.doesNotMatch(JSON.stringify([res.body,logs]),/provider secret|synthetic-access-token|synthetic-refresh-token|synthetic-store-token/);
++  } finally {console.error=originalError;}
+ });
