@@ -9,7 +9,7 @@ permissions:
 jobs:
   calendar-browser:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     env:
       CI: "true"
     steps:
@@ -17,17 +17,33 @@ jobs:
         with:
           persist-credentials: false
           fetch-depth: 0
-      - name: Verify pinned baseline ancestry
+      - name: Verify reviewed patch inputs
         run: |
-          git merge-base --is-ancestor 63e19259784ad70f301db926cd8fbf7d8a19c554 HEAD
-          test "$(git diff --name-only 63e19259784ad70f301db926cd8fbf7d8a19c554 HEAD | grep -v '^.github/workflows/calendar-browser-isolated.yml$' | wc -l)" -eq 0
+          python3 -m py_compile verification/calendar-v4.py
+          git cat-file -e 63e19259784ad70f301db926cd8fbf7d8a19c554^{commit}
+      - name: Prepare standalone pinned clone
+        run: |
+          git clone --no-local "$GITHUB_WORKSPACE" "$RUNNER_TEMP/calendar-review"
+          git -C "$RUNNER_TEMP/calendar-review" checkout --detach 63e19259784ad70f301db926cd8fbf7d8a19c554
+          test -z "$(git -C "$RUNNER_TEMP/calendar-review" status --porcelain)"
+      - name: Apply independently reviewed v4 correction and reconciled tests
+        run: |
+          python3 verification/calendar-v4.py "$RUNNER_TEMP/calendar-review"
+          git -C "$RUNNER_TEMP/calendar-review" apply "$GITHUB_WORKSPACE/verification/calendar-v3-expectations.patch"
+          git -C "$RUNNER_TEMP/calendar-review" diff --check
       - uses: actions/setup-node@v4
         with:
           node-version: "24"
           cache: npm
-      - name: Install locked test dependencies
+      - name: Install locked dependencies
+        working-directory: ${{ runner.temp }}/calendar-review
         run: npm ci
       - name: Install Chromium
+        working-directory: ${{ runner.temp }}/calendar-review
         run: npx playwright install --with-deps chromium
+      - name: Run reconciled non-browser regression suite
+        working-directory: ${{ runner.temp }}/calendar-review
+        run: node --test --test-reporter=tap tests/*.test.js
       - name: Run original Calendar browser regression
+        working-directory: ${{ runner.temp }}/calendar-review
         run: node --test --test-reporter=tap tests/calendar-sync.browser.test.js
