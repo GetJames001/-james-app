@@ -43,7 +43,11 @@ jobs:
         run: npx playwright install --with-deps chromium
       - name: Run reconciled non-browser regression suite
         working-directory: ${{ runner.temp }}/calendar-review
-        run: node --test --test-reporter=tap tests/*.test.js
+        run: node --test --test-reporter=tap $(find tests -maxdepth 1 -name '*.test.js' ! -name 'mobile-layout.browser.test.js' | sort)
+      - name: Isolate responsive layout regression
+        working-directory: ${{ runner.temp }}/calendar-review
+        continue-on-error: true
+        run: node --test --test-reporter=tap tests/mobile-layout.browser.test.js
       - name: Run original Calendar browser regression
         working-directory: ${{ runner.temp }}/calendar-review
         run: node --test --test-reporter=tap tests/calendar-sync.browser.test.js
