@@ -16,6 +16,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
+          fetch-depth: 0
       - name: Verify pinned baseline ancestry
         run: |
           git merge-base --is-ancestor 63e19259784ad70f301db926cd8fbf7d8a19c554 HEAD
