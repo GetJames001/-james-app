@@ -1,0 +1,32 @@
+name: Isolated James Calendar Browser Verification
+on:
+  push:
+    branches:
+      - test/calendar-browser-isolated-20261019
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  calendar-browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      CI: "true"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Verify pinned baseline ancestry
+        run: |
+          git merge-base --is-ancestor 63e19259784ad70f301db926cd8fbf7d8a19c554 HEAD
+          test "$(git diff --name-only 63e19259784ad70f301db926cd8fbf7d8a19c554 HEAD | grep -v '^.github/workflows/calendar-browser-isolated.yml$' | wc -l)" -eq 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+      - name: Install locked test dependencies
+        run: npm ci
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Run original Calendar browser regression
+        run: node --test --test-reporter=tap tests/calendar-sync.browser.test.js
