@@ -59,13 +59,28 @@
   async function readCalendar(fetchImpl, { timeoutMs=30000, setTimeoutFn=setTimeout, clearTimeoutFn=clearTimeout } = {}) {
     const controller=new AbortController(); let timer;
     const timeout=new Promise((_,reject)=>{timer=setTimeoutFn(()=>{controller.abort();reject(new Error('Calendar request timed out'));},timeoutMs);});
+    let httpStatus = null;
+    const failure = (data=null, message='Calendar unavailable') => {
+      const error = new Error(message);
+      error.calendarCode = data && data.code === 'GOOGLE_CALENDAR_READ_FAILED' ? 'GOOGLE_CALENDAR_READ_FAILED' : 'CALENDAR_UNAVAILABLE';
+      error.calendarStage = data && ['CONNECTION_STORE','TOKEN_REFRESH','CALENDAR_LIST','EVENT_READ'].includes(data.stage) ? data.stage : 'UNKNOWN';
+      error.httpStatus = httpStatus;
+      return error;
+    };
     try {
       return await Promise.race([timeout,(async()=>{
-        const response=await fetchImpl('/api/google/events',{cache:'no-store',credentials:'same-origin',signal:controller.signal});
-        const data=await response.json();
-        if(!response.ok || !data.connected || !Array.isArray(data.events))throw new Error('Calendar unavailable');
+        let response;
+        try { response=await fetchImpl('/api/google/events',{cache:'no-store',credentials:'same-origin',signal:controller.signal}); }
+        catch { throw failure(); }
+        httpStatus = Number.isInteger(response?.status) ? response.status : null;
+        let data;
+        try { data=await response.json(); } catch { throw failure(); }
+        if(!response.ok || !data || typeof data !== 'object' || !data.connected || !Array.isArray(data.events)) throw failure(data);
         return data;
       })()]);
+    } catch (error) {
+      if (error?.calendarCode) throw error;
+      throw failure(null,error?.message === 'Calendar request timed out' ? 'Calendar request timed out' : 'Calendar unavailable');
     } finally {clearTimeoutFn(timer);}
   }
   function createCalendarRefreshController(options) {
