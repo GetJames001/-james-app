@@ -568,9 +568,13 @@ function buildCalendar(){
 }
 
 function page(id){
+  const pages = $$(".page");
+  if(typeof id !== "string" || !pages.some(p => p.id === id)) {
+    return {status:"unavailable", workspace:id};
+  }
   if(id === "attention") openAttentionSavedView();
   else clearAttentionSavedView();
-  sessionStorage.setItem('jamesCurrentPage', id);
+  try { sessionStorage.setItem('jamesCurrentPage', id); } catch {}
   $$('nav button').forEach(b => b.classList.toggle('active', b.dataset.page === id));
   $$('.page').forEach(p => p.classList.toggle('active', p.id === id));
   if(id === 'briefing') scheduleCalendarRelayout(true);
@@ -582,6 +586,7 @@ function page(id){
     const cue = $('#jamesNav .recommendation-cue');
     if(cue) cue.setAttribute('aria-label','Recommendations reviewed');
   }
+  return {status:"opened", workspace:id};
 }
 function panel(k,t,html){ $('#panelKicker').textContent = k; $('#panelTitle').textContent = t; $('#panelBody').innerHTML = html; $('#backdrop').classList.add('open'); }
 function closePanel(){ $('#backdrop').classList.remove('open'); }
@@ -637,8 +642,9 @@ if(introDate === new Date().toDateString()){
   $('#intro').classList.add('hide');
   $('#app').classList.remove('frosted');
   $('#app').classList.add('clear');
-  const savedPage = sessionStorage.getItem('jamesCurrentPage') || 'briefing';
-page(savedPage);
+  let savedPage = 'briefing';
+  try { savedPage = sessionStorage.getItem('jamesCurrentPage') || 'briefing'; } catch {}
+  if(page(savedPage).status !== 'opened') page('briefing');
   return;
 }
   const saved = localStorage.getItem('jamesStart');

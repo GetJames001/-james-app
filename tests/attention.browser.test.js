@@ -33,8 +33,10 @@ test('Attention saved view fits devices, retains items/focus on failure and clea
    assert.ok(size.right<=width+1);assert.ok(size.overflow<=1);assert.ok(size.buttons.every(h=>h>=44));
   }
   for(const next of ['failed','malformed']){
-   mode=next;const button=page.getByRole('button',{name:'Refresh saved view'});await button.focus();await page.keyboard.press('Enter');
-   await page.waitForFunction(()=>document.querySelector('#attentionView [role=status]').textContent.includes('previously loaded'));
+   mode=next;const button=page.getByRole('button',{name:'Refresh saved view'});await button.focus();
+   const response=page.waitForResponse(r=>new URL(r.url()).pathname==='/api/attention');
+   await page.keyboard.press('Enter');await (await response).finished();
+   await page.waitForFunction(()=>document.querySelector('#attentionView [role=status]').textContent.includes('previously loaded') && document.activeElement?.textContent==='Refresh saved view');
    assert.equal(await page.locator('#attentionView h2').count(),1);
    assert.equal(await page.getByRole('button',{name:'Refresh saved view'}).evaluate(el=>el===document.activeElement),true);
   }
