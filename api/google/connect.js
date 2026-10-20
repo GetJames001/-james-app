@@ -26,7 +26,7 @@ module.exports = async function handler(req, res) {
   const params = new URLSearchParams({
     client_id: clientId,
     redirect_uri:
-      "https://james-app-seven.vercel.app/api/google/callback",
+      "https://www.getjames.ai/api/google/callback",
     response_type: "code",
     scope: "https://www.googleapis.com/auth/calendar.readonly",
     access_type: "offline",
