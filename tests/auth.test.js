@@ -70,6 +70,7 @@ async function withAllowedRateLimit(callback) {
 const protectedEndpoints = [
   ["/api/health", require("../lib/routes/health.js"), request("GET")],
   ["/api/tasks", require("../api/tasks.js"), request("GET")],
+  ["/api/wardrobe", require("../api/wardrobe.js"), request("GET")],
   ["/api/attention", require("../lib/routes/attention.js"), request("GET")],
   ["/api/fast", require("../api/fast.js"), request("POST")],
   ["/api/council", require("../api/council.js"), request("POST")],
@@ -139,7 +140,8 @@ test("API inventory explicitly classifies every deployed function within the Hob
     "api/microsoft/connect.js",
     "api/microsoft/mail.js",
     "api/microsoft/triage.js",
-    "api/tasks.js"
+    "api/tasks.js",
+    "api/wardrobe.js"
   ]);
 
   assert.deepEqual(
