@@ -783,6 +783,7 @@ async function requestGoogleEvents() {
   return JamesCalendarSync.readCalendar(fetch);
 }
 function applyGoogleEvents(data) {
+  const reconnectLink=$('#googleCalendarConnectLink');if(reconnectLink)reconnectLink.hidden=true;
   liveEvents=JamesCalendarSync.mergePartial(liveEvents,data);
   calendarSyncState={hasData:true,state:data.complete===false || data.partial===true?'partial':'fresh',complete:data.complete!==false && data.partial!==true,fetchedAt:data.fetchedAt || new Date().toISOString()};
   const sources=$('#calendarSyncSources');
@@ -797,7 +798,9 @@ function applyGoogleEvents(data) {
   const dayLabel=displayedCalendarDate;
   calendarStatus(calendarSyncState.complete ? `Updated ${timestamp}. Showing ${dayLabel}; selected Google calendars read successfully.` : `Incomplete coverage at ${timestamp}. Showing available and previously received events for ${dayLabel}; some source events may be missing or stale.`);
 }
-function googleEventsFailed() {
+function googleEventsFailed(error) {
+  const reconnectLink=$('#googleCalendarConnectLink');
+  if(reconnectLink)reconnectLink.hidden=!(error?.calendarCode==='GOOGLE_CALENDAR_READ_FAILED' && error?.calendarStage==='TOKEN_REFRESH');
   calendarSyncState.state=calendarSyncState.hasData?'stale':'unavailable';
   calendarStatus(calendarSyncState.hasData?'Refresh failed. Keeping previously received events; they may be stale.':'Google Calendar unavailable. Your schedule has not been verified.');
   if(calendarSyncState.hasData)renderCalendarDay();else{updateHero();renderAppointmentView();renderQuickCalendar();}
