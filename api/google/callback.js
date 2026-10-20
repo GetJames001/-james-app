@@ -47,7 +47,7 @@ res.setHeader(
         client_id: process.env.GOOGLE_CLIENT_ID,
         client_secret: process.env.GOOGLE_CLIENT_SECRET,
         redirect_uri:
-          "https://james-app-seven.vercel.app/api/google/callback",
+          "https://www.getjames.ai/api/google/callback",
         grant_type: "authorization_code",
       }),
     });
