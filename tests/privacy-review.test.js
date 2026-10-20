@@ -11,7 +11,7 @@ test('review page is static and contains the verified privacy contact', () => {
   assert.match(html, /<!doctype html>/i);
   assert.match(html, /privacy@getjames\.ai/);
   assert.match(html, /read-only Google Calendar access/);
-  assert.match(html, /review draft/i);
+  assert.match(html, /Last updated: October 20, 2026/);
   assert.doesNotMatch(html, /<script\b|<iframe\b|<form\b/i);
   assert.doesNotMatch(html, /access_token|client_secret|refresh_token|KV_REST_API_TOKEN/i);
 });
@@ -19,9 +19,11 @@ test('review page is not accidentally published through existing James gateway',
   assert.deepEqual(vercel.routes, [{src:'^/(.*)$', dest:'/api/gateway?path=$1'}]);
   assert.doesNotMatch(gateway, /privacy-site|route === ["']privacy["']/);
 });
-test('review page does not claim complete privacy compliance', () => {
-  assert.match(html, /retention periods and deletion procedures are being verified/i);
-  assert.match(html, /not effective or published/i);
+test('policy discloses retention uncertainty and a working privacy contact', () => {
+  assert.match(html, /not currently a verified universal automatic deletion period/i);
+  assert.match(html, /privacy@getjames\.ai/);
+  assert.match(html, /OpenAI API/);
+  assert.match(html, /Google API Services User Data Policy/);
 });
 
 test('isolated static hosting declares restrictive response headers', () => {
