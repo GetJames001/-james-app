@@ -23,3 +23,18 @@ test('review page does not claim complete privacy compliance', () => {
   assert.match(html, /retention periods and deletion procedures are being verified/i);
   assert.match(html, /not effective or published/i);
 });
+
+test('isolated static hosting declares restrictive response headers', () => {
+  const headers = fs.readFileSync(path.join(root, 'privacy-site/_headers'), 'utf8');
+  assert.match(headers, /Content-Security-Policy:/);
+  assert.match(headers, /default-src 'none'/);
+  assert.match(headers, /frame-ancestors 'none'/);
+  assert.match(headers, /X-Frame-Options: DENY/);
+  assert.doesNotMatch(headers, /Access-Control-Allow-Origin: \*/);
+});
+test('Cloudflare Pages configuration points only to the privacy-site directory', () => {
+  const config = fs.readFileSync(path.join(root, 'privacy-site/wrangler.toml'), 'utf8');
+  assert.match(config, /pages_build_output_dir = "\."/);
+  assert.match(config, /name = "james-privacy-review"/);
+  assert.doesNotMatch(config, /getjames\.ai|api\/gateway|JAMES_SESSION_SECRET/);
+});
