@@ -1345,8 +1345,8 @@ $('#jamesAnswer').innerHTML = `
  function createAttentionScreen(container,{read}){
   const doc=container.ownerDocument;let last=null,epoch=0,refreshButton=null;
   function node(tag,text){const e=doc.createElement(tag);if(text!==undefined)e.textContent=text;return e;}
-  function render(failed){
-   const restoreRefreshFocus=refreshButton!==null&&doc.activeElement===refreshButton;
+  function render(failed, requestedFocus=false){
+   const restoreRefreshFocus=requestedFocus || (refreshButton!==null&&doc.activeElement===refreshButton);
    container.replaceChildren();container.append(node('h1','Attention'));
    const status=node('p',failed?(last?'Could not refresh. Showing previously loaded items.':'Attention unavailable. Try again.'):((!last||last.status==='not_checked')?'Not checked yet.':'Known items needing your attention.'));
    status.setAttribute('role','status');container.append(status);
@@ -1365,10 +1365,10 @@ $('#jamesAnswer').innerHTML = `
     }container.append(list);
     if(last.needsReview.length)container.append(node('p',last.needsReview.length+' evidence items need review.'));
    }
-   const refresh=node('button','Refresh saved view');refresh.type='button';refresh.addEventListener('click',()=>void refreshView());container.append(refresh);refreshButton=refresh;
+   const refresh=node('button','Refresh saved view');refresh.type='button';refresh.addEventListener('click',()=>void refreshView(true));container.append(refresh);refreshButton=refresh;
    if(restoreRefreshFocus)refresh.focus();
   }
-  async function refreshView(){const current=++epoch;try{const data=await read();if(current!==epoch)return;if(data?.schemaVersion!==1||!['available','not_checked'].includes(data.status)||!Number.isSafeInteger(data.revision)||!['attentionItems','sourceHealth','needsReview','coverage'].every(k=>Array.isArray(data[k])))throw Error('INVALID_RESPONSE');if(!data.attentionItems.every(i=>typeof i?.title==='string'&&['exact','none','unknown'].includes(i.deadlineStatus)&&Array.isArray(i.evidenceLinks))||!data.coverage.every(c=>typeof c?.label==='string'&&c.mailboxWide===false)||!data.sourceHealth.every(s=>typeof s?.status==='string'))throw Error('INVALID_ITEMS');if(data.status==='not_checked'&&(data.revision!==0||['attentionItems','sourceHealth','needsReview','coverage'].some(k=>data[k].length)))throw Error('INVALID_NOT_CHECKED');if(data.status==='available'&&data.revision<1)throw Error('INVALID_REVISION');if(last&&data.revision<last.revision)throw Error('OLD_REVISION');last=data;render(false);}catch{if(current===epoch)render(true);}}
+  async function refreshView(userInitiated=false){const current=++epoch;const restoreFocus=userInitiated || (refreshButton!==null&&doc.activeElement===refreshButton);try{const data=await read();if(current!==epoch)return;if(data?.schemaVersion!==1||!['available','not_checked'].includes(data.status)||!Number.isSafeInteger(data.revision)||!['attentionItems','sourceHealth','needsReview','coverage'].every(k=>Array.isArray(data[k])))throw Error('INVALID_RESPONSE');if(!data.attentionItems.every(i=>typeof i?.title==='string'&&['exact','none','unknown'].includes(i.deadlineStatus)&&Array.isArray(i.evidenceLinks))||!data.coverage.every(c=>typeof c?.label==='string'&&c.mailboxWide===false)||!data.sourceHealth.every(s=>typeof s?.status==='string'))throw Error('INVALID_ITEMS');if(data.status==='not_checked'&&(data.revision!==0||['attentionItems','sourceHealth','needsReview','coverage'].some(k=>data[k].length)))throw Error('INVALID_NOT_CHECKED');if(data.status==='available'&&data.revision<1)throw Error('INVALID_REVISION');if(last&&data.revision<last.revision)throw Error('OLD_REVISION');last=data;render(false,restoreFocus);}catch{if(current===epoch)render(true,restoreFocus);}}
   function clear(){++epoch;last=null;refreshButton=null;render(false);}
   render(false);return {refresh:refreshView,clear};
  }
