@@ -10,7 +10,7 @@ const gateway = fs.readFileSync(path.join(root, 'api/gateway.js'), 'utf8');
 test('review page is static and contains the verified privacy contact', () => {
   assert.match(html, /<!doctype html>/i);
   assert.match(html, /privacy@getjames\.ai/);
-  assert.match(html, /read-only Google Calendar access/);
+  assert.match(html, /Google Calendar read-only OAuth scope/);
   assert.match(html, /Last updated: October 20, 2026/);
   assert.doesNotMatch(html, /<script\b|<iframe\b|<form\b/i);
   assert.doesNotMatch(html, /access_token|client_secret|refresh_token|KV_REST_API_TOKEN/i);
