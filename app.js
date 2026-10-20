@@ -488,15 +488,40 @@ $('#driveTime').textContent = travel ? `${drive} min` : '—';
   $('#traffic').textContent = '—';
 }
 
-function openCalendarEvent(event) {
-  panel(event[4]==='travel'?'TRAVEL':'APPOINTMENT',event[2],'');
-  const body=$('#panelBody'), detail=document.createElement('div');detail.className='panel-item';
+function openCalendarEvent(row) {
+  const event=Array.isArray(row)?row[5]:row;
+  const title=event?.title || (Array.isArray(row)?row[2]:'Untitled event');
+  panel(Array.isArray(row)&&row[4]==='travel'?'TRAVEL':'APPOINTMENT',title,'');
+  const body=$('#panelBody'),detail=document.createElement('div');detail.className='panel-item calendar-event-details';
   const time=document.createElement('b');
-  time.textContent=event[5] ? `${new Date(event[5].start).toLocaleString()} – ${new Date(event[5].end).toLocaleString()}` : `${pretty(event[0])}–${pretty(event[1])}`;
-  const location=document.createElement('span');location.textContent=event[3];
-  const source=document.createElement('p');source.textContent=event[5]?.calendarName ? `Source calendar: ${event[5].calendarName}` : 'Google Calendar';
+  time.textContent=event?.allDay?'All day':event?.start&&event?.end
+    ? `${new Date(event.start).toLocaleString()} – ${new Date(event.end).toLocaleString()}`
+    : Array.isArray(row)?`${pretty(row[0])}–${pretty(row[1])}`:'Time unavailable';
+  detail.append(time);
+  const addField=(heading,value)=>{
+    if(typeof value!=='string'||!value.trim())return;
+    const section=document.createElement('section'),label=document.createElement('strong'),text=document.createElement('p');
+    label.textContent=heading;text.textContent=value;section.append(label,text);detail.append(section);
+  };
+  addField('Location',event?.location || (Array.isArray(row)?row[3]:''));
+  addField('Calendar',event?.calendarName || 'Google Calendar');
+  addField('Description and agenda',event?.description);
+  if(Array.isArray(event?.links)&&event.links.length){
+    const section=document.createElement('section'),label=document.createElement('strong'),list=document.createElement('ul');
+    label.textContent='Meeting and calendar links';section.append(label);
+    for(const item of event.links.slice(0,5)){
+      if(typeof item?.url!=='string'||item.url.length>2048)continue;
+      let url;try{url=new URL(item.url);}catch{continue;}
+      if(url.protocol!=='https:'||!url.hostname||url.username||url.password)continue;
+      const li=document.createElement('li'),link=document.createElement('a');
+      link.href=url.href;link.target='_blank';link.rel='noopener noreferrer';
+      link.textContent=typeof item.label==='string'&&item.label?item.label.slice(0,64):'Open meeting link';
+      li.append(link);list.append(li);
+    }
+    if(list.childElementCount){section.append(list);detail.append(section);}
+  }
   const readOnly=document.createElement('p');readOnly.textContent='Read-only event. Make changes in your source calendar.';
-  detail.append(time,location,source,readOnly);body.append(detail);
+  detail.append(readOnly);body.append(detail);
 }
 let appointmentDate=null, appointmentMode='day', quickCalendarMonth=null;
 function localAppointmentDate(day=new Date()){return `${day.getFullYear()}-${String(day.getMonth()+1).padStart(2,'0')}-${String(day.getDate()).padStart(2,'0')}`;}
@@ -543,7 +568,7 @@ function renderAppointmentView(){
     const group=document.createElement('section');group.className='appointment-day';group.dataset.date=day.date;list.append(group);
     const heading=document.createElement('h4');heading.id='appointment-day-'+day.date;group.setAttribute('aria-labelledby',heading.id);heading.className='appointment-day-heading';heading.textContent=label(day.day);group.append(heading);
     const result=JamesCalendarSync.eventsForDay(liveEvents,day.day);
-    for(const event of result.allDay){const article=document.createElement('article'),time=document.createElement('div'),details=document.createElement('div'),title=document.createElement('h4'),source=document.createElement('p');time.textContent='All day';title.textContent=event.title;source.textContent=event.calendarName||'Google Calendar';details.append(title,source);article.append(time,details);group.append(article);}
+    for(const event of result.allDay){const article=document.createElement('article'),time=document.createElement('div'),details=document.createElement('div'),title=document.createElement('h4'),source=document.createElement('p');time.textContent='All day';title.textContent=event.title;source.textContent=event.calendarName||'Google Calendar';details.append(title,source);const button=document.createElement('button');button.type='button';button.textContent='Open';button.onclick=()=>openCalendarEvent(event);article.append(time,details,button);group.append(article);}
     for(const event of result.timed){const article=document.createElement('article'),time=document.createElement('div'),details=document.createElement('div'),title=document.createElement('h4'),location=document.createElement('p'),button=document.createElement('button');time.textContent=pretty(event[0]);title.textContent=event[2];location.textContent=event[3];details.append(title,location);button.textContent='Open';button.onclick=()=>openCalendarEvent(event);article.append(time,details,button);group.append(article);}
     if(!result.timed.length&&!result.allDay.length){const empty=document.createElement('p');empty.textContent=calendarSyncState.hasData&&calendarSyncState.complete&&calendarSyncState.state==='fresh'?'No events returned for this date from the selected Google calendars.':'No events available for this date; the schedule is not verified.';group.append(empty);}
   }

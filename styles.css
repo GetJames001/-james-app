@@ -701,3 +701,13 @@ button:disabled{opacity:.4;cursor:default}
 
 /* Decorative current-time marker must never block appointment taps. */
 .calendar .now{pointer-events:none}
+
+
+/* Private read-only calendar details: treat agendas as inert, wrapped text. */
+.calendar-event-details{overflow-wrap:anywhere}
+.calendar-event-details section{margin-top:16px}
+.calendar-event-details section>strong{display:block;color:inherit;font-size:.85rem;letter-spacing:.03em}
+.calendar-event-details section>p{margin:6px 0 0;white-space:pre-wrap;overflow-wrap:anywhere}
+.calendar-event-details section ul{margin:8px 0;padding-left:22px}
+.calendar-event-details section li{margin:8px 0;overflow-wrap:anywhere}
+.calendar-event-details section a{color:#19558c;text-decoration:underline}
