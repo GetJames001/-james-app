@@ -32,10 +32,13 @@ test('Attention saved view fits devices, retains items/focus on failure and clea
    const size=await page.locator('#attentionView').evaluate(el=>({right:el.getBoundingClientRect().right,overflow:el.scrollWidth-el.clientWidth,buttons:[...el.querySelectorAll('button,a')].map(x=>x.getBoundingClientRect().height)}));
    assert.ok(size.right<=width+1);assert.ok(size.overflow<=1);assert.ok(size.buttons.every(h=>h>=44));
   }
+  await page.evaluate(()=>{window.__focusHistory=[];document.addEventListener('focusin',e=>window.__focusHistory.push({t:'in',tag:e.target.tagName,text:e.target.textContent?.slice(0,35)}),true);document.addEventListener('focusout',e=>window.__focusHistory.push({t:'out',tag:e.target.tagName,text:e.target.textContent?.slice(0,35)}),true);});
   for(const next of ['failed','malformed']){
    mode=next;const button=page.getByRole('button',{name:'Refresh saved view'});await button.focus();await page.keyboard.press('Enter');
    await page.waitForFunction(()=>document.querySelector('#attentionView [role=status]').textContent.includes('previously loaded'));
    assert.equal(await page.locator('#attentionView h2').count(),1);
+   const debug=await page.evaluate(()=>({active:document.activeElement?.outerHTML?.slice(0,220),refresh:document.querySelector('#attentionView button')?.outerHTML?.slice(0,220),focused:document.activeElement===document.querySelector('#attentionView button'),events:window.__focusHistory?.slice(-15)}));
+   console.log('ATTENTION_FOCUS_DIAGNOSTIC '+next+' '+JSON.stringify(debug));
    assert.equal(await page.getByRole('button',{name:'Refresh saved view'}).evaluate(el=>el===document.activeElement),true);
   }
   await page.locator('nav [data-page="briefing"]').click();assert.equal(await page.locator('#attentionView h2').count(),0);
