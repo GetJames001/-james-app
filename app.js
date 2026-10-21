@@ -776,6 +776,8 @@ async function requestGoogleEvents() {
   return JamesCalendarSync.readCalendar(fetch);
 }
 function applyGoogleEvents(data) {
+  const diagnostic=$('#calendarFailureDetail');
+  if(diagnostic){diagnostic.textContent='';diagnostic.hidden=true;}
   const reconnectLink=$('#googleCalendarConnectLink');if(reconnectLink)reconnectLink.hidden=true;
   liveEvents=JamesCalendarSync.mergePartial(liveEvents,data);
   calendarSyncState={hasData:true,state:data.complete===false || data.partial===true?'partial':'fresh',complete:data.complete!==false && data.partial!==true,fetchedAt:data.fetchedAt || new Date().toISOString()};
@@ -791,7 +793,15 @@ function applyGoogleEvents(data) {
   const dayLabel=displayedCalendarDate;
   calendarStatus(calendarSyncState.complete ? `Updated ${timestamp}. Showing ${dayLabel}; selected Google calendars read successfully.` : `Incomplete coverage at ${timestamp}. Showing available and previously received events for ${dayLabel}; some source events may be missing or stale.`);
 }
+function calendarFailureDetail(error) {
+  const stages={CONNECTION_STORE:'Could not read the saved Calendar connection.',TOKEN_REFRESH:'Google authorization could not be refreshed.',CALENDAR_LIST:'Could not retrieve the list of calendars.',EVENT_READ:'Could not retrieve calendar events.'};
+  const stage=error?.calendarCode==='GOOGLE_CALENDAR_READ_FAILED'?stages[error.calendarStage]:null;
+  const status=Number.isInteger(error?.httpStatus)&&error.httpStatus>=400&&error.httpStatus<=599?` HTTP ${error.httpStatus}.`:'';
+  return (stage || 'The Calendar request did not return a verified result.')+status;
+}
 function googleEventsFailed(error) {
+  const diagnostic=$('#calendarFailureDetail');
+  if(diagnostic){diagnostic.textContent=calendarFailureDetail(error);diagnostic.hidden=false;}
   const reconnectLink=$('#googleCalendarConnectLink');
   if(reconnectLink)reconnectLink.hidden=!(error?.calendarCode==='GOOGLE_CALENDAR_READ_FAILED' && error?.calendarStage==='TOKEN_REFRESH');
   calendarSyncState.state=calendarSyncState.hasData?'stale':'unavailable';

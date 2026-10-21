@@ -18,7 +18,7 @@ test('rendered calendar keeps cached failed-source events and names, shows stale
       res.setHeader('content-type','application/json');
       if(url.pathname==='/api/google/events'){
         reads++;assert.equal(req.method,'GET');
-        if(mode==='failure'){res.statusCode=503;return res.end('{}');}
+        if(mode==='failure'){res.statusCode=503;return res.end(JSON.stringify({code:'GOOGLE_CALENDAR_READ_FAILED',stage:'CONNECTION_STORE',error:'DO_NOT_DISPLAY_PRIVATE_PROVIDER_ERROR'}));}
         return res.end(JSON.stringify({connected:true,complete:mode==='full',partial:mode!=='full',fetchedAt:new Date().toISOString(),calendars:mode==='full'?[{id:'work',name:'Synthetic work'},{id:'empty',name:'Synthetic personal'}]:[{id:'empty',name:'Synthetic personal'}],completedCalendarIds:mode==='full'?['work','empty']:['empty'],events:mode==='full'?[event,tomorrowEvent]:[]}));
       }
       if(url.pathname==='/api/auth/session')return res.end('{"ok":true,"authenticated":true}');
@@ -36,12 +36,16 @@ test('rendered calendar keeps cached failed-source events and names, shows stale
     await page.goto(`http://127.0.0.1:${server.address().port}`);
     await page.waitForFunction(()=>document.querySelector('#calendarSyncStatus').textContent.includes('unavailable'));
     assert.equal(await page.locator('#quickCalendarStatus').textContent(),'Calendar unavailable');
+    assert.match(await page.locator('#calendarFailureDetail').textContent(),/saved Calendar connection.*HTTP 503/);
+    assert.equal(await page.locator('body').textContent().then(t=>t.includes('DO_NOT_DISPLAY_PRIVATE_PROVIDER_ERROR')),false);
     assert.equal(await page.locator('#quickCalendarDays .appointment-dot').count(),0);
     assert.match(await page.locator('#quickCalendarDays button:not(:disabled)').first().getAttribute('aria-label'),/Schedule not verified/);
     await page.clock.install();await page.clock.runFor(5001);mode='full';
     await page.evaluate(()=>document.querySelector('#calendarRefreshButton').click());
     await page.waitForFunction(()=>document.querySelector('#calendarSyncStatus').textContent.includes('read successfully'));
     assert.match(await page.locator('#calendarSyncSources').textContent(),/Synthetic work.*Synthetic personal/);
+    assert.equal(await page.locator('#calendarFailureDetail').textContent(),'');
+    assert.equal(await page.locator('#calendarFailureDetail').evaluate(e=>e.hidden),true);
     assert.equal(await page.evaluate(()=>Boolean(window.calendarInjected)),false);
     assert.ok((await page.locator('#apptList').textContent()).includes(title));
     await page.evaluate(()=>document.querySelectorAll('.intro,.intro-overlay').forEach(el=>el.remove()));
