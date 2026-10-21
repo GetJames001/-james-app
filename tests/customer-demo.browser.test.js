@@ -15,6 +15,10 @@ test('Standalone Customer Activity preview is branch locked, fictional and netwo
  assert.match(gateway,/route === "customer-demo"/);
  assert.match(gateway,/default-src 'none'/);
  assert.match(gateway,/X-James-Demo-Only/);
+ assert.match(gateway,/res\.setHeader\("Location", "\/customer-demo"\)/);
+ assert.match(gateway,/route === "index.html"/);
+ assert.match(gateway,/route === "login.html"/);
+
  assert.doesNotMatch(demo,/fetch\s*\(|XMLHttpRequest|WebSocket|EventSource|localStorage|sessionStorage/);
  assert.doesNotMatch(demo,/\/api\/|www\.getjames\.ai|JAMES_AUTH_PASSWORD_HASH|JAMES_SESSION_SECRET/);
  assert.match(demo,/Fictional Northside Cabinetry/);
