@@ -1373,31 +1373,38 @@ $('#jamesAnswer').innerHTML = `
  function createAttentionScreen(container,{read}){
   const doc=container.ownerDocument;let last=null,epoch=0,refreshButton=null;
   function node(tag,text){const e=doc.createElement(tag);if(text!==undefined)e.textContent=text;return e;}
+  // Keep the refresh control mounted while its contents update; replacing a focused
+  // button during key activation can blur it after the newly-created button is focused.
+  const contentRoot=node('div');
+  container.replaceChildren(contentRoot);
   function render(failed){
-   const restoreRefreshFocus=refreshButton!==null&&doc.activeElement===refreshButton;
-   container.replaceChildren();container.append(node('h1','Attention'));
+   contentRoot.replaceChildren();contentRoot.append(node('h1','Attention'));
    const status=node('p',failed?(last?'Could not refresh. Showing previously loaded items.':'Attention unavailable. Try again.'):((!last||last.status==='not_checked')?'Not checked yet.':'Known items needing your attention.'));
-   status.setAttribute('role','status');container.append(status);
+   status.setAttribute('role','status');contentRoot.append(status);
    if(last){
-    if(last.evaluatedAt)container.append(node('p','Evaluated: '+last.evaluatedAt));
-    for(const c of last.coverage)container.append(node('p','Checked scope: '+c.label));
-    if(last.coverage.length===0)container.append(node('p','Email coverage has not been established.'));
-    for(const s of last.sourceHealth)container.append(node('p',(failed?'stale':s.status)+' · Last successful scan: '+(s.lastSuccessfulScanAt||'Not available')));
-    if(!last.attentionItems.length&&last.status!=='not_checked')container.append(node('p','No known items in this saved view. Other mail may not have been checked.'));
+    if(last.evaluatedAt)contentRoot.append(node('p','Evaluated: '+last.evaluatedAt));
+    for(const c of last.coverage)contentRoot.append(node('p','Checked scope: '+c.label));
+    if(last.coverage.length===0)contentRoot.append(node('p','Email coverage has not been established.'));
+    for(const s of last.sourceHealth)contentRoot.append(node('p',(failed?'stale':s.status)+' · Last successful scan: '+(s.lastSuccessfulScanAt||'Not available')));
+    if(!last.attentionItems.length&&last.status!=='not_checked')contentRoot.append(node('p','No known items in this saved view. Other mail may not have been checked.'));
     const list=node('ul');
     for(const item of last.attentionItems){
      const li=node('li');li.append(node('h2',item.title));
      li.append(node('p',item.deadlineStatus==='exact'?'Due: '+item.deadline:item.deadlineStatus==='none'?'No deadline stated':'Deadline needs review'));
      for(const url of item.evidenceLinks){try{const u=new URL(url);if(u.protocol!=='https:'||u.username||u.password)continue;const a=node('a','View source email');a.href=u.href;a.target='_blank';a.rel='noopener noreferrer';li.append(a);}catch{}}
      list.append(li);
-    }container.append(list);
-    if(last.needsReview.length)container.append(node('p',last.needsReview.length+' evidence items need review.'));
+    }contentRoot.append(list);
+    if(last.needsReview.length)contentRoot.append(node('p',last.needsReview.length+' evidence items need review.'));
    }
-   const refresh=node('button','Refresh saved view');refresh.type='button';refresh.addEventListener('click',()=>void refreshView());container.append(refresh);refreshButton=refresh;
-   if(restoreRefreshFocus)refresh.focus();
+   if(!refreshButton){
+    refreshButton=node('button','Refresh saved view');
+    refreshButton.type='button';
+    refreshButton.addEventListener('click',()=>void refreshView());
+    container.append(refreshButton);
+   }
   }
   async function refreshView(){const current=++epoch;try{const data=await read();if(current!==epoch)return;if(data?.schemaVersion!==1||!['available','not_checked'].includes(data.status)||!Number.isSafeInteger(data.revision)||!['attentionItems','sourceHealth','needsReview','coverage'].every(k=>Array.isArray(data[k])))throw Error('INVALID_RESPONSE');if(!data.attentionItems.every(i=>typeof i?.title==='string'&&['exact','none','unknown'].includes(i.deadlineStatus)&&Array.isArray(i.evidenceLinks))||!data.coverage.every(c=>typeof c?.label==='string'&&c.mailboxWide===false)||!data.sourceHealth.every(s=>typeof s?.status==='string'))throw Error('INVALID_ITEMS');if(data.status==='not_checked'&&(data.revision!==0||['attentionItems','sourceHealth','needsReview','coverage'].some(k=>data[k].length)))throw Error('INVALID_NOT_CHECKED');if(data.status==='available'&&data.revision<1)throw Error('INVALID_REVISION');if(last&&data.revision<last.revision)throw Error('OLD_REVISION');last=data;render(false);}catch{if(current===epoch)render(true);}}
-  function clear(){++epoch;last=null;refreshButton=null;render(false);}
+  function clear(){++epoch;last=null;render(false);}
   render(false);return {refresh:refreshView,clear};
  }
  if(typeof module!=='undefined')module.exports={createAttentionScreen};else root.createAttentionScreen=createAttentionScreen;
@@ -1429,3 +1436,98 @@ function openAttentionSavedView(){
  if(!attentionScreen)attentionScreen=createAttentionScreen(container,{read:attentionReader.read});
  void attentionScreen.refresh();
 }
+
+
+/* Customer Activity: synthetic, in-tab prototype. No network, real customer data or writes. */
+function initCustomerActivityDemo() {
+  const openButton=document.querySelector('#customerActivityOpen');
+  const overlay=document.querySelector('#customerActivityOverlay');
+  if(!openButton||!overlay)return;
+  const closeButton=document.querySelector('#customerActivityClose');
+  const doneButton=document.querySelector('#customerDemoDone');
+  const list=document.querySelector('#customerDemoList');
+  const outcome=document.querySelector('#customerDemoOutcome');
+  const next=document.querySelector('#customerDemoNext');
+  const status=document.querySelector('#customerDraftStatus');
+  const fictional=[
+    {id:'fiction-1',name:'Fictional Northside Cabinetry',contact:'Sample: Alex Reed',phone:'Demo contact — no telephone',address:'Sample location · Not geocoded',last:'No visit recorded',visited:false,history:'No verified activity. Suggested stop only.'},
+    {id:'fiction-2',name:'Fictional Desert Office Center',contact:'Sample: Jordan Chen',phone:'Demo contact — no telephone',address:'Sample location · Not geocoded',last:'Illustrative previous visit',visited:true,history:'Illustrative history: Met the property team. No live record exists.'},
+    {id:'fiction-3',name:'Fictional Eastside Medical Offices',contact:'Sample: Taylor Brooks',phone:'Demo contact — no telephone',address:'Sample location · Not geocoded',last:'No visit recorded',visited:false,history:'No verified activity. Suggested stop only.'},
+    {id:'fiction-4',name:'Fictional Commerce Warehouse',contact:'Sample: Casey Morgan',phone:'Demo contact — no telephone',address:'Sample location · Not geocoded',last:'Illustrative previous call',visited:false,history:'Illustrative history: Initial phone call. No visit recorded.'},
+    {id:'fiction-5',name:'Fictional West Valley Facility',contact:'Sample: Robin Ellis',phone:'Demo contact — no telephone',address:'Sample location · Not geocoded',last:'No visit recorded',visited:false,history:'No verified activity. Suggested stop only.'}
+  ];
+  const drafts=new Map();
+  let selected=fictional[0].id,returnFocus=null;
+  function remember() {
+    drafts.set(selected,{outcome:outcome.value,next:next.value});
+    status.textContent='Unsaved demo notes are retained until this browser tab is closed. No external changes.';
+  }
+  function choose(id){
+    if(!fictional.some(item=>item.id===id))return;
+    if(selected)remember();
+    selected=id;
+    const item=fictional.find(value=>value.id===id);
+    list.querySelectorAll('button[data-fictional-customer]').forEach(button=>{
+      const active=button.dataset.fictionalCustomer===id;
+      button.setAttribute('aria-pressed',String(active));
+      button.classList.toggle('selected',active);
+    });
+    document.querySelector('#customerDemoName').textContent=item.name;
+    document.querySelector('#customerDemoVisited').textContent=item.visited?'Previously visited':'Not yet visited';
+    document.querySelector('#customerDemoContact').textContent=item.contact;
+    document.querySelector('#customerDemoLast').textContent=item.last;
+    document.querySelector('#customerDemoPhone').textContent=item.phone;
+    document.querySelector('#customerDemoAddress').textContent=item.address;
+    document.querySelector('#customerDemoHistory').textContent=item.history;
+    outcome.value=drafts.get(id)?.outcome||'';
+    next.value=drafts.get(id)?.next||'';
+    status.textContent='Demo-only draft. No real records, Tasks, Calendar events or Odoo updates.';
+  }
+  function renderList(){
+    const fragment=document.createDocumentFragment();
+    fictional.forEach((item,index)=>{
+      const button=document.createElement('button');
+      button.type='button';button.dataset.fictionalCustomer=item.id;
+      const number=document.createElement('span');number.className='customer-demo-order';number.textContent=String(index+1);
+      const text=document.createElement('span');text.className='customer-demo-text';
+      const title=document.createElement('strong');title.textContent=item.name;
+      const sub=document.createElement('small');sub.textContent=item.visited?'Previously visited · Suggested again':'Not yet visited · Suggested stop';
+      text.append(title,sub);button.append(number,text);
+      button.addEventListener('click',()=>choose(item.id));
+      fragment.append(button);
+    });
+    list.replaceChildren(fragment);
+    choose(selected);
+  }
+  function open(){
+    if(!overlay.hidden)return;
+    returnFocus=document.activeElement;
+    overlay.hidden=false;
+    renderList();
+    closeButton.focus();
+  }
+  function close(){
+    if(overlay.hidden)return;
+    remember();overlay.hidden=true;
+    if(returnFocus?.isConnected) returnFocus.focus();
+    returnFocus=null;
+  }
+  openButton.addEventListener('click',open);
+  closeButton.addEventListener('click',close);
+  doneButton.addEventListener('click',close);
+  outcome.addEventListener('input',remember);
+  next.addEventListener('input',remember);
+  document.querySelector('#customerDemoKeepDraft').addEventListener('click',()=>{
+    remember();status.textContent='Demo draft retained in this tab only. Not saved to James, Tasks or Odoo.';
+  });
+  overlay.addEventListener('keydown',event=>{
+    if(event.key==='Escape'){event.preventDefault();close();return;}
+    if(event.key!=='Tab')return;
+    const focusable=[...overlay.querySelectorAll('button:not(:disabled),input:not(:disabled),textarea:not(:disabled)')].filter(el=>el.getClientRects().length);
+    if(!focusable.length)return;
+    const first=focusable[0],last=focusable[focusable.length-1];
+    if(event.shiftKey&&document.activeElement===first){event.preventDefault();last.focus();}
+    else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first.focus();}
+  });
+}
+document.addEventListener('DOMContentLoaded',initCustomerActivityDemo,{once:true});

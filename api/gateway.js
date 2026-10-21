@@ -52,6 +52,30 @@ module.exports = async function handler(req, res) {
     return res.status(400).json({ ok: false, error: "INVALID_REQUEST" });
   }
 
+  // Protected Vercel Preview only: self-contained fictional interface.
+  // Never exposed by production and never reads a real auth/session/provider.
+  if(route === "customer-demo" || route === "customer-demo.html"){
+    const permitted = process.env.VERCEL_ENV === "preview" &&
+      process.env.VERCEL_GIT_COMMIT_REF === "feature/customer-activity-overlay-prototype-20261020" &&
+      (req.method === "GET" || req.method === "HEAD");
+    if(!permitted) return res.status(404).json({ok:false,error:"NOT_FOUND"});
+    const fs=require("node:fs"),path=require("node:path");
+    res.setHeader("Content-Type","text/html; charset=utf-8");
+    res.setHeader("Content-Security-Policy","default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; form-action 'none'; object-src 'none'; frame-ancestors 'none'; base-uri 'none'");
+    res.setHeader("X-Robots-Tag","noindex, nofollow, noarchive");
+    res.setHeader("X-James-Demo-Only","synthetic");
+    if(req.method === "HEAD")return res.status(200).end();
+    return res.status(200).send(fs.readFileSync(path.join(process.cwd(),"customer-demo.html"),"utf8"));
+  }
+  // A branch-scoped preview cannot use the production-only James login.
+  // Redirect its landing page to fictional review, never affecting production.
+  if ((route === "" || route === "index.html" || route === "login" || route === "login.html") &&
+      process.env.VERCEL_ENV === "preview" &&
+      process.env.VERCEL_GIT_COMMIT_REF === "feature/customer-activity-overlay-prototype-20261020" &&
+      (req.method === "GET" || req.method === "HEAD")) {
+    res.setHeader("Location", "/customer-demo");
+    return res.status(302).end();
+  }
   if (route === "login" || route === "login.html") return loginPage(req, res);
   if (route === "" || route === "index.html") return app(req, res);
   if (route === "calendar-test.html" || route === "council-test.html") {
