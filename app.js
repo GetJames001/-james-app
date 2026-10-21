@@ -654,6 +654,37 @@ $('#app').classList.add('clear');
   setTimeout(() => $('#intro').classList.add('hide'), 1450);
 }
 
+// Today's Perspective uses one checked Covey quotation and clearly
+// labeled original James reflections. No generated attributions or network calls.
+const JAMES_PERSPECTIVES = Object.freeze([
+  Object.freeze({
+    text: 'Seek first to understand, then to be understood.',
+    author: 'Stephen R. Covey',
+    source: 'The 7 Habits of Highly Effective People · Habit 5'
+  }),
+  Object.freeze({text:'A clear next step beats a crowded to-do list.',author:'James',source:'Original reflection'}),
+  Object.freeze({text:'Ask a better question before choosing the answer.',author:'James',source:'Original reflection'}),
+  Object.freeze({text:'Progress often starts with one useful conversation.',author:'James',source:'Original reflection'}),
+  Object.freeze({text:'Protect the important, not just the urgent.',author:'James',source:'Original reflection'}),
+  Object.freeze({text:'Listen closely. Then act with intention.',author:'James',source:'Original reflection'}),
+  Object.freeze({text:'Make room today for what matters tomorrow.',author:'James',source:'Original reflection'})
+]);
+function jamesPerspectiveForDate(date=new Date()){
+  // UTC construction from LOCAL calendar parts ensures that the selection is
+  // stable throughout the local day, even across DST and iPad reloads.
+  const day=Math.floor(Date.UTC(date.getFullYear(),date.getMonth(),date.getDate())/86400000);
+  return JAMES_PERSPECTIVES[((day%JAMES_PERSPECTIVES.length)+JAMES_PERSPECTIVES.length)%JAMES_PERSPECTIVES.length];
+}
+function renderJamesPerspective(date=new Date()){
+  const item=jamesPerspectiveForDate(date);
+  const fields=[['perspectiveIntroText','text'],['perspectiveIntroAuthor','author'],['perspectiveIntroSource','source'],
+    ['perspectiveBriefText','text'],['perspectiveBriefAuthor','author'],['perspectiveBriefSource','source']];
+  for(const [id,key] of fields){
+    const node=document.getElementById(id);
+    if(node)node.textContent=item[key];
+  }
+}
+
 function intro(){
   const introDate = sessionStorage.getItem('jamesIntroDate');
 
@@ -1228,6 +1259,7 @@ if (personalMailDetailBack) {
   $('#backdrop').onclick = e => { if(e.target === $('#backdrop')) closePanel(); };
   $('#jamesOrb').onclick = () => { setOrbState('listening'); speak(); setTimeout(() => setOrbState('idle'), 3200); };
   
+  renderJamesPerspective();
   intro();const SpeechRecognition =
   window.SpeechRecognition || window.webkitSpeechRecognition;
 
