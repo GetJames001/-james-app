@@ -614,7 +614,7 @@ function speak(text){
   const start = localStorage.getItem('jamesStart') || 'home';
     const script = text || `Good morning, Michael. I have your route starting from ${start}. Your next appointment is ${$('#nextTitle').textContent}. Leave by ${$('#leaveBy').textContent}. Otherwise, your day looks manageable.`;
   if('speechSynthesis' in window){ speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(script); u.rate=.96; u.pitch=.9; speechSynthesis.speak(u); }
-  else panel('JAMES','Morning Briefing',`<p>${script}</p>`);
+  else panel('JAMES','Daily Briefing',`<p>${script}</p>`);
 }
 
 function setOrbState(state='idle'){
