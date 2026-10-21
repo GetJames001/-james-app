@@ -1373,31 +1373,38 @@ $('#jamesAnswer').innerHTML = `
  function createAttentionScreen(container,{read}){
   const doc=container.ownerDocument;let last=null,epoch=0,refreshButton=null;
   function node(tag,text){const e=doc.createElement(tag);if(text!==undefined)e.textContent=text;return e;}
+  // Keep the refresh control mounted while its contents update; replacing a focused
+  // button during key activation can blur it after the newly-created button is focused.
+  const contentRoot=node('div');
+  container.replaceChildren(contentRoot);
   function render(failed){
-   const restoreRefreshFocus=refreshButton!==null&&doc.activeElement===refreshButton;
-   container.replaceChildren();container.append(node('h1','Attention'));
+   contentRoot.replaceChildren();contentRoot.append(node('h1','Attention'));
    const status=node('p',failed?(last?'Could not refresh. Showing previously loaded items.':'Attention unavailable. Try again.'):((!last||last.status==='not_checked')?'Not checked yet.':'Known items needing your attention.'));
-   status.setAttribute('role','status');container.append(status);
+   status.setAttribute('role','status');contentRoot.append(status);
    if(last){
-    if(last.evaluatedAt)container.append(node('p','Evaluated: '+last.evaluatedAt));
-    for(const c of last.coverage)container.append(node('p','Checked scope: '+c.label));
-    if(last.coverage.length===0)container.append(node('p','Email coverage has not been established.'));
-    for(const s of last.sourceHealth)container.append(node('p',(failed?'stale':s.status)+' · Last successful scan: '+(s.lastSuccessfulScanAt||'Not available')));
-    if(!last.attentionItems.length&&last.status!=='not_checked')container.append(node('p','No known items in this saved view. Other mail may not have been checked.'));
+    if(last.evaluatedAt)contentRoot.append(node('p','Evaluated: '+last.evaluatedAt));
+    for(const c of last.coverage)contentRoot.append(node('p','Checked scope: '+c.label));
+    if(last.coverage.length===0)contentRoot.append(node('p','Email coverage has not been established.'));
+    for(const s of last.sourceHealth)contentRoot.append(node('p',(failed?'stale':s.status)+' · Last successful scan: '+(s.lastSuccessfulScanAt||'Not available')));
+    if(!last.attentionItems.length&&last.status!=='not_checked')contentRoot.append(node('p','No known items in this saved view. Other mail may not have been checked.'));
     const list=node('ul');
     for(const item of last.attentionItems){
      const li=node('li');li.append(node('h2',item.title));
      li.append(node('p',item.deadlineStatus==='exact'?'Due: '+item.deadline:item.deadlineStatus==='none'?'No deadline stated':'Deadline needs review'));
      for(const url of item.evidenceLinks){try{const u=new URL(url);if(u.protocol!=='https:'||u.username||u.password)continue;const a=node('a','View source email');a.href=u.href;a.target='_blank';a.rel='noopener noreferrer';li.append(a);}catch{}}
      list.append(li);
-    }container.append(list);
-    if(last.needsReview.length)container.append(node('p',last.needsReview.length+' evidence items need review.'));
+    }contentRoot.append(list);
+    if(last.needsReview.length)contentRoot.append(node('p',last.needsReview.length+' evidence items need review.'));
    }
-   const refresh=node('button','Refresh saved view');refresh.type='button';refresh.addEventListener('click',()=>void refreshView());container.append(refresh);refreshButton=refresh;
-   if(restoreRefreshFocus)refresh.focus();
+   if(!refreshButton){
+    refreshButton=node('button','Refresh saved view');
+    refreshButton.type='button';
+    refreshButton.addEventListener('click',()=>void refreshView());
+    container.append(refreshButton);
+   }
   }
   async function refreshView(){const current=++epoch;try{const data=await read();if(current!==epoch)return;if(data?.schemaVersion!==1||!['available','not_checked'].includes(data.status)||!Number.isSafeInteger(data.revision)||!['attentionItems','sourceHealth','needsReview','coverage'].every(k=>Array.isArray(data[k])))throw Error('INVALID_RESPONSE');if(!data.attentionItems.every(i=>typeof i?.title==='string'&&['exact','none','unknown'].includes(i.deadlineStatus)&&Array.isArray(i.evidenceLinks))||!data.coverage.every(c=>typeof c?.label==='string'&&c.mailboxWide===false)||!data.sourceHealth.every(s=>typeof s?.status==='string'))throw Error('INVALID_ITEMS');if(data.status==='not_checked'&&(data.revision!==0||['attentionItems','sourceHealth','needsReview','coverage'].some(k=>data[k].length)))throw Error('INVALID_NOT_CHECKED');if(data.status==='available'&&data.revision<1)throw Error('INVALID_REVISION');if(last&&data.revision<last.revision)throw Error('OLD_REVISION');last=data;render(false);}catch{if(current===epoch)render(true);}}
-  function clear(){++epoch;last=null;refreshButton=null;render(false);}
+  function clear(){++epoch;last=null;render(false);}
   render(false);return {refresh:refreshView,clear};
  }
  if(typeof module!=='undefined')module.exports={createAttentionScreen};else root.createAttentionScreen=createAttentionScreen;
@@ -1429,3 +1436,88 @@ function openAttentionSavedView(){
  if(!attentionScreen)attentionScreen=createAttentionScreen(container,{read:attentionReader.read});
  void attentionScreen.refresh();
 }
+
+
+/* Customer Activity: explicit outcomes, authenticated persistence, no inferred visits. */
+function initCustomerActivity() {
+ const $=id=>document.getElementById(id),overlay=$('customerActivityOverlay');
+ if(!overlay)return;
+ const openButton=$('customerActivityOpen'),closeButton=$('customerActivityClose'),save=$('customerDemoKeepDraft'),reload=$('customerReload'),add=$('customerAdd'),status=$('customerDraftStatus');
+ const fields={notes:$('customerDemoOutcome'),nextAction:$('customerDemoNext'),outcome:$('customerOutcomeKind'),when:$('customerOccurredAt')};
+ const labels={met:'Met in person',attempted:'Attempted visit',not_available:'Contact unavailable',phone:'Phone contact',email:'Email contact',other:'Other'};
+ let doc=null,selected=null,busy=false,uncertain=false,returnFocus=null,epoch=0;
+ const drafts=new Map();
+ let pending=null;
+ const uuid=()=>crypto.randomUUID();
+ const announce=text=>{status.textContent=text;};
+ function remember(){if(selected)drafts.set(selected,Object.fromEntries(Object.entries(fields).map(([k,el])=>[k,el.value])));}
+ function controls(){save.disabled=busy||uncertain||!doc||!selected;add.disabled=busy||uncertain||!doc;reload.disabled=busy;for(const b of $('customerDemoList').querySelectorAll('button'))b.disabled=busy;for(const el of Object.values(fields))el.disabled=busy||!selected;}
+ function render(){
+  const list=$('customerDemoList');list.replaceChildren();
+  for(const c of doc?.customers||[]){const b=document.createElement('button');b.type='button';b.textContent=c.name;b.setAttribute('aria-pressed',String(c.id===selected));b.disabled=busy;b.onclick=()=>{remember();selected=c.id;render();};list.append(b);}
+  const c=doc?.customers.find(c=>c.id===selected);
+  $('customerDemoName').textContent=c?.name||'Add or select a customer';
+  const history=(doc?.activities||[]).filter(a=>a.customerId===selected).sort((a,b)=>b.occurredAt.localeCompare(a.occurredAt));
+  $('customerDemoVisited').textContent=history.some(a=>a.outcome==='met')?'Meeting recorded':'No meeting recorded';
+  $('customerDemoContact').textContent=c?.contact||'—';$('customerDemoPhone').textContent=c?.phone||'—';$('customerDemoAddress').textContent=c?.address||'—';
+  $('customerDemoLast').textContent=history.length?new Date(history[0].occurredAt).toLocaleString():'No recorded contact';
+  $('customerDemoHistory').textContent=history.map(a=>`${new Date(a.occurredAt).toLocaleString()} · ${labels[a.outcome]}: ${a.notes}${a.nextAction?' · Proposed next step: '+a.nextAction:''}`).join('\n')||'No recorded contact.';
+  for(const [k,el] of Object.entries(fields))el.value=drafts.get(selected)?.[k]||'';
+  controls();
+ }
+ async function request(method,body){
+  const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),10000);
+  try{const r=await fetch('/api/customer-activity',{method,credentials:'same-origin',cache:'no-store',headers:body?{'Content-Type':'application/json'}:{},body:body?JSON.stringify(body):undefined,signal:controller.signal});
+   const data=await r.json();
+   if(r.status===401){const error=new Error('SESSION');throw error;}
+   if(r.status===409)throw new Error('CONFLICT');
+   if(!r.ok||data.ok!==true||!data.document||!Array.isArray(data.document.customers)||!Array.isArray(data.document.activities)||!Number.isSafeInteger(data.document.revision))throw new Error('UNAVAILABLE');
+   return data.document;
+  }finally{clearTimeout(timer);}
+ }
+ function clearPrivate(){doc=null;selected=null;pending=null;drafts.clear();$('customerNewName').value='';for(const el of Object.values(fields))el.value='';render();}
+ async function load(){
+  remember();const ticket=++epoch;busy=true;controls();announce('Loading saved records…');
+  try{const fresh=await request('GET');if(ticket!==epoch)return;doc=fresh;
+   const confirmed=pending&&(pending.type==='record_activity'?doc.activities.some(a=>a.id===pending.activity.id):doc.customers.some(c=>c.id===pending.customer.id));
+   if(confirmed){if(pending.type==='record_activity')drafts.delete(pending.activity.customerId);else $('customerNewName').value='';pending=null;}
+   // If no matching ID is present, allow an explicit retry using this fresh revision.
+   uncertain=false;selected=doc.customers.some(c=>c.id===selected)?selected:doc.customers[0]?.id||null;
+   announce(confirmed?'Previous save confirmed.':'Saved records loaded. Unsaved notes are retained in this page.');
+  }catch(error){if(ticket!==epoch)return;uncertain=true;if(error.message==='SESSION'){clearPrivate();announce('Session expired. Sign in again to load your records.');}else announce('Could not load records. Existing notes are retained; reload before saving.');}
+  finally{if(ticket===epoch){busy=false;render();if(!overlay.hidden&&document.activeElement===document.body)reload.focus();}}
+ }
+ async function commit(command){
+  if(busy||uncertain||!doc)return;
+  busy=true;controls();remember();announce('Saving…');
+  pending=command;
+  try{doc=await request('POST',{...command,expectedRevision:doc.revision});
+   if(command.type==='record_activity'){drafts.delete(command.activity.customerId);for(const el of Object.values(fields))el.value='';}
+   else{selected=command.customer.id;$('customerNewName').value='';}
+   pending=null;announce('Saved.');
+   if(command.type==='record_activity')close(false);
+  }catch(error){uncertain=true;
+   if(error.message==='SESSION'){clearPrivate();announce('Session expired. Sign in again.');}
+   else announce(error.message==='CONFLICT'?'Another update arrived. Your notes are retained. Reload saved records, review, then save again.':'Save not confirmed. Your notes are retained. Reload to check before retrying.');
+  }finally{busy=false;render();}
+ }
+ function close(retain=true){if(retain)remember();overlay.hidden=true;if(returnFocus?.isConnected)returnFocus.focus();}
+ openButton.onclick=()=>{returnFocus=document.activeElement;overlay.hidden=false;closeButton.focus();if(!busy)load();};
+ closeButton.onclick=()=>close();$('customerDemoDone').onclick=()=>close();reload.onclick=load;
+ for(const el of Object.values(fields))el.addEventListener('input',()=>{remember();announce('Unsaved activity. Confirm the outcome and time before saving.');});
+ add.onclick=()=>{const name=$('customerNewName').value.trim();if(!name){announce('Enter a customer name.');return;}const customer=pending?.type==='upsert_customer'&&pending.customer.name===name?pending.customer:{id:uuid(),name,source:'manual'};commit({type:'upsert_customer',customer});};
+ save.onclick=()=>{
+  if(!selected||!fields.outcome.value||!fields.when.value){announce('Choose what happened and when. A suggested stop does not mean a visit occurred.');return;}
+  const date=new Date(fields.when.value);if(!Number.isFinite(+date)||+date>Date.now()){announce('Enter a valid time that is not in the future.');return;}
+  if(fields.outcome.value==='other'&&!fields.notes.value.trim()){announce('Explain what happened in the notes.');return;}
+  commit({type:'record_activity',activity:{id:pending?.type==='record_activity'&&pending.activity.customerId===selected?pending.activity.id:uuid(),customerId:selected,occurredAt:date.toISOString(),outcome:fields.outcome.value,notes:fields.notes.value,nextAction:fields.nextAction.value,initiatedBy:'typed'}});
+ };
+ overlay.addEventListener('keydown',event=>{
+  if(event.key==='Escape'){event.preventDefault();close();return;}
+  if(event.key!=='Tab')return;
+  const els=[...overlay.querySelectorAll('button:not(:disabled),input:not(:disabled),textarea:not(:disabled),select:not(:disabled)')].filter(el=>el.getClientRects().length),first=els[0],last=els.at(-1);
+  if(event.shiftKey&&document.activeElement===first){event.preventDefault();last?.focus();}else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first?.focus();}
+ });
+ controls();
+}
+document.addEventListener('DOMContentLoaded',initCustomerActivity,{once:true});
