@@ -16,6 +16,7 @@ const microsoftMail = require("./microsoft/mail.js");
 const microsoftTriage = require("./microsoft/triage.js");
 const tasks = require("./tasks.js");
 const attention = require("../lib/routes/attention.js");
+const {isPreviewDemo,handlePreviewDemoApi} = require("../lib/preview-demo.js");
 
 const exactHandlers = new Map([
   ["api/health", health],
@@ -68,6 +69,13 @@ module.exports = async function handler(req, res) {
   ) {
     req.jamesResource = { asset: route };
     return app(req, res);
+  }
+
+  if(isPreviewDemo()) {
+    // Every provider/API route in this Preview fails closed to synthetic data.
+    // Auth endpoints are handled by the same private login/session/logout flow.
+    const demoAuth = new Set(["api/auth/login","api/auth/logout","api/auth/session"]);
+    if(!demoAuth.has(route))return handlePreviewDemoApi(req,res,route);
   }
 
   const exactHandler = exactHandlers.get(route);
