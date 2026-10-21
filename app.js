@@ -446,7 +446,7 @@ function setGreeting(){
   const now = new Date();
   const text = greetingForHour(now.getHours());
   $('#mainGreeting').textContent = text;
-  $('#introGreeting').textContent = `${text.replace(', Michael','')}, Michael.`;
+  $('#introGreeting').textContent = `${text.replace(', Michael','').replace('Morning','morning').replace('Afternoon','afternoon').replace('Evening','evening')}, Michael.`;
   $('#dateTime').textContent = now.toLocaleDateString(undefined,{weekday:'long',month:'long',day:'numeric'}) + ' · ' + now.toLocaleTimeString([],{hour:'numeric',minute:'2-digit'});
 }
 
@@ -617,9 +617,6 @@ function speak(text){
   else panel('JAMES','Morning Briefing',`<p>${script}</p>`);
 }
 
-let introFinished = false;
-let introFallback;
-
 function setOrbState(state='idle'){
   const orb = $('#jamesOrb');
   if(!orb) return;
@@ -627,75 +624,46 @@ function setOrbState(state='idle'){
   if(state !== 'idle') orb.classList.add(state);
 }
 
-function finishIntro(startLocation){
-  if(introFinished) return;
-  introFinished = true;
-  sessionStorage.setItem('jamesIntroDate', new Date().toDateString());
-  $('#intro').classList.add('hide');
-$('#app').classList.remove('frosted');
-$('#app').classList.add('clear');
-  clearTimeout(introFallback);
-  const chosen = startLocation || localStorage.getItem('jamesStart') || 'Home';
-  localStorage.setItem('jamesStart', chosen);
-
-  // The answer has done its job: remove the controls and do not repeat it on screen.
-  $('#routePrompt').classList.add('answered');
-  $('#introSummary').classList.add('quiet');
-
-  const spoken = `Perfect. I've updated today's route from ${chosen.toLowerCase()}.`;
-  try { speak(spoken); } catch (e) {}
-
-  // One clean motion: James returns to the light, the orb reforms, briefing appears.
-  setTimeout(() => $('#intro').classList.add('phase-return'), 240);
-  setTimeout(() => {
-    $('#app').classList.remove('frosted');
-    $('#app').classList.add('clear');
-  }, 850);
-  setTimeout(() => $('#intro').classList.add('hide'), 1450);
+// Today's Perspective uses one checked Covey quotation and clearly
+// labeled original James reflections. No generated attributions or network calls.
+const JAMES_PERSPECTIVES = Object.freeze([
+  Object.freeze({
+    text: 'Seek first to understand, then to be understood.',
+    author: 'Stephen R. Covey',
+    source: 'The 7 Habits of Highly Effective People · Habit 5'
+  }),
+  Object.freeze({text:'A clear next step beats a crowded to-do list.',author:'James',source:'Original reflection'}),
+  Object.freeze({text:'Ask a better question before choosing the answer.',author:'James',source:'Original reflection'}),
+  Object.freeze({text:'Progress often starts with one useful conversation.',author:'James',source:'Original reflection'}),
+  Object.freeze({text:'Protect the important, not just the urgent.',author:'James',source:'Original reflection'}),
+  Object.freeze({text:'Listen closely. Then act with intention.',author:'James',source:'Original reflection'}),
+  Object.freeze({text:'Make room today for what matters tomorrow.',author:'James',source:'Original reflection'})
+]);
+function jamesPerspectiveForDate(date=new Date()){
+  // UTC construction from LOCAL calendar parts ensures that the selection is
+  // stable throughout the local day, even across DST and iPad reloads.
+  const day=Math.floor(Date.UTC(date.getFullYear(),date.getMonth(),date.getDate())/86400000);
+  return JAMES_PERSPECTIVES[((day%JAMES_PERSPECTIVES.length)+JAMES_PERSPECTIVES.length)%JAMES_PERSPECTIVES.length];
+}
+function renderJamesPerspective(date=new Date()){
+  const item=jamesPerspectiveForDate(date);
+  const fields=[['perspectiveIntroText','text'],['perspectiveIntroAuthor','author'],['perspectiveIntroSource','source'],
+    ['perspectiveBriefText','text'],['perspectiveBriefAuthor','author'],['perspectiveBriefSource','source']];
+  for(const [id,key] of fields){
+    const node=document.getElementById(id);
+    if(node)node.textContent=item[key];
+  }
 }
 
 function intro(){
-  const introDate = sessionStorage.getItem('jamesIntroDate');
-
-if(introDate === new Date().toDateString()){
-  introFinished = true;
-  $('#intro').classList.add('hide');
-  $('#app').classList.remove('frosted');
-  $('#app').classList.add('clear');
-  const savedPage = sessionStorage.getItem('jamesCurrentPage') || 'briefing';
-page(savedPage);
-  return;
+  JamesWelcome.start({ onResume: () => {
+    let savedPage = 'briefing';
+    try { savedPage = sessionStorage.getItem('jamesCurrentPage') || 'briefing'; } catch (_) {}
+    if (!document.getElementById(savedPage)?.classList.contains('page')) savedPage = 'briefing';
+    page(savedPage);
+  }});
 }
-  const saved = localStorage.getItem('jamesStart');
-  const introEl = $('#intro');
-  const summary = $('#introSummary');
-  const prompt = $('#routePrompt');
-
-  // Phase 1: living orb only. Phase 2: James emerges once from the light.
-  // setTimeout(() => introEl.classList.add('phase-james'), 650);
-  setTimeout(() => {
-    summary.textContent = 'I’ve prepared your briefing.';
-    if(saved){
-      // Still confirm the starting point each session; plans can change overnight.
-      summary.textContent = 'Before I finalize today’s route, where are we starting?';
-    } else {
-      summary.textContent = 'Before I finalize today’s route, where are we starting?';
-    }
-  }, 1450);
-
-  // Speech is additive. The visual sequence never waits on autoplay permission.
-  const introOrb = $('#intro .orb.big');
-
-if (introOrb) {
-  introOrb.onclick = () => {
-    const hello = `${$('#introGreeting').textContent} I've prepared your briefing. Before I finalize today's route, where are we starting? Home, office, or somewhere else?`;
-    speak(hello);
-  };
-}
-
-  // Keep the intro waiting for the user's start-location answer. No auto-finish copy.
-  prompt.classList.remove('answered');
-}function detectUtility(question) {
+function detectUtility(question) {
   const q = String(question || '').toLowerCase();
 
   if (
@@ -1171,7 +1139,6 @@ $$(".task-filter").forEach(button => {
     renderTaskPad();
   };
 });
-  $$('[data-start]').forEach(b => b.onclick = () => finishIntro(b.dataset.start));
   buildCalendar();
   observeCalendarLayout();
   $('#quickCalendarPrevious').onclick=()=>{const day=new Date(quickCalendarMonth+'-01T12:00:00');day.setMonth(day.getMonth()-1);quickCalendarMonth=localAppointmentDate(day).slice(0,7);renderQuickCalendar();};
@@ -1228,6 +1195,16 @@ if (personalMailDetailBack) {
   $('#backdrop').onclick = e => { if(e.target === $('#backdrop')) closePanel(); };
   $('#jamesOrb').onclick = () => { setOrbState('listening'); speak(); setTimeout(() => setOrbState('idle'), 3200); };
   
+  setGreeting();
+  renderJamesPerspective();
+  // Refresh when an overnight tablet session resumes or its words are revisited.
+  window.addEventListener('focus',()=>renderJamesPerspective());
+  document.addEventListener('visibilitychange',()=>{
+    if(document.visibilityState==='visible')renderJamesPerspective();
+  });
+  document.getElementById('perspectiveRevisit')?.addEventListener('toggle',event=>{
+    if(event.currentTarget.open)renderJamesPerspective();
+  });
   intro();const SpeechRecognition =
   window.SpeechRecognition || window.webkitSpeechRecognition;
 

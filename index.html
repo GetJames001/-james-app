@@ -6,31 +6,33 @@
   <meta name="theme-color" content="#11100f">
   <title>James — Morning Briefing</title>
   <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="welcome.css">
 </head>
 
 <body>
 <script>
-  if (sessionStorage.getItem('jamesIntroDate') === new Date().toDateString()) {
-    document.documentElement.classList.add('james-session-active');
-  }
+  // Preference only: never put identity, credentials or conversation data here.
+  try {
+    document.documentElement.dataset.theme = localStorage.getItem('jamesTheme') === 'light' ? 'light' : 'dark';
+    if (sessionStorage.getItem('jamesIntroDate') === new Date().toDateString()) {
+      document.documentElement.classList.add('james-session-active');
+    }
+  } catch (_) { document.documentElement.dataset.theme = 'dark'; }
 </script>
 <section id="intro" class="intro" aria-label="James introduction">
-  <div class="intro-stage" aria-hidden="true">
-    <div class="orb big"><span>J</span></div>
-  </div>
-
   <div class="intro-copy">
     <small>JAMES</small>
     <h1 id="introGreeting">Good morning, Michael.</h1>
-    <p id="introSummary">I’ve prepared your briefing.</p>
-
-    <div id="routePrompt" class="route-prompt">
-      <div class="route-options">
-        <button data-start="Home">Home</button>
-        <button data-start="Office">Office</button>
-        <button data-start="Other">Other</button>
+    <figure id="perspectiveIntro" class="perspective-intro" aria-label="Today's Perspective">
+      <figcaption class="perspective-eyebrow">TODAY’S PERSPECTIVE</figcaption>
+      <blockquote id="perspectiveIntroText"></blockquote>
+      <div class="perspective-credit">
+        <span id="perspectiveIntroAuthor"></span>
+        <cite id="perspectiveIntroSource"></cite>
       </div>
-    </div>
+    </figure>
+
+
   </div>
 </section>
 
@@ -50,6 +52,7 @@
     </div>
 
     <div class="status-cluster">
+      <button id="jamesThemeToggle" class="james-theme-toggle" type="button" aria-label="Use light theme">Light</button>
       <button id="jamesOrb" class="orb mini persistent-orb" aria-label="Talk to James" title="Talk to James">
         <span>J</span>
         <i class="orb-status" aria-hidden="true"></i>
@@ -88,6 +91,16 @@
           <h3>Your Morning Briefing</h3>
         </div>
       </div>
+      <details id="perspectiveRevisit" class="perspective-revisit">
+        <summary>Today’s Perspective <span aria-hidden="true">↗</span></summary>
+        <div class="perspective-revisit-body">
+          <blockquote id="perspectiveBriefText"></blockquote>
+          <div class="perspective-credit">
+            <span id="perspectiveBriefAuthor"></span>
+            <cite id="perspectiveBriefSource"></cite>
+          </div>
+        </div>
+      </details>
 <div class="intel-strip">
   <div class="intel-card">
     <svg class="intel-icon" viewBox="0 0 24 24" aria-hidden="true">
@@ -491,6 +504,7 @@
 
 <script src="mail-refresh.js"></script>
 <script src="calendar-sync.js"></script>
+<script src="welcome.js"></script>
 <script src="app.js"></script>
 
 </body>

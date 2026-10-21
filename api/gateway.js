@@ -89,6 +89,8 @@ module.exports = async function handler(req, res) {
     route === "mail-refresh.js" ||
     route === "calendar-sync.js" ||
     route === "styles.css" ||
+    route === "welcome.css" ||
+    route === "welcome.js" ||
     route === "james-orb-v1.png" ||
     route.startsWith("assets/")
   ) {
