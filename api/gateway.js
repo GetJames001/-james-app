@@ -67,6 +67,15 @@ module.exports = async function handler(req, res) {
     if(req.method === "HEAD")return res.status(200).end();
     return res.status(200).send(fs.readFileSync(path.join(process.cwd(),"customer-demo.html"),"utf8"));
   }
+  // A branch-scoped preview cannot use the production-only James login.
+  // Redirect its landing page to fictional review, never affecting production.
+  if ((route === "" || route === "index.html" || route === "login" || route === "login.html") &&
+      process.env.VERCEL_ENV === "preview" &&
+      process.env.VERCEL_GIT_COMMIT_REF === "feature/customer-activity-overlay-prototype-20261020" &&
+      (req.method === "GET" || req.method === "HEAD")) {
+    res.setHeader("Location", "/customer-demo");
+    return res.status(302).end();
+  }
   if (route === "login" || route === "login.html") return loginPage(req, res);
   if (route === "" || route === "index.html") return app(req, res);
   if (route === "calendar-test.html" || route === "council-test.html") {
