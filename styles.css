@@ -711,3 +711,55 @@ button:disabled{opacity:.4;cursor:default}
 .calendar-event-details section ul{margin:8px 0;padding-left:22px}
 .calendar-event-details section li{margin:8px 0;overflow-wrap:anywhere}
 .calendar-event-details section a{color:#19558c;text-decoration:underline}
+
+
+/* Today's Perspective: quiet intro editorial card, plus one unobtrusive briefing link.
+   The card is decoration only; it never gates the existing intro/navigation. */
+.perspective-intro{
+  width:min(100%,540px);margin:17px auto 2px;padding:16px 23px 14px;
+  border:1px solid rgba(212,173,88,.43);border-radius:14px;
+  background:linear-gradient(115deg,rgba(12,24,40,.82),rgba(26,31,39,.64));
+  box-shadow:0 14px 38px rgba(0,0,0,.19);color:#f2e9d9;
+}
+.perspective-eyebrow{
+  font-size:.64rem;letter-spacing:.17em;font-weight:700;color:#d8b979;
+}
+.perspective-intro blockquote{
+  margin:10px 0 9px;font:italic clamp(1.03rem,2.3vw,1.28rem)/1.35 Georgia,serif;
+  color:#f4e9d4;overflow-wrap:anywhere;
+}
+.perspective-credit{
+  display:flex;flex-wrap:wrap;justify-content:center;gap:3px 10px;
+  font-size:.75rem;line-height:1.45;color:#d3b881;
+}
+.perspective-credit cite{font-style:normal;color:#c8ced5}
+.perspective-revisit{
+  margin:9px 0 15px;max-width:520px;
+}
+.perspective-revisit summary{
+  display:inline-flex;align-items:center;gap:8px;min-height:44px;padding:10px 13px;
+  border:1px solid rgba(198,161,91,.40);border-radius:11px;
+  background:#11283e;color:#f2e0b4;font-size:.79rem;letter-spacing:.025em;cursor:pointer;
+  list-style:none;
+}
+.perspective-revisit summary::-webkit-details-marker{display:none}
+.perspective-revisit summary span{color:#d4b875}
+.perspective-revisit-body{
+  margin-top:8px;padding:17px 20px;border:1px solid rgba(198,161,91,.35);
+  border-radius:13px;background:linear-gradient(115deg,#162e46,#10243b);
+}
+.perspective-revisit-body blockquote{
+  margin:0 0 10px;font:italic 1.2rem/1.4 Georgia,serif;color:#f2e4c8;
+}
+.perspective-revisit-body .perspective-credit{justify-content:flex-start}
+.perspective-revisit summary:focus-visible{outline:3px solid #e8d49c;outline-offset:3px}
+@media(max-width:650px){
+  .perspective-intro{margin:13px auto 0;padding:12px 15px}
+  .perspective-intro blockquote{font-size:1.03rem;margin:7px 0}
+  .perspective-credit{font-size:.70rem}
+}
+@media(max-height:680px){
+  #intro{overflow-y:auto;align-items:start}
+  #intro .intro-stage{top:12px;transform:translateX(-50%) scale(.68);transform-origin:top center}
+  #intro .intro-copy{position:relative;bottom:auto;margin:250px auto 18px;left:auto;right:auto}
+}
