@@ -1429,3 +1429,98 @@ function openAttentionSavedView(){
  if(!attentionScreen)attentionScreen=createAttentionScreen(container,{read:attentionReader.read});
  void attentionScreen.refresh();
 }
+
+
+/* Customer Activity: synthetic, in-tab prototype. No network, real customer data or writes. */
+function initCustomerActivityDemo() {
+  const openButton=document.querySelector('#customerActivityOpen');
+  const overlay=document.querySelector('#customerActivityOverlay');
+  if(!openButton||!overlay)return;
+  const closeButton=document.querySelector('#customerActivityClose');
+  const doneButton=document.querySelector('#customerDemoDone');
+  const list=document.querySelector('#customerDemoList');
+  const outcome=document.querySelector('#customerDemoOutcome');
+  const next=document.querySelector('#customerDemoNext');
+  const status=document.querySelector('#customerDraftStatus');
+  const fictional=[
+    {id:'fiction-1',name:'Fictional Northside Cabinetry',contact:'Sample: Alex Reed',phone:'Demo contact — no telephone',address:'Sample location · Not geocoded',last:'No visit recorded',visited:false,history:'No verified activity. Suggested stop only.'},
+    {id:'fiction-2',name:'Fictional Desert Office Center',contact:'Sample: Jordan Chen',phone:'Demo contact — no telephone',address:'Sample location · Not geocoded',last:'Illustrative previous visit',visited:true,history:'Illustrative history: Met the property team. No live record exists.'},
+    {id:'fiction-3',name:'Fictional Eastside Medical Offices',contact:'Sample: Taylor Brooks',phone:'Demo contact — no telephone',address:'Sample location · Not geocoded',last:'No visit recorded',visited:false,history:'No verified activity. Suggested stop only.'},
+    {id:'fiction-4',name:'Fictional Commerce Warehouse',contact:'Sample: Casey Morgan',phone:'Demo contact — no telephone',address:'Sample location · Not geocoded',last:'Illustrative previous call',visited:false,history:'Illustrative history: Initial phone call. No visit recorded.'},
+    {id:'fiction-5',name:'Fictional West Valley Facility',contact:'Sample: Robin Ellis',phone:'Demo contact — no telephone',address:'Sample location · Not geocoded',last:'No visit recorded',visited:false,history:'No verified activity. Suggested stop only.'}
+  ];
+  const drafts=new Map();
+  let selected=fictional[0].id,returnFocus=null;
+  function remember() {
+    drafts.set(selected,{outcome:outcome.value,next:next.value});
+    status.textContent='Unsaved demo notes are retained until this browser tab is closed. No external changes.';
+  }
+  function choose(id){
+    if(!fictional.some(item=>item.id===id))return;
+    if(selected)remember();
+    selected=id;
+    const item=fictional.find(value=>value.id===id);
+    list.querySelectorAll('button[data-fictional-customer]').forEach(button=>{
+      const active=button.dataset.fictionalCustomer===id;
+      button.setAttribute('aria-pressed',String(active));
+      button.classList.toggle('selected',active);
+    });
+    document.querySelector('#customerDemoName').textContent=item.name;
+    document.querySelector('#customerDemoVisited').textContent=item.visited?'Previously visited':'Not yet visited';
+    document.querySelector('#customerDemoContact').textContent=item.contact;
+    document.querySelector('#customerDemoLast').textContent=item.last;
+    document.querySelector('#customerDemoPhone').textContent=item.phone;
+    document.querySelector('#customerDemoAddress').textContent=item.address;
+    document.querySelector('#customerDemoHistory').textContent=item.history;
+    outcome.value=drafts.get(id)?.outcome||'';
+    next.value=drafts.get(id)?.next||'';
+    status.textContent='Demo-only draft. No real records, Tasks, Calendar events or Odoo updates.';
+  }
+  function renderList(){
+    const fragment=document.createDocumentFragment();
+    fictional.forEach((item,index)=>{
+      const button=document.createElement('button');
+      button.type='button';button.dataset.fictionalCustomer=item.id;
+      const number=document.createElement('span');number.className='customer-demo-order';number.textContent=String(index+1);
+      const text=document.createElement('span');text.className='customer-demo-text';
+      const title=document.createElement('strong');title.textContent=item.name;
+      const sub=document.createElement('small');sub.textContent=item.visited?'Previously visited · Suggested again':'Not yet visited · Suggested stop';
+      text.append(title,sub);button.append(number,text);
+      button.addEventListener('click',()=>choose(item.id));
+      fragment.append(button);
+    });
+    list.replaceChildren(fragment);
+    choose(selected);
+  }
+  function open(){
+    if(!overlay.hidden)return;
+    returnFocus=document.activeElement;
+    overlay.hidden=false;
+    renderList();
+    closeButton.focus();
+  }
+  function close(){
+    if(overlay.hidden)return;
+    remember();overlay.hidden=true;
+    if(returnFocus?.isConnected) returnFocus.focus();
+    returnFocus=null;
+  }
+  openButton.addEventListener('click',open);
+  closeButton.addEventListener('click',close);
+  doneButton.addEventListener('click',close);
+  outcome.addEventListener('input',remember);
+  next.addEventListener('input',remember);
+  document.querySelector('#customerDemoKeepDraft').addEventListener('click',()=>{
+    remember();status.textContent='Demo draft retained in this tab only. Not saved to James, Tasks or Odoo.';
+  });
+  overlay.addEventListener('keydown',event=>{
+    if(event.key==='Escape'){event.preventDefault();close();return;}
+    if(event.key!=='Tab')return;
+    const focusable=[...overlay.querySelectorAll('button:not(:disabled),input:not(:disabled),textarea:not(:disabled)')].filter(el=>el.getClientRects().length);
+    if(!focusable.length)return;
+    const first=focusable[0],last=focusable[focusable.length-1];
+    if(event.shiftKey&&document.activeElement===first){event.preventDefault();last.focus();}
+    else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first.focus();}
+  });
+}
+document.addEventListener('DOMContentLoaded',initCustomerActivityDemo,{once:true});
