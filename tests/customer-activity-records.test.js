@@ -64,3 +64,24 @@ test('no network, OAuth, mail, Odoo, Calendar or Task writes are imported',()=>{
  const source=fs.readFileSync(path.join(__dirname,'../lib/customer-activity/records.cjs'),'utf8');
  assert.doesNotMatch(source,/\bfetch\s*\(|\/api\/|process\.env|\/microsoft\/|\/google\/|\/tasks|odoo/i);
 });
+
+test('multiple contacts are bounded and activity contact identity is validated by the server',()=>{
+ const company={...sam,contacts:[{id:'contact-a',name:'Alex Example'},{id:'contact-b',name:'Jordan Example'}]};
+ assert.throws(()=>customer({...company,contacts:[company.contacts[0],company.contacts[0]]}),/DUPLICATE_CONTACT/);
+ assert.throws(()=>customer({...company,contacts:Array(51).fill(company.contacts[0])}),/INVALID_CONTACTS/);
+ let doc=evolve(empty(),{type:'upsert_customer',expectedRevision:0,customer:company}).document;
+ assert.throws(()=>evolve(doc,{type:'record_activity',expectedRevision:1,activity:{...visit,contactId:'unknown',contactName:'Unknown'}}),/CONTACT_NOT_FOUND/);
+ const result=evolve(doc,{type:'record_activity',expectedRevision:1,activity:{...visit,contactId:'contact-b',contactName:'Incorrect client name'}});
+ assert.equal(result.document.activities[0].contactName,'Jordan Example');
+ assert.equal(validateSnapshot(result.document).customers[0].contacts.length,2);
+});
+
+test('first new write upgrades the snapshot so older writers fail closed',()=>{
+ const old={schemaVersion:1,revision:1,customers:[sam],activities:[]};
+ const upgraded=evolve(old,{type:'record_activity',expectedRevision:1,activity:visit}).document;
+ assert.equal(old.schemaVersion,1);
+ assert.equal(upgraded.schemaVersion,2);
+ assert.equal(validateSnapshot(upgraded).activities.length,1);
+ assert.throws(()=>validateSnapshot({...upgraded,schemaVersion:3}),/INVALID_SNAPSHOT/);
+
+});

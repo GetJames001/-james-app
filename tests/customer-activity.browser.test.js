@@ -67,6 +67,10 @@ test('Customer Activity saves and reopens actual reports; retains drafts after f
   assert.match(await page.locator('#customerDemoHistory').textContent(),/Attempted visit/);
   assert.match(await page.locator('#customerDemoHistory').textContent(),/Call Thursday/);
   assert.equal(await page.locator('#customerDemoVisited').textContent(),'No meeting recorded');
+  assert.match(await page.locator('#customerLastSummary').textContent(),/Left a card/);
+  assert.match(await page.locator('#customerLastSummary').textContent(),/Call Thursday/);
+  await page.locator('#customerViewHistory').click();
+  assert.equal(await page.locator('#customerDemoHistory').evaluate(el=>document.activeElement===el),true);
   assert.equal(await page.locator('#customerDemoOutcome').inputValue(),'');
   await page.locator('#customerOutcomeKind').selectOption('met');await page.locator('#customerOccurredAt').fill('2026-10-20T11:00');
   await page.locator('#customerDemoOutcome').fill('Met the manager');h.loseReply();await page.locator('#customerDemoKeepDraft').click();
@@ -108,4 +112,29 @@ test('Customer Activity is usable at phone and tablet widths with no horizontal 
     }
     assert.deepEqual(h.counts(),{mutations:0,externalCalls:0});
   }finally{await browser?.close();h.server.closeAllConnections();await new Promise(resolve=>h.server.close(resolve));}
+});
+
+test('Company contacts persist, activity keeps contact identity, and uncertain edits reconcile',async()=>{
+ const h=createFixtureServer();await new Promise(r=>h.server.listen(0,'127.0.0.1',r));let browser;
+ try{
+  browser=await chromium.launch({headless:true});const page=await browser.newPage();
+  await page.route('https://**',r=>r.abort());await page.addInitScript(()=>sessionStorage.setItem('jamesIntroDate',new Date().toDateString()));
+  await page.goto('http://127.0.0.1:'+h.server.address().port);await page.locator('#customerActivityOpen').click();await page.waitForFunction(()=>!document.getElementById('customerAdd').disabled);
+  await page.locator('#customerNewName').fill('Fictional Beacon');await page.locator('#customerAdd').click();await page.waitForFunction(()=>document.getElementById('customerDemoName').textContent==='Fictional Beacon');
+  await page.locator('#companyAddress').fill('Fictional test location');
+  for(const name of ['Alex Example','Jordan Example']){await page.locator('#companyAddContact').click();await page.locator('#companyContacts fieldset').last().getByLabel('Name',{exact:true}).fill(name);}
+  h.loseReply();await page.locator('#companySave').click();await page.waitForFunction(()=>document.getElementById('customerDraftStatus').textContent.includes('Save not confirmed'));
+  await page.locator('#customerReload').click();await page.waitForFunction(()=>document.getElementById('customerDraftStatus').textContent.includes('Previous save confirmed'));
+  assert.equal(await page.locator('#companyContacts fieldset').count(),2);
+  await page.locator('#activityContact').selectOption({label:'Jordan Example'});
+  await page.locator('#customerOutcomeKind').selectOption('attempted');await page.locator('#customerOccurredAt').fill('2026-10-20T10:00');await page.locator('#customerDemoOutcome').fill('Fictional attempt only');await page.locator('#customerNextKind').selectOption('Call');await page.locator('#customerDemoNext').fill('Tuesday');
+  await page.locator('#customerDemoKeepDraft').click();await page.locator('#customerActivityOverlay').waitFor({state:'hidden'});
+  await page.reload();await page.locator('#customerActivityOpen').click();await page.waitForFunction(()=>document.getElementById('customerDemoHistory').textContent.includes('Jordan Example'));
+  assert.match(await page.locator('#customerLastSummary').textContent(),/Call: Tuesday/);assert.equal(await page.locator('#customerDemoVisited').textContent(),'No meeting recorded');
+  await page.locator('#companyEditor summary').click();assert.equal(await page.locator('#companyAddress').inputValue(),'Fictional test location');
+  await page.locator('#companyName').fill('Fictional renamed company');h.fail(true);await page.locator('#companySave').click();await page.waitForFunction(()=>document.getElementById('customerDraftStatus').textContent.includes('Save not confirmed'));
+  h.fail(false);await page.locator('#customerReload').click();await page.waitForFunction(()=>!document.getElementById('companySave').disabled);
+  assert.doesNotMatch(await page.locator('#customerDraftStatus').textContent(),/Previous save confirmed/);assert.equal(await page.locator('#companyName').inputValue(),'Fictional renamed company');
+  await page.locator('#companySave').click();await page.waitForFunction(()=>document.getElementById('customerDemoName').textContent==='Fictional renamed company');assert.match(await page.locator('#customerDemoHistory').textContent(),/Jordan Example/);
+ }finally{await browser?.close();h.server.closeAllConnections();await new Promise(r=>h.server.close(r));}
 });

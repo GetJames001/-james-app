@@ -1443,15 +1443,44 @@ function initCustomerActivity() {
  const $=id=>document.getElementById(id),overlay=$('customerActivityOverlay');
  if(!overlay)return;
  const openButton=$('customerActivityOpen'),closeButton=$('customerActivityClose'),save=$('customerDemoKeepDraft'),reload=$('customerReload'),add=$('customerAdd'),status=$('customerDraftStatus');
- const fields={notes:$('customerDemoOutcome'),nextAction:$('customerDemoNext'),outcome:$('customerOutcomeKind'),when:$('customerOccurredAt')};
+ const fields={contactId:$('activityContact'),nextKind:$('customerNextKind'),notes:$('customerDemoOutcome'),nextAction:$('customerDemoNext'),outcome:$('customerOutcomeKind'),when:$('customerOccurredAt')};
  const labels={met:'Met in person',attempted:'Attempted visit',not_available:'Contact unavailable',phone:'Phone contact',email:'Email contact',other:'Other'};
  let doc=null,selected=null,busy=false,uncertain=false,returnFocus=null,epoch=0;
- const drafts=new Map();
+ const drafts=new Map(),companyDrafts=new Map(),companyDirty=new Set();
  let pending=null;
  const uuid=()=>crypto.randomUUID();
  const announce=text=>{status.textContent=text;};
  function remember(){if(selected)drafts.set(selected,Object.fromEntries(Object.entries(fields).map(([k,el])=>[k,el.value])));}
- function controls(){save.disabled=busy||uncertain||!doc||!selected;add.disabled=busy||uncertain||!doc;reload.disabled=busy;for(const b of $('customerDemoList').querySelectorAll('button'))b.disabled=busy;for(const el of Object.values(fields))el.disabled=busy||!selected;}
+ function controls(){for(const el of $('companyEditor').querySelectorAll('input,button'))el.disabled=busy||uncertain||!selected;save.disabled=busy||uncertain||!doc||!selected;add.disabled=busy||uncertain||!doc;reload.disabled=busy;for(const b of $('customerDemoList').querySelectorAll('button'))b.disabled=busy;for(const el of Object.values(fields))el.disabled=busy||!selected;}
+ function companyDraft(c){
+  if(!c)return null;
+  if(!companyDrafts.has(c.id)||!companyDirty.has(c.id))companyDrafts.set(c.id,{...c,contacts:(c.contacts|| (c.contact?[{id:uuid(),name:c.contact,phone:c.phone||'',email:''}]:[])).map(person=>({...person}))});
+  return companyDrafts.get(c.id);
+ }
+ function renderCompany(c){
+  const draft=companyDraft(c);
+  $('companyEditStatus').textContent=companyDirty.has(c?.id)?'Unsaved company details.':'Company changes need to be saved separately from activity.';
+  for(const [id,key] of [['companyName','name'],['companyPhone','phone'],['companyAddress','address']]){
+   $(id).value=draft?.[key]||'';
+   $(id).oninput=()=>{draft[key]=$(id).value;companyDirty.add(c.id);$('companyEditStatus').textContent='Unsaved company details.';};
+  }
+  $('companyContacts').replaceChildren();
+  for(const person of draft?.contacts||[]){
+   const row=document.createElement('fieldset'),legend=document.createElement('legend');legend.textContent='Contact';row.append(legend);
+   for(const [key,title,max] of [['name','Name',150],['phone','Phone',80],['email','Email',254]]){
+    const label=document.createElement('label'),input=document.createElement('input');label.textContent=title;input.value=person[key]||'';input.maxLength=max;input.type=key==='phone'?'tel':key==='email'?'email':'text';
+    input.oninput=()=>{person[key]=input.value;companyDirty.add(c.id);$('companyEditStatus').textContent='Unsaved company details.';};label.append(input);row.append(label);
+   }
+   $('companyContacts').append(row);
+  }
+ }
+ $('companyAddContact').onclick=()=>{const c=doc?.customers.find(c=>c.id===selected);if(!c)return;const draft=companyDraft(c);if(draft.contacts.length>=50){announce('This company already has 50 contacts.');return;}companyDirty.add(c.id);draft.contacts.push({id:uuid(),name:'',phone:'',email:''});renderCompany(c);controls();$('companyContacts').lastElementChild?.querySelector('input')?.focus();};
+ $('companySave').onclick=()=>{
+  const draft=companyDrafts.get(selected);if(!draft)return;
+  if(!draft.name.trim()||draft.contacts.some(c=>!c.name.trim())){announce('Enter a company name and a name for each contact before saving.');return;}
+  const customer={...draft,name:draft.name.trim(),phone:draft.phone.trim(),address:draft.address.trim(),contacts:draft.contacts.map(c=>({...c,name:c.name.trim(),phone:c.phone.trim(),email:c.email.trim()}))};
+  commit({type:'upsert_customer',customer});
+ };
  function render(){
   const list=$('customerDemoList');list.replaceChildren();
   for(const c of doc?.customers||[]){const b=document.createElement('button');b.type='button';b.textContent=c.name;b.setAttribute('aria-pressed',String(c.id===selected));b.disabled=busy;b.onclick=()=>{remember();selected=c.id;render();};list.append(b);}
@@ -1459,9 +1488,14 @@ function initCustomerActivity() {
   $('customerDemoName').textContent=c?.name||'Add or select a customer';
   const history=(doc?.activities||[]).filter(a=>a.customerId===selected).sort((a,b)=>b.occurredAt.localeCompare(a.occurredAt));
   $('customerDemoVisited').textContent=history.some(a=>a.outcome==='met')?'Meeting recorded':'No meeting recorded';
-  $('customerDemoContact').textContent=c?.contact||'—';$('customerDemoPhone').textContent=c?.phone||'—';$('customerDemoAddress').textContent=c?.address||'—';
+  renderCompany(c);
+  fields.contactId.replaceChildren(new Option('No specific contact',''));
+  for(const person of c?.contacts||[])fields.contactId.add(new Option(person.name,person.id));
   $('customerDemoLast').textContent=history.length?new Date(history[0].occurredAt).toLocaleString():'No recorded contact';
-  $('customerDemoHistory').textContent=history.map(a=>`${new Date(a.occurredAt).toLocaleString()} · ${labels[a.outcome]}: ${a.notes}${a.nextAction?' · Proposed next step: '+a.nextAction:''}`).join('\n')||'No recorded contact.';
+  $('customerDemoHistory').textContent=history.map(a=>`${new Date(a.occurredAt).toLocaleString()} · ${labels[a.outcome]}${a.contactName?' · '+a.contactName:''}: ${a.notes}${a.nextAction?' · Proposed next step: '+a.nextAction:''}`).join('\n')||'No recorded contact.';
+  const last=history[0];
+  $('customerLastTitle').textContent=c?'Last saved contact — '+c.name:'Last saved contact';
+  $('customerLastSummary').textContent=last?`${new Date(last.occurredAt).toLocaleString()} · ${labels[last.outcome]}${last.contactName?' · '+last.contactName:''}\n${last.notes||'No notes recorded.'}${last.nextAction?'\nProposed next action: '+last.nextAction:''}`:'No saved contact notes for this customer.';
   for(const [k,el] of Object.entries(fields))el.value=drafts.get(selected)?.[k]||'';
   controls();
  }
@@ -1475,12 +1509,12 @@ function initCustomerActivity() {
    return data.document;
   }finally{clearTimeout(timer);}
  }
- function clearPrivate(){doc=null;selected=null;pending=null;drafts.clear();$('customerNewName').value='';for(const el of Object.values(fields))el.value='';render();}
+ function clearPrivate(){doc=null;selected=null;pending=null;drafts.clear();companyDrafts.clear();companyDirty.clear();$('customerNewName').value='';for(const el of Object.values(fields))el.value='';render();}
  async function load(){
   remember();const ticket=++epoch;busy=true;controls();announce('Loading saved records…');
   try{const fresh=await request('GET');if(ticket!==epoch)return;doc=fresh;
-   const confirmed=pending&&(pending.type==='record_activity'?doc.activities.some(a=>a.id===pending.activity.id):doc.customers.some(c=>c.id===pending.customer.id));
-   if(confirmed){if(pending.type==='record_activity')drafts.delete(pending.activity.customerId);else $('customerNewName').value='';pending=null;}
+   const confirmed=pending&&(pending.type==='record_activity'?doc.activities.some(a=>a.id===pending.activity.id):doc.customers.some(c=>c.id===pending.customer.id&&Object.entries(pending.customer).every(([key,value])=>JSON.stringify(c[key])===JSON.stringify(value))));
+   if(confirmed){if(pending.type==='record_activity')drafts.delete(pending.activity.customerId);else{companyDrafts.delete(pending.customer.id);companyDirty.delete(pending.customer.id);$('customerNewName').value='';}pending=null;}
    // If no matching ID is present, allow an explicit retry using this fresh revision.
    uncertain=false;selected=doc.customers.some(c=>c.id===selected)?selected:doc.customers[0]?.id||null;
    announce(confirmed?'Previous save confirmed.':'Saved records loaded. Unsaved notes are retained in this page.');
@@ -1493,24 +1527,25 @@ function initCustomerActivity() {
   pending=command;
   try{doc=await request('POST',{...command,expectedRevision:doc.revision});
    if(command.type==='record_activity'){drafts.delete(command.activity.customerId);for(const el of Object.values(fields))el.value='';}
-   else{selected=command.customer.id;$('customerNewName').value='';}
+   else{selected=command.customer.id;companyDrafts.delete(selected);companyDirty.delete(selected);$('customerNewName').value='';$('companyEditor').open=true;}
    pending=null;announce('Saved.');
    if(command.type==='record_activity')close(false);
   }catch(error){uncertain=true;
    if(error.message==='SESSION'){clearPrivate();announce('Session expired. Sign in again.');}
-   else announce(error.message==='CONFLICT'?'Another update arrived. Your notes are retained. Reload saved records, review, then save again.':'Save not confirmed. Your notes are retained. Reload to check before retrying.');
+   else announce(error.message==='CONFLICT'?'Another update arrived. Your notes are retained. Refresh saved history, review, then save again.':'Save not confirmed. Your notes are retained. Reload to check before retrying.');
   }finally{busy=false;render();}
  }
  function close(retain=true){if(retain)remember();overlay.hidden=true;if(returnFocus?.isConnected)returnFocus.focus();}
  openButton.onclick=()=>{returnFocus=document.activeElement;overlay.hidden=false;closeButton.focus();if(!busy)load();};
+ $('customerViewHistory').onclick=()=>{$('customerDemoHistory').setAttribute('tabindex','-1');$('customerDemoHistory').focus();};
  closeButton.onclick=()=>close();$('customerDemoDone').onclick=()=>close();reload.onclick=load;
  for(const el of Object.values(fields))el.addEventListener('input',()=>{remember();announce('Unsaved activity. Confirm the outcome and time before saving.');});
- add.onclick=()=>{const name=$('customerNewName').value.trim();if(!name){announce('Enter a customer name.');return;}const customer=pending?.type==='upsert_customer'&&pending.customer.name===name?pending.customer:{id:uuid(),name,source:'manual'};commit({type:'upsert_customer',customer});};
+ add.onclick=()=>{const name=$('customerNewName').value.trim();if(!name){announce('Enter a company name.');return;}const customer=pending?.type==='upsert_customer'&&pending.customer.name===name?pending.customer:{id:uuid(),name,source:'manual'};commit({type:'upsert_customer',customer});};
  save.onclick=()=>{
-  if(!selected||!fields.outcome.value||!fields.when.value){announce('Choose what happened and when. A suggested stop does not mean a visit occurred.');return;}
+  if(!selected||!fields.outcome.value||!fields.when.value){announce('Choose what happened and when before saving. Your draft has not been saved.');(!fields.outcome.value?fields.outcome:fields.when).focus();return;}
   const date=new Date(fields.when.value);if(!Number.isFinite(+date)||+date>Date.now()){announce('Enter a valid time that is not in the future.');return;}
   if(fields.outcome.value==='other'&&!fields.notes.value.trim()){announce('Explain what happened in the notes.');return;}
-  commit({type:'record_activity',activity:{id:pending?.type==='record_activity'&&pending.activity.customerId===selected?pending.activity.id:uuid(),customerId:selected,occurredAt:date.toISOString(),outcome:fields.outcome.value,notes:fields.notes.value,nextAction:fields.nextAction.value,initiatedBy:'typed'}});
+  commit({type:'record_activity',activity:{id:pending?.type==='record_activity'&&pending.activity.customerId===selected?pending.activity.id:uuid(),customerId:selected,...(fields.contactId.value?{contactId:fields.contactId.value,contactName:doc.customers.find(c=>c.id===selected)?.contacts?.find(c=>c.id===fields.contactId.value)?.name}:{}),occurredAt:date.toISOString(),outcome:fields.outcome.value,notes:fields.notes.value,nextAction:[fields.nextKind.value,fields.nextAction.value].filter(Boolean).join(': '),initiatedBy:'typed'}});
  };
  overlay.addEventListener('keydown',event=>{
   if(event.key==='Escape'){event.preventDefault();close();return;}

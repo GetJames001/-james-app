@@ -430,30 +430,38 @@
       <p class="customer-demo-note" role="status">Record what happened and keep the next step with the customer. Suggested stops are not completed visits.</p>
       <div class="customer-workspace-grid">
         <section class="customer-workspace-list" aria-label="Customer records">
-          <div class="customer-section-head"><h3>Customers</h3><small>Daily suggestions will use verified schedule and location context.</small></div>
-          <div id="customerDemoList"></div><label for="customerNewName">New customer name</label><input id="customerNewName" maxlength="180"><button id="customerAdd" type="button">Add customer</button>
+          <div class="customer-section-head"><h3>Companies</h3><small>Daily suggestions will use verified schedule and location context.</small></div>
+          <div id="customerDemoList"></div><label for="customerNewName">New company name</label><input id="customerNewName" maxlength="180"><button id="customerAdd" type="button">Add company</button>
+        <aside class="customer-last-card" aria-labelledby="customerLastTitle"><h3 id="customerLastTitle">Last saved contact</h3><p id="customerLastSummary">Select a customer to see the last saved contact.</p><button id="customerViewHistory" type="button">View all contact history</button></aside>
         </section>
         <section class="customer-workspace-detail" aria-label="Customer details">
           <div class="customer-section-head"><h3 id="customerDemoName">Select a customer</h3><span id="customerDemoVisited" class="customer-visit-pill"></span></div>
+          <details id="companyEditor"><summary>Company and contact details</summary>
+            <label for="companyName">Company name</label><input id="companyName" maxlength="180">
+            <label for="companyPhone">Company phone</label><input id="companyPhone" type="tel" maxlength="80">
+            <label for="companyAddress">Location / address</label><input id="companyAddress" maxlength="400">
+            <h4>Contacts</h4><div id="companyContacts"></div>
+            <button id="companyAddContact" type="button">Add another contact</button>
+            <button id="companySave" type="button">Save company details</button>
+            <p id="companyEditStatus">Company changes need to be saved separately from activity.</p>
+          </details>
           <dl class="customer-detail-grid">
-            <div><dt>Contact</dt><dd id="customerDemoContact">—</dd></div>
-            <div><dt>Last contact</dt><dd id="customerDemoLast">—</dd></div>
-            <div><dt>Phone</dt><dd id="customerDemoPhone">—</dd></div>
-            <div><dt>Location</dt><dd id="customerDemoAddress">—</dd></div>
+            <div><dt>Last recorded activity</dt><dd id="customerDemoLast">No recorded contact</dd></div>
           </dl>
-          <div class="customer-section-head"><h3>Activity history</h3></div>
+          <div class="customer-section-head"><h3>Prior contact notes · Saved history</h3></div>
           <p id="customerDemoHistory" class="customer-demo-history">No recorded contact.</p>
-          <label for="customerOutcomeKind">What happened?</label>
+          <h3>New activity · Unsaved until you save</h3><label for="activityContact">Contact for this activity</label><select id="activityContact"><option value="">No specific contact</option></select><label for="customerOutcomeKind">What happened?</label>
           <select id="customerOutcomeKind"><option value="">Choose an outcome</option><option value="attempted">Attempted visit</option><option value="not_available">Contact unavailable</option><option value="met">Met in person</option><option value="phone">Phone contact</option><option value="email">Email contact</option><option value="other">Other — explain in notes</option></select>
           <label for="customerOccurredAt">When did it happen?</label><input id="customerOccurredAt" type="datetime-local">
           <label for="customerDemoOutcome">Activity notes</label>
           <textarea id="customerDemoOutcome" rows="4" maxlength="2000" placeholder="Example: Left a card and asked for the facilities manager."></textarea>
-          <label for="customerDemoNext">Proposed next action</label>
+          <label for="customerNextKind">Next action</label><select id="customerNextKind"><option value="">Choose an action (optional)</option><option>Call</option><option>Email</option><option>Text</option><option>Drop by</option><option>Other</option></select>
+          <label for="customerDemoNext">Next-action details</label>
           <input id="customerDemoNext" maxlength="180" placeholder="Example: Call next Thursday">
           <p id="customerDraftStatus" class="customer-draft-status" aria-live="polite">Open to load saved customer records.</p>
           <div class="customer-actions">
-            <button id="customerDemoKeepDraft" type="button">Save and return to briefing</button><button id="customerReload" type="button">Reload saved records</button>
-            <button id="customerDemoDone" type="button">Close workspace</button>
+            <button id="customerDemoKeepDraft" type="button">Save and return to briefing</button><button id="customerReload" type="button">Refresh saved history</button>
+            <button id="customerDemoDone" type="button">Back to briefing — keep draft</button>
           </div>
         </section>
       </div>
