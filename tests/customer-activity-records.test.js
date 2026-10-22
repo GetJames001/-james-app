@@ -95,3 +95,18 @@ test('timed follow-up survives snapshot normalization and rejects malformed comm
  assert.throws(()=>activity({...planned,nextActionDetails:''}),/INVALID_NEXT_DETAILS/);
  assert.equal(activity(visit).nextAction,visit.nextAction,'legacy notes remain readable');
 });
+
+test('follow-ups remain open after time passes; only explicit completion resolves one, with isolated rescheduling',()=>{
+ let doc=evolve(empty(),{type:'upsert_customer',expectedRevision:0,customer:sam}).document;
+ const planned={...visit,nextAction:'Call',nextActionAt:'2026-10-22T01:00:00.000Z',nextActionDetails:'Ask about proposal'};
+ doc=evolve(doc,{type:'record_activity',expectedRevision:1,activity:planned}).document;
+ assert.equal(doc.activities[0].followUpCompletedAt,undefined);
+ const move={type:'update_followup',expectedRevision:2,followUp:{id:visit.id,operation:'reschedule',at:'2099-10-23T17:00:00.000Z'}};
+ doc=evolve(doc,move).document;assert.equal(doc.activities[0].nextActionAt,planned.nextActionAt);assert.equal(doc.activities[0].remindAt,move.followUp.at);assert.equal(doc.activities[0].outcome,'attempted');
+ assert.throws(()=>evolve(doc,{...move,expectedRevision:3,followUp:{...move.followUp,id:'missing'}}),/FOLLOWUP_NOT_FOUND/);
+ doc=evolve(doc,{type:'update_followup',expectedRevision:3,followUp:{id:visit.id,operation:'complete',at:'2026-10-22T18:00:00.000Z'}}).document;
+ assert.equal(doc.activities[0].followUpCompletedAt,'2026-10-22T18:00:00.000Z');assert.equal(doc.activities[0].outcome,'attempted');
+ assert.throws(()=>evolve(doc,{...move,expectedRevision:4}),/FOLLOWUP_ALREADY_COMPLETED/);
+ assert.deepEqual(evolve(doc,{type:'update_followup',expectedRevision:4,followUp:{id:visit.id,operation:'complete',at:'2026-10-22T18:01:00.000Z'}}).document,doc);
+ assert.equal(evolve(doc,{...move,expectedRevision:3}).conflict,true);
+});

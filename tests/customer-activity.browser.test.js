@@ -254,3 +254,43 @@ test('Follow-up requires a commitment, preserves date/time, and exposes explicit
   assert.match(await page.locator('#customerLastSummary').textContent(),/2099/);assert.match(await page.locator('#customerLastSummary').textContent(),/Send the requested proposal/);assert.equal(h.counts().mutations,0);
  }finally{await browser?.close();h.server.closeAllConnections();await new Promise(r=>h.server.close(r));}
 });
+
+test('saved reminders become due automatically, survive refresh failure, reschedule, and reconcile completion without repeat writes',async()=>{
+ const h=createFixtureServer();await new Promise(r=>h.server.listen(0,'127.0.0.1',r));let browser;
+ try{
+  const base='http://127.0.0.1:'+h.server.address().port;
+  const post=body=>fetch(base+'/api/customer-activity',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)}).then(r=>r.json());
+  await post({type:'upsert_customer',expectedRevision:0,customer:{id:'reminder-c',name:'Fictional Reminder Company',contacts:[{id:'reminder-person',name:'Alex Example',email:'alex@example.com',phone:'702-555-0199'}]}});
+  const past=new Date(Date.now()-60000).toISOString(),future=new Date(Date.now()+60000).toISOString();
+  await post({type:'record_activity',expectedRevision:1,activity:{id:'reminder-past',customerId:'reminder-c',contactId:'reminder-person',contactName:'Alex Example',occurredAt:'2026-10-20T10:00:00.000Z',outcome:'attempted',nextAction:'Email',nextActionDetails:'Send requested material',nextActionAt:past}});
+  await post({type:'record_activity',expectedRevision:2,activity:{id:'reminder-future',customerId:'reminder-c',occurredAt:'2026-10-20T10:00:00.000Z',outcome:'attempted',nextAction:'Other',nextActionDetails:'Prepare flowers',nextActionAt:future}});
+  browser=await chromium.launch({headless:true});const page=await browser.newPage();await page.route('https://**',r=>r.abort());await page.addInitScript(()=>{sessionStorage.setItem('jamesIntroDate',new Date().toDateString());sessionStorage.setItem('jamesCustomerMode','saved');});
+  await page.goto(base);await page.waitForFunction(()=>document.getElementById('customerReminderSummary').textContent.includes('1 due'));
+  await page.locator('#customerReminderSummary').click();assert.equal(await page.locator('.customer-reminder-item').count(),2);
+  const row=page.locator('[data-follow-up-id="reminder-past"]');assert.match(await row.getByRole('link',{name:'Open email draft'}).getAttribute('href'),/^mailto:alex%40example.com\?subject=/);
+  const futureRow=page.locator('[data-follow-up-id="reminder-future"]');await futureRow.getByText('Complete or reschedule',{exact:true}).click();await futureRow.getByLabel('New reminder date and time').fill('2099-11-01T11:15');
+  await page.evaluate(()=>{window.actualReminderNow=Date.now;Date.now=()=>window.actualReminderNow()+120000;});
+  await page.waitForFunction(()=>document.getElementById('customerReminderSummary').textContent.includes('2 due'),{timeout:15000});
+  assert.equal(await futureRow.getByLabel('New reminder date and time').inputValue(),'2099-11-01T11:15');assert.equal(await futureRow.locator('details').evaluate(el=>el.open),true);assert.match(await page.locator('#customerReminderAlert').textContent(),/2 customer follow-ups are due/);
+  await page.evaluate(()=>{Date.now=window.actualReminderNow;});
+  h.fail(true);await page.locator('#customerActivityOpen').click();await page.waitForFunction(()=>document.getElementById('customerReminderStatus').textContent.includes('Could not refresh'));assert.equal(await page.locator('.customer-reminder-item').count(),2);
+  h.fail(false);await page.locator('#customerReload').click();await page.waitForFunction(()=>!document.getElementById('customerDemoKeepDraft').disabled);await page.locator('#customerActivityClose').click();
+  await row.getByText('Complete or reschedule',{exact:true}).click();await row.getByLabel('New reminder date and time').fill('2099-10-24T10:00');await row.getByRole('button',{name:'Save reminder time'}).click();await page.waitForFunction(()=>document.querySelector('[data-follow-up-id="reminder-past"] h4').textContent.startsWith('Upcoming'));
+  assert.equal(await row.locator('details').evaluate(el=>el.open),true,'rescheduling keeps recovery controls open');const before=h.counts().mutations;h.loseReply();await row.getByRole('button',{name:'Confirm follow-up completed'}).click();await page.waitForFunction(()=>document.getElementById('customerReminderStatus').textContent.includes('not confirmed'));
+  assert.equal(await row.count(),1,'unknown acknowledgment must retain reminder');
+  await page.locator('#customerReminderRetry').click();await page.waitForFunction(()=>!document.querySelector('[data-follow-up-id="reminder-past"]'));
+  assert.equal(h.counts().mutations,before+1,'readback must not repeat completion');await page.reload();await page.waitForFunction(()=>document.querySelectorAll('.customer-reminder-item').length===1);
+ }finally{await browser?.close();h.server.closeAllConnections();await new Promise(r=>h.server.close(r));}
+});
+
+test('email setup is reachable and time shortcuts capture both date and time without creating a draft action',async()=>{
+ const h=createFixtureServer();await new Promise(r=>h.server.listen(0,'127.0.0.1',r));let browser;
+ try{
+  browser=await chromium.launch({headless:true});const page=await browser.newPage();await page.route('https://**',r=>r.abort());await page.addInitScript(()=>sessionStorage.setItem('jamesIntroDate',new Date().toDateString()));await page.goto('http://127.0.0.1:'+h.server.address().port);await page.locator('#customerActivityOpen').click();await page.waitForFunction(()=>document.querySelectorAll('#customerDemoList button').length===5);
+  await page.locator('#customerNextKind').selectOption('Email');assert.equal(await page.locator('#customerAddEmail').isVisible(),true);
+  await page.locator('#activityContact').selectOption({label:'Alex Example'});await page.locator('#companyEditor summary').click();await page.locator('#companyContacts input[type="email"]').first().fill('');assert.equal(await page.locator('#customerNextOpen').isVisible(),false);
+  await page.locator('#customerAddEmail').click();assert.equal(await page.locator('#companyContacts input[type="email"]').first().evaluate(el=>el===document.activeElement),true);
+  await page.locator('#companyContacts input[type="email"]').first().fill('alex@example.com');assert.match(await page.locator('#customerNextOpen').getAttribute('href'),/^mailto:alex%40example.com/);assert.match(await page.locator('#customerNextOpenHelp').textContent(),/device’s email composer/);
+  await page.getByRole('button',{name:'In 20 minutes',exact:true}).click();const value=await page.locator('#customerNextWhen').inputValue();assert.match(value,/T\d{2}:\d{2}$/);assert.ok(new Date(value)>new Date());assert.equal(h.counts().mutations,0);
+ }finally{await browser?.close();h.server.closeAllConnections();await new Promise(r=>h.server.close(r));}
+});

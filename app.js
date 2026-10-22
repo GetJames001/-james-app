@@ -1440,7 +1440,7 @@ function initCustomerActivity() {
  const labels={met:'Met in person',attempted:'Attempted visit',not_available:'Contact unavailable',phone:'Phone contact',email:'Email contact',other:'Other'};
  let doc=null,selected=null,busy=false,uncertain=false,returnFocus=null,epoch=0;
  const drafts=new Map(),companyDrafts=new Map(),companyDirty=new Set();
- let pending=null,savingAll=false;
+ let pending=null,savingAll=false,remindersStale=false,reminderSignature='',reminderSessionExpired=false;
  let practiceMode=true;
  try{practiceMode=sessionStorage.getItem('jamesCustomerMode')!=='saved';}catch{}
  let practiceDoc={schemaVersion:2,revision:0,activities:[],customers:[
@@ -1452,17 +1452,52 @@ function initCustomerActivity() {
  ].map(([name,first,second],i)=>({id:'practice-company-'+i,name,phone:'702-555-01'+String(i).padStart(2,'0'),address:'Fictional site '+(i+1)+' — example only',source:'practice',contacts:[first,second].map((name,j)=>({id:'practice-contact-'+i+'-'+j,name,phone:'702-555-01'+String(i*2+j+10).padStart(2,'0'),email:'contact'+j+'@example.com'}))}))};
  const uuid=()=>crypto.randomUUID();
  const announce=text=>{status.textContent=text;};
+ function actionTarget(kind,company,person,details=''){
+  const phone=person?.phone||company?.phone||'',email=person?.email?.trim()||'';
+  if(kind==='Email'&&/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))return 'mailto:'+encodeURIComponent(email)+'?subject='+encodeURIComponent(details||'Follow-up — '+company.name);
+  if(['Call','Text'].includes(kind)&&phone.replace(/[^0-9]/g,''))return (kind==='Call'?'tel:':'sms:')+phone.replace(/[^+0-9]/g,'');
+  return '';
+ }
  function updateNext(){
   const kind=fields.nextKind.value,active=!!kind&&kind!=='No follow-up needed';
   $('customerNextDetails').hidden=!active;
-  const c=companyDrafts.get(selected)||doc?.customers.find(c=>c.id===selected),person=c?.contacts?.find(p=>p.id===fields.contactId.value);
-  const phone=person?.phone||c?.phone||'',email=person?.email||'',link=$('customerNextOpen');
-  const target=kind==='Email'&&email?'mailto:'+encodeURIComponent(email):['Call','Text'].includes(kind)&&phone?(kind==='Call'?'tel:':'sms:')+phone.replace(/[^+0-9]/g,''):'';
+  const c=companyDrafts.get(selected)||doc?.customers.find(c=>c.id===selected),person=c?.contacts?.find(p=>p.id===fields.contactId.value),link=$('customerNextOpen');
+  const target=actionTarget(kind,c,person,fields.nextDetails.value);
   link.hidden=!active||!target;link.textContent=kind==='Email'?'Open email draft':kind==='Text'?'Open text draft':'Open phone';
   if(target)link.href=target;else link.removeAttribute('href');
-  $('customerNextOpenHelp').textContent=active&&['Call','Text','Email'].includes(kind)&&!target?'Choose a contact with a '+(kind==='Email'?'saved email address.':'saved phone number.') : '';
+  $('customerAddEmail').hidden=!active||kind!=='Email'||!!target;
+  $('customerNextOpenHelp').textContent=kind==='Email'&&active?(target?'Opens your device’s email composer addressed to '+person.email+'. Review and send there.':person?'This contact needs a valid email address. Add it in Company and contact details.':'Choose a contact above, or add their email address.'):active&&['Call','Text'].includes(kind)&&!target?'Add a contact or company phone number to open this action.':'';
  }
- function followUpText(a){return a.nextAction? a.nextAction==='No follow-up needed'?'No follow-up needed':'Pending: '+a.nextAction+(a.nextActionDetails?' — '+a.nextActionDetails:'')+(a.nextActionAt?' · '+new Date(a.nextActionAt).toLocaleString():''):'';}
+ function followUpText(a){return a.nextAction? a.nextAction==='No follow-up needed'?'No follow-up needed':(a.followUpCompletedAt?'Follow-up completed: ':'Pending: ')+a.nextAction+(a.nextActionDetails?' — '+a.nextActionDetails:'')+(a.nextActionAt?' · '+new Date(a.nextActionAt).toLocaleString():'')+(a.remindAt?' · Reminder moved to '+new Date(a.remindAt).toLocaleString():''):'';}
+ const localDateValue=date=>new Date(+date-date.getTimezoneOffset()*60000).toISOString().slice(0,16);
+ function renderReminders(){
+  const items=(doc?.activities||[]).filter(a=>a.nextActionAt&&!a.followUpCompletedAt&&a.nextAction!=='No follow-up needed').sort((a,b)=>(a.remindAt||a.nextActionAt).localeCompare(b.remindAt||b.nextActionAt));
+  const due=items.filter(a=>Date.parse(a.remindAt||a.nextActionAt)<=Date.now());
+  const signature=JSON.stringify([practiceMode,remindersStale,uncertain,busy,savingAll,items,doc?.customers,due.map(a=>a.id)]);
+  if(signature===reminderSignature)return;reminderSignature=signature;
+  const list=$('customerReminderList'),focused=document.activeElement?.dataset?.reminderControl;
+  const editorState=new Map([...list.querySelectorAll('[data-follow-up-id]')].map(row=>[row.dataset.followUpId,{open:row.querySelector('details')?.open,value:row.querySelector('input')?.value}]));
+  list.replaceChildren();
+  $('customerReminderSummary').textContent=(practiceMode?'Practice follow-ups':'Customer follow-ups')+' · '+due.length+' due · '+(items.length-due.length)+' upcoming';
+  $('customerReminderStatus').textContent=reminderSessionExpired?'Sign in again to load your follow-ups.':remindersStale?(doc?'Could not refresh follow-ups. Previously loaded reminders remain visible and may be out of date.':'Could not load follow-ups. No verified result is available.'):uncertain?'Follow-up status is not confirmed. Check again before repeating an update.':due.length?due.length+' follow-up'+(due.length===1?' is':'s are')+' due.':items.length?'Your saved follow-ups are listed below.':'No timed follow-ups saved in this view.';
+  $('customerReminderRetry').hidden=!remindersStale&&!uncertain;
+  const alert=reminderSessionExpired?'Sign in again to refresh customer reminders.':remindersStale?'Customer reminders could not refresh; check their status.':uncertain?'Customer follow-up update not confirmed.':due.length?(practiceMode?'Practice: ':'')+due.length+' customer follow-up'+(due.length===1?' is':'s are')+' due.':'';
+  if($('customerReminderAlert').textContent!==alert)$('customerReminderAlert').textContent=alert;
+  for(const a of items){
+   const c=doc.customers.find(c=>c.id===a.customerId),person=c?.contacts?.find(p=>p.id===a.contactId),row=document.createElement('section'),title=document.createElement('h4'),detail=document.createElement('p'),actions=document.createElement('div');
+   const isDue=Date.parse(a.remindAt||a.nextActionAt)<=Date.now();row.className='customer-reminder-item';row.dataset.followUpId=a.id;title.textContent=(isDue?'Due · ':'Upcoming · ')+(c?.name||'Company');detail.textContent=a.nextAction+' — '+a.nextActionDetails+' · '+new Date(a.remindAt||a.nextActionAt).toLocaleString();row.append(title,detail);actions.className='customer-actions';
+   const target=actionTarget(a.nextAction,c,person,a.nextActionDetails);
+   if(target){const link=document.createElement('a');link.href=target;link.textContent=a.nextAction==='Email'?'Open email draft':a.nextAction==='Text'?'Open text draft':'Open phone';actions.append(link);}
+   const view=document.createElement('button');view.type='button';view.textContent='View company';view.dataset.reminderControl=a.id+'-view';view.disabled=busy||savingAll;view.onclick=()=>{remember();selected=a.customerId;returnFocus=view;overlay.hidden=false;render();closeButton.focus();};actions.append(view);row.append(actions);
+   const edit=document.createElement('details'),summary=document.createElement('summary');summary.textContent='Complete or reschedule';edit.append(summary);
+   const complete=document.createElement('button');complete.type='button';complete.textContent='Confirm follow-up completed';complete.dataset.reminderControl=a.id+'-complete';complete.disabled=busy||savingAll||uncertain;complete.onclick=()=>commit({type:'update_followup',followUp:{id:a.id,operation:'complete',at:new Date().toISOString()}});edit.append(complete);
+   const label=document.createElement('label'),input=document.createElement('input'),move=document.createElement('button');label.textContent='New reminder date and time';input.type='datetime-local';input.value=localDateValue(new Date(Date.now()+20*60000));input.dataset.reminderControl=a.id+'-time';label.append(input);edit.append(label);move.type='button';move.textContent='Save reminder time';move.disabled=busy||savingAll||uncertain;move.onclick=()=>{const date=new Date(input.value);if(!Number.isFinite(+date)||+date<=Date.now()){$('customerReminderStatus').textContent='Choose a future reminder date and time.';input.focus();return;}commit({type:'update_followup',followUp:{id:a.id,operation:'reschedule',at:date.toISOString()}});};edit.append(move);const prior=editorState.get(a.id);if(prior){edit.open=prior.open;input.value=prior.value;}row.append(edit);list.append(row);
+  }
+  if(focused)list.querySelector('[data-reminder-control="'+CSS.escape(focused)+'"]')?.focus({preventScroll:true});
+ }
+ $('customerReminderRetry').onclick=()=>load();
+ $('customerAddEmail').onclick=()=>{remember();$('companyEditor').open=true;const draft=companyDrafts.get(selected),i=draft?.contacts.findIndex(p=>p.id===fields.contactId.value)??-1;if(i>=0){$('companyContacts').children[i]?.querySelector('input[type="email"]')?.focus();}else{$('companyAddContact').focus();announce('Choose a contact, or add one with an email address, then save company details.');}};
+ for(const button of $('customerQuickTimes').querySelectorAll('button'))button.onclick=()=>{fields.nextWhen.value=localDateValue(new Date(Date.now()+Number(button.dataset.minutes)*60000));remember();announce('Follow-up date and time selected.');};
  function remember(){
   if(!selected)return;
   drafts.set(selected,Object.fromEntries(Object.entries(fields).map(([k,el])=>[k,el.value])));
@@ -1479,7 +1514,7 @@ function initCustomerActivity() {
    if(changed)companyDirty.add(selected);
   }
  }
- function controls(){const locked=busy||savingAll;$('customerModeSwitch').disabled=locked||uncertain;for(const el of $('companyEditor').querySelectorAll('input,button'))el.disabled=locked||uncertain||!selected;save.disabled=locked||uncertain||!doc||!selected;add.disabled=locked||uncertain||!doc;reload.disabled=locked||savingAll;reload.hidden=!uncertain;$('customerCloseSave').disabled=locked||uncertain;$('customerKeepEditing').disabled=locked;for(const b of $('customerDemoList').querySelectorAll('button'))b.disabled=locked;for(const el of Object.values(fields))el.disabled=locked||uncertain||!selected;$('customerNewName').disabled=locked||uncertain;}
+ function controls(){const locked=busy||savingAll;$('customerModeSwitch').disabled=locked||uncertain;for(const el of $('companyEditor').querySelectorAll('input,button'))el.disabled=locked||uncertain||!selected;save.disabled=locked||uncertain||!doc||!selected;add.disabled=locked||uncertain||!doc;reload.disabled=locked||savingAll;reload.hidden=!uncertain;$('customerCloseSave').disabled=locked||uncertain;$('customerKeepEditing').disabled=locked;for(const b of $('customerDemoList').querySelectorAll('button'))b.disabled=locked;for(const el of Object.values(fields))el.disabled=locked||uncertain||!selected;$('customerNewName').disabled=locked||uncertain;for(const b of $('customerQuickTimes').querySelectorAll('button'))b.disabled=locked||uncertain;$('customerAddEmail').disabled=locked||uncertain;renderReminders();}
  function companyDraft(c){
   if(!c)return null;
   if(!companyDrafts.has(c.id)||!companyDirty.has(c.id))companyDrafts.set(c.id,{...c,contacts:(c.contacts|| (c.contact?[{id:uuid(),name:c.contact,phone:c.phone||'',email:''}]:[])).map(person=>({...person}))});
@@ -1490,14 +1525,14 @@ function initCustomerActivity() {
   $('companyEditStatus').textContent=companyDirty.has(c?.id)?'Unsaved company details.':'Save company details here, or save everything when returning to briefing.';
   for(const [id,key] of [['companyName','name'],['companyPhone','phone'],['companyAddress','address']]){
    $(id).value=draft?.[key]||'';
-   $(id).oninput=()=>{draft[key]=$(id).value;companyDirty.add(c.id);$('companyEditStatus').textContent='Unsaved company details.';};
+   $(id).oninput=()=>{draft[key]=$(id).value;companyDirty.add(c.id);$('companyEditStatus').textContent='Unsaved company details.';updateNext();};
   }
   $('companyContacts').replaceChildren();
   for(const person of draft?.contacts||[]){
    const row=document.createElement('fieldset'),legend=document.createElement('legend');legend.textContent='Contact';row.append(legend);
    for(const [key,title,max] of [['name','Name',150],['phone','Phone',80],['email','Email',254]]){
     const label=document.createElement('label'),input=document.createElement('input');label.textContent=title;input.value=person[key]||'';input.maxLength=max;input.type=key==='phone'?'tel':key==='email'?'email':'text';
-    input.oninput=()=>{person[key]=input.value;companyDirty.add(c.id);$('companyEditStatus').textContent='Unsaved company details.';};label.append(input);row.append(label);
+    input.oninput=()=>{person[key]=input.value;companyDirty.add(c.id);$('companyEditStatus').textContent='Unsaved company details.';updateNext();};label.append(input);row.append(label);
    }
    $('companyContacts').append(row);
   }
@@ -1536,6 +1571,7 @@ function initCustomerActivity() {
     const next=structuredClone(practiceDoc);
     if(body.type==='upsert_customer'){const i=next.customers.findIndex(c=>c.id===body.customer.id);if(i<0)next.customers.push(body.customer);else next.customers[i]=body.customer;}
     else if(body.type==='record_activity'){if(!next.activities.some(a=>a.id===body.activity.id))next.activities.push(body.activity);}
+    else if(body.type==='update_followup'){const a=next.activities.find(a=>a.id===body.followUp.id);if(!a)throw new Error('UNAVAILABLE');Object.assign(a,body.followUp.operation==='complete'?{followUpCompletedAt:body.followUp.at}:{remindAt:body.followUp.at});}
     else throw new Error('UNAVAILABLE');
     next.revision++;practiceDoc=next;
    }
@@ -1553,13 +1589,13 @@ function initCustomerActivity() {
  function clearPrivate(){doc=null;selected=null;pending=null;drafts.clear();companyDrafts.clear();companyDirty.clear();$('customerNewName').value='';for(const el of Object.values(fields))el.value='';render();}
  async function load(){
   remember();const ticket=++epoch;busy=true;controls();announce('Loading saved records…');
-  try{const fresh=await request('GET');if(ticket!==epoch)return;doc=fresh;
-   const confirmed=pending&&(pending.type==='record_activity'?doc.activities.some(a=>a.id===pending.activity.id):doc.customers.some(c=>c.id===pending.customer.id&&Object.entries(pending.customer).every(([key,value])=>JSON.stringify(c[key])===JSON.stringify(value))));
-   if(confirmed){if(pending.type==='record_activity')drafts.delete(pending.activity.customerId);else{companyDrafts.delete(pending.customer.id);companyDirty.delete(pending.customer.id);$('customerNewName').value='';}pending=null;}
+  try{const fresh=await request('GET');if(ticket!==epoch)return;doc=fresh;remindersStale=false;reminderSessionExpired=false;
+   const confirmed=pending&&(pending.type==='update_followup'?doc.activities.some(a=>a.id===pending.followUp.id&&(pending.followUp.operation==='complete'?!!a.followUpCompletedAt:a.remindAt===pending.followUp.at)):pending.type==='record_activity'?doc.activities.some(a=>a.id===pending.activity.id):doc.customers.some(c=>c.id===pending.customer.id&&Object.entries(pending.customer).every(([key,value])=>JSON.stringify(c[key])===JSON.stringify(value))));
+   if(confirmed){if(pending.type==='record_activity')drafts.delete(pending.activity.customerId);else if(pending.type==='upsert_customer'){companyDrafts.delete(pending.customer.id);companyDirty.delete(pending.customer.id);$('customerNewName').value='';}pending=null;}
    // If no matching ID is present, allow an explicit retry using this fresh revision.
    uncertain=false;selected=doc.customers.some(c=>c.id===selected)?selected:doc.customers[0]?.id||null;
    announce(confirmed?'Previous save confirmed.':'Contact notes loaded.');
-  }catch(error){if(ticket!==epoch)return;uncertain=true;if(error.message==='SESSION'){clearPrivate();announce('Session expired. Sign in again to load your records.');}else announce('Could not load records. Existing notes are retained; reload before saving.');}
+  }catch(error){if(ticket!==epoch)return;uncertain=true;remindersStale=true;if(error.message==='SESSION'){reminderSessionExpired=true;clearPrivate();announce('Session expired. Sign in again to load your records.');}else announce('Could not load records. Existing notes are retained; reload before saving.');}
   finally{if(ticket===epoch){busy=false;render();if(!overlay.hidden&&document.activeElement===document.body)reload.focus();}}
  }
  async function commit(command){
@@ -1568,20 +1604,20 @@ function initCustomerActivity() {
   pending=command;
   try{doc=await request('POST',{...command,expectedRevision:doc.revision});
    if(command.type==='record_activity'){drafts.delete(command.activity.customerId);if(selected===command.activity.customerId)for(const el of Object.values(fields))el.value='';}
-   else{if(!savingAll)selected=command.customer.id;companyDrafts.delete(command.customer.id);companyDirty.delete(command.customer.id);if($('customerNewName').value.trim()===command.customer.name)$('customerNewName').value='';$('companyEditor').open=true;}
-   pending=null;announce(practiceMode?'Practice changes saved in this tab only.':'Saved.');
+   else if(command.type==='upsert_customer'){if(!savingAll)selected=command.customer.id;companyDrafts.delete(command.customer.id);companyDirty.delete(command.customer.id);if($('customerNewName').value.trim()===command.customer.name)$('customerNewName').value='';$('companyEditor').open=true;}
+   pending=null;remindersStale=false;announce(practiceMode?'Practice changes saved in this tab only.':'Saved.');
    return true;
   }catch(error){uncertain=true;
-   if(error.message==='SESSION'){clearPrivate();announce('Session expired. Sign in again.');}
+   if(error.message==='SESSION'){reminderSessionExpired=true;clearPrivate();announce('Session expired. Sign in again.');}
    else announce(error.message==='CONFLICT'?'Another update arrived. Your notes are retained. Check save status, review, then save again.':'Save not confirmed. Your notes are retained. Check save status before retrying.');
    return false;
-  }finally{busy=false;render();}
+  }finally{busy=false;render();if(command.type==='update_followup'&&overlay.hidden)$('customerReminderSummary').focus();}
  }
  function close(retain=true){if(retain)remember();$('customerClosePrompt').hidden=true;overlay.hidden=true;if(returnFocus?.isConnected)returnFocus.focus();}
  $('customerModeSwitch').onclick=()=>{
   if(busy||savingAll||uncertain)return;
   if(hasChanges()){announce('Save your changes before switching between practice and saved companies.');requestClose();return;}
-  clearPrivate();practiceMode=!practiceMode;
+  clearPrivate();reminderSessionExpired=false;practiceMode=!practiceMode;
   try{sessionStorage.setItem('jamesCustomerMode',practiceMode?'practice':'saved');}catch{}
   load();
  };
@@ -1635,6 +1671,9 @@ function initCustomerActivity() {
   const els=[...overlay.querySelectorAll('button:not(:disabled),input:not(:disabled),textarea:not(:disabled),select:not(:disabled)')].filter(el=>el.getClientRects().length),first=els[0],last=els.at(-1);
   if(event.shiftKey&&document.activeElement===first){event.preventDefault();last?.focus();}else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first?.focus();}
  });
- controls();
+ load();
+ setInterval(()=>{if(document.visibilityState!=='visible')return;renderReminders();},10000);
+ setInterval(()=>{if(document.visibilityState==='visible'&&overlay.hidden&&!$('customerReminders').contains(document.activeElement)&&!busy&&!savingAll&&!uncertain&&!hasChanges())load();},60000);
+ document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&overlay.hidden&&!$('customerReminders').contains(document.activeElement)&&!busy&&!savingAll&&!uncertain&&!hasChanges())load();});
 }
 document.addEventListener('DOMContentLoaded',initCustomerActivity,{once:true});

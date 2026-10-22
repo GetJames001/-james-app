@@ -43,3 +43,15 @@ test('storage failures produce no false success and corrupt records are not repl
  const handler=createHandler({store:{load:async()=>{throw new Error('secret must not escape');}},authorize:()=>true,identity:()=> 'test'});
  const res=response();await handler({method:'GET'},res);assert.equal(res.code,503);assert.equal(JSON.stringify(res.body).includes('secret'),false);
 });
+
+test('authenticated follow-up updates persist, reject stale/invalid writes and stay account scoped',async()=>{
+ const h=memory(),handler=createHandler({store:h.store,authorize:()=>true,identity:()=> 'followup-owner'});
+ const call=async body=>{const res=response();await handler({method:'POST',body,headers:{'content-type':'application/json'},query:{}},res);return res;};
+ await call({type:'upsert_customer',expectedRevision:0,customer});
+ await call({type:'record_activity',expectedRevision:1,activity:{...visit,nextActionAt:'2099-10-23T17:00:00.000Z',nextActionDetails:'Call manager'}});
+ assert.equal((await call({type:'update_followup',expectedRevision:2,followUp:{id:visit.id,operation:'reschedule',at:'2000-01-01T00:00:00.000Z'}})).code,400);
+ assert.equal((await call({type:'update_followup',expectedRevision:2,followUp:{id:visit.id,operation:'reschedule',at:'2099-10-24T17:00:00.000Z'}})).code,200);
+ assert.equal((await call({type:'update_followup',expectedRevision:2,followUp:{id:visit.id,operation:'complete',at:new Date().toISOString()}})).code,409);
+ assert.equal((await call({type:'update_followup',expectedRevision:3,followUp:{id:visit.id,operation:'complete',at:new Date().toISOString()}})).code,200);
+ const stored=await h.store.load('followup-owner');assert.ok(stored.activities[0].followUpCompletedAt);assert.equal(stored.activities[0].outcome,'attempted');assert.equal((await h.store.load('different-owner')).activities.length,0);
+});

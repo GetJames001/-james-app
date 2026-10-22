@@ -252,7 +252,8 @@
     Proposals <b>—</b>
   </button>
 </div>
-<p id="customerSaveNotice" role="status"></p><div class="customer-shortcut"><button id="customerActivityOpen" type="button" aria-haspopup="dialog" aria-controls="customerActivityOverlay"><span>Customer Activity</span><span aria-hidden="true">↗</span></button><small>Customer records and reported outcomes</small></div>
+<p id="customerSaveNotice" role="status"></p>
+<p id="customerReminderAlert" role="status" aria-live="polite"></p><details id="customerReminders" class="customer-reminders"><summary id="customerReminderSummary">Customer follow-ups</summary><p id="customerReminderStatus" role="status" aria-live="polite"></p><p class="customer-field-help">Reminders appear here while James is open and when you return. Device alerts while James is closed are not connected yet.</p><div id="customerReminderList"></div><button id="customerReminderRetry" type="button" hidden>Check follow-ups again</button></details><div class="customer-shortcut"><button id="customerActivityOpen" type="button" aria-haspopup="dialog" aria-controls="customerActivityOverlay"><span>Customer Activity</span><span aria-hidden="true">↗</span></button><small>Customer records and reported outcomes</small></div>
 </aside>
       </div>
     </div>
@@ -474,9 +475,9 @@
           <label for="customerNextKind">Next step</label><select id="customerNextKind" aria-describedby="customerNextKindHelp"><option value="">Choose an action</option><option>Call</option><option>Email</option><option>Text</option><option>Drop by</option><option>Other</option><option>No follow-up needed</option></select><small id="customerNextKindHelp" class="customer-field-help">Choose a commitment, or explicitly choose No follow-up needed.</small>
           <section id="customerNextDetails" hidden aria-label="Follow-up commitment">
             <label for="customerNextDetailsText">What will you do?</label><input id="customerNextDetailsText" maxlength="250" placeholder="Example: Call Alex about the proposal">
-            <label for="customerNextWhen">When will you do it?</label><input id="customerNextWhen" type="datetime-local">
-            <p class="customer-field-help">Saved as a pending follow-up, not a calendar booking or an automatic reminder. Opening a phone or email app does not mark it completed.</p>
-            <a id="customerNextOpen" hidden>Open action</a><p id="customerNextOpenHelp" class="customer-field-help"></p>
+            <label for="customerNextWhen">When will you do it? Choose both date and time</label><input id="customerNextWhen" type="datetime-local" aria-describedby="customerNextWhenHelp"><small id="customerNextWhenHelp" class="customer-field-help">Your local time. A date alone is incomplete.</small><div class="customer-actions" id="customerQuickTimes"><button type="button" data-minutes="20">In 20 minutes</button><button type="button" data-minutes="30">In 30 minutes</button><button type="button" data-minutes="40">In 40 minutes</button></div>
+            <p class="customer-field-help">Saved as a pending follow-up with a reminder in James. Keep James open to see it when due; it also appears when you return. Opening a phone or email app does not mark it completed.</p>
+            <a id="customerNextOpen" hidden>Open action</a><button id="customerAddEmail" type="button" hidden>Add email address</button><p id="customerNextOpenHelp" class="customer-field-help"></p>
           </section>
           <p id="customerDraftStatus" class="customer-draft-status" aria-live="polite">Open to load saved customer records.</p>
           <div class="customer-actions">
