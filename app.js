@@ -1436,15 +1436,15 @@ function initCustomerActivity() {
  const $=id=>document.getElementById(id),overlay=$('customerActivityOverlay');
  if(!overlay)return;
  const openButton=$('customerActivityOpen'),closeButton=$('customerActivityClose'),save=$('customerDemoKeepDraft'),reload=$('customerReload'),add=$('customerAdd'),status=$('customerDraftStatus');
- const fields={contactId:$('activityContact'),nextKind:$('customerNextKind'),notes:$('customerDemoOutcome'),nextAction:$('customerDemoNext'),outcome:$('customerOutcomeKind'),when:$('customerOccurredAt')};
+ const fields={contactId:$('activityContact'),nextKind:$('customerNextKind'),notes:$('customerDemoOutcome'),outcome:$('customerOutcomeKind'),when:$('customerOccurredAt')};
  const labels={met:'Met in person',attempted:'Attempted visit',not_available:'Contact unavailable',phone:'Phone contact',email:'Email contact',other:'Other'};
  let doc=null,selected=null,busy=false,uncertain=false,returnFocus=null,epoch=0;
  const drafts=new Map(),companyDrafts=new Map(),companyDirty=new Set();
- let pending=null;
+ let pending=null,savingAll=false;
  const uuid=()=>crypto.randomUUID();
  const announce=text=>{status.textContent=text;};
  function remember(){if(selected)drafts.set(selected,Object.fromEntries(Object.entries(fields).map(([k,el])=>[k,el.value])));}
- function controls(){for(const el of $('companyEditor').querySelectorAll('input,button'))el.disabled=busy||uncertain||!selected;save.disabled=busy||uncertain||!doc||!selected;add.disabled=busy||uncertain||!doc;reload.disabled=busy;for(const b of $('customerDemoList').querySelectorAll('button'))b.disabled=busy;for(const el of Object.values(fields))el.disabled=busy||!selected;}
+ function controls(){const locked=busy||savingAll;for(const el of $('companyEditor').querySelectorAll('input,button'))el.disabled=locked||uncertain||!selected;save.disabled=locked||uncertain||!doc||!selected;add.disabled=locked||uncertain||!doc;reload.disabled=locked||savingAll;reload.hidden=!uncertain;$('customerCloseSave').disabled=locked||uncertain;$('customerKeepEditing').disabled=locked;for(const b of $('customerDemoList').querySelectorAll('button'))b.disabled=locked;for(const el of Object.values(fields))el.disabled=locked||uncertain||!selected;$('customerNewName').disabled=locked||uncertain;}
  function companyDraft(c){
   if(!c)return null;
   if(!companyDrafts.has(c.id)||!companyDirty.has(c.id))companyDrafts.set(c.id,{...c,contacts:(c.contacts|| (c.contact?[{id:uuid(),name:c.contact,phone:c.phone||'',email:''}]:[])).map(person=>({...person}))});
@@ -1452,7 +1452,7 @@ function initCustomerActivity() {
  }
  function renderCompany(c){
   const draft=companyDraft(c);
-  $('companyEditStatus').textContent=companyDirty.has(c?.id)?'Unsaved company details.':'Company changes need to be saved separately from activity.';
+  $('companyEditStatus').textContent=companyDirty.has(c?.id)?'Unsaved company details.':'Save company details here, or save everything when returning to briefing.';
   for(const [id,key] of [['companyName','name'],['companyPhone','phone'],['companyAddress','address']]){
    $(id).value=draft?.[key]||'';
    $(id).oninput=()=>{draft[key]=$(id).value;companyDirty.add(c.id);$('companyEditStatus').textContent='Unsaved company details.';};
@@ -1480,7 +1480,7 @@ function initCustomerActivity() {
   const c=doc?.customers.find(c=>c.id===selected);
   $('customerDemoName').textContent=c?.name||'Add or select a customer';
   const history=(doc?.activities||[]).filter(a=>a.customerId===selected).sort((a,b)=>b.occurredAt.localeCompare(a.occurredAt));
-  $('customerDemoVisited').textContent=history.some(a=>a.outcome==='met')?'Meeting recorded':'No meeting recorded';
+  $('customerDemoVisited').textContent=history.some(a=>a.outcome==='met')?'In-person meeting recorded':'No in-person meeting recorded';
   renderCompany(c);
   fields.contactId.replaceChildren(new Option('No specific contact',''));
   for(const person of c?.contacts||[])fields.contactId.add(new Option(person.name,person.id));
@@ -1515,32 +1515,64 @@ function initCustomerActivity() {
  }
  async function commit(command){
   if(busy||uncertain||!doc)return;
-  busy=true;controls();remember();announce('Saving…');
+  busy=true;controls();if(!savingAll)remember();announce('Saving…');
   pending=command;
   try{doc=await request('POST',{...command,expectedRevision:doc.revision});
-   if(command.type==='record_activity'){drafts.delete(command.activity.customerId);for(const el of Object.values(fields))el.value='';}
-   else{selected=command.customer.id;companyDrafts.delete(selected);companyDirty.delete(selected);$('customerNewName').value='';$('companyEditor').open=true;}
+   if(command.type==='record_activity'){drafts.delete(command.activity.customerId);if(selected===command.activity.customerId)for(const el of Object.values(fields))el.value='';}
+   else{if(!savingAll)selected=command.customer.id;companyDrafts.delete(command.customer.id);companyDirty.delete(command.customer.id);if($('customerNewName').value.trim()===command.customer.name)$('customerNewName').value='';$('companyEditor').open=true;}
    pending=null;announce('Saved.');
-   if(command.type==='record_activity')close(false);
+   return true;
   }catch(error){uncertain=true;
    if(error.message==='SESSION'){clearPrivate();announce('Session expired. Sign in again.');}
-   else announce(error.message==='CONFLICT'?'Another update arrived. Your notes are retained. Refresh contact notes, review, then save again.':'Save not confirmed. Your notes are retained. Reload to check before retrying.');
+   else announce(error.message==='CONFLICT'?'Another update arrived. Your notes are retained. Check save status, review, then save again.':'Save not confirmed. Your notes are retained. Check save status before retrying.');
+   return false;
   }finally{busy=false;render();}
  }
- function close(retain=true){if(retain)remember();overlay.hidden=true;if(returnFocus?.isConnected)returnFocus.focus();}
- openButton.onclick=()=>{returnFocus=document.activeElement;overlay.hidden=false;closeButton.focus();if(!busy)load();};
+ function close(retain=true){if(retain)remember();$('customerClosePrompt').hidden=true;overlay.hidden=true;if(returnFocus?.isConnected)returnFocus.focus();}
+ openButton.onclick=()=>{$('customerSaveNotice').textContent='';returnFocus=document.activeElement;overlay.hidden=false;closeButton.focus();if(!busy)load();};
  $('customerViewHistory').onclick=event=>{event.preventDefault();const history=$('customerHistoryDetails');history.open=!history.open;if(history.open){$('customerDemoHistory').setAttribute('tabindex','-1');$('customerDemoHistory').focus();}};
- closeButton.onclick=()=>close();$('customerDemoDone').onclick=()=>close();reload.onclick=load;
+ function hasActivity(d){return d&&Object.values(d).some(v=>v.trim());}
+ function hasChanges(){remember();return companyDirty.size>0||[...drafts.values()].some(hasActivity)||$('customerNewName').value.trim()||pending;}
+ function requestClose(){
+  if(busy||savingAll)return;
+  if(!hasChanges()){close();return;}
+  $('customerClosePrompt').hidden=false;$('customerCloseSave').disabled=uncertain;$('customerCloseTitle').textContent=uncertain?'Check save status before closing':'Save changes before closing?';
+  (uncertain?reload:$('customerCloseSave')).focus();
+ }
+ closeButton.onclick=requestClose;reload.onclick=load;
+ $('customerKeepEditing').onclick=()=>{$('customerClosePrompt').hidden=true;closeButton.focus();};
+ $('customerCloseSave').onclick=()=>saveAll();
  for(const el of Object.values(fields))el.addEventListener('input',()=>{remember();announce('Unsaved activity.');});
  add.onclick=()=>{const name=$('customerNewName').value.trim();if(!name){announce('Enter a company name.');return;}const customer=pending?.type==='upsert_customer'&&pending.customer.name===name?pending.customer:{id:uuid(),name,source:'manual'};commit({type:'upsert_customer',customer});};
- save.onclick=()=>{
-  if(!selected||!fields.outcome.value||!fields.when.value){announce('Choose what happened and when before saving. Your draft has not been saved.');(!fields.outcome.value?fields.outcome:fields.when).focus();return;}
-  const date=new Date(fields.when.value);if(!Number.isFinite(+date)||+date>Date.now()){announce('Enter a valid time that is not in the future.');return;}
-  if(fields.outcome.value==='other'&&!fields.notes.value.trim()){announce('Explain what happened in the notes.');return;}
-  commit({type:'record_activity',activity:{id:pending?.type==='record_activity'&&pending.activity.customerId===selected?pending.activity.id:uuid(),customerId:selected,...(fields.contactId.value?{contactId:fields.contactId.value,contactName:doc.customers.find(c=>c.id===selected)?.contacts?.find(c=>c.id===fields.contactId.value)?.name}:{}),occurredAt:date.toISOString(),outcome:fields.outcome.value,notes:fields.notes.value,nextAction:[fields.nextKind.value,fields.nextAction.value].filter(Boolean).join(': '),initiatedBy:'typed'}});
- };
+ async function saveAll(){
+  if(busy||savingAll||uncertain||!doc)return;
+  remember();const queue=[];
+  // Validate every draft before writing any part of a multi-company save.
+  for(const id of companyDirty){
+   const draft=companyDrafts.get(id);
+   if(!draft?.name.trim()||draft.contacts.some(c=>!c.name.trim())){announce('Enter a company name and a name for each contact before saving.');$('customerClosePrompt').hidden=true;selected=id;render();$('companyEditor').open=true;$('companyName').focus();return;}
+   queue.push({type:'upsert_customer',customer:{...draft,name:draft.name.trim(),phone:draft.phone.trim(),address:draft.address.trim(),contacts:draft.contacts.map(c=>({...c,name:c.name.trim(),phone:c.phone.trim(),email:c.email.trim()}))}});
+  }
+  const newName=$('customerNewName').value.trim();
+  if(newName)queue.push({type:'upsert_customer',customer:pending?.type==='upsert_customer'&&pending.customer.name===newName?pending.customer:{id:uuid(),name:newName,source:'manual'}});
+  for(const [id,d] of drafts){
+   if(!hasActivity(d))continue;
+   const date=new Date(d.when);
+   let message=!d.outcome||!d.when?'Choose what happened and when before saving. Your draft has not been saved.':!Number.isFinite(+date)||+date>Date.now()?'Enter a valid time that is not in the future.':d.outcome==='other'&&!d.notes.trim()?'Explain what happened in the notes.':'';
+   if(message){$('customerClosePrompt').hidden=true;selected=id;render();announce(message);(!d.outcome?fields.outcome:!d.when?fields.when:fields.notes).focus();return;}
+   const customer=queue.find(c=>c.type==='upsert_customer'&&c.customer.id===id)?.customer||doc.customers.find(c=>c.id===id);
+   const person=customer?.contacts?.find(c=>c.id===d.contactId);
+   queue.push({type:'record_activity',activity:{id:pending?.type==='record_activity'&&pending.activity.customerId===id?pending.activity.id:uuid(),customerId:id,...(person?{contactId:person.id,contactName:person.name}:{}),occurredAt:date.toISOString(),outcome:d.outcome,notes:d.notes,nextAction:d.nextKind,initiatedBy:'typed'}});
+  }
+  savingAll=true;save.disabled=true;closeButton.disabled=true;$('customerCloseSave').disabled=true;$('customerKeepEditing').disabled=true;
+  try{
+   for(const command of queue){if(!await commit(command))return;}
+   announce(queue.length?'Changes saved.':'No changes to save.');$('customerSaveNotice').textContent=queue.length?'Customer changes saved.':'';close(false);
+  }finally{savingAll=false;closeButton.disabled=false;$('customerCloseSave').disabled=uncertain;$('customerKeepEditing').disabled=false;controls();}
+ }
+ save.onclick=saveAll;
  overlay.addEventListener('keydown',event=>{
-  if(event.key==='Escape'){event.preventDefault();close();return;}
+  if(event.key==='Escape'){event.preventDefault();if(!$('customerClosePrompt').hidden){$('customerKeepEditing').click();}else requestClose();return;}
   if(event.key!=='Tab')return;
   const els=[...overlay.querySelectorAll('button:not(:disabled),input:not(:disabled),textarea:not(:disabled),select:not(:disabled)')].filter(el=>el.getClientRects().length),first=els[0],last=els.at(-1);
   if(event.shiftKey&&document.activeElement===first){event.preventDefault();last?.focus();}else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first?.focus();}

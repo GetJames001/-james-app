@@ -7,7 +7,7 @@ const {chromium}=require('playwright');
 
 function createFixtureServer(){
   const root=path.join(__dirname,'..');
-  let mutations=0,externalCalls=0,fail=false,conflict=false,loseReply=false,expired=false;
+  let mutations=0,externalCalls=0,fail=false,conflict=false,loseReply=false,expired=false,loseReplyCountdown=0;
   const {makeStore}=require('../lib/customer-activity/records.cjs');
   const {createHandler}=require('../lib/routes/customer-activity.js');
   const backing=new Map();
@@ -21,7 +21,7 @@ function createFixtureServer(){
       if(expired){res.statusCode=401;return res.end('{}');}
       if(fail){res.statusCode=503;return res.end('{}');}
       if(conflict&&req.method==='POST'){res.statusCode=409;return res.end('{}');}
-      let body='';req.on('data',c=>body+=c);req.on('end',()=>activityHandler({method:req.method,body:body||undefined,headers:req.headers,query:{}},{setHeader:(k,v)=>res.setHeader(k,v),status(n){res.statusCode=n;return this;},json(data){if(loseReply&&req.method==='POST'&&data.ok){loseReply=false;res.statusCode=503;res.end('{}');return;}res.end(JSON.stringify(data));}}));return;
+      let body='';req.on('data',c=>body+=c);req.on('end',()=>activityHandler({method:req.method,body:body||undefined,headers:req.headers,query:{}},{setHeader:(k,v)=>res.setHeader(k,v),status(n){res.statusCode=n;return this;},json(data){if(req.method==='POST'&&data.ok&&(loseReply||(loseReplyCountdown>0&&--loseReplyCountdown===0))){loseReply=false;res.statusCode=503;res.end('{}');return;}res.end(JSON.stringify(data));}}));return;
     }
     if(url.pathname.startsWith('/api/')){
       res.setHeader('Content-Type','application/json');
@@ -38,7 +38,7 @@ function createFixtureServer(){
       return res.end(fs.readFileSync(filename));
     }catch{res.statusCode=404;return res.end();}
   });
-  return {server,counts:()=>({mutations,externalCalls}),fail:value=>fail=value,conflict:value=>conflict=value,loseReply:()=>loseReply=true,expire:()=>expired=true};
+  return {server,counts:()=>({mutations,externalCalls}),fail:value=>fail=value,conflict:value=>conflict=value,loseReply:()=>loseReply=true,loseReplyAfter:n=>loseReplyCountdown=n,expire:()=>expired=true};
 }
 
 test('Customer Activity saves and reopens actual reports; retains drafts after failure/conflict',async()=>{
@@ -51,9 +51,9 @@ test('Customer Activity saves and reopens actual reports; retains drafts after f
   await page.waitForFunction(()=>!document.getElementById('customerAdd').disabled);
   await page.locator('#customerNewName').fill('Fictional warehouse');await page.locator('#customerAdd').click();
   await page.waitForFunction(()=>document.getElementById('customerDemoName').textContent==='Fictional warehouse');
-  await page.locator('#customerDemoKeepDraft').click();assert.match(await page.locator('#customerDraftStatus').textContent(),/Choose what happened/);
+  await page.locator('#customerDemoOutcome').fill('Partial draft');await page.locator('#customerDemoKeepDraft').click();assert.match(await page.locator('#customerDraftStatus').textContent(),/Choose what happened/);
   await page.locator('#customerOutcomeKind').selectOption('attempted');await page.locator('#customerOccurredAt').fill('2026-10-20T10:00');
-  await page.locator('#customerDemoOutcome').fill('Left a card. Nobody available.');await page.locator('#customerDemoNext').fill('Call Thursday');
+  await page.locator('#customerDemoOutcome').fill('Left a card. Nobody available.');await page.locator('#customerNextKind').selectOption('Call');
   h.fail(true);await page.locator('#customerDemoKeepDraft').click();
   await page.waitForFunction(()=>document.getElementById('customerDraftStatus').textContent.includes('Save not confirmed'));
   assert.equal(await page.locator('#customerDemoOutcome').inputValue(),'Left a card. Nobody available.');
@@ -65,10 +65,10 @@ test('Customer Activity saves and reopens actual reports; retains drafts after f
   await page.reload();await page.locator('#customerActivityOpen').click();
   await page.waitForFunction(()=>document.getElementById('customerDemoHistory').textContent.includes('Left a card'));
   assert.match(await page.locator('#customerDemoHistory').textContent(),/Attempted visit/);
-  assert.match(await page.locator('#customerDemoHistory').textContent(),/Call Thursday/);
-  assert.equal(await page.locator('#customerDemoVisited').textContent(),'No meeting recorded');
+  assert.match(await page.locator('#customerDemoHistory').textContent(),/Call/);
+  assert.equal(await page.locator('#customerDemoVisited').textContent(),'No in-person meeting recorded');
   assert.match(await page.locator('#customerLastSummary').textContent(),/Left a card/);
-  assert.match(await page.locator('#customerLastSummary').textContent(),/Call Thursday/);
+  assert.match(await page.locator('#customerLastSummary').textContent(),/Call/);
   await page.locator('#customerViewHistory').click();
   assert.equal(await page.locator('#customerDemoHistory').evaluate(el=>document.activeElement===el),true);
   assert.equal(await page.locator('#customerDemoOutcome').inputValue(),'');
@@ -78,8 +78,8 @@ test('Customer Activity saves and reopens actual reports; retains drafts after f
   await page.locator('#customerReload').click();await page.waitForFunction(()=>document.getElementById('customerDraftStatus').textContent.includes('Previous save confirmed'));
   assert.equal(await page.locator('#customerDemoOutcome').inputValue(),'');
   assert.equal((await page.locator('#customerDemoHistory').textContent()).split('Met the manager').length-1,1);
-  assert.equal(await page.locator('#customerDemoVisited').textContent(),'Meeting recorded');
-  h.expire();await page.locator('#customerReload').click();await page.waitForFunction(()=>document.getElementById('customerDraftStatus').textContent.includes('Session expired'));
+  assert.equal(await page.locator('#customerDemoVisited').textContent(),'In-person meeting recorded');
+  await page.locator('#customerActivityClose').click();h.expire();await page.locator('#customerActivityOpen').click();await page.waitForFunction(()=>document.getElementById('customerDraftStatus').textContent.includes('Session expired'));
   assert.equal(await page.locator('#customerDemoList button').count(),0);
   assert.doesNotMatch(await page.locator('#customerDemoHistory').textContent(),/Met the manager/);
   await page.keyboard.press('Escape');assert.equal(await page.locator('#customerActivityOpen').evaluate(el=>document.activeElement===el),true);
@@ -127,14 +127,74 @@ test('Company contacts persist, activity keeps contact identity, and uncertain e
   await page.locator('#customerReload').click();await page.waitForFunction(()=>document.getElementById('customerDraftStatus').textContent.includes('Previous save confirmed'));
   assert.equal(await page.locator('#companyContacts fieldset').count(),2);
   await page.locator('#activityContact').selectOption({label:'Jordan Example'});
-  await page.locator('#customerOutcomeKind').selectOption('attempted');await page.locator('#customerOccurredAt').fill('2026-10-20T10:00');await page.locator('#customerDemoOutcome').fill('Fictional attempt only');await page.locator('#customerNextKind').selectOption('Call');await page.locator('#customerDemoNext').fill('Tuesday');
+  await page.locator('#customerOutcomeKind').selectOption('attempted');await page.locator('#customerOccurredAt').fill('2026-10-20T10:00');await page.locator('#customerDemoOutcome').fill('Fictional attempt only');await page.locator('#customerNextKind').selectOption('Call');
   await page.locator('#customerDemoKeepDraft').click();await page.locator('#customerActivityOverlay').waitFor({state:'hidden'});
   await page.reload();await page.locator('#customerActivityOpen').click();await page.waitForFunction(()=>document.getElementById('customerDemoHistory').textContent.includes('Jordan Example'));
-  assert.match(await page.locator('#customerLastSummary').textContent(),/Call: Tuesday/);assert.equal(await page.locator('#customerDemoVisited').textContent(),'No meeting recorded');
+  assert.match(await page.locator('#customerLastSummary').textContent(),/Call/);assert.equal(await page.locator('#customerDemoVisited').textContent(),'No in-person meeting recorded');
   await page.locator('#companyEditor summary').click();assert.equal(await page.locator('#companyAddress').inputValue(),'Fictional test location');
   await page.locator('#companyName').fill('Fictional renamed company');h.fail(true);await page.locator('#companySave').click();await page.waitForFunction(()=>document.getElementById('customerDraftStatus').textContent.includes('Save not confirmed'));
   h.fail(false);await page.locator('#customerReload').click();await page.waitForFunction(()=>!document.getElementById('companySave').disabled);
   assert.doesNotMatch(await page.locator('#customerDraftStatus').textContent(),/Previous save confirmed/);assert.equal(await page.locator('#companyName').inputValue(),'Fictional renamed company');
   await page.locator('#companySave').click();await page.waitForFunction(()=>document.getElementById('customerDemoName').textContent==='Fictional renamed company');assert.match(await page.locator('#customerDemoHistory').textContent(),/Jordan Example/);
+ }finally{await browser?.close();h.server.closeAllConnections();await new Promise(r=>h.server.close(r));}
+});
+
+test('Close protects drafts; one save persists company edits and activity, refreshes history, and avoids empty records',async()=>{
+ const h=createFixtureServer();await new Promise(r=>h.server.listen(0,'127.0.0.1',r));let browser;
+ try{
+  browser=await chromium.launch({headless:true});const page=await browser.newPage();
+  await page.route('https://**',r=>r.abort());await page.addInitScript(()=>sessionStorage.setItem('jamesIntroDate',new Date().toDateString()));
+  await page.goto('http://127.0.0.1:'+h.server.address().port);await page.locator('#customerActivityOpen').click();await page.waitForFunction(()=>!document.getElementById('customerAdd').disabled);
+  await page.locator('#customerNewName').fill('Fictional Close Test');await page.locator('#customerAdd').click();await page.waitForFunction(()=>document.getElementById('customerDemoName').textContent==='Fictional Close Test');
+  assert.equal(await page.locator('#customerReload').isVisible(),false);
+  assert.equal(await page.locator('#customerDemoDone').count(),0);assert.equal(await page.locator('#customerDemoNext').count(),0);
+  await page.locator('#companyPhone').fill('555-0100');await page.locator('#customerDemoOutcome').fill('Draft requiring an outcome');
+  const before=h.counts().mutations;
+  await page.locator('#customerActivityClose').click();await page.locator('#customerClosePrompt').waitFor();
+  assert.equal(await page.locator('#customerCloseSave').evaluate(el=>el===document.activeElement),true);
+  await page.locator('#customerKeepEditing').click();assert.equal(await page.locator('#customerDemoOutcome').inputValue(),'Draft requiring an outcome');
+  await page.locator('#customerDemoKeepDraft').click();assert.equal(h.counts().mutations,before,'validate the activity before saving company changes');
+  await page.locator('#customerOutcomeKind').selectOption('attempted');await page.locator('#customerOccurredAt').fill('2026-10-20T12:00');
+  await page.locator('#customerActivityClose').click();await page.locator('#customerCloseSave').click();await page.locator('#customerActivityOverlay').waitFor({state:'hidden'});
+  assert.equal(h.counts().mutations,before+2);
+  await page.locator('#customerActivityOpen').click();await page.waitForFunction(()=>document.getElementById('customerDemoHistory').textContent.includes('Draft requiring an outcome'));
+  assert.equal(await page.locator('#companyPhone').inputValue(),'555-0100');assert.equal(await page.locator('#customerDemoOutcome').inputValue(),'');
+  const after=h.counts().mutations;await page.locator('#customerDemoKeepDraft').click();await page.locator('#customerActivityOverlay').waitFor({state:'hidden'});assert.equal(h.counts().mutations,after,'empty save must not invent an activity');
+ }finally{await browser?.close();h.server.closeAllConnections();await new Promise(r=>h.server.close(r));}
+});
+
+test('A lost second acknowledgment retains pending work and reconciles without repeating the confirmed company write',async()=>{
+ const h=createFixtureServer();await new Promise(r=>h.server.listen(0,'127.0.0.1',r));let browser;
+ try{
+  browser=await chromium.launch({headless:true});const page=await browser.newPage();
+  await page.route('https://**',r=>r.abort());await page.addInitScript(()=>sessionStorage.setItem('jamesIntroDate',new Date().toDateString()));
+  await page.goto('http://127.0.0.1:'+h.server.address().port);await page.locator('#customerActivityOpen').click();await page.waitForFunction(()=>!document.getElementById('customerAdd').disabled);
+  await page.locator('#customerNewName').fill('Fictional Partial Save');await page.locator('#customerAdd').click();await page.waitForFunction(()=>document.getElementById('customerDemoName').textContent==='Fictional Partial Save');
+  await page.locator('#companyPhone').fill('555-0123');await page.locator('#customerOutcomeKind').selectOption('attempted');await page.locator('#customerOccurredAt').fill('2026-10-20T12:00');await page.locator('#customerDemoOutcome').fill('One reported attempt');
+  const before=h.counts().mutations;h.loseReplyAfter(2);await page.locator('#customerDemoKeepDraft').click();await page.waitForFunction(()=>document.getElementById('customerDraftStatus').textContent.includes('Save not confirmed'));
+  assert.equal(await page.locator('#customerActivityOverlay').isVisible(),true);assert.equal(await page.locator('#customerDemoOutcome').inputValue(),'One reported attempt');
+  assert.equal(await page.locator('#customerDemoKeepDraft').isEnabled(),false);
+  await page.locator('#customerReload').click();await page.waitForFunction(()=>document.getElementById('customerDraftStatus').textContent.includes('Previous save confirmed'));
+  assert.equal(await page.locator('#customerReload').isVisible(),false);assert.equal(await page.locator('#customerDemoOutcome').inputValue(),'');
+  assert.equal((await page.locator('#customerDemoHistory').textContent()).split('One reported attempt').length-1,1);
+  await page.locator('#customerDemoKeepDraft').click();await page.locator('#customerActivityOverlay').waitFor({state:'hidden'});assert.equal(h.counts().mutations,before+2);
+ }finally{await browser?.close();h.server.closeAllConnections();await new Promise(r=>h.server.close(r));}
+});
+
+test('Save and return includes drafts from more than one company',async()=>{
+ const h=createFixtureServer();await new Promise(r=>h.server.listen(0,'127.0.0.1',r));let browser;
+ try{
+  browser=await chromium.launch({headless:true});const page=await browser.newPage();
+  await page.route('https://**',r=>r.abort());await page.addInitScript(()=>sessionStorage.setItem('jamesIntroDate',new Date().toDateString()));
+  await page.goto('http://127.0.0.1:'+h.server.address().port);await page.locator('#customerActivityOpen').click();await page.waitForFunction(()=>!document.getElementById('customerAdd').disabled);
+  for(const name of ['Fictional Alpha','Fictional Beta']){await page.locator('#customerNewName').fill(name);await page.locator('#customerAdd').click();await page.waitForFunction(name=>document.getElementById('customerDemoName').textContent===name,name);}
+  for(const [name,note] of [['Fictional Alpha','First attempted visit'],['Fictional Beta','Second attempted visit']]){
+   await page.locator('#customerDemoList').getByRole('button',{name,exact:true}).click();await page.locator('#companyPhone').fill('555-0199');await page.locator('#customerOutcomeKind').selectOption('attempted');await page.locator('#customerOccurredAt').fill('2026-10-20T12:00');await page.locator('#customerDemoOutcome').fill(note);
+  }
+  const before=h.counts().mutations;await page.locator('#customerDemoKeepDraft').click();await page.locator('#customerActivityOverlay').waitFor({state:'hidden'});assert.equal(h.counts().mutations,before+4);
+  await page.reload();await page.locator('#customerActivityOpen').click();await page.waitForFunction(()=>!document.getElementById('customerDemoKeepDraft').disabled);
+  for(const [name,note] of [['Fictional Alpha','First attempted visit'],['Fictional Beta','Second attempted visit']]){
+   await page.locator('#customerDemoList').getByRole('button',{name,exact:true}).click();assert.match(await page.locator('#customerDemoHistory').textContent(),new RegExp(note));assert.equal(await page.locator('#companyPhone').inputValue(),'555-0199');assert.equal(await page.locator('#customerDemoOutcome').inputValue(),'');
+  }
  }finally{await browser?.close();h.server.closeAllConnections();await new Promise(r=>h.server.close(r));}
 });

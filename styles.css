@@ -828,3 +828,7 @@ button:disabled{opacity:.4;cursor:default}
 .customer-last-card summary{cursor:pointer;min-height:44px;padding:12px 0}
 .customer-last-card details[open]{border-top:1px solid var(--gs);margin-top:14px}
 .customer-actions #customerReload{background:transparent;font-weight:400}
+#customerClosePrompt{margin:18px 0;padding:16px;border:2px solid #c5a568;border-radius:12px;background:rgba(197,165,104,.1)}
+#customerClosePrompt[hidden],#customerReload[hidden]{display:none}
+#customerClosePrompt h3{margin-top:0}
+#customerSaveNotice:empty{display:none}

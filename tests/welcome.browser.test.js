@@ -102,7 +102,9 @@ test('Customer Activity follows both themes and preserves its unsaved note acros
   assert.equal(await page.locator('#customerDemoOutcome').inputValue(),'Fictional draft — no visit reported');
  }
  await page.locator('#customerActivityClose').click();
- await page.locator('#customerActivityOpen').click();
+ assert.equal(await page.locator('#customerClosePrompt').isVisible(),true);
+ await page.locator('#customerKeepEditing').click();
+ assert.equal(await page.locator('#customerActivityOverlay').isVisible(),true);
  assert.equal(await page.locator('#customerDemoOutcome').inputValue(),'Fictional draft — no visit reported');
  await context.close();
 }));
