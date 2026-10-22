@@ -440,11 +440,11 @@
     <section class="customer-workspace" tabindex="-1">
       <div class="customer-workspace-head">
         <div><small>JAMES · WORKSPACE</small><h2 id="customerActivityTitle">Customer Activity</h2><p>Flexible suggested stops and contact outcomes</p></div>
-        <button id="customerActivityClose" type="button" aria-label="Save and close Customer Activity workspace">Save and close <span aria-hidden="true">×</span></button>
+        <button id="customerActivityClose" type="button" aria-label="Exit Customer Activity workspace">Exit <span aria-hidden="true">×</span></button>
       </div>
       <p id="customerModeNotice" class="customer-demo-note">Record what happened and what comes next.</p>
       <button id="customerModeSwitch" type="button">Show my saved companies</button>
-      <details class="customer-guide"><summary>How to use Customer Activity</summary><p>Choose a company on the left. Its people and details appear on the right. A company is the business; contacts are the people who work there.</p><p>Record who you reached, what actually happened and when. Add useful notes, then choose a proposed next step. Save and return to briefing saves your edits and updates contact history. Close asks before leaving unsaved changes.</p><p>The five practice companies demonstrate the layout. They are not suggested stops based on your schedule or location.</p></details>
+      <details class="customer-guide"><summary>How to use Customer Activity</summary><p>Choose a company on the left. Its people and details appear on the right. A company is the business; contacts are the people who work there.</p><p>Record who you reached, what actually happened and when. Add useful notes, then choose a proposed next step. Save and return to briefing saves your edits and updates contact history. Exit offers Save changes, Keep draft and exit, or Keep editing.</p><p>The five practice companies demonstrate the layout. They are not suggested stops based on your schedule or location.</p></details>
       <div class="customer-workspace-grid">
         <section class="customer-workspace-list" aria-label="Customer records">
           <div class="customer-section-head"><h3>Companies</h3></div>
@@ -454,30 +454,30 @@
         <section class="customer-workspace-detail" aria-label="Customer details">
           <div class="customer-section-head"><h3 id="customerDemoName">Select a customer</h3><span id="customerDemoVisited" class="customer-visit-pill"></span></div>
           <details id="companyEditor"><summary>Company and contact details</summary>
-            <label for="companyName">Company name</label><input id="companyName" maxlength="180" aria-describedby="companyNameHelp"><small id="companyNameHelp" class="customer-field-help">The business name, such as Silver Mesa Facilities—not a person’s name.</small>
-            <label for="companyPhone">Company phone</label><input id="companyPhone" type="tel" maxlength="80" aria-describedby="companyPhoneHelp"><small id="companyPhoneHelp" class="customer-field-help">The company’s main phone. Individual phone numbers belong under Contacts.</small>
-            <label for="companyAddress">Location / address</label><input id="companyAddress" maxlength="400" aria-describedby="companyAddressHelp"><small id="companyAddressHelp" class="customer-field-help">The site or street address. Practice locations below are fictional and must not be used for routing.</small>
-            <h4>Contacts</h4><p class="customer-field-help">People at this company. Add another contact for each additional person.</p><div id="companyContacts"></div>
+            <label for="companyName">Company name</label><input id="companyName" maxlength="180">
+            <label for="companyPhone">Company phone</label><input id="companyPhone" type="tel" maxlength="80">
+            <label for="companyAddress">Location / address</label><input id="companyAddress" maxlength="400">
+            <h4>Contacts</h4><div id="companyContacts"></div>
             <button id="companyAddContact" type="button">Add another contact</button>
             <button id="companySave" type="button">Save company details</button>
-            <p id="companyEditStatus">Save company details here, or save everything when returning to briefing.</p>
+            <p id="companyEditStatus" role="status"></p>
           </details>
           <aside class="customer-last-card" aria-labelledby="customerLastTitle">
             <h3 id="customerLastTitle">Last contact</h3><p id="customerLastSummary">Select a company to see its last contact.</p>
             <details id="customerHistoryDetails"><summary id="customerViewHistory">All contact notes</summary><p id="customerDemoHistory" class="customer-demo-history">No recorded contact.</p></details>
           </aside>
-          <section id="customerClosePrompt" hidden aria-labelledby="customerCloseTitle"><h3 id="customerCloseTitle">Save changes before closing?</h3><p>Your edits have not all been saved.</p><div class="customer-actions"><button id="customerCloseSave" type="button">Save changes</button><button id="customerKeepEditing" type="button">Keep editing</button></div></section>
-          <h3>Record an activity</h3><label for="activityContact">Contact</label><select id="activityContact" aria-describedby="activityContactHelp"><option value="">No specific contact</option></select><small id="activityContactHelp" class="customer-field-help">Choose the person involved, or No specific contact if nobody was reached.</small><label for="customerOutcomeKind">What happened?</label>
-          <select id="customerOutcomeKind" aria-describedby="customerOutcomeKindHelp"><option value="">Choose an outcome</option><option value="attempted">Attempted visit</option><option value="not_available">Contact unavailable</option><option value="met">Met in person</option><option value="phone">Phone contact</option><option value="email">Email contact</option><option value="other">Other — explain in notes</option></select><small id="customerOutcomeKindHelp" class="customer-field-help">Attempted visit: you tried to visit. Contact unavailable: the person was not available. Met in person: a meeting actually occurred. Phone or Email: contact through that channel. Other: explain in Activity notes. Ask James when the outcome is unclear.</small>
-          <label for="customerOccurredAt">When did it happen?</label><input id="customerOccurredAt" type="datetime-local" aria-describedby="customerOccurredAtHelp"><small id="customerOccurredAtHelp" class="customer-field-help">Enter the actual local date and time of the activity—not a future plan.</small>
+          <section id="customerClosePrompt" hidden aria-labelledby="customerCloseTitle"><h3 id="customerCloseTitle">Save changes before closing?</h3><p>Keep draft retains your edits in this tab until reload.</p><div class="customer-actions"><button id="customerCloseSave" type="button">Save changes</button><button id="customerExitDraft" type="button">Keep draft and exit</button><button id="customerKeepEditing" type="button">Keep editing</button></div></section>
+          <h3>Record an activity</h3><label for="activityContact">Contact</label><select id="activityContact"><option value="">No specific contact</option></select><label for="customerOutcomeKind">What happened?</label>
+          <select id="customerOutcomeKind"><option value="">Choose an outcome</option><option value="attempted">Attempted visit</option><option value="not_available">Contact unavailable</option><option value="met">Met in person</option><option value="phone">Phone contact</option><option value="email">Email contact</option><option value="other">Other — explain in notes</option></select>
+          <label for="customerOccurredAt">When did it happen?</label><input id="customerOccurredAt" type="datetime-local">
           <label for="customerDemoOutcome">Activity notes</label>
-          <textarea id="customerDemoOutcome" rows="4" maxlength="2000" placeholder="Example: Left a card and asked for the facilities manager." aria-describedby="customerDemoOutcomeHelp"></textarea><small id="customerDemoOutcomeHelp" class="customer-field-help">Describe what happened. Example: Nobody available; left a card. This does not count as a meeting.</small>
-          <label for="customerNextKind">Next step</label><select id="customerNextKind" aria-describedby="customerNextKindHelp"><option value="">Choose an action</option><option>Call</option><option>Email</option><option>Text</option><option>Drop by</option><option>Other</option><option>No follow-up needed</option></select><small id="customerNextKindHelp" class="customer-field-help">Choose a commitment, or explicitly choose No follow-up needed.</small>
+          <textarea id="customerDemoOutcome" rows="4" maxlength="2000" placeholder="Example: Left a card and asked for the facilities manager."></textarea>
+          <label for="customerNextKind">Next step</label><select id="customerNextKind"><option value="">Choose an action</option><option>Call</option><option>Email</option><option>Text</option><option>Drop by</option><option>Other</option><option>No follow-up needed</option></select>
           <section id="customerNextDetails" hidden aria-label="Follow-up commitment">
-            <label for="customerNextDetailsText">What will you do?</label><input id="customerNextDetailsText" maxlength="250" placeholder="Example: Call Alex about the proposal">
-            <label for="customerNextWhen">When will you do it? Choose both date and time</label><input id="customerNextWhen" type="datetime-local" aria-describedby="customerNextWhenHelp"><small id="customerNextWhenHelp" class="customer-field-help">Your local time. A date alone is incomplete.</small><div class="customer-actions" id="customerQuickTimes"><button type="button" data-minutes="20">In 20 minutes</button><button type="button" data-minutes="30">In 30 minutes</button><button type="button" data-minutes="40">In 40 minutes</button></div>
-            <p class="customer-field-help">Saved as a pending follow-up with a reminder in James. Keep James open to see it when due; it also appears when you return. Opening a phone or email app does not mark it completed.</p>
-            <a id="customerNextOpen" hidden>Open action</a><button id="customerAddEmail" type="button" hidden>Add email address</button><p id="customerNextOpenHelp" class="customer-field-help"></p>
+            <label for="customerNextDetailsText">What will you do?</label><input id="customerNextDetailsText" maxlength="250" placeholder="Follow-up details">
+            <label for="customerNextWhen">When will you do it?</label><input id="customerNextWhen" type="datetime-local"><div class="customer-actions" id="customerQuickTimes"><button type="button" data-minutes="30">30 minutes</button><button type="button" data-minutes="60">1 hour</button><button type="button" data-custom="true">Custom date/time</button></div>
+
+            <a id="customerNextOpen" hidden>Open action</a><p id="customerNextOpenHelp" class="customer-field-help"></p>
           </section>
           <p id="customerDraftStatus" class="customer-draft-status" aria-live="polite">Open to load saved customer records.</p>
           <div class="customer-actions">

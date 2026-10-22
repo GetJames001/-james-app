@@ -208,7 +208,7 @@ test('Five-company practice template explains fields, saves only locally and lea
   await page.goto('http://127.0.0.1:'+h.server.address().port);await page.locator('#customerActivityOpen').click();await page.waitForFunction(()=>document.querySelectorAll('#customerDemoList button').length===5);
   assert.equal(customerRequests,0);assert.match(await page.locator('#customerModeNotice').textContent(),/fictional.*until reload/);
   await page.locator('#companyEditor summary').click();assert.equal(await page.locator('#companyContacts fieldset').count(),2);
-  assert.match(await page.locator('#companyNameHelp').textContent(),/business name/);assert.match(await page.locator('#customerOutcomeKindHelp').textContent(),/actually occurred/);
+  assert.equal(await page.locator('#companyNameHelp').count(),0);assert.equal(await page.locator('#customerOutcomeKindHelp').count(),0);assert.equal(await page.locator('.customer-guide').count(),1);
   for(const [name,note] of [['Silver Mesa Facilities','Practice attempt only'],['Desert Willow Hospitality','Practice second attempt']]){
    await page.locator('#customerDemoList').getByRole('button',{name,exact:true}).click();await page.locator('#customerOutcomeKind').selectOption('attempted');await page.locator('#customerOccurredAt').fill('2026-10-20T12:00');await page.locator('#customerNextKind').selectOption('No follow-up needed');await page.locator('#customerDemoOutcome').fill(note);
   }
@@ -246,7 +246,7 @@ test('Follow-up requires a commitment, preserves date/time, and exposes explicit
   await page.locator('#customerOutcomeKind').selectOption('attempted');await page.locator('#customerOccurredAt').fill('2026-10-20T12:00');
   await page.locator('#customerDemoKeepDraft').click();assert.match(await page.locator('#customerDraftStatus').textContent(),/Choose a next step/);
   await page.locator('#customerNextKind').selectOption('Email');await page.locator('#customerDemoKeepDraft').click();assert.match(await page.locator('#customerDraftStatus').textContent(),/future date and time/);
-  assert.equal(await page.locator('#customerNextOpen').isVisible(),false);
+  assert.equal(await page.locator('#customerNextOpen').isVisible(),true);assert.match(await page.locator('#customerNextOpen').getAttribute('href'),/^mailto:\?subject=/);
   await page.locator('#activityContact').selectOption({label:'Alex Example'});assert.match(await page.locator('#customerNextOpen').getAttribute('href'),/^mailto:/);
   await page.locator('#customerNextDetailsText').fill('Send the requested proposal');await page.locator('#customerNextWhen').fill('2099-10-23T10:00');
   await page.locator('#customerDemoKeepDraft').click();await page.locator('#customerActivityOverlay').waitFor({state:'hidden'});
@@ -283,14 +283,24 @@ test('saved reminders become due automatically, survive refresh failure, resched
  }finally{await browser?.close();h.server.closeAllConnections();await new Promise(r=>h.server.close(r));}
 });
 
-test('email setup is reachable and time shortcuts capture both date and time without creating a draft action',async()=>{
+test('email composer supports a blank or saved recipient and 30-minute, hour and custom time choices',async()=>{
  const h=createFixtureServer();await new Promise(r=>h.server.listen(0,'127.0.0.1',r));let browser;
  try{
   browser=await chromium.launch({headless:true});const page=await browser.newPage();await page.route('https://**',r=>r.abort());await page.addInitScript(()=>sessionStorage.setItem('jamesIntroDate',new Date().toDateString()));await page.goto('http://127.0.0.1:'+h.server.address().port);await page.locator('#customerActivityOpen').click();await page.waitForFunction(()=>document.querySelectorAll('#customerDemoList button').length===5);
-  await page.locator('#customerNextKind').selectOption('Email');assert.equal(await page.locator('#customerAddEmail').isVisible(),true);
-  await page.locator('#activityContact').selectOption({label:'Alex Example'});await page.locator('#companyEditor summary').click();await page.locator('#companyContacts input[type="email"]').first().fill('');assert.equal(await page.locator('#customerNextOpen').isVisible(),false);
-  await page.locator('#customerAddEmail').click();assert.equal(await page.locator('#companyContacts input[type="email"]').first().evaluate(el=>el===document.activeElement),true);
-  await page.locator('#companyContacts input[type="email"]').first().fill('alex@example.com');assert.match(await page.locator('#customerNextOpen').getAttribute('href'),/^mailto:alex%40example.com/);assert.match(await page.locator('#customerNextOpenHelp').textContent(),/device’s email composer/);
-  await page.getByRole('button',{name:'In 20 minutes',exact:true}).click();const value=await page.locator('#customerNextWhen').inputValue();assert.match(value,/T\d{2}:\d{2}$/);assert.ok(new Date(value)>new Date());assert.equal(h.counts().mutations,0);
+  await page.locator('#customerNextKind').selectOption('Email');assert.match(await page.locator('#customerNextOpen').getAttribute('href'),/^mailto:\?subject=/);assert.equal(await page.locator('#customerAddEmail').count(),0);
+  await page.locator('#activityContact').selectOption({label:'Alex Example'});assert.match(await page.locator('#customerNextOpen').getAttribute('href'),/^mailto:contact0%40example.com/);assert.equal(await page.locator('#customerNextOpenHelp').textContent(),'To: contact0@example.com');
+  await page.getByRole('button',{name:'30 minutes',exact:true}).click();let value=await page.locator('#customerNextWhen').inputValue();assert.match(value,/T\d{2}:\d{2}$/);assert.ok(new Date(value)>new Date());
+  await page.getByRole('button',{name:'1 hour',exact:true}).click();assert.ok(new Date(await page.locator('#customerNextWhen').inputValue())-new Date(value)>=29*60000);
+  await page.getByRole('button',{name:'Custom date/time',exact:true}).click();assert.equal(await page.locator('#customerNextWhen').evaluate(el=>el===document.activeElement),true);assert.equal(h.counts().mutations,0);
+ }finally{await browser?.close();h.server.closeAllConnections();await new Promise(r=>h.server.close(r));}
+});
+
+test('Exit keeps incomplete company and activity drafts without validation or writes',async()=>{
+ const h=createFixtureServer();await new Promise(r=>h.server.listen(0,'127.0.0.1',r));let browser;
+ try{
+  browser=await chromium.launch({headless:true});const page=await browser.newPage();await page.route('https://**',r=>r.abort());await page.addInitScript(()=>sessionStorage.setItem('jamesIntroDate',new Date().toDateString()));await page.goto('http://127.0.0.1:'+h.server.address().port);await page.locator('#customerActivityOpen').click();await page.waitForFunction(()=>document.querySelectorAll('#customerDemoList button').length===5);
+  await page.locator('#companyEditor summary').click();await page.locator('#companyName').fill('');await page.locator('#customerDemoOutcome').fill('Unfinished note');await page.locator('#customerActivityClose').click();await page.locator('#customerExitDraft').click();await page.locator('#customerActivityOverlay').waitFor({state:'hidden'});assert.equal(h.counts().mutations,0);assert.match(await page.locator('#customerSaveNotice').textContent(),/Not saved/);
+  await page.locator('#customerActivityOpen').click();await page.waitForFunction(()=>!document.getElementById('customerDemoKeepDraft').disabled);assert.equal(await page.locator('#companyName').inputValue(),'');assert.equal(await page.locator('#customerDemoOutcome').inputValue(),'Unfinished note');await page.locator('#customerDemoKeepDraft').click();assert.equal(await page.locator('#customerActivityOverlay').isVisible(),true);assert.match(await page.locator('#customerDraftStatus').textContent(),/company name/);
+  await page.locator('#customerActivityClose').click();await page.locator('#customerExitDraft').click();await page.locator('#customerActivityOverlay').waitFor({state:'hidden'});assert.equal(h.counts().mutations,0);
  }finally{await browser?.close();h.server.closeAllConnections();await new Promise(r=>h.server.close(r));}
 });

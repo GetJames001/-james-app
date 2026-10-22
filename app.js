@@ -1454,7 +1454,7 @@ function initCustomerActivity() {
  const announce=text=>{status.textContent=text;};
  function actionTarget(kind,company,person,details=''){
   const phone=person?.phone||company?.phone||'',email=person?.email?.trim()||'';
-  if(kind==='Email'&&/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))return 'mailto:'+encodeURIComponent(email)+'?subject='+encodeURIComponent(details||'Follow-up — '+company.name);
+  if(kind==='Email'){const recipient=/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)?email:'';return 'mailto:'+encodeURIComponent(recipient)+'?subject='+encodeURIComponent(details||('Follow-up'+(company?.name?' — '+company.name:'')));}
   if(['Call','Text'].includes(kind)&&phone.replace(/[^0-9]/g,''))return (kind==='Call'?'tel:':'sms:')+phone.replace(/[^+0-9]/g,'');
   return '';
  }
@@ -1465,8 +1465,7 @@ function initCustomerActivity() {
   const target=actionTarget(kind,c,person,fields.nextDetails.value);
   link.hidden=!active||!target;link.textContent=kind==='Email'?'Open email draft':kind==='Text'?'Open text draft':'Open phone';
   if(target)link.href=target;else link.removeAttribute('href');
-  $('customerAddEmail').hidden=!active||kind!=='Email'||!!target;
-  $('customerNextOpenHelp').textContent=kind==='Email'&&active?(target?'Opens your device’s email composer addressed to '+person.email+'. Review and send there.':person?'This contact needs a valid email address. Add it in Company and contact details.':'Choose a contact above, or add their email address.'):active&&['Call','Text'].includes(kind)&&!target?'Add a contact or company phone number to open this action.':'';
+  $('customerNextOpenHelp').textContent=active&&kind==='Email'?(target.startsWith('mailto:?')?'Enter the recipient in the email draft.':'To: '+person.email):'';
  }
  function followUpText(a){return a.nextAction? a.nextAction==='No follow-up needed'?'No follow-up needed':(a.followUpCompletedAt?'Follow-up completed: ':'Pending: ')+a.nextAction+(a.nextActionDetails?' — '+a.nextActionDetails:'')+(a.nextActionAt?' · '+new Date(a.nextActionAt).toLocaleString():'')+(a.remindAt?' · Reminder moved to '+new Date(a.remindAt).toLocaleString():''):'';}
  const localDateValue=date=>new Date(+date-date.getTimezoneOffset()*60000).toISOString().slice(0,16);
@@ -1496,8 +1495,7 @@ function initCustomerActivity() {
   if(focused)list.querySelector('[data-reminder-control="'+CSS.escape(focused)+'"]')?.focus({preventScroll:true});
  }
  $('customerReminderRetry').onclick=()=>load();
- $('customerAddEmail').onclick=()=>{remember();$('companyEditor').open=true;const draft=companyDrafts.get(selected),i=draft?.contacts.findIndex(p=>p.id===fields.contactId.value)??-1;if(i>=0){$('companyContacts').children[i]?.querySelector('input[type="email"]')?.focus();}else{$('companyAddContact').focus();announce('Choose a contact, or add one with an email address, then save company details.');}};
- for(const button of $('customerQuickTimes').querySelectorAll('button'))button.onclick=()=>{fields.nextWhen.value=localDateValue(new Date(Date.now()+Number(button.dataset.minutes)*60000));remember();announce('Follow-up date and time selected.');};
+ for(const button of $('customerQuickTimes').querySelectorAll('button'))button.onclick=()=>{if(button.dataset.custom){fields.nextWhen.focus();return;}fields.nextWhen.value=localDateValue(new Date(Date.now()+Number(button.dataset.minutes)*60000));remember();announce('Follow-up time selected.');};
  function remember(){
   if(!selected)return;
   drafts.set(selected,Object.fromEntries(Object.entries(fields).map(([k,el])=>[k,el.value])));
@@ -1514,7 +1512,7 @@ function initCustomerActivity() {
    if(changed)companyDirty.add(selected);
   }
  }
- function controls(){const locked=busy||savingAll;$('customerModeSwitch').disabled=locked||uncertain;for(const el of $('companyEditor').querySelectorAll('input,button'))el.disabled=locked||uncertain||!selected;save.disabled=locked||uncertain||!doc||!selected;add.disabled=locked||uncertain||!doc;reload.disabled=locked||savingAll;reload.hidden=!uncertain;$('customerCloseSave').disabled=locked||uncertain;$('customerKeepEditing').disabled=locked;for(const b of $('customerDemoList').querySelectorAll('button'))b.disabled=locked;for(const el of Object.values(fields))el.disabled=locked||uncertain||!selected;$('customerNewName').disabled=locked||uncertain;for(const b of $('customerQuickTimes').querySelectorAll('button'))b.disabled=locked||uncertain;$('customerAddEmail').disabled=locked||uncertain;renderReminders();}
+ function controls(){const locked=busy||savingAll;$('customerModeSwitch').disabled=locked||uncertain;for(const el of $('companyEditor').querySelectorAll('input,button'))el.disabled=locked||uncertain||!selected;save.disabled=locked||uncertain||!doc||!selected;add.disabled=locked||uncertain||!doc;reload.disabled=locked||savingAll;reload.hidden=!uncertain;$('customerCloseSave').disabled=locked||uncertain;$('customerKeepEditing').disabled=locked;for(const b of $('customerDemoList').querySelectorAll('button'))b.disabled=locked;for(const el of Object.values(fields))el.disabled=locked||uncertain||!selected;$('customerNewName').disabled=locked||uncertain;for(const b of $('customerQuickTimes').querySelectorAll('button'))b.disabled=locked||uncertain;$('customerExitDraft').disabled=locked;renderReminders();}
  function companyDraft(c){
   if(!c)return null;
   if(!companyDrafts.has(c.id)||!companyDirty.has(c.id))companyDrafts.set(c.id,{...c,contacts:(c.contacts|| (c.contact?[{id:uuid(),name:c.contact,phone:c.phone||'',email:''}]:[])).map(person=>({...person}))});
@@ -1522,7 +1520,7 @@ function initCustomerActivity() {
  }
  function renderCompany(c){
   const draft=companyDraft(c);
-  $('companyEditStatus').textContent=companyDirty.has(c?.id)?'Unsaved company details.':'Save company details here, or save everything when returning to briefing.';
+  $('companyEditStatus').textContent=companyDirty.has(c?.id)?'Unsaved company details.':'';
   for(const [id,key] of [['companyName','name'],['companyPhone','phone'],['companyAddress','address']]){
    $(id).value=draft?.[key]||'';
    $(id).oninput=()=>{draft[key]=$(id).value;companyDirty.add(c.id);$('companyEditStatus').textContent='Unsaved company details.';updateNext();};
@@ -1594,7 +1592,7 @@ function initCustomerActivity() {
    if(confirmed){if(pending.type==='record_activity')drafts.delete(pending.activity.customerId);else if(pending.type==='upsert_customer'){companyDrafts.delete(pending.customer.id);companyDirty.delete(pending.customer.id);$('customerNewName').value='';}pending=null;}
    // If no matching ID is present, allow an explicit retry using this fresh revision.
    uncertain=false;selected=doc.customers.some(c=>c.id===selected)?selected:doc.customers[0]?.id||null;
-   announce(confirmed?'Previous save confirmed.':'Contact notes loaded.');
+   announce(confirmed?'Previous save confirmed.':'');
   }catch(error){if(ticket!==epoch)return;uncertain=true;remindersStale=true;if(error.message==='SESSION'){reminderSessionExpired=true;clearPrivate();announce('Session expired. Sign in again to load your records.');}else announce('Could not load records. Existing notes are retained; reload before saving.');}
   finally{if(ticket===epoch){busy=false;render();if(!overlay.hidden&&document.activeElement===document.body)reload.focus();}}
  }
@@ -1632,6 +1630,7 @@ function initCustomerActivity() {
   (uncertain?reload:$('customerCloseSave')).focus();
  }
  closeButton.onclick=requestClose;reload.onclick=load;
+ $('customerExitDraft').onclick=()=>{if(busy||savingAll)return;close();$('customerSaveNotice').textContent=uncertain||pending?'Draft retained in this tab. Previous save is unconfirmed; check status when you return.':'Draft kept in this tab until reload. Not saved to customer history.';};
  $('customerKeepEditing').onclick=()=>{$('customerClosePrompt').hidden=true;closeButton.focus();};
  $('customerCloseSave').onclick=()=>saveAll();
  for(const el of Object.values(fields))el.addEventListener('input',()=>{remember();updateNext();announce('Unsaved activity.');});
