@@ -1,3 +1,4 @@
+const { googleRedirectUri } = require("../../lib/google/oauth-redirect.js");
 const crypto = require("node:crypto");
 const { requireAuth } = require("../../lib/auth.js");
 
@@ -9,6 +10,10 @@ module.exports = async function handler(req, res) {
     res.setHeader("Allow", "GET");
     return res.status(405).send("Method not allowed.");
   }
+
+  let redirectUri;
+  try { redirectUri = googleRedirectUri(req); }
+  catch { return res.status(503).send("Calendar connection is not configured for this preview address."); }
 
   const clientId = process.env.GOOGLE_CLIENT_ID;
 
@@ -25,8 +30,7 @@ module.exports = async function handler(req, res) {
 
   const params = new URLSearchParams({
     client_id: clientId,
-    redirect_uri:
-      "https://www.getjames.ai/api/google/callback",
+    redirect_uri: redirectUri,
     response_type: "code",
     scope: "https://www.googleapis.com/auth/calendar.readonly",
     access_type: "offline",
