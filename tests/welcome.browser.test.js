@@ -106,3 +106,17 @@ test('Customer Activity follows both themes and preserves its unsaved note acros
  assert.equal(await page.locator('#customerDemoOutcome').inputValue(),'Fictional draft — no visit reported');
  await context.close();
 }));
+
+
+test('Mail distinguishes a disconnected workspace from a verified empty inbox, and clears the connection notice on recovery',async()=>fixture(async(b,url)=>{
+ const {page,context}=await pageFor(b,url,{reducedMotion:'reduce'});await page.goto(url);
+ await page.evaluate(()=>applyPersonalMicrosoftMail({connected:false,unreadCount:null,messages:[]}));
+ assert.equal(await page.locator('#personalEmailCount').textContent(),'Not connected');
+ assert.match(await page.locator('#personalMailMessages').textContent(),/not connected in this workspace/);
+ assert.doesNotMatch(await page.locator('#personalMailMessages').textContent(),/No recent messages/);
+ await page.evaluate(()=>applyPersonalMicrosoftMail({connected:true,unreadCount:0,messages:[]}));
+ assert.equal(await page.locator('#personalEmailCount').textContent(),'0 unread');
+ assert.match(await page.locator('#personalMailMessages').textContent(),/No recent messages/);
+ assert.doesNotMatch(await page.locator('.mail-state-notice').first().textContent(),/not connected/);
+ await context.close();
+}));

@@ -260,7 +260,7 @@ test("authorized requests preserve app, session, health, and stored Tasks behavi
   res = mockRes();
   await require("../lib/routes/app.js")(request("GET", sameOrigin), res);
   assert.equal(res.statusCode, 200);
-  assert.match(res.body, /Your Morning Briefing/);
+  assert.match(res.body, /James — Daily Briefing/);
 
   const originalFetch = global.fetch;
   global.fetch = async () => ({

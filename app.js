@@ -1076,13 +1076,19 @@ function applyPersonalMicrosoftMail(data) {
   if (!personalMailCount) return;
 
   if (!data.connected) {
-    personalMailCount.textContent = '—';
+    personalMailCount.textContent = 'Not connected';
     window.personalMicrosoftMessages = [];
     renderPersonalMicrosoftMail([]);
+    const empty = $('#personalMailMessages .panel-item');
+    if (empty) empty.textContent = 'Personal Mail is not connected in this workspace.';
+    mailStateNotice('Personal Mail is not connected in this workspace.');
     hasSuccessfulPersonalMailLoad = true;
     return;
   }
 
+  for (const notice of $$('.mail-state-notice')) {
+    if (notice.textContent === 'Personal Mail is not connected in this workspace.') notice.textContent = '';
+  }
   personalMailCount.textContent = `${data.unreadCount} unread`;
   window.personalMicrosoftMessages = Array.isArray(data.messages) ? data.messages : [];
   renderPersonalMicrosoftMail(window.personalMicrosoftMessages);
@@ -1478,11 +1484,10 @@ function initCustomerActivity() {
   renderCompany(c);
   fields.contactId.replaceChildren(new Option('No specific contact',''));
   for(const person of c?.contacts||[])fields.contactId.add(new Option(person.name,person.id));
-  $('customerDemoLast').textContent=history.length?new Date(history[0].occurredAt).toLocaleString():'No recorded contact';
   $('customerDemoHistory').textContent=history.map(a=>`${new Date(a.occurredAt).toLocaleString()} · ${labels[a.outcome]}${a.contactName?' · '+a.contactName:''}: ${a.notes}${a.nextAction?' · Proposed next step: '+a.nextAction:''}`).join('\n')||'No recorded contact.';
   const last=history[0];
-  $('customerLastTitle').textContent=c?'Last saved contact — '+c.name:'Last saved contact';
-  $('customerLastSummary').textContent=last?`${new Date(last.occurredAt).toLocaleString()} · ${labels[last.outcome]}${last.contactName?' · '+last.contactName:''}\n${last.notes||'No notes recorded.'}${last.nextAction?'\nProposed next action: '+last.nextAction:''}`:'No saved contact notes for this customer.';
+  $('customerLastTitle').textContent='Last contact';
+  $('customerLastSummary').textContent=last?`${new Date(last.occurredAt).toLocaleString()} · ${labels[last.outcome]}${last.contactName?' · '+last.contactName:''}\n${last.notes||'No notes recorded.'}${last.nextAction?'\nProposed next action: '+last.nextAction:''}`:'No contact recorded for this company yet.';
   for(const [k,el] of Object.entries(fields))el.value=drafts.get(selected)?.[k]||'';
   controls();
  }
@@ -1504,7 +1509,7 @@ function initCustomerActivity() {
    if(confirmed){if(pending.type==='record_activity')drafts.delete(pending.activity.customerId);else{companyDrafts.delete(pending.customer.id);companyDirty.delete(pending.customer.id);$('customerNewName').value='';}pending=null;}
    // If no matching ID is present, allow an explicit retry using this fresh revision.
    uncertain=false;selected=doc.customers.some(c=>c.id===selected)?selected:doc.customers[0]?.id||null;
-   announce(confirmed?'Previous save confirmed.':'Saved records loaded. Unsaved notes are retained in this page.');
+   announce(confirmed?'Previous save confirmed.':'Contact notes loaded.');
   }catch(error){if(ticket!==epoch)return;uncertain=true;if(error.message==='SESSION'){clearPrivate();announce('Session expired. Sign in again to load your records.');}else announce('Could not load records. Existing notes are retained; reload before saving.');}
   finally{if(ticket===epoch){busy=false;render();if(!overlay.hidden&&document.activeElement===document.body)reload.focus();}}
  }
@@ -1519,14 +1524,14 @@ function initCustomerActivity() {
    if(command.type==='record_activity')close(false);
   }catch(error){uncertain=true;
    if(error.message==='SESSION'){clearPrivate();announce('Session expired. Sign in again.');}
-   else announce(error.message==='CONFLICT'?'Another update arrived. Your notes are retained. Refresh saved history, review, then save again.':'Save not confirmed. Your notes are retained. Reload to check before retrying.');
+   else announce(error.message==='CONFLICT'?'Another update arrived. Your notes are retained. Refresh contact notes, review, then save again.':'Save not confirmed. Your notes are retained. Reload to check before retrying.');
   }finally{busy=false;render();}
  }
  function close(retain=true){if(retain)remember();overlay.hidden=true;if(returnFocus?.isConnected)returnFocus.focus();}
  openButton.onclick=()=>{returnFocus=document.activeElement;overlay.hidden=false;closeButton.focus();if(!busy)load();};
- $('customerViewHistory').onclick=()=>{$('customerDemoHistory').setAttribute('tabindex','-1');$('customerDemoHistory').focus();};
+ $('customerViewHistory').onclick=event=>{event.preventDefault();const history=$('customerHistoryDetails');history.open=!history.open;if(history.open){$('customerDemoHistory').setAttribute('tabindex','-1');$('customerDemoHistory').focus();}};
  closeButton.onclick=()=>close();$('customerDemoDone').onclick=()=>close();reload.onclick=load;
- for(const el of Object.values(fields))el.addEventListener('input',()=>{remember();announce('Unsaved activity. Confirm the outcome and time before saving.');});
+ for(const el of Object.values(fields))el.addEventListener('input',()=>{remember();announce('Unsaved activity.');});
  add.onclick=()=>{const name=$('customerNewName').value.trim();if(!name){announce('Enter a company name.');return;}const customer=pending?.type==='upsert_customer'&&pending.customer.name===name?pending.customer:{id:uuid(),name,source:'manual'};commit({type:'upsert_customer',customer});};
  save.onclick=()=>{
   if(!selected||!fields.outcome.value||!fields.when.value){announce('Choose what happened and when before saving. Your draft has not been saved.');(!fields.outcome.value?fields.outcome:fields.when).focus();return;}
