@@ -45,7 +45,7 @@ test('Customer Activity saves and reopens actual reports; retains drafts after f
  const h=createFixtureServer();await new Promise(r=>h.server.listen(0,'127.0.0.1',r));let browser;
  try{
   browser=await chromium.launch({headless:true});const page=await browser.newPage({viewport:{width:1024,height:880}});
-  await page.route('https://**',r=>r.abort());await page.addInitScript(()=>sessionStorage.setItem('jamesIntroDate',new Date().toDateString()));
+  await page.route('https://**',r=>r.abort());await page.addInitScript(()=>{sessionStorage.setItem('jamesIntroDate',new Date().toDateString());sessionStorage.setItem('jamesCustomerMode','saved');});
   await page.goto('http://127.0.0.1:'+h.server.address().port);
   await page.locator('#customerActivityOpen').click();
   await page.waitForFunction(()=>!document.getElementById('customerAdd').disabled);
@@ -93,7 +93,7 @@ test('Customer Activity is usable at phone and tablet widths with no horizontal 
     browser=await chromium.launch({headless:true});
     const page=await browser.newPage({viewport:{width:390,height:740}});
     await page.route('https://**',route=>route.abort());
-    await page.addInitScript(()=>sessionStorage.setItem('jamesIntroDate',new Date().toDateString()));
+    await page.addInitScript(()=>{sessionStorage.setItem('jamesIntroDate',new Date().toDateString());sessionStorage.setItem('jamesCustomerMode','saved');});
     await page.goto('http://127.0.0.1:'+h.server.address().port);
     for(const width of [320,390,820,1280]){
       await page.setViewportSize({width,height:800});
@@ -118,7 +118,7 @@ test('Company contacts persist, activity keeps contact identity, and uncertain e
  const h=createFixtureServer();await new Promise(r=>h.server.listen(0,'127.0.0.1',r));let browser;
  try{
   browser=await chromium.launch({headless:true});const page=await browser.newPage();
-  await page.route('https://**',r=>r.abort());await page.addInitScript(()=>sessionStorage.setItem('jamesIntroDate',new Date().toDateString()));
+  await page.route('https://**',r=>r.abort());await page.addInitScript(()=>{sessionStorage.setItem('jamesIntroDate',new Date().toDateString());sessionStorage.setItem('jamesCustomerMode','saved');});
   await page.goto('http://127.0.0.1:'+h.server.address().port);await page.locator('#customerActivityOpen').click();await page.waitForFunction(()=>!document.getElementById('customerAdd').disabled);
   await page.locator('#customerNewName').fill('Fictional Beacon');await page.locator('#customerAdd').click();await page.waitForFunction(()=>document.getElementById('customerDemoName').textContent==='Fictional Beacon');
   await page.locator('#companyAddress').fill('Fictional test location');
@@ -143,7 +143,7 @@ test('Close protects drafts; one save persists company edits and activity, refre
  const h=createFixtureServer();await new Promise(r=>h.server.listen(0,'127.0.0.1',r));let browser;
  try{
   browser=await chromium.launch({headless:true});const page=await browser.newPage();
-  await page.route('https://**',r=>r.abort());await page.addInitScript(()=>sessionStorage.setItem('jamesIntroDate',new Date().toDateString()));
+  await page.route('https://**',r=>r.abort());await page.addInitScript(()=>{sessionStorage.setItem('jamesIntroDate',new Date().toDateString());sessionStorage.setItem('jamesCustomerMode','saved');});
   await page.goto('http://127.0.0.1:'+h.server.address().port);await page.locator('#customerActivityOpen').click();await page.waitForFunction(()=>!document.getElementById('customerAdd').disabled);
   await page.locator('#customerNewName').fill('Fictional Close Test');await page.locator('#customerAdd').click();await page.waitForFunction(()=>document.getElementById('customerDemoName').textContent==='Fictional Close Test');
   assert.equal(await page.locator('#customerReload').isVisible(),false);
@@ -167,7 +167,7 @@ test('A lost second acknowledgment retains pending work and reconciles without r
  const h=createFixtureServer();await new Promise(r=>h.server.listen(0,'127.0.0.1',r));let browser;
  try{
   browser=await chromium.launch({headless:true});const page=await browser.newPage();
-  await page.route('https://**',r=>r.abort());await page.addInitScript(()=>sessionStorage.setItem('jamesIntroDate',new Date().toDateString()));
+  await page.route('https://**',r=>r.abort());await page.addInitScript(()=>{sessionStorage.setItem('jamesIntroDate',new Date().toDateString());sessionStorage.setItem('jamesCustomerMode','saved');});
   await page.goto('http://127.0.0.1:'+h.server.address().port);await page.locator('#customerActivityOpen').click();await page.waitForFunction(()=>!document.getElementById('customerAdd').disabled);
   await page.locator('#customerNewName').fill('Fictional Partial Save');await page.locator('#customerAdd').click();await page.waitForFunction(()=>document.getElementById('customerDemoName').textContent==='Fictional Partial Save');
   await page.locator('#companyPhone').fill('555-0123');await page.locator('#customerOutcomeKind').selectOption('attempted');await page.locator('#customerOccurredAt').fill('2026-10-20T12:00');await page.locator('#customerDemoOutcome').fill('One reported attempt');
@@ -185,7 +185,7 @@ test('Save and return includes drafts from more than one company',async()=>{
  const h=createFixtureServer();await new Promise(r=>h.server.listen(0,'127.0.0.1',r));let browser;
  try{
   browser=await chromium.launch({headless:true});const page=await browser.newPage();
-  await page.route('https://**',r=>r.abort());await page.addInitScript(()=>sessionStorage.setItem('jamesIntroDate',new Date().toDateString()));
+  await page.route('https://**',r=>r.abort());await page.addInitScript(()=>{sessionStorage.setItem('jamesIntroDate',new Date().toDateString());sessionStorage.setItem('jamesCustomerMode','saved');});
   await page.goto('http://127.0.0.1:'+h.server.address().port);await page.locator('#customerActivityOpen').click();await page.waitForFunction(()=>!document.getElementById('customerAdd').disabled);
   for(const name of ['Fictional Alpha','Fictional Beta']){await page.locator('#customerNewName').fill(name);await page.locator('#customerAdd').click();await page.waitForFunction(name=>document.getElementById('customerDemoName').textContent===name,name);}
   for(const [name,note] of [['Fictional Alpha','First attempted visit'],['Fictional Beta','Second attempted visit']]){
@@ -196,5 +196,42 @@ test('Save and return includes drafts from more than one company',async()=>{
   for(const [name,note] of [['Fictional Alpha','First attempted visit'],['Fictional Beta','Second attempted visit']]){
    await page.locator('#customerDemoList').getByRole('button',{name,exact:true}).click();assert.match(await page.locator('#customerDemoHistory').textContent(),new RegExp(note));assert.equal(await page.locator('#companyPhone').inputValue(),'555-0199');assert.equal(await page.locator('#customerDemoOutcome').inputValue(),'');
   }
+ }finally{await browser?.close();h.server.closeAllConnections();await new Promise(r=>h.server.close(r));}
+});
+
+test('Five-company practice template explains fields, saves only locally and leaves saved records unchanged',async()=>{
+ const h=createFixtureServer();await new Promise(r=>h.server.listen(0,'127.0.0.1',r));let browser;
+ try{
+  browser=await chromium.launch({headless:true});const page=await browser.newPage({viewport:{width:820,height:1000}});let customerRequests=0;
+  page.on('request',r=>{if(new URL(r.url()).pathname==='/api/customer-activity')customerRequests++;});
+  await page.route('https://**',r=>r.abort());await page.addInitScript(()=>sessionStorage.setItem('jamesIntroDate',new Date().toDateString()));
+  await page.goto('http://127.0.0.1:'+h.server.address().port);await page.locator('#customerActivityOpen').click();await page.waitForFunction(()=>document.querySelectorAll('#customerDemoList button').length===5);
+  assert.equal(customerRequests,0);assert.match(await page.locator('#customerModeNotice').textContent(),/fictional.*until reload/);
+  await page.locator('#companyEditor summary').click();assert.equal(await page.locator('#companyContacts fieldset').count(),2);
+  assert.match(await page.locator('#companyNameHelp').textContent(),/business name/);assert.match(await page.locator('#customerOutcomeKindHelp').textContent(),/actually occurred/);
+  for(const [name,note] of [['Silver Mesa Facilities','Practice attempt only'],['Desert Willow Hospitality','Practice second attempt']]){
+   await page.locator('#customerDemoList').getByRole('button',{name,exact:true}).click();await page.locator('#customerOutcomeKind').selectOption('attempted');await page.locator('#customerOccurredAt').fill('2026-10-20T12:00');await page.locator('#customerDemoOutcome').fill(note);
+  }
+  await page.locator('#customerActivityClose').click();assert.equal(await page.locator('#customerClosePrompt').isVisible(),true);await page.locator('#customerCloseSave').click();await page.locator('#customerActivityOverlay').waitFor({state:'hidden'});
+  assert.match(await page.locator('#customerSaveNotice').textContent(),/Practice.*tab only/);assert.equal(customerRequests,0);assert.equal(h.counts().mutations,0);
+  await page.locator('#customerActivityOpen').click();await page.waitForFunction(()=>document.getElementById('customerDemoHistory').textContent.includes('Practice second attempt'));
+  await page.locator('#customerModeSwitch').click();await page.waitForFunction(()=>document.getElementById('customerModeNotice').textContent.startsWith('Your saved'));
+  assert.equal(await page.locator('#customerDemoList button').count(),0);assert.equal(h.counts().mutations,0);assert.equal(customerRequests,1);
+  await page.locator('#customerModeSwitch').click();await page.waitForFunction(()=>document.querySelectorAll('#customerDemoList button').length===5);
+  await page.reload();await page.locator('#customerActivityOpen').click();await page.waitForFunction(()=>document.querySelectorAll('#customerDemoList button').length===5);assert.doesNotMatch(await page.locator('#customerDemoHistory').textContent(),/Practice.*attempt/);
+ }finally{await browser?.close();h.server.closeAllConnections();await new Promise(r=>h.server.close(r));}
+});
+
+test('Top save-and-close detects company autofill and activity values without input events',async()=>{
+ const h=createFixtureServer();await new Promise(r=>h.server.listen(0,'127.0.0.1',r));let browser;
+ try{
+  browser=await chromium.launch({headless:true});const page=await browser.newPage();
+  await page.route('https://**',r=>r.abort());await page.addInitScript(()=>sessionStorage.setItem('jamesIntroDate',new Date().toDateString()));
+  await page.goto('http://127.0.0.1:'+h.server.address().port);await page.locator('#customerActivityOpen').click();await page.waitForFunction(()=>document.querySelectorAll('#customerDemoList button').length===5);
+  await page.evaluate(()=>{document.getElementById('companyPhone').value='702-555-0198';});
+  await page.locator('#customerActivityClose').click();assert.equal(await page.locator('#customerClosePrompt').isVisible(),true);await page.locator('#customerKeepEditing').click();assert.equal(await page.locator('#companyPhone').inputValue(),'702-555-0198');
+  await page.evaluate(()=>{document.getElementById('customerOutcomeKind').value='attempted';document.getElementById('customerOccurredAt').value='2026-10-20T12:00';document.getElementById('customerDemoOutcome').value='Dictation fixture';});
+  await page.locator('#customerActivityClose').click();await page.locator('#customerCloseSave').click();await page.locator('#customerActivityOverlay').waitFor({state:'hidden'});
+  await page.locator('#customerActivityOpen').click();await page.waitForFunction(()=>document.getElementById('customerDemoHistory').textContent.includes('Dictation fixture'));assert.equal(await page.locator('#companyPhone').inputValue(),'702-555-0198');assert.equal(h.counts().mutations,0);
  }finally{await browser?.close();h.server.closeAllConnections();await new Promise(r=>h.server.close(r));}
 });

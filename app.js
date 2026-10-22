@@ -1441,10 +1441,34 @@ function initCustomerActivity() {
  let doc=null,selected=null,busy=false,uncertain=false,returnFocus=null,epoch=0;
  const drafts=new Map(),companyDrafts=new Map(),companyDirty=new Set();
  let pending=null,savingAll=false;
+ let practiceMode=true;
+ try{practiceMode=sessionStorage.getItem('jamesCustomerMode')!=='saved';}catch{}
+ let practiceDoc={schemaVersion:2,revision:0,activities:[],customers:[
+  ['Silver Mesa Facilities','Alex Example','Jordan Example'],
+  ['Desert Willow Hospitality','Taylor Example','Morgan Example'],
+  ['Canyon Ridge Logistics','Casey Example','Riley Example'],
+  ['Suncrest Property Services','Jamie Example','Drew Example'],
+  ['Blue Horizon Manufacturing','Avery Example','Quinn Example']
+ ].map(([name,first,second],i)=>({id:'practice-company-'+i,name,phone:'702-555-01'+String(i).padStart(2,'0'),address:'Fictional site '+(i+1)+' — example only',source:'practice',contacts:[first,second].map((name,j)=>({id:'practice-contact-'+i+'-'+j,name,phone:'702-555-01'+String(i*2+j+10).padStart(2,'0'),email:'contact'+j+'@example.com'}))}))};
  const uuid=()=>crypto.randomUUID();
  const announce=text=>{status.textContent=text;};
- function remember(){if(selected)drafts.set(selected,Object.fromEntries(Object.entries(fields).map(([k,el])=>[k,el.value])));}
- function controls(){const locked=busy||savingAll;for(const el of $('companyEditor').querySelectorAll('input,button'))el.disabled=locked||uncertain||!selected;save.disabled=locked||uncertain||!doc||!selected;add.disabled=locked||uncertain||!doc;reload.disabled=locked||savingAll;reload.hidden=!uncertain;$('customerCloseSave').disabled=locked||uncertain;$('customerKeepEditing').disabled=locked;for(const b of $('customerDemoList').querySelectorAll('button'))b.disabled=locked;for(const el of Object.values(fields))el.disabled=locked||uncertain||!selected;$('customerNewName').disabled=locked||uncertain;}
+ function remember(){
+  if(!selected)return;
+  drafts.set(selected,Object.fromEntries(Object.entries(fields).map(([k,el])=>[k,el.value])));
+  // Read actual field values too: autofill/dictation need not emit an input event.
+  const draft=companyDrafts.get(selected);
+  if(draft){
+   const changes={name:$('companyName').value,phone:$('companyPhone').value,address:$('companyAddress').value};
+   let changed=Object.entries(changes).some(([k,v])=>v!==(draft[k]||''));
+   Object.assign(draft,changes);
+   [...$('companyContacts').querySelectorAll('fieldset')].forEach((row,i)=>{
+    const person=draft.contacts[i];if(!person)return;
+    [...row.querySelectorAll('input')].forEach((el,j)=>{const key=['name','phone','email'][j];if(el.value!==(person[key]||''))changed=true;person[key]=el.value;});
+   });
+   if(changed)companyDirty.add(selected);
+  }
+ }
+ function controls(){const locked=busy||savingAll;$('customerModeSwitch').disabled=locked||uncertain;for(const el of $('companyEditor').querySelectorAll('input,button'))el.disabled=locked||uncertain||!selected;save.disabled=locked||uncertain||!doc||!selected;add.disabled=locked||uncertain||!doc;reload.disabled=locked||savingAll;reload.hidden=!uncertain;$('customerCloseSave').disabled=locked||uncertain;$('customerKeepEditing').disabled=locked;for(const b of $('customerDemoList').querySelectorAll('button'))b.disabled=locked;for(const el of Object.values(fields))el.disabled=locked||uncertain||!selected;$('customerNewName').disabled=locked||uncertain;}
  function companyDraft(c){
   if(!c)return null;
   if(!companyDrafts.has(c.id)||!companyDirty.has(c.id))companyDrafts.set(c.id,{...c,contacts:(c.contacts|| (c.contact?[{id:uuid(),name:c.contact,phone:c.phone||'',email:''}]:[])).map(person=>({...person}))});
@@ -1475,6 +1499,8 @@ function initCustomerActivity() {
   commit({type:'upsert_customer',customer});
  };
  function render(){
+  $('customerModeNotice').textContent=practiceMode?'Practice template · Five fictional companies. Practice saves stay in this tab until reload; they do not change your saved customer records.':'Your saved companies · Record actual activity only.';
+  $('customerModeSwitch').textContent=practiceMode?'Show my saved companies':'Show five-company practice template';
   const list=$('customerDemoList');list.replaceChildren();
   for(const c of doc?.customers||[]){const b=document.createElement('button');b.type='button';b.textContent=c.name;b.setAttribute('aria-pressed',String(c.id===selected));b.disabled=busy;b.onclick=()=>{remember();selected=c.id;render();};list.append(b);}
   const c=doc?.customers.find(c=>c.id===selected);
@@ -1492,6 +1518,17 @@ function initCustomerActivity() {
   controls();
  }
  async function request(method,body){
+  if(practiceMode){
+   if(method==='POST'){
+    if(body.expectedRevision!==practiceDoc.revision)throw new Error('CONFLICT');
+    const next=structuredClone(practiceDoc);
+    if(body.type==='upsert_customer'){const i=next.customers.findIndex(c=>c.id===body.customer.id);if(i<0)next.customers.push(body.customer);else next.customers[i]=body.customer;}
+    else if(body.type==='record_activity'){if(!next.activities.some(a=>a.id===body.activity.id))next.activities.push(body.activity);}
+    else throw new Error('UNAVAILABLE');
+    next.revision++;practiceDoc=next;
+   }
+   return structuredClone(practiceDoc);
+  }
   const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),10000);
   try{const r=await fetch('/api/customer-activity',{method,credentials:'same-origin',cache:'no-store',headers:body?{'Content-Type':'application/json'}:{},body:body?JSON.stringify(body):undefined,signal:controller.signal});
    const data=await r.json();
@@ -1520,7 +1557,7 @@ function initCustomerActivity() {
   try{doc=await request('POST',{...command,expectedRevision:doc.revision});
    if(command.type==='record_activity'){drafts.delete(command.activity.customerId);if(selected===command.activity.customerId)for(const el of Object.values(fields))el.value='';}
    else{if(!savingAll)selected=command.customer.id;companyDrafts.delete(command.customer.id);companyDirty.delete(command.customer.id);if($('customerNewName').value.trim()===command.customer.name)$('customerNewName').value='';$('companyEditor').open=true;}
-   pending=null;announce('Saved.');
+   pending=null;announce(practiceMode?'Practice changes saved in this tab only.':'Saved.');
    return true;
   }catch(error){uncertain=true;
    if(error.message==='SESSION'){clearPrivate();announce('Session expired. Sign in again.');}
@@ -1529,6 +1566,13 @@ function initCustomerActivity() {
   }finally{busy=false;render();}
  }
  function close(retain=true){if(retain)remember();$('customerClosePrompt').hidden=true;overlay.hidden=true;if(returnFocus?.isConnected)returnFocus.focus();}
+ $('customerModeSwitch').onclick=()=>{
+  if(busy||savingAll||uncertain)return;
+  if(hasChanges()){announce('Save your changes before switching between practice and saved companies.');requestClose();return;}
+  clearPrivate();practiceMode=!practiceMode;
+  try{sessionStorage.setItem('jamesCustomerMode',practiceMode?'practice':'saved');}catch{}
+  load();
+ };
  openButton.onclick=()=>{$('customerSaveNotice').textContent='';returnFocus=document.activeElement;overlay.hidden=false;closeButton.focus();if(!busy)load();};
  $('customerViewHistory').onclick=event=>{event.preventDefault();const history=$('customerHistoryDetails');history.open=!history.open;if(history.open){$('customerDemoHistory').setAttribute('tabindex','-1');$('customerDemoHistory').focus();}};
  function hasActivity(d){return d&&Object.values(d).some(v=>v.trim());}
@@ -1567,7 +1611,7 @@ function initCustomerActivity() {
   savingAll=true;save.disabled=true;closeButton.disabled=true;$('customerCloseSave').disabled=true;$('customerKeepEditing').disabled=true;
   try{
    for(const command of queue){if(!await commit(command))return;}
-   announce(queue.length?'Changes saved.':'No changes to save.');$('customerSaveNotice').textContent=queue.length?'Customer changes saved.':'';close(false);
+   announce(queue.length?'Changes saved.':'No changes to save.');$('customerSaveNotice').textContent=queue.length?(practiceMode?'Practice changes saved in this tab only.':'Customer changes saved.'):'';close(false);
   }finally{savingAll=false;closeButton.disabled=false;$('customerCloseSave').disabled=uncertain;$('customerKeepEditing').disabled=false;controls();}
  }
  save.onclick=saveAll;

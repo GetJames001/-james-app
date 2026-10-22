@@ -22,6 +22,7 @@ async function pageFor(browser,url,options={}) {
  const context=await browser.newContext(options);const page=await context.newPage();
  await page.route('https://**',r=>r.abort());
  await page.addInitScript(()=>{
+  try{sessionStorage.setItem('jamesCustomerMode','saved');}catch{}
   window.__speechCount=0;window.__micCount=0;
   if(window.speechSynthesis) window.speechSynthesis.speak=()=>window.__speechCount++;
   class Recognition {start(){window.__micCount++;}} window.SpeechRecognition=Recognition;
