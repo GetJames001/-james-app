@@ -1436,7 +1436,7 @@ function initCustomerActivity() {
  const $=id=>document.getElementById(id),overlay=$('customerActivityOverlay');
  if(!overlay)return;
  const openButton=$('customerActivityOpen'),closeButton=$('customerActivityClose'),save=$('customerDemoKeepDraft'),reload=$('customerReload'),add=$('customerAdd'),status=$('customerDraftStatus');
- const fields={contactId:$('activityContact'),nextKind:$('customerNextKind'),notes:$('customerDemoOutcome'),outcome:$('customerOutcomeKind'),when:$('customerOccurredAt')};
+ const fields={contactId:$('activityContact'),nextKind:$('customerNextKind'),nextDetails:$('customerNextDetailsText'),nextWhen:$('customerNextWhen'),notes:$('customerDemoOutcome'),outcome:$('customerOutcomeKind'),when:$('customerOccurredAt')};
  const labels={met:'Met in person',attempted:'Attempted visit',not_available:'Contact unavailable',phone:'Phone contact',email:'Email contact',other:'Other'};
  let doc=null,selected=null,busy=false,uncertain=false,returnFocus=null,epoch=0;
  const drafts=new Map(),companyDrafts=new Map(),companyDirty=new Set();
@@ -1452,6 +1452,17 @@ function initCustomerActivity() {
  ].map(([name,first,second],i)=>({id:'practice-company-'+i,name,phone:'702-555-01'+String(i).padStart(2,'0'),address:'Fictional site '+(i+1)+' — example only',source:'practice',contacts:[first,second].map((name,j)=>({id:'practice-contact-'+i+'-'+j,name,phone:'702-555-01'+String(i*2+j+10).padStart(2,'0'),email:'contact'+j+'@example.com'}))}))};
  const uuid=()=>crypto.randomUUID();
  const announce=text=>{status.textContent=text;};
+ function updateNext(){
+  const kind=fields.nextKind.value,active=!!kind&&kind!=='No follow-up needed';
+  $('customerNextDetails').hidden=!active;
+  const c=companyDrafts.get(selected)||doc?.customers.find(c=>c.id===selected),person=c?.contacts?.find(p=>p.id===fields.contactId.value);
+  const phone=person?.phone||c?.phone||'',email=person?.email||'',link=$('customerNextOpen');
+  const target=kind==='Email'&&email?'mailto:'+encodeURIComponent(email):['Call','Text'].includes(kind)&&phone?(kind==='Call'?'tel:':'sms:')+phone.replace(/[^+0-9]/g,''):'';
+  link.hidden=!active||!target;link.textContent=kind==='Email'?'Open email draft':kind==='Text'?'Open text draft':'Open phone';
+  if(target)link.href=target;else link.removeAttribute('href');
+  $('customerNextOpenHelp').textContent=active&&['Call','Text','Email'].includes(kind)&&!target?'Choose a contact with a '+(kind==='Email'?'saved email address.':'saved phone number.') : '';
+ }
+ function followUpText(a){return a.nextAction? a.nextAction==='No follow-up needed'?'No follow-up needed':'Pending: '+a.nextAction+(a.nextActionDetails?' — '+a.nextActionDetails:'')+(a.nextActionAt?' · '+new Date(a.nextActionAt).toLocaleString():''):'';}
  function remember(){
   if(!selected)return;
   drafts.set(selected,Object.fromEntries(Object.entries(fields).map(([k,el])=>[k,el.value])));
@@ -1510,12 +1521,13 @@ function initCustomerActivity() {
   renderCompany(c);
   fields.contactId.replaceChildren(new Option('No specific contact',''));
   for(const person of c?.contacts||[])fields.contactId.add(new Option(person.name,person.id));
-  $('customerDemoHistory').textContent=history.map(a=>`${new Date(a.occurredAt).toLocaleString()} · ${labels[a.outcome]}${a.contactName?' · '+a.contactName:''}: ${a.notes}${a.nextAction?' · Proposed next step: '+a.nextAction:''}`).join('\n')||'No recorded contact.';
+  $('customerDemoHistory').textContent=history.map(a=>`${new Date(a.occurredAt).toLocaleString()} · ${labels[a.outcome]}${a.contactName?' · '+a.contactName:''}: ${a.notes}${a.nextAction?' · '+followUpText(a):''}`).join('\n')||'No recorded contact.';
   const last=history[0];
   $('customerLastTitle').textContent='Last contact';
-  $('customerLastSummary').textContent=last?`${new Date(last.occurredAt).toLocaleString()} · ${labels[last.outcome]}${last.contactName?' · '+last.contactName:''}\n${last.notes||'No notes recorded.'}${last.nextAction?'\nProposed next action: '+last.nextAction:''}`:'No contact recorded for this company yet.';
+  $('customerLastSummary').textContent=last?`${new Date(last.occurredAt).toLocaleString()} · ${labels[last.outcome]}${last.contactName?' · '+last.contactName:''}\n${last.notes||'No notes recorded.'}${last.nextAction?'\n'+followUpText(last):''}`:'';
+  $('customerLastSummary').hidden=!last;
   for(const [k,el] of Object.entries(fields))el.value=drafts.get(selected)?.[k]||'';
-  controls();
+  updateNext();controls();
  }
  async function request(method,body){
   if(practiceMode){
@@ -1586,7 +1598,7 @@ function initCustomerActivity() {
  closeButton.onclick=requestClose;reload.onclick=load;
  $('customerKeepEditing').onclick=()=>{$('customerClosePrompt').hidden=true;closeButton.focus();};
  $('customerCloseSave').onclick=()=>saveAll();
- for(const el of Object.values(fields))el.addEventListener('input',()=>{remember();announce('Unsaved activity.');});
+ for(const el of Object.values(fields))el.addEventListener('input',()=>{remember();updateNext();announce('Unsaved activity.');});
  add.onclick=()=>{const name=$('customerNewName').value.trim();if(!name){announce('Enter a company name.');return;}const customer=pending?.type==='upsert_customer'&&pending.customer.name===name?pending.customer:{id:uuid(),name,source:'manual'};commit({type:'upsert_customer',customer});};
  async function saveAll(){
   if(busy||savingAll||uncertain||!doc)return;
@@ -1603,10 +1615,12 @@ function initCustomerActivity() {
    if(!hasActivity(d))continue;
    const date=new Date(d.when);
    let message=!d.outcome||!d.when?'Choose what happened and when before saving. Your draft has not been saved.':!Number.isFinite(+date)||+date>Date.now()?'Enter a valid time that is not in the future.':d.outcome==='other'&&!d.notes.trim()?'Explain what happened in the notes.':'';
-   if(message){$('customerClosePrompt').hidden=true;selected=id;render();announce(message);(!d.outcome?fields.outcome:!d.when?fields.when:fields.notes).focus();return;}
+   if(!message&&!d.nextKind)message='Choose a next step or No follow-up needed before saving.';
+   if(!message&&d.nextKind!=='No follow-up needed'&&(!d.nextDetails.trim()||!d.nextWhen||!Number.isFinite(+new Date(d.nextWhen))||+new Date(d.nextWhen)<=Date.now()))message='Describe your next step and choose a future date and time before saving.';
+   if(message){$('customerClosePrompt').hidden=true;selected=id;render();announce(message);(!d.outcome?fields.outcome:!d.when?fields.when:!d.nextKind?fields.nextKind:d.nextKind!=='No follow-up needed'&&!d.nextDetails.trim()?fields.nextDetails:d.nextKind!=='No follow-up needed'?fields.nextWhen:fields.notes).focus();return;}
    const customer=queue.find(c=>c.type==='upsert_customer'&&c.customer.id===id)?.customer||doc.customers.find(c=>c.id===id);
    const person=customer?.contacts?.find(c=>c.id===d.contactId);
-   queue.push({type:'record_activity',activity:{id:pending?.type==='record_activity'&&pending.activity.customerId===id?pending.activity.id:uuid(),customerId:id,...(person?{contactId:person.id,contactName:person.name}:{}),occurredAt:date.toISOString(),outcome:d.outcome,notes:d.notes,nextAction:d.nextKind,initiatedBy:'typed'}});
+   queue.push({type:'record_activity',activity:{id:pending?.type==='record_activity'&&pending.activity.customerId===id?pending.activity.id:uuid(),customerId:id,...(person?{contactId:person.id,contactName:person.name}:{}),occurredAt:date.toISOString(),outcome:d.outcome,notes:d.notes,nextAction:d.nextKind,...(d.nextKind!=='No follow-up needed'?{nextActionDetails:d.nextDetails.trim(),nextActionAt:new Date(d.nextWhen).toISOString()}:{}),initiatedBy:'typed'}});
   }
   savingAll=true;save.disabled=true;closeButton.disabled=true;$('customerCloseSave').disabled=true;$('customerKeepEditing').disabled=true;
   try{

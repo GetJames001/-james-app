@@ -85,3 +85,13 @@ test('first new write upgrades the snapshot so older writers fail closed',()=>{
  assert.throws(()=>validateSnapshot({...upgraded,schemaVersion:3}),/INVALID_SNAPSHOT/);
 
 });
+
+test('timed follow-up survives snapshot normalization and rejects malformed commitments',()=>{
+ const {activity}=require('../lib/customer-activity/records.cjs');
+ const planned={...visit,nextAction:'Email',nextActionDetails:'Send requested proposal',nextActionAt:'2099-10-23T17:00:00.000Z'};
+ assert.equal(activity(planned).nextActionAt,planned.nextActionAt);
+ assert.equal(activity(planned).nextActionDetails,planned.nextActionDetails);
+ assert.throws(()=>activity({...planned,nextActionAt:'tomorrow'}),/INVALID_NEXT_TIMESTAMP/);
+ assert.throws(()=>activity({...planned,nextActionDetails:''}),/INVALID_NEXT_DETAILS/);
+ assert.equal(activity(visit).nextAction,visit.nextAction,'legacy notes remain readable');
+});

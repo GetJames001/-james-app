@@ -52,8 +52,8 @@ test('Customer Activity saves and reopens actual reports; retains drafts after f
   await page.locator('#customerNewName').fill('Fictional warehouse');await page.locator('#customerAdd').click();
   await page.waitForFunction(()=>document.getElementById('customerDemoName').textContent==='Fictional warehouse');
   await page.locator('#customerDemoOutcome').fill('Partial draft');await page.locator('#customerDemoKeepDraft').click();assert.match(await page.locator('#customerDraftStatus').textContent(),/Choose what happened/);
-  await page.locator('#customerOutcomeKind').selectOption('attempted');await page.locator('#customerOccurredAt').fill('2026-10-20T10:00');
-  await page.locator('#customerDemoOutcome').fill('Left a card. Nobody available.');await page.locator('#customerNextKind').selectOption('Call');
+  await page.locator('#customerOutcomeKind').selectOption('attempted');await page.locator('#customerOccurredAt').fill('2026-10-20T10:00');await page.locator('#customerNextKind').selectOption('No follow-up needed');
+  await page.locator('#customerDemoOutcome').fill('Left a card. Nobody available.');await page.locator('#customerNextKind').selectOption('Call');await page.locator('#customerNextDetailsText').fill('Call about proposal');await page.locator('#customerNextWhen').fill('2099-10-23T10:00');
   h.fail(true);await page.locator('#customerDemoKeepDraft').click();
   await page.waitForFunction(()=>document.getElementById('customerDraftStatus').textContent.includes('Save not confirmed'));
   assert.equal(await page.locator('#customerDemoOutcome').inputValue(),'Left a card. Nobody available.');
@@ -72,7 +72,7 @@ test('Customer Activity saves and reopens actual reports; retains drafts after f
   await page.locator('#customerViewHistory').click();
   assert.equal(await page.locator('#customerDemoHistory').evaluate(el=>document.activeElement===el),true);
   assert.equal(await page.locator('#customerDemoOutcome').inputValue(),'');
-  await page.locator('#customerOutcomeKind').selectOption('met');await page.locator('#customerOccurredAt').fill('2026-10-20T11:00');
+  await page.locator('#customerOutcomeKind').selectOption('met');await page.locator('#customerOccurredAt').fill('2026-10-20T11:00');await page.locator('#customerNextKind').selectOption('No follow-up needed');
   await page.locator('#customerDemoOutcome').fill('Met the manager');h.loseReply();await page.locator('#customerDemoKeepDraft').click();
   await page.waitForFunction(()=>document.getElementById('customerDraftStatus').textContent.includes('Save not confirmed'));
   await page.locator('#customerReload').click();await page.waitForFunction(()=>document.getElementById('customerDraftStatus').textContent.includes('Previous save confirmed'));
@@ -127,7 +127,7 @@ test('Company contacts persist, activity keeps contact identity, and uncertain e
   await page.locator('#customerReload').click();await page.waitForFunction(()=>document.getElementById('customerDraftStatus').textContent.includes('Previous save confirmed'));
   assert.equal(await page.locator('#companyContacts fieldset').count(),2);
   await page.locator('#activityContact').selectOption({label:'Jordan Example'});
-  await page.locator('#customerOutcomeKind').selectOption('attempted');await page.locator('#customerOccurredAt').fill('2026-10-20T10:00');await page.locator('#customerDemoOutcome').fill('Fictional attempt only');await page.locator('#customerNextKind').selectOption('Call');
+  await page.locator('#customerOutcomeKind').selectOption('attempted');await page.locator('#customerOccurredAt').fill('2026-10-20T10:00');await page.locator('#customerNextKind').selectOption('No follow-up needed');await page.locator('#customerDemoOutcome').fill('Fictional attempt only');await page.locator('#customerNextKind').selectOption('Call');await page.locator('#customerNextDetailsText').fill('Call about proposal');await page.locator('#customerNextWhen').fill('2099-10-23T10:00');
   await page.locator('#customerDemoKeepDraft').click();await page.locator('#customerActivityOverlay').waitFor({state:'hidden'});
   await page.reload();await page.locator('#customerActivityOpen').click();await page.waitForFunction(()=>document.getElementById('customerDemoHistory').textContent.includes('Jordan Example'));
   assert.match(await page.locator('#customerLastSummary').textContent(),/Call/);assert.equal(await page.locator('#customerDemoVisited').textContent(),'No in-person meeting recorded');
@@ -154,7 +154,7 @@ test('Close protects drafts; one save persists company edits and activity, refre
   assert.equal(await page.locator('#customerCloseSave').evaluate(el=>el===document.activeElement),true);
   await page.locator('#customerKeepEditing').click();assert.equal(await page.locator('#customerDemoOutcome').inputValue(),'Draft requiring an outcome');
   await page.locator('#customerDemoKeepDraft').click();assert.equal(h.counts().mutations,before,'validate the activity before saving company changes');
-  await page.locator('#customerOutcomeKind').selectOption('attempted');await page.locator('#customerOccurredAt').fill('2026-10-20T12:00');
+  await page.locator('#customerOutcomeKind').selectOption('attempted');await page.locator('#customerOccurredAt').fill('2026-10-20T12:00');await page.locator('#customerNextKind').selectOption('No follow-up needed');
   await page.locator('#customerActivityClose').click();await page.locator('#customerCloseSave').click();await page.locator('#customerActivityOverlay').waitFor({state:'hidden'});
   assert.equal(h.counts().mutations,before+2);
   await page.locator('#customerActivityOpen').click();await page.waitForFunction(()=>document.getElementById('customerDemoHistory').textContent.includes('Draft requiring an outcome'));
@@ -170,7 +170,7 @@ test('A lost second acknowledgment retains pending work and reconciles without r
   await page.route('https://**',r=>r.abort());await page.addInitScript(()=>{sessionStorage.setItem('jamesIntroDate',new Date().toDateString());sessionStorage.setItem('jamesCustomerMode','saved');});
   await page.goto('http://127.0.0.1:'+h.server.address().port);await page.locator('#customerActivityOpen').click();await page.waitForFunction(()=>!document.getElementById('customerAdd').disabled);
   await page.locator('#customerNewName').fill('Fictional Partial Save');await page.locator('#customerAdd').click();await page.waitForFunction(()=>document.getElementById('customerDemoName').textContent==='Fictional Partial Save');
-  await page.locator('#companyPhone').fill('555-0123');await page.locator('#customerOutcomeKind').selectOption('attempted');await page.locator('#customerOccurredAt').fill('2026-10-20T12:00');await page.locator('#customerDemoOutcome').fill('One reported attempt');
+  await page.locator('#companyPhone').fill('555-0123');await page.locator('#customerOutcomeKind').selectOption('attempted');await page.locator('#customerOccurredAt').fill('2026-10-20T12:00');await page.locator('#customerNextKind').selectOption('No follow-up needed');await page.locator('#customerDemoOutcome').fill('One reported attempt');
   const before=h.counts().mutations;h.loseReplyAfter(2);await page.locator('#customerDemoKeepDraft').click();await page.waitForFunction(()=>document.getElementById('customerDraftStatus').textContent.includes('Save not confirmed'));
   assert.equal(await page.locator('#customerActivityOverlay').isVisible(),true);assert.equal(await page.locator('#customerDemoOutcome').inputValue(),'One reported attempt');
   assert.equal(await page.locator('#customerDemoKeepDraft').isEnabled(),false);
@@ -189,7 +189,7 @@ test('Save and return includes drafts from more than one company',async()=>{
   await page.goto('http://127.0.0.1:'+h.server.address().port);await page.locator('#customerActivityOpen').click();await page.waitForFunction(()=>!document.getElementById('customerAdd').disabled);
   for(const name of ['Fictional Alpha','Fictional Beta']){await page.locator('#customerNewName').fill(name);await page.locator('#customerAdd').click();await page.waitForFunction(name=>document.getElementById('customerDemoName').textContent===name,name);}
   for(const [name,note] of [['Fictional Alpha','First attempted visit'],['Fictional Beta','Second attempted visit']]){
-   await page.locator('#customerDemoList').getByRole('button',{name,exact:true}).click();await page.locator('#companyPhone').fill('555-0199');await page.locator('#customerOutcomeKind').selectOption('attempted');await page.locator('#customerOccurredAt').fill('2026-10-20T12:00');await page.locator('#customerDemoOutcome').fill(note);
+   await page.locator('#customerDemoList').getByRole('button',{name,exact:true}).click();await page.locator('#companyPhone').fill('555-0199');await page.locator('#customerOutcomeKind').selectOption('attempted');await page.locator('#customerOccurredAt').fill('2026-10-20T12:00');await page.locator('#customerNextKind').selectOption('No follow-up needed');await page.locator('#customerDemoOutcome').fill(note);
   }
   const before=h.counts().mutations;await page.locator('#customerDemoKeepDraft').click();await page.locator('#customerActivityOverlay').waitFor({state:'hidden'});assert.equal(h.counts().mutations,before+4);
   await page.reload();await page.locator('#customerActivityOpen').click();await page.waitForFunction(()=>!document.getElementById('customerDemoKeepDraft').disabled);
@@ -210,7 +210,7 @@ test('Five-company practice template explains fields, saves only locally and lea
   await page.locator('#companyEditor summary').click();assert.equal(await page.locator('#companyContacts fieldset').count(),2);
   assert.match(await page.locator('#companyNameHelp').textContent(),/business name/);assert.match(await page.locator('#customerOutcomeKindHelp').textContent(),/actually occurred/);
   for(const [name,note] of [['Silver Mesa Facilities','Practice attempt only'],['Desert Willow Hospitality','Practice second attempt']]){
-   await page.locator('#customerDemoList').getByRole('button',{name,exact:true}).click();await page.locator('#customerOutcomeKind').selectOption('attempted');await page.locator('#customerOccurredAt').fill('2026-10-20T12:00');await page.locator('#customerDemoOutcome').fill(note);
+   await page.locator('#customerDemoList').getByRole('button',{name,exact:true}).click();await page.locator('#customerOutcomeKind').selectOption('attempted');await page.locator('#customerOccurredAt').fill('2026-10-20T12:00');await page.locator('#customerNextKind').selectOption('No follow-up needed');await page.locator('#customerDemoOutcome').fill(note);
   }
   await page.locator('#customerActivityClose').click();assert.equal(await page.locator('#customerClosePrompt').isVisible(),true);await page.locator('#customerCloseSave').click();await page.locator('#customerActivityOverlay').waitFor({state:'hidden'});
   assert.match(await page.locator('#customerSaveNotice').textContent(),/Practice.*tab only/);assert.equal(customerRequests,0);assert.equal(h.counts().mutations,0);
@@ -230,8 +230,27 @@ test('Top save-and-close detects company autofill and activity values without in
   await page.goto('http://127.0.0.1:'+h.server.address().port);await page.locator('#customerActivityOpen').click();await page.waitForFunction(()=>document.querySelectorAll('#customerDemoList button').length===5);
   await page.evaluate(()=>{document.getElementById('companyPhone').value='702-555-0198';});
   await page.locator('#customerActivityClose').click();assert.equal(await page.locator('#customerClosePrompt').isVisible(),true);await page.locator('#customerKeepEditing').click();assert.equal(await page.locator('#companyPhone').inputValue(),'702-555-0198');
-  await page.evaluate(()=>{document.getElementById('customerOutcomeKind').value='attempted';document.getElementById('customerOccurredAt').value='2026-10-20T12:00';document.getElementById('customerDemoOutcome').value='Dictation fixture';});
+  await page.evaluate(()=>{document.getElementById('customerNextKind').value='No follow-up needed';document.getElementById('customerOutcomeKind').value='attempted';document.getElementById('customerOccurredAt').value='2026-10-20T12:00';document.getElementById('customerDemoOutcome').value='Dictation fixture';});
   await page.locator('#customerActivityClose').click();await page.locator('#customerCloseSave').click();await page.locator('#customerActivityOverlay').waitFor({state:'hidden'});
   await page.locator('#customerActivityOpen').click();await page.waitForFunction(()=>document.getElementById('customerDemoHistory').textContent.includes('Dictation fixture'));assert.equal(await page.locator('#companyPhone').inputValue(),'702-555-0198');assert.equal(h.counts().mutations,0);
+ }finally{await browser?.close();h.server.closeAllConnections();await new Promise(r=>h.server.close(r));}
+});
+
+test('Follow-up requires a commitment, preserves date/time, and exposes explicit contact actions',async()=>{
+ const h=createFixtureServer();await new Promise(r=>h.server.listen(0,'127.0.0.1',r));let browser;
+ try{
+  browser=await chromium.launch({headless:true});const page=await browser.newPage();
+  await page.route('https://**',r=>r.abort());await page.addInitScript(()=>sessionStorage.setItem('jamesIntroDate',new Date().toDateString()));
+  await page.goto('http://127.0.0.1:'+h.server.address().port);await page.locator('#customerActivityOpen').click();await page.waitForFunction(()=>document.querySelectorAll('#customerDemoList button').length===5);
+  assert.equal(await page.locator('#customerLastSummary').isVisible(),false);
+  await page.locator('#customerOutcomeKind').selectOption('attempted');await page.locator('#customerOccurredAt').fill('2026-10-20T12:00');
+  await page.locator('#customerDemoKeepDraft').click();assert.match(await page.locator('#customerDraftStatus').textContent(),/Choose a next step/);
+  await page.locator('#customerNextKind').selectOption('Email');await page.locator('#customerDemoKeepDraft').click();assert.match(await page.locator('#customerDraftStatus').textContent(),/future date and time/);
+  assert.equal(await page.locator('#customerNextOpen').isVisible(),false);
+  await page.locator('#activityContact').selectOption({label:'Alex Example'});assert.match(await page.locator('#customerNextOpen').getAttribute('href'),/^mailto:/);
+  await page.locator('#customerNextDetailsText').fill('Send the requested proposal');await page.locator('#customerNextWhen').fill('2099-10-23T10:00');
+  await page.locator('#customerDemoKeepDraft').click();await page.locator('#customerActivityOverlay').waitFor({state:'hidden'});
+  await page.locator('#customerActivityOpen').click();await page.waitForFunction(()=>document.getElementById('customerLastSummary').textContent.includes('Pending: Email'));
+  assert.match(await page.locator('#customerLastSummary').textContent(),/2099/);assert.match(await page.locator('#customerLastSummary').textContent(),/Send the requested proposal/);assert.equal(h.counts().mutations,0);
  }finally{await browser?.close();h.server.closeAllConnections();await new Promise(r=>h.server.close(r));}
 });

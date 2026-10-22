@@ -471,7 +471,13 @@
           <label for="customerOccurredAt">When did it happen?</label><input id="customerOccurredAt" type="datetime-local" aria-describedby="customerOccurredAtHelp"><small id="customerOccurredAtHelp" class="customer-field-help">Enter the actual local date and time of the activity—not a future plan.</small>
           <label for="customerDemoOutcome">Activity notes</label>
           <textarea id="customerDemoOutcome" rows="4" maxlength="2000" placeholder="Example: Left a card and asked for the facilities manager." aria-describedby="customerDemoOutcomeHelp"></textarea><small id="customerDemoOutcomeHelp" class="customer-field-help">Describe what happened. Example: Nobody available; left a card. This does not count as a meeting.</small>
-          <label for="customerNextKind">Next step (optional)</label><select id="customerNextKind" aria-describedby="customerNextKindHelp"><option value="">Choose an action (optional)</option><option>Call</option><option>Email</option><option>Text</option><option>Drop by</option><option>Other</option></select><small id="customerNextKindHelp" class="customer-field-help">A proposed follow-up: Call, Email, Text, Drop by or Other. This does not send a message, create a Task, book an appointment or mark the follow-up completed.</small>
+          <label for="customerNextKind">Next step</label><select id="customerNextKind" aria-describedby="customerNextKindHelp"><option value="">Choose an action</option><option>Call</option><option>Email</option><option>Text</option><option>Drop by</option><option>Other</option><option>No follow-up needed</option></select><small id="customerNextKindHelp" class="customer-field-help">Choose a commitment, or explicitly choose No follow-up needed.</small>
+          <section id="customerNextDetails" hidden aria-label="Follow-up commitment">
+            <label for="customerNextDetailsText">What will you do?</label><input id="customerNextDetailsText" maxlength="250" placeholder="Example: Call Alex about the proposal">
+            <label for="customerNextWhen">When will you do it?</label><input id="customerNextWhen" type="datetime-local">
+            <p class="customer-field-help">Saved as a pending follow-up, not a calendar booking or an automatic reminder. Opening a phone or email app does not mark it completed.</p>
+            <a id="customerNextOpen" hidden>Open action</a><p id="customerNextOpenHelp" class="customer-field-help"></p>
+          </section>
           <p id="customerDraftStatus" class="customer-draft-status" aria-live="polite">Open to load saved customer records.</p>
           <div class="customer-actions">
             <button id="customerDemoKeepDraft" type="button">Save and return to briefing</button><button id="customerReload" type="button" hidden>Check save status</button>

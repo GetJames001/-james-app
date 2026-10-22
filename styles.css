@@ -833,3 +833,5 @@ button:disabled{opacity:.4;cursor:default}
 #customerClosePrompt h3{margin-top:0}
 #customerSaveNotice:empty{display:none}
 .customer-guide{margin:16px 0 22px;max-width:80ch}.customer-guide summary{cursor:pointer;min-height:44px;padding:12px 0}.customer-guide p{line-height:1.5}.customer-field-help{display:block;line-height:1.5;color:inherit;opacity:.85;margin:7px 0 12px;max-width:70ch}#customerModeSwitch{min-height:44px;padding:9px 16px;border:1px solid #c5a568;border-radius:10px;background:transparent;color:inherit}
+
+#customerDemoHistory{max-height:22rem;overflow:auto}#customerNextOpen{display:inline-block;min-height:44px;padding:12px 16px;border:1px solid #c5a568;border-radius:8px;color:inherit}#customerNextOpen[hidden]{display:none}
