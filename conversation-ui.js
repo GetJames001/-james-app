@@ -1,6 +1,6 @@
 (function(root){
  'use strict';
- function mount({input,answer,askButton,stopInput=()=>{},navigate=async()=>true,chooseEndpoint=()=>'/api/fast',fetcher=fetch,requestTimeoutMs=30000,loadRuntime=()=>Promise.all([import('/conversation-identity.mjs'),import('/conversation-bridge.mjs')])}){
+ function mount({input,answer,askButton,stopInput=()=>{},navigate=async()=>true,chooseEndpoint=()=>'/api/fast',fetcher=fetch,requestTimeoutMs=30000,loadRuntime=async()=>[root.JamesConversationRuntime,root.JamesConversationRuntime]}){
   const doc=input.ownerDocument,endButton=doc.createElement('button'),status=doc.createElement('p');
   endButton.type='button';endButton.textContent='End conversation';status.setAttribute('role','status');status.textContent='Ready';
   askButton.parentNode.append(endButton);askButton.parentNode.after(status);

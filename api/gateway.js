@@ -89,7 +89,7 @@ module.exports = async function handler(req, res) {
   }
   if (
     route === "app.js" ||
-    ["conversation-ui.js","conversation-identity.mjs","conversation-bridge.mjs"].includes(route) ||
+    ["conversation-ui.js","conversation-runtime.js","conversation-identity.mjs","conversation-bridge.mjs"].includes(route) ||
     route === "mail-refresh.js" ||
     route === "calendar-sync.js" ||
     route === "styles.css" ||
