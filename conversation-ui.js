@@ -1,34 +1,36 @@
 (function(root){
  'use strict';
- function mount({input,answer,askButton,stopInput=()=>{},navigate=async()=>true,chooseEndpoint=()=>'/api/fast',fetcher=fetch,loadRuntime=()=>Promise.all([import('/conversation-identity.mjs'),import('/conversation-bridge.mjs')])}){
+ function mount({input,answer,askButton,stopInput=()=>{},navigate=async()=>true,chooseEndpoint=()=>'/api/fast',fetcher=fetch,requestTimeoutMs=30000,loadRuntime=()=>Promise.all([import('/conversation-identity.mjs'),import('/conversation-bridge.mjs')])}){
   const doc=input.ownerDocument,endButton=doc.createElement('button'),status=doc.createElement('p');
   endButton.type='button';endButton.textContent='End conversation';status.setAttribute('role','status');status.textContent='Ready';
   askButton.parentNode.append(endButton);askButton.parentNode.after(status);
   let identity,bridge,loading,preparing,revision=0,history=[],scopeKey='',closure=null,ending=false;
   function clear(){history=[];scopeKey='';answer.textContent='';}
+  async function bounded(operation,ms=requestTimeoutMs){let timer;try{return await Promise.race([operation,new Promise((_,reject)=>{timer=setTimeout(()=>reject(Error('REQUEST_TIMEOUT')),ms)})]);}finally{clearTimeout(timer)}}
+  const identityFetch=async(url,options)=>{const response=await bounded(fetcher(url,options),8000);return {ok:response.ok,status:response.status,json:()=>bounded(response.json(),8000)};};
   async function runtime(){
    if(!loading)loading=loadRuntime().then(([ownerModule,bridgeModule])=>{
-    identity=ownerModule.createConversationIdentityOwner({fetch:fetcher,newOperationId:()=>crypto.randomUUID()});
+    identity=ownerModule.createConversationIdentityOwner({fetch:identityFetch,newOperationId:()=>crypto.randomUUID()});
     bridge=bridgeModule.createConversationBridge({identityOwner:identity,newId:()=>crypto.randomUUID(),navigate,capabilities:{ask:async({text,signal})=>{
-     const response=await fetcher(chooseEndpoint(text),{method:'POST',credentials:'same-origin',cache:'no-store',signal,headers:{'Content-Type':'application/json'},body:JSON.stringify({question:['Recent conversation:',...history.map(x=>`${x.role}: ${x.text}`),`User: ${text}`].join('\n'),timezone:Intl.DateTimeFormat().resolvedOptions().timeZone})});
-     if(!response.ok){if([401,403].includes(response.status)){bridge.revoke();identity.revoke();clear();stopInput();}throw Error('REQUEST_FAILED');}const data=await response.json();if(!data.ok)throw Error('REQUEST_FAILED');
+     const response=await bounded(fetcher(chooseEndpoint(text),{method:'POST',credentials:'same-origin',cache:'no-store',signal,headers:{'Content-Type':'application/json'},body:JSON.stringify({question:['Recent conversation:',...history.map(x=>`${x.role}: ${x.text}`),`User: ${text}`].join('\n'),timezone:Intl.DateTimeFormat().resolvedOptions().timeZone})}));
+     if(!response.ok){if([401,403].includes(response.status)){bridge.revoke();identity.revoke();clear();stopInput();}throw Error('REQUEST_FAILED');}const data=await bounded(response.json());if(!data.ok)throw Error('REQUEST_FAILED');
      return data;
     }}});
    }).catch(error=>{loading=null;throw error});
-   await loading;
+   await bounded(loading,10000);
   }
   async function ask(){
    const text=input.value.trim();if(!text||ending)return;
-   const ticket=++revision;status.textContent='James is thinking…';
+   const ticket=++revision;status.textContent='Connecting to James…';
    try{
     await runtime();if(ticket!==revision)return;
     if(closure){const result=await closure.retry?.();if(result?.status!=='ended')throw Error('END_UNCONFIRMED');closure=null;}
-    preparing=identity.start();const scope=await preparing;preparing=null;
+    status.textContent='Opening conversation…';preparing=identity.start();const scope=await preparing;preparing=null;
     if(ticket!==revision)return;
     const key=JSON.stringify(scope);if(scopeKey&&scopeKey!==key)clear();scopeKey=key;
-    const verified=await bridge.verifyIdentity();if(ticket!==revision)return;if(verified.status!=='ready')throw Error('IDENTITY_UNAVAILABLE');
+    status.textContent='Checking conversation…';const verified=await bridge.verifyIdentity();if(ticket!==revision)return;if(verified.status!=='ready')throw Error('IDENTITY_UNAVAILABLE');
     bridge.interruptReply();
-    const result=await bridge.submitTurn({origin:'typed',action:'ask',text});
+    status.textContent='James is thinking…';const result=await bridge.submitTurn({origin:'typed',action:'ask',text});
     if(ticket!==revision||result.status==='superseded')return;
     if(result.status!=='completed'||!result.isCurrent())throw Error('REQUEST_FAILED');
     const checked=await bridge.verifyIdentity();if(ticket!==revision)return;if(checked.status!=='ready'||!result.isCurrent())throw Error('IDENTITY_UNAVAILABLE');

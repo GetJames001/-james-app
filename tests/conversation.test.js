@@ -1,7 +1,7 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict'),vm=require('node:vm'),fs=require('node:fs');
 const {createHeadStore}=require('../lib/conversation/head-store.cjs'),{createHandler}=require('../lib/routes/conversation.js');
-async function fixture(){
+async function fixture(options={}){
  const identity=await import('../conversation-identity.mjs'),bridge=await import('../conversation-bridge.mjs');
  class Element{constructor(){this.value='';this.textContent='';this.children=[];}append(...elements){this.children.push(...elements)}after(element){this.afterElement=element}setAttribute(){}}
  const doc={createElement:()=>new Element()},input=new Element(),answer=new Element(),askButton=new Element();input.ownerDocument=doc;askButton.parentNode=new Element();
@@ -15,7 +15,7 @@ async function fixture(){
   return {ok:res.code>=200&&res.code<300,status:res.code,json:async()=>res.body};
  };
  require('../conversation-ui.js');const root=globalThis;
- const ui=root.JamesConversationUI.mount({input,answer,askButton,fetcher,loadRuntime:async()=>[identity,bridge],stopInput:()=>stops++});
+ const ui=root.JamesConversationUI.mount({input,answer,askButton,fetcher,loadRuntime:async()=>[identity,bridge],stopInput:()=>stops++,...options});
  const flush=()=>new Promise(resolve=>setImmediate(resolve));
  return {input,answer,ui,pending,flush,status:askButton.parentNode.afterElement,stops:()=>stops,store};
 }
@@ -35,3 +35,4 @@ test('navigation retains pending typed response and failed request retains draft
  f.input.value='Draft';const failed=f.ui.ask();await f.flush();f.pending[1].resolve('');await failed;assert.equal(f.input.value,'Draft');assert.match(f.status.textContent,/draft is still here/);
 });
 test('revocation prevents an old answer returning to the screen',async()=>{const f=await fixture();f.input.value='Private';const task=f.ui.ask();await f.flush();f.ui.revoke();f.pending[0].resolve('Private reply');await task;assert.equal(f.answer.textContent,'');assert.equal(f.status.textContent,'Sign in to continue');});
+test('stalled reply exits thinking without clearing the draft or accepting a late answer',async()=>{const f=await fixture({requestTimeoutMs:10});f.input.value='Retain this';const task=f.ui.ask();await task;assert.equal(f.input.value,'Retain this');assert.match(f.status.textContent,/could not complete/);f.pending[0].resolve('Too late');await f.flush();assert.equal(f.answer.textContent,'');});
