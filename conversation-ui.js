@@ -26,7 +26,8 @@
     identity=ownerModule.createConversationIdentityOwner({fetch:identityFetch,newOperationId:()=>crypto.randomUUID()});
     bridge=bridgeModule.createConversationBridge({identityOwner:identity,newId:()=>crypto.randomUUID(),navigate,capabilities:{ask:async({text,signal})=>{
      const response=await requestJSON(chooseEndpoint(text),{method:'POST',credentials:'same-origin',cache:'no-store',signal,headers:{'Content-Type':'application/json'},body:JSON.stringify({question:['Recent conversation:',...history.map(x=>`${x.role}: ${x.text}`),`User: ${text}`].join('\n'),timezone:Intl.DateTimeFormat().resolvedOptions().timeZone})});
-     if(!response.ok){if([401,403].includes(response.status)){bridge.revoke();identity.revoke();clear();stopInput();}throw Error('REQUEST_FAILED');}const data=await bounded(response.json());if(!data.ok)throw Error('REQUEST_FAILED');
+     const data=await bounded(response.json());
+     if(!response.ok){if(response.status===502&&data?.error==='FAST_MODEL_UNAVAILABLE')return {ok:false,error:'FAST_MODEL_UNAVAILABLE'};if([401,403].includes(response.status)){++revision;bridge.revoke();identity.revoke();clear();stopInput();status.textContent='Sign in to continue';}throw Error(data?.error==='FAST_MODEL_UNAVAILABLE'?'MODEL_UNAVAILABLE':'REQUEST_FAILED');}if(!data.ok)throw Error('REQUEST_FAILED');
      return data;
     }}});
    }).catch(error=>{loading=null;throw error});
@@ -47,7 +48,7 @@
     if(ticket!==revision||result.status==='superseded')return;
     if(result.status!=='completed'||!result.isCurrent())throw Error('REQUEST_FAILED');
     const checked=await bridge.verifyIdentity();if(ticket!==revision)return;if(checked.status!=='ready'||!result.isCurrent())throw Error('IDENTITY_UNAVAILABLE');
-    const data=result.result,reply=data.answer||data.final_recommendation?.recommendation;if(!reply)throw Error('EMPTY_ANSWER');
+    const data=result.result;if(data?.error==='FAST_MODEL_UNAVAILABLE')throw Error('MODEL_UNAVAILABLE');const reply=data.answer||data.final_recommendation?.recommendation;if(!reply)throw Error('EMPTY_ANSWER');
     answer.textContent=reply;
     if(data.final_recommendation?.confidence){const confidence=doc.createElement('p'),value=data.final_recommendation.confidence;confidence.textContent=`Confidence: ${Number.isFinite(value.score)?Math.round(value.score*100)+'%':''} ${value.label||''}`;answer.append(confidence);}
     if(data.final_recommendation){for(const [key,label] of [['reasons','Why'],['key_facts','Key facts'],['risks','Risks'],['what_would_change_the_answer','What would change the answer']]){
@@ -57,7 +58,7 @@
     }}
     history.push({role:'User',text},{role:'James',text:reply});history=history.slice(-8);
     if(input.value.trim()===text)input.value='';status.textContent='Ready';
-   }catch{if(ticket===revision){if(identity&&!identity.current())clear();status.textContent=closure?'End is not confirmed. Try End conversation again.':'James could not complete this request. Your draft is still here.';}}
+   }catch(error){if(ticket===revision){if(identity&&!identity.current())clear();status.textContent=closure?'End is not confirmed. Try End conversation again.':error?.message==='MODEL_UNAVAILABLE'?"James's configured model is unavailable. Your draft is still here.":'James could not complete this request. Your draft is still here.';}}
   }
   async function end(){
    if(ending)return;ending=true;const ticket=++revision;stopInput();bridge?.end();clear();status.textContent='Ending conversation…';

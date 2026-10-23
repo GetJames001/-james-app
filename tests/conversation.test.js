@@ -72,3 +72,12 @@ test('reply deadline aborts the transport while preserving the draft',async()=>{
  const f=await fixture({requestTimeoutMs:10});f.input.value='Transport check';await f.ui.ask();
  assert.equal(f.pending[0].options.signal.aborted,true);assert.equal(f.input.value,'Transport check');assert.match(f.status.textContent,/could not complete/);
 });
+test('provider model rejection preserves identity for a real server End',async()=>{
+ let f;f=await fixture({fetcher:async(url,options)=>url==='/api/fast'?{ok:false,status:502,json:async()=>({ok:false,error:'FAST_MODEL_UNAVAILABLE'})}:f.fetcher(url,options)});
+ f.input.value='Retain request';await f.ui.ask();assert.match(f.status.textContent,/configured model is unavailable/);assert.equal(f.input.value,'Retain request');
+ await f.ui.end();assert.equal(f.status.textContent,'Conversation ended');const head=await f.fetcher('/api/james/conversation',{method:'GET'});assert.equal((await head.json()).status,'ended');
+});
+test('actual James session rejection stops thinking and requests sign-in',async()=>{
+ let f;f=await fixture({fetcher:async(url,options)=>url==='/api/fast'?{ok:false,status:401,json:async()=>({ok:false,error:'UNAUTHORIZED'})}:f.fetcher(url,options)});
+ f.input.value='Retain request';await f.ui.ask();assert.equal(f.status.textContent,'Sign in to continue');assert.equal(f.input.value,'Retain request');assert.equal(f.answer.textContent,'');
+});

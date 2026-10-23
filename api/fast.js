@@ -59,6 +59,7 @@ module.exports = async function handler(req, res) {
       "https://api.openai.com/v1/responses",
       {
         method: "POST",
+        signal: AbortSignal.timeout(25000),
 
         headers: {
           Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
@@ -101,14 +102,14 @@ module.exports = async function handler(req, res) {
     const data = await response.json();
 
     if (!response.ok) {
-      console.error("James Fast OpenAI error:", data);
-
-      return res.status(response.status).json({
+      // Provider authorization is not a James session failure. Never forward
+      // a provider 401/403 as the application authentication boundary.
+      const unavailable = data?.error?.code === "model_not_found";
+      console.error("James Fast provider failure", {status: response.status, category: unavailable ? "model_unavailable" : "request_failed"});
+      return res.status(502).json({
         ok: false,
-        error: "FAST_MODEL_FAILED",
-        message:
-          data?.error?.message ||
-          "James could not complete the request."
+        error: unavailable ? "FAST_MODEL_UNAVAILABLE" : "FAST_MODEL_FAILED",
+        message: unavailable ? "James's configured model is unavailable." : "James could not complete the request."
       });
     }
 
@@ -169,12 +170,13 @@ module.exports = async function handler(req, res) {
     });
 
   } catch (err) {
-    console.error("James Fast error:", err);
+    const timedOut = err?.name === "TimeoutError" || err?.name === "AbortError";
+    console.error("James Fast execution failure", {category: timedOut ? "timeout" : "request_failed"});
 
-    return res.status(500).json({
+    return res.status(timedOut ? 504 : 502).json({
       ok: false,
-      error: "FAST_EXECUTION_FAILED",
-      message: err?.message || "Unknown error"
+      error: timedOut ? "FAST_TIMEOUT" : "FAST_EXECUTION_FAILED",
+      message: "James could not complete the request."
     });
   }
 };
