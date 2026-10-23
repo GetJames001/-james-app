@@ -11,11 +11,12 @@ module.exports = async function handler(req, res) {
   const session = requireAuth(req, res, { csrf: req.method === "POST" });
   if (!session) return;
 
+  const diagnosticPreview = process.env.VERCEL_ENV === "preview" && process.env.VERCEL_GIT_COMMIT_REF === "investigate/conversation-host-20261023";
+  const selectedModel = process.env.JAMES_FAST_MODEL || (diagnosticPreview ? "gpt-5.6-luna" : "gpt-5-mini");
   // Temporary read-only diagnosis is available only on this isolated Preview.
   // The ordinary James authentication boundary above always runs first.
   if (req.method === "GET" && req.query?.diagnostics === "models" &&
-      process.env.VERCEL_ENV === "preview" &&
-      process.env.VERCEL_GIT_COMMIT_REF === "investigate/conversation-host-20261023") {
+      diagnosticPreview) {
     if (!process.env.OPENAI_API_KEY) return res.status(503).json({ok:false,error:"MODEL_DIAGNOSTIC_UNAVAILABLE"});
     try {
       const response = await fetch("https://api.openai.com/v1/models", {
@@ -26,7 +27,7 @@ module.exports = async function handler(req, res) {
       const data = await response.json();
       if (!Array.isArray(data?.data)) throw Error("INVALID_MODEL_INVENTORY");
       const models = [...new Set(data.data.map(item=>item?.id).filter(id=>typeof id==="string" && /^(?:gpt-|o[134](?:-|$))/.test(id) && id.length<100))].sort();
-      return res.status(200).json({ok:true,configuredModel:process.env.JAMES_FAST_MODEL||"gpt-5-mini",models,inferenceAccessVerified:false});
+      return res.status(200).json({ok:true,configuredModel:selectedModel,models,inferenceAccessVerified:false});
     } catch {
       return res.status(502).json({ok:false,error:"MODEL_INVENTORY_UNAVAILABLE"});
     }
@@ -88,7 +89,8 @@ module.exports = async function handler(req, res) {
         },
 
         body: JSON.stringify({
-          model: process.env.JAMES_FAST_MODEL || "gpt-5-mini",
+          model: selectedModel,
+          ...(selectedModel === "gpt-5.6-luna" ? {reasoning:{effort:"low"}} : {}),
 
           store: false,
 
