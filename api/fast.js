@@ -25,7 +25,7 @@ module.exports = async function handler(req, res) {
       if (!response.ok) return res.status(502).json({ok:false,error:"MODEL_INVENTORY_UNAVAILABLE"});
       const data = await response.json();
       if (!Array.isArray(data?.data)) throw Error("INVALID_MODEL_INVENTORY");
-      const models = [...new Set(data.data.map(item=>item?.id).filter(id=>typeof id==="string" && /^gpt-(?:4\.1|5)(?:-|$)/.test(id) && id.length<100))].sort();
+      const models = [...new Set(data.data.map(item=>item?.id).filter(id=>typeof id==="string" && /^(?:gpt-|o[134](?:-|$))/.test(id) && id.length<100))].sort();
       return res.status(200).json({ok:true,configuredModel:process.env.JAMES_FAST_MODEL||"gpt-5-mini",models,inferenceAccessVerified:false});
     } catch {
       return res.status(502).json({ok:false,error:"MODEL_INVENTORY_UNAVAILABLE"});
