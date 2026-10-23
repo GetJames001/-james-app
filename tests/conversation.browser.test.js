@@ -17,7 +17,7 @@ async function fixture(browser){
   await context.route('**/*',async route=>{
    const request=route.request(),url=new URL(request.url());
    if(url.origin!==origin)throw Error('Unexpected external request');
-   const headers={...request.headers(),host:url.host};
+   const headers={...await request.allHeaders(),host:url.host};
    if(url.pathname==='/api/james/conversation'){
     const response={code:200,headers:{},setHeader(k,v){this.headers[k]=v;},status(n){this.code=n;return this;},json(body){this.body=body;return this;}};
     await handler({method:request.method(),headers,query:{},body:request.postData()||undefined},response);
