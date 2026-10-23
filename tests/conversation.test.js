@@ -81,3 +81,27 @@ test('actual James session rejection stops thinking and requests sign-in',async(
  let f;f=await fixture({fetcher:async(url,options)=>url==='/api/fast'?{ok:false,status:401,json:async()=>({ok:false,error:'UNAUTHORIZED'})}:f.fetcher(url,options)});
  f.input.value='Retain request';await f.ui.ask();assert.equal(f.status.textContent,'Sign in to continue');assert.equal(f.input.value,'Retain request');assert.equal(f.answer.textContent,'');
 });
+
+test('provider failure can retry the retained draft successfully without leaking failed context',async()=>{
+ let f,fail=true;
+ f=await fixture({fetcher:async(url,options)=>{
+  if(url==='/api/fast'&&fail)return {ok:false,status:502,json:async()=>({ok:false,error:'FAST_MODEL_UNAVAILABLE'})};
+  return f.fetcher(url,options);
+ }});
+ f.input.value='Retry this synthetic request';await f.ui.ask();
+ assert.equal(f.input.value,'Retry this synthetic request');assert.match(f.status.textContent,/unavailable/);
+ fail=false;const retry=f.ui.ask();await f.flush();assert.equal(f.pending.length,1);
+ f.pending[0].resolve('Recovered');await retry;
+ assert.equal(f.answer.textContent,'Recovered');assert.equal(f.input.value,'');
+ await f.ui.end();assert.equal((await(await f.fetcher('/api/james/conversation',{method:'GET'})).json()).status,'ended');
+});
+test('separate UI sessions do not present a revoked session delayed answer',async()=>{
+ const first=await fixture(),second=await fixture();
+ first.input.value='First session synthetic request';const old=first.ui.ask();await first.flush();first.ui.revoke();
+ second.input.value='Second session synthetic request';const current=second.ui.ask();await second.flush();
+ second.pending[0].resolve('Second session answer');await current;
+ first.pending[0].resolve('First session delayed answer');await old;
+ assert.equal(first.answer.textContent,'');assert.equal(first.status.textContent,'Sign in to continue');
+ assert.equal(second.answer.textContent,'Second session answer');assert.equal(second.input.value,'');
+ assert.equal(first.input.value,'First session synthetic request');
+});
