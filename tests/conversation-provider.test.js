@@ -1,7 +1,7 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
 const auth=require('../lib/auth.js'),fast=require('../api/fast.js');
-process.env.JAMES_AUTH_EMAIL='fixture@example.test';process.env.JAMES_SESSION_SECRET='synthetic-conversation-test-session-secret';process.env.OPENAI_API_KEY='synthetic-only';
+process.env.JAMES_AUTH_EMAIL='fixture@example.test';process.env.JAMES_SESSION_SECRET='synthetic-conversation-test-session-secret';process.env.OPENAI_API_KEY='synthetic-only';process.env.JAMES_FAST_MODEL='gpt-5.6-luna';
 async function run(provider,{authorized=true}={}){
  const prior=global.fetch,oldError=console.error;let calls=0;const logs=[];
  global.fetch=async(url,options)=>{calls++;assert.equal(url,'https://api.openai.com/v1/responses');assert.ok(options.signal);return typeof provider==='function'?provider():provider;};console.error=(...args)=>logs.push(args);
@@ -16,24 +16,15 @@ for(const status of [401,403,404,429,500])test(`provider ${status} cannot masque
 test('provider timeout is bounded and safely classified',async()=>{const {res}=await run(()=>{throw Object.assign(Error('PRIVATE_ENDPOINT'),{name:'TimeoutError'})});assert.equal(res.code,504);assert.equal(res.body.error,'FAST_TIMEOUT');assert.doesNotMatch(JSON.stringify(res.body),/PRIVATE_ENDPOINT/);});
 test('James unauthenticated request still fails before provider work',async()=>{const {res,calls}=await run({}, {authorized:false});assert.equal(res.code,401);assert.equal(calls,0);});
 test('permitted provider answer retains normal response contract',async()=>{const {res}=await run({ok:true,status:200,json:async()=>({output_text:'Synthetic reply'})});assert.equal(res.code,200);assert.equal(res.body.answer,'Synthetic reply');});
-test('model inventory remains unavailable outside the exact isolated Preview',async()=>{
- const old=global.fetch,env=process.env.VERCEL_ENV,branch=process.env.VERCEL_GIT_COMMIT_REF;let calls=0;global.fetch=async()=>{calls++;throw Error('Must not reach provider')};
- try{for(const [mode,ref]of [['production','investigate/conversation-host-20261023'],['preview','review/customer-activity-save-20261021']]){
- process.env.VERCEL_ENV=mode;process.env.VERCEL_GIT_COMMIT_REF=ref;const res={setHeader(){},status(code){this.code=code;return this},json(body){this.body=body;return this}};
- await fast({method:'GET',query:{diagnostics:'models'},headers:{host:'www.getjames.ai',cookie:`${auth.SESSION_COOKIE}=${auth.createSessionToken(process.env.JAMES_AUTH_EMAIL)}`}},res);assert.equal(res.code,405);
- }assert.equal(calls,0);}finally{global.fetch=old;if(env===undefined)delete process.env.VERCEL_ENV;else process.env.VERCEL_ENV=env;if(branch===undefined)delete process.env.VERCEL_GIT_COMMIT_REF;else process.env.VERCEL_GIT_COMMIT_REF=branch;}
-});
-test('authenticated isolated model inventory reports IDs only and does not assert inference permission',async()=>{
- const old=global.fetch,env=process.env.VERCEL_ENV,branch=process.env.VERCEL_GIT_COMMIT_REF;process.env.VERCEL_ENV='preview';process.env.VERCEL_GIT_COMMIT_REF='investigate/conversation-host-20261023';
- global.fetch=async(url,options)=>{assert.equal(url,'https://api.openai.com/v1/models');assert.equal(options.method,'GET');return {ok:true,json:async()=>({data:[{id:'gpt-4.1-mini',owned_by:'PRIVATE_PROJECT'},{id:'gpt-5-mini'},{id:'gpt-6.1-sol'},{id:'unrelated-model'},{id:'gpt-4.1-mini'}]})}};
- try{const res={setHeader(){},status(code){this.code=code;return this},json(body){this.body=body;return this}};await fast({method:'GET',query:{diagnostics:'models'},headers:{host:'www.getjames.ai',cookie:`${auth.SESSION_COOKIE}=${auth.createSessionToken(process.env.JAMES_AUTH_EMAIL)}`}},res);assert.equal(res.code,200);assert.deepEqual(res.body.models,['gpt-4.1-mini','gpt-5-mini','gpt-6.1-sol']);assert.equal(res.body.inferenceAccessVerified,false);assert.doesNotMatch(JSON.stringify(res.body),/PRIVATE_PROJECT|synthetic-only/);}finally{global.fetch=old;if(env===undefined)delete process.env.VERCEL_ENV;else process.env.VERCEL_ENV=env;if(branch===undefined)delete process.env.VERCEL_GIT_COMMIT_REF;else process.env.VERCEL_GIT_COMMIT_REF=branch;}
-});
 
-test('verified inventory model choice is confined to the isolated Preview',async()=>{
- const old=global.fetch,env=process.env.VERCEL_ENV,branch=process.env.VERCEL_GIT_COMMIT_REF,configured=process.env.JAMES_FAST_MODEL;delete process.env.JAMES_FAST_MODEL;
- try{for(const [mode,ref,expected]of [['production','investigate/conversation-host-20261023','gpt-5-mini'],['preview','review/customer-activity-save-20261021','gpt-5-mini'],['preview','investigate/conversation-host-20261023','gpt-5.6-luna']]){
- process.env.VERCEL_ENV=mode;process.env.VERCEL_GIT_COMMIT_REF=ref;
- global.fetch=async(url,options)=>{const body=JSON.parse(options.body);assert.equal(body.model,expected);assert.equal(body.max_output_tokens,800);assert.equal(body.store,false);assert.equal(body.reasoning?.effort,expected==='gpt-5.6-luna'?'low':undefined);return {ok:true,json:async()=>({output_text:'Synthetic reply'})}};
- const res={setHeader(){},status(code){this.code=code;return this},json(body){this.body=body;return this}};await fast({method:'POST',headers:{host:'www.getjames.ai',origin:'https://www.getjames.ai',cookie:`${auth.SESSION_COOKIE}=${auth.createSessionToken(process.env.JAMES_AUTH_EMAIL)}`},body:{question:'Synthetic only'}},res);assert.equal(res.code,200);
- }}finally{global.fetch=old;for(const [key,value]of [['VERCEL_ENV',env],['VERCEL_GIT_COMMIT_REF',branch],['JAMES_FAST_MODEL',configured]])if(value===undefined)delete process.env[key];else process.env[key]=value;}
+test('release has no model-inventory endpoint in any environment',async()=>{
+ const prior=global.fetch;let calls=0;global.fetch=async()=>{calls++;throw Error('Unexpected provider access')};
+ try{const res={setHeader(){},status(code){this.code=code;return this},json(body){this.body=body;return this}};await fast({method:'GET',query:{diagnostics:'models'},headers:{host:'www.getjames.ai',cookie:`${auth.SESSION_COOKIE}=${auth.createSessionToken(process.env.JAMES_AUTH_EMAIL)}`}},res);assert.equal(res.code,405);assert.equal(calls,0);}finally{global.fetch=prior;}
+});
+test('missing model configuration fails clearly before provider access',async()=>{
+ const configured=process.env.JAMES_FAST_MODEL;delete process.env.JAMES_FAST_MODEL;try{const {res,calls}=await run({});assert.equal(res.code,503);assert.equal(res.body.error,'FAST_MODEL_NOT_CONFIGURED');assert.equal(calls,0);}finally{process.env.JAMES_FAST_MODEL=configured;}
+});
+test('configured model is used without any branch-specific behavior',async()=>{
+ const prior=global.fetch;let body;global.fetch=async(url,options)=>{body=JSON.parse(options.body);return {ok:true,json:async()=>({output_text:'Synthetic reply'})}};
+ try{const res={setHeader(){},status(code){this.code=code;return this},json(body){this.body=body;return this}};await fast({method:'POST',headers:{host:'www.getjames.ai',origin:'https://www.getjames.ai',cookie:`${auth.SESSION_COOKIE}=${auth.createSessionToken(process.env.JAMES_AUTH_EMAIL)}`},body:{question:'Synthetic only'}},res);assert.equal(res.code,200);assert.equal(body.model,'gpt-5.6-luna');assert.equal(body.reasoning.effort,'low');assert.equal(body.max_output_tokens,800);assert.equal(body.store,false);}finally{global.fetch=prior;}
 });

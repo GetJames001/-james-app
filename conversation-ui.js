@@ -4,21 +4,19 @@
   const doc=input.ownerDocument,endButton=doc.createElement('button'),status=doc.createElement('p');
   endButton.type='button';endButton.textContent='End conversation';status.setAttribute('role','status');status.textContent='Ready';
   askButton.parentNode.append(endButton);askButton.parentNode.after(status);
-  const diagnostics=doc.createElement('details'),summary=doc.createElement('summary'),trace=doc.createElement('pre');summary.textContent='Connection diagnostics';diagnostics.append(summary,trace);status.after(diagnostics);
-  const events=[];function record(message){events.push(`${new Date().toISOString()} ${message}`);trace.textContent=events.slice(-16).join('\n');}
   let identity,bridge,loading,preparing,revision=0,history=[],scopeKey='',closure=null,ending=false;
   function clear(){history=[];scopeKey='';answer.textContent='';}
   async function bounded(operation,ms=requestTimeoutMs){let timer;try{return await Promise.race([operation,new Promise((_,reject)=>{timer=setTimeout(()=>reject(Error('REQUEST_TIMEOUT')),ms)})]);}finally{clearTimeout(timer)}}
   async function requestJSON(url,options,limit=requestTimeoutMs){
    const controller=new AbortController(),upstream=options?.signal;let timer;
    const abort=()=>controller.abort();if(upstream?.aborted)abort();else upstream?.addEventListener('abort',abort,{once:true});
-   const label=url==='/api/james/conversation'?'Lifecycle':url==='/api/council'?'Council':'Reply';record(`${label}: request started`);
+   
    try{
     return await Promise.race([(async()=>{
-     const response=await fetcher(url,{...options,signal:controller.signal});record(`${label}: HTTP ${response.status|| (response.ok?200:0)}`);
-     const data=await response.json();record(`${label}: response parsed`);return {ok:response.ok,status:response.status,json:async()=>data};
-    })(),new Promise((_,reject)=>{timer=setTimeout(()=>{controller.abort();record(`${label}: timed out`);reject(Error('REQUEST_TIMEOUT'));},limit)})]);
-   }catch(error){record(`${label}: request failed`);throw error;}finally{clearTimeout(timer);upstream?.removeEventListener('abort',abort);}
+     const response=await fetcher(url,{...options,signal:controller.signal});
+     const data=await response.json();return {ok:response.ok,status:response.status,json:async()=>data};
+    })(),new Promise((_,reject)=>{timer=setTimeout(()=>{controller.abort();reject(Error('REQUEST_TIMEOUT'));},limit)})]);
+   }catch(error){throw error;}finally{clearTimeout(timer);upstream?.removeEventListener('abort',abort);}
   }
   const identityFetch=(url,options)=>requestJSON(url,options,8000);
   async function runtime(){
@@ -27,7 +25,7 @@
     bridge=bridgeModule.createConversationBridge({identityOwner:identity,newId:()=>crypto.randomUUID(),navigate,capabilities:{ask:async({text,signal})=>{
      const response=await requestJSON(chooseEndpoint(text),{method:'POST',credentials:'same-origin',cache:'no-store',signal,headers:{'Content-Type':'application/json'},body:JSON.stringify({question:['Recent conversation:',...history.map(x=>`${x.role}: ${x.text}`),`User: ${text}`].join('\n'),timezone:Intl.DateTimeFormat().resolvedOptions().timeZone})});
      const data=await bounded(response.json());
-     if(!response.ok){if(response.status===502&&data?.error==='FAST_MODEL_UNAVAILABLE')return {ok:false,error:'FAST_MODEL_UNAVAILABLE'};if([401,403].includes(response.status)){++revision;bridge.revoke();identity.revoke();clear();stopInput();status.textContent='Sign in to continue';}throw Error(data?.error==='FAST_MODEL_UNAVAILABLE'?'MODEL_UNAVAILABLE':'REQUEST_FAILED');}if(!data.ok)throw Error('REQUEST_FAILED');
+     if(!response.ok){if([502,503].includes(response.status)&&['FAST_MODEL_UNAVAILABLE','FAST_MODEL_NOT_CONFIGURED'].includes(data?.error))return {ok:false,error:'FAST_MODEL_UNAVAILABLE'};if([401,403].includes(response.status)){++revision;bridge.revoke();identity.revoke();clear();stopInput();status.textContent='Sign in to continue';}throw Error(data?.error==='FAST_MODEL_UNAVAILABLE'?'MODEL_UNAVAILABLE':'REQUEST_FAILED');}if(!data.ok)throw Error('REQUEST_FAILED');
      return data;
     }}});
    }).catch(error=>{loading=null;throw error});
@@ -73,7 +71,6 @@
      result=await identity.end();
     }
     if(ticket!==revision)return;
-    record(`End: ${result?.status==='ended'?'server confirmed':'unconfirmed'}`);
     closure=result?.status==='ended'?null:(result?.retry?result:{retry:()=>identity.end()});
     status.textContent=closure?'End is not confirmed. Try End conversation again.':'Conversation ended';
    }catch{if(ticket===revision){closure=closure||{retry:()=>identity.end()};status.textContent='End is not confirmed. Try End conversation again.';}}finally{ending=false;}
