@@ -29,3 +29,9 @@ The server authenticates the conversation lifecycle route with existing session/
 - Existing working login/intro artwork, Calendar, Mail, Tasks and Customer Activity remain the release baseline. Historical protected security evidence applies to aabcfda only, not automatically to this new revision.
 
 Keep Original Dot's continuity audit read-only until Lead Dot prioritizes its findings. Keep Production staging/promotion and physical-device QA gates open.
+
+## Authenticated hosted retest of bebfc00
+
+At 16:20:28 UTC on October 23, lifecycle ensure/read returned 200; Fast returned the classified model-access failure as HTTP 502 at 16:20:29.607. UI exited Thinking, displayed model unavailable and preserved the draft. End returned 200 at 16:21:08.929. A separate fresh GET confirmed the same conversation ID/generation 1 had status ended. Restart created a different ID/generation 2; navigation Briefing → James retained the request/draft, failure exited Thinking, and End at 16:22:04.490 persisted as ended in another fresh GET. This verifies recovery and closure, not successful provider inference. Stable Calendar, Mail and Customer Activity remained readable; no customer writes occurred.
+
+A temporary authenticated GET `/api/fast?diagnostics=models` is restricted to exactly `VERCEL_ENV=preview` and branch `investigate/conversation-host-20261023`. It reads the existing provider's model inventory, returns filtered model IDs only and explicitly states inference permission is unverified. It does not change credentials, account permissions or model settings. Remove this diagnostic before proposing integration into PR #36. It remains disabled on stable/Production branches.
