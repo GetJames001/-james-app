@@ -1,7 +1,7 @@
 {
   "functions": {
     "api/gateway.js": {
-      "includeFiles": "{*.html,*.js,*.mjs,*.css,*.png,assets/**/*.png}",
+      "includeFiles": "{*.html,*.js,*.css,*.png,assets/**/*.png}",
       "maxDuration": 120
     }
   },
