@@ -711,3 +711,129 @@ button:disabled{opacity:.4;cursor:default}
 .calendar-event-details section ul{margin:8px 0;padding-left:22px}
 .calendar-event-details section li{margin:8px 0;overflow-wrap:anywhere}
 .calendar-event-details section a{color:#19558c;text-decoration:underline}
+
+
+/* Today's Perspective: quiet intro editorial card, plus one unobtrusive briefing link.
+   The card is decoration only; it never gates the existing intro/navigation. */
+.perspective-intro{
+  width:min(100%,540px);margin:17px auto 2px;padding:16px 23px 14px;
+  border:1px solid rgba(212,173,88,.43);border-radius:14px;
+  background:linear-gradient(115deg,rgba(12,24,40,.82),rgba(26,31,39,.64));
+  box-shadow:0 14px 38px rgba(0,0,0,.19);color:#f2e9d9;
+}
+.perspective-eyebrow{
+  font-size:.64rem;letter-spacing:.17em;font-weight:700;color:#d8b979;
+}
+.perspective-intro blockquote{
+  margin:10px 0 9px;font:italic clamp(1.03rem,2.3vw,1.28rem)/1.35 Georgia,serif;
+  color:#f4e9d4;overflow-wrap:anywhere;
+}
+.perspective-credit{
+  display:flex;flex-wrap:wrap;justify-content:center;gap:3px 10px;
+  font-size:.75rem;line-height:1.45;color:#d3b881;
+}
+.perspective-credit cite{font-style:normal;color:#c8ced5}
+.perspective-revisit{
+  margin:9px 0 15px;max-width:520px;
+}
+.perspective-revisit summary{
+  display:inline-flex;align-items:center;gap:8px;min-height:44px;padding:10px 13px;
+  border:1px solid rgba(198,161,91,.40);border-radius:11px;
+  background:#11283e;color:#f2e0b4;font-size:.79rem;letter-spacing:.025em;cursor:pointer;
+  list-style:none;
+}
+.perspective-revisit summary::-webkit-details-marker{display:none}
+.perspective-revisit summary span{color:#d4b875}
+.perspective-revisit-body{
+  margin-top:8px;padding:17px 20px;border:1px solid rgba(198,161,91,.35);
+  border-radius:13px;background:linear-gradient(115deg,#162e46,#10243b);
+}
+.perspective-revisit-body blockquote{
+  margin:0 0 10px;font:italic 1.2rem/1.4 Georgia,serif;color:#f2e4c8;
+}
+.perspective-revisit-body .perspective-credit{justify-content:flex-start}
+.perspective-revisit summary:focus-visible{outline:3px solid #e8d49c;outline-offset:3px}
+@media(max-width:650px){
+  .perspective-intro{margin:13px auto 0;padding:12px 15px}
+  .perspective-intro blockquote{font-size:1.03rem;margin:7px 0}
+  .perspective-credit{font-size:.70rem}
+}
+@media(max-height:680px){
+  #intro{overflow-y:auto;align-items:start}
+  #intro .intro-stage{top:12px;transform:translateX(-50%) scale(.68);transform-origin:top center}
+  #intro .intro-copy{position:relative;bottom:auto;margin:250px auto 18px;left:auto;right:auto}
+}
+/* Customer Activity preview: a discreet link that floats over the unchanged briefing. */
+.customer-shortcut{margin-top:16px;padding:10px 0;border-top:1px solid var(--gs)}
+.customer-shortcut button{width:100%;display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:44px;background:transparent;color:var(--ink);border:1px solid var(--gs);border-radius:12px;padding:10px 13px;text-align:left}
+.customer-shortcut button span:last-child{color:var(--gold);font-size:1.15rem}
+.customer-shortcut>small{display:block;margin-top:7px;font-size:.74rem;color:var(--muted)}
+.customer-overlay[hidden]{display:none!important}
+.customer-overlay{position:fixed;inset:0;z-index:30;display:grid;place-items:center;padding:clamp(12px,3vw,32px);isolation:isolate}
+.customer-overlay-shade{position:absolute;inset:0;background:rgba(1,10,19,.78);backdrop-filter:blur(5px);z-index:-1}
+.customer-workspace{width:min(1100px,100%);max-height:calc(100dvh - 36px);overflow:auto;background:#10243b;border:1px solid rgba(214,185,131,.58);border-radius:20px;box-shadow:0 24px 100px rgba(0,0,0,.5);color:#e8eaf0;padding:clamp(16px,3vw,32px)}
+.customer-workspace-head{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;border-bottom:1px solid rgba(214,185,131,.25);padding-bottom:15px}
+.customer-workspace-head small{color:#d2b985;letter-spacing:.12em;font-size:.68rem}
+.customer-workspace-head h2{font:normal clamp(1.65rem,3vw,2.3rem) Georgia,serif;margin:6px 0}
+.customer-workspace-head p{margin:0;color:#bcc7d4}
+.customer-workspace-head button,.customer-actions button{background:#18344f;color:#f3e9d8;border:1px solid rgba(214,185,131,.42);border-radius:11px;min-height:44px;padding:9px 16px;flex-shrink:0}
+.customer-workspace-head button span{font-size:1.15rem;margin-left:8px}
+.customer-demo-note{line-height:1.45;font-size:.86rem;padding:12px 14px;border-left:3px solid #cbb180;background:#182f49;color:#efdfc5;margin:18px 0 22px}
+.customer-workspace-grid{display:grid;grid-template-columns:minmax(230px,.85fr) minmax(0,1.45fr);gap:24px}
+.customer-section-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 0 12px}
+.customer-section-head h3{font:normal 1.25rem Georgia,serif;margin:0}
+.customer-section-head>small{color:#b9c5d3;font-size:.75rem}
+#customerDemoList{display:grid;gap:10px}
+#customerDemoList button{display:flex;align-items:center;gap:12px;min-height:62px;background:#142c46;color:#e8eaf0;padding:11px;border:1px solid #42556c;border-radius:12px;text-align:left;width:100%;white-space:normal}
+#customerDemoList button.selected,#customerDemoList button[aria-pressed=true]{background:#1e3a57;border-color:#d3b97d}
+.customer-demo-order{font:1.3rem Georgia,serif;color:#d3b97d;min-width:22px}
+.customer-demo-text{display:grid;gap:4px;min-width:0}
+.customer-demo-text strong{font-size:.91rem;font-weight:600;overflow-wrap:anywhere}
+.customer-demo-text small{color:#becbda;font-size:.76rem}
+.customer-visit-pill{color:#e8d5a8;border:1px solid #7f755e;border-radius:999px;padding:6px 9px;font-size:.74rem;text-align:center}
+.customer-workspace-detail{min-width:0}
+.customer-detail-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:18px 0 22px}
+.customer-detail-grid>div{padding:12px;background:#152b43;border:1px solid #40536b;border-radius:10px;min-width:0}
+.customer-detail-grid dt{font-size:.74rem;color:#dac594;text-transform:uppercase;letter-spacing:.07em;margin-bottom:5px}
+.customer-detail-grid dd{margin:0;font-size:.9rem;overflow-wrap:anywhere}
+.customer-demo-history{color:#d5dce6;font-size:.9rem;line-height:1.5}
+.customer-workspace-detail label{display:block;margin:16px 0 6px;color:#e4d0a2;font-size:.87rem}
+.customer-workspace-detail textarea,.customer-workspace-detail input{display:block;width:100%;min-height:44px;border:1px solid #7b8b9c;border-radius:11px;background:#0c1d30;color:#f7f1e5;padding:11px 12px;font:inherit;line-height:1.45}
+.customer-workspace-detail textarea{resize:vertical;min-height:100px}
+.customer-draft-status{font-size:.77rem;color:#c4cfda;margin:10px 0}
+.customer-actions{display:flex;justify-content:flex-end;gap:12px;flex-wrap:wrap;margin-top:15px}
+.customer-actions button:first-child{background:#a68a58;color:#0e1b2b;border-color:#c7ae78;font-weight:600}
+.customer-overlay :is(button,input,textarea):focus-visible,.customer-shortcut button:focus-visible{outline:3px solid #e7cf99;outline-offset:3px}
+@media(max-width:720px){.customer-workspace-grid{grid-template-columns:1fr;gap:22px}.customer-workspace{max-height:calc(100dvh - 16px);padding:16px}.customer-overlay{padding:8px}.customer-workspace-head{flex-wrap:wrap}.customer-detail-grid{grid-template-columns:1fr 1fr}}
+@media(max-width:390px){.customer-detail-grid{grid-template-columns:1fr}}
+@media(prefers-reduced-motion:reduce){.customer-overlay-shade{backdrop-filter:none}}
+.customer-workspace select,.customer-workspace-list input{max-width:100%;width:100%;box-sizing:border-box;padding:12px;border:1px solid #62758b;border-radius:8px;background:#10243b;color:#f3ead9}
+.customer-demo-history{white-space:pre-wrap}
+
+.customer-last-card{margin-top:24px;padding:18px;border:1px solid #c5a568;border-radius:12px;background:#263c50;color:#f5ead4}.customer-last-card h3{margin:0 0 12px}.customer-last-card p{white-space:pre-wrap;line-height:1.5;overflow-wrap:anywhere}.customer-last-card button{padding:8px 12px;color:#f5ead4;background:#10243b;border:1px solid #c5a568;border-radius:8px}.customer-draft-status{font-size:.95rem;line-height:1.5}
+
+#companyEditor{margin:16px 0;padding:16px;border:1px solid #62758b;border-radius:10px}#companyEditor input{display:block;width:100%;box-sizing:border-box;padding:10px;background:#10243b;color:#f3ead9;border:1px solid #62758b;border-radius:6px}#companyEditor label{display:block;margin:10px 0}#companyEditor button{padding:10px;margin:8px 4px 0 0}#companyContacts fieldset{min-width:0;margin-top:12px;border:1px solid #62758b}
+
+/* Keep the briefing rows aligned with the available desktop canvas. */
+@media(min-width:901px){
+  .briefing-outlook,.brief-grid{grid-template-columns:minmax(0,1fr) minmax(300px,380px);max-width:none;width:100%}
+  .brief-grid>*{min-width:0}
+}
+
+/* Keep connection diagnostics below the schedule and the last contact beside its company. */
+.calendar-diagnostics{margin-top:22px;font-size:.85rem;color:var(--muted)}
+.calendar-diagnostics summary{cursor:pointer;padding:10px 0;min-height:44px}
+.calendar-diagnostics p{line-height:1.5;max-width:700px}
+.customer-workspace-detail>.customer-last-card{margin:18px 0 24px}
+.customer-last-card summary{cursor:pointer;min-height:44px;padding:12px 0}
+.customer-last-card details[open]{border-top:1px solid var(--gs);margin-top:14px}
+.customer-actions #customerReload{background:transparent;font-weight:400}
+#customerClosePrompt{margin:18px 0;padding:16px;border:2px solid #c5a568;border-radius:12px;background:rgba(197,165,104,.1)}
+#customerClosePrompt[hidden],#customerReload[hidden]{display:none}
+#customerClosePrompt h3{margin-top:0}
+#customerSaveNotice:empty{display:none}
+.customer-guide{margin:16px 0 22px;max-width:80ch}.customer-guide summary{cursor:pointer;min-height:44px;padding:12px 0}.customer-guide p{line-height:1.5}.customer-field-help{display:block;line-height:1.5;color:inherit;opacity:.85;margin:7px 0 12px;max-width:70ch}#customerModeSwitch{min-height:44px;padding:9px 16px;border:1px solid #c5a568;border-radius:10px;background:transparent;color:inherit}
+
+#customerDemoHistory{max-height:22rem;overflow:auto}#customerNextOpen{display:inline-block;min-height:44px;padding:12px 16px;border:1px solid #c5a568;border-radius:8px;color:inherit}#customerNextOpen[hidden]{display:none}
+
+.customer-reminders{margin:16px 0}.customer-reminders summary{cursor:pointer;min-height:44px;padding:12px 0}.customer-reminder-item{padding:14px 0;border-top:1px solid var(--gs);overflow-wrap:anywhere}.customer-reminder-item h4{margin:0 0 8px}.customer-reminder-item input{max-width:100%;min-height:44px}.customer-reminder-item button,.customer-reminder-item a,#customerAddEmail{display:inline-block;min-height:44px;padding:10px 14px;border:1px solid #c5a568;border-radius:8px;color:inherit;background:transparent}.customer-reminder-item label{display:block;margin:12px 0}#customerAddEmail[hidden]{display:none}

@@ -39,6 +39,12 @@ test('Attention saved view fits devices, retains items/focus on failure and clea
    assert.equal(await page.getByRole('button',{name:'Refresh saved view'}).evaluate(el=>el===document.activeElement),true);
   }
   await page.locator('nav [data-page="briefing"]').click();assert.equal(await page.locator('#attentionView h2').count(),0);
+  await page.locator('nav [data-page="attention"]').click();
+  assert.equal(await page.getByRole('button',{name:'Refresh saved view'}).count(),1,'navigation must not accumulate refresh controls');
+  await page.locator('nav [data-page="briefing"]').click();
+  await page.locator('nav [data-page="attention"]').click();
+  assert.equal(await page.getByRole('button',{name:'Refresh saved view'}).count(),1,'repeated visits must keep one control');
+  await page.locator('nav [data-page="briefing"]').click();
   mode='missing';await page.locator('nav [data-page="attention"]').click();await page.waitForFunction(()=>document.querySelector('#attentionView').textContent.includes('Email coverage has not been established'));
   assert.match(await page.locator('#attentionView').textContent(),/Not checked yet/);assert.doesNotMatch(await page.locator('#attentionView').textContent(),/No known items/);
   assert.ok(reads>=4);assert.equal(writes,0);

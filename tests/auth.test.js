@@ -260,7 +260,7 @@ test("authorized requests preserve app, session, health, and stored Tasks behavi
   res = mockRes();
   await require("../lib/routes/app.js")(request("GET", sameOrigin), res);
   assert.equal(res.statusCode, 200);
-  assert.match(res.body, /Your Morning Briefing/);
+  assert.match(res.body, /James — Daily Briefing/);
 
   const originalFetch = global.fetch;
   global.fetch = async () => ({
@@ -614,3 +614,15 @@ test("public login content is generic, no-store, and contains no configured iden
   assert.match(res.body, /private James workspace/i);
 });
 
+
+test('welcome assets remain authenticated GET/HEAD-only with correct content types', async () => {
+ const gateway=require('../api/gateway.js');
+ for (const [asset,type] of [['welcome.js','text/javascript'],['welcome.css','text/css'],['assets/welcome-dark.png','image/png'],['assets/welcome-light.png','image/png']]) {
+  const denied=mockRes();await gateway(request('GET',{query:{path:asset}}),denied);assert.equal(denied.statusCode,401,asset);
+  for(const method of ['GET','HEAD']) {
+   const res=mockRes();await gateway(request(method,{authorized:true,query:{path:asset}}),res);assert.equal(res.statusCode,200,asset);assert.ok(res.headers['Content-Type'].startsWith(type));
+   if(method==='HEAD')assert.equal(res.body,null);
+  }
+  const post=mockRes();await gateway(request('POST',{authorized:true,query:{path:asset}}),post);assert.equal(post.statusCode,405,asset);
+ }
+});
