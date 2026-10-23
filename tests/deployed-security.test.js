@@ -34,7 +34,14 @@ const unauthorizedCases = [
   { name: "private image asset", target: "/assets/james-signature-v2.png" },
   { name: "encoded dot and slash", target: "/.%2findex.html" },
   { name: "unknown route", target: "/unknown-private-route" },
-  { name: "private Tasks API", target: "/api/tasks?cache=security-review" }
+  { name: "private Tasks API", target: "/api/tasks?cache=security-review" },
+  { name: "private conversation lifecycle", target: "/api/james/conversation" },
+  { name: "private typed reply endpoint", target: "/api/fast" },
+  { name: "private conversation UI", target: "/conversation-ui.js" },
+  { name: "private conversation runtime", target: "/conversation-runtime.js" },
+  { name: "private conversation identity", target: "/conversation-identity.mjs" },
+  { name: "private conversation bridge", target: "/conversation-bridge.mjs" },
+  { name: "encoded conversation runtime", target: "/%63onversation-runtime.js" }
 ];
 
 const redirectCases = [
