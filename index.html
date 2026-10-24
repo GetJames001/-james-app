@@ -163,13 +163,14 @@
   </div>
 </div>
       <div class="briefing-outlook">
-      <section class="next-card" aria-label="Next appointment">
+      <section class="next-card" id="nextAppointmentCard" aria-label="Next appointment">
         <div class="next-label">NEXT APPOINTMENT</div>
 
         <div class="next-main">
           <div class="next-identity">
             <h4 id="nextTitle">Loading calendar…</h4>
             <p id="nextType"></p>
+            <button type="button" id="nextAppointmentDetails" class="next-details-button" aria-haspopup="dialog" hidden disabled>Open Details</button>
           </div>
 
           <div class="countdown">
@@ -490,13 +491,13 @@
   </div>
 
   <div id="backdrop" class="backdrop">
-    <aside class="panel">
+    <aside class="panel" role="dialog" aria-modal="true" aria-labelledby="panelTitle">
       <div class="panel-head">
         <div>
           <small id="panelKicker"></small>
           <h3 id="panelTitle"></h3>
         </div>
-        <button id="close">×</button>
+        <button id="close" type="button" aria-label="Close details">×</button>
       </div>
 
       <div id="panelBody"></div>

@@ -456,7 +456,13 @@ function nextAppointment(){
  return appointments.find(e => (e[5] ? new Date(e[5].end) : timeToDate(e[1])) > now);
 }
 
+let displayedNextAppointment = null;
+let nextAppointmentReturn = null;
 function updateHero(){
+  displayedNextAppointment = null;
+  const detailsButton = $('#nextAppointmentDetails');
+  detailsButton.hidden = true;
+  detailsButton.disabled = true;
   if(!calendarSyncState.hasData) {
     $('#nextTitle').textContent=calendarSyncState.state==='loading'?'Checking calendar…':'Calendar unavailable';
     $('#nextType').textContent='No verified calendar result yet.';
@@ -481,6 +487,10 @@ const drive = travel ? (parseInt(travel[3], 10) || 0) : 0;
   const hrs = Math.floor(diff / 3600000);
   const min = Math.floor((diff % 3600000) / 60000);
   $('#nextTitle').textContent = appt[2];
+  displayedNextAppointment = appt;
+  detailsButton.hidden = false;
+  detailsButton.disabled = false;
+  detailsButton.setAttribute('aria-label', `Open details for ${appt[2]}`);
   $('#nextType').textContent = `${appt[3]} · ${pretty(appt[0])}`;
   $('#countdown').textContent = start <= now ? 'In progress' : hrs ? `${hrs} hr ${min} min` : `${min} min`;
  $('#leaveBy').textContent = travel ? leave.toLocaleTimeString([], {hour:'numeric', minute:'2-digit'}) : '—';
@@ -488,6 +498,31 @@ $('#driveTime').textContent = travel ? `${drive} min` : '—';
   $('#traffic').textContent = '—';
 }
 
+function openNextAppointmentDetails() {
+  if (!calendarSyncState.hasData || !displayedNextAppointment) return;
+  const returnState = { focus: document.activeElement, x: window.scrollX, y: window.scrollY };
+  openCalendarEvent(displayedNextAppointment);
+  nextAppointmentReturn = returnState;
+  $('#close').focus({preventScroll:true});
+}
+function bindNextAppointmentDetails() {
+  $('#nextAppointmentDetails').onclick = openNextAppointmentDetails;
+  // A single native button supplies keyboard activation; the card also accepts taps.
+  $('#nextAppointmentCard').onclick = event => {
+    if (event.target.closest('button,a,input,select,textarea')) return;
+    $('#nextAppointmentDetails').click();
+  };
+  document.addEventListener('keydown', event => {
+    if (!nextAppointmentReturn || !$('#backdrop').classList.contains('open')) return;
+    if (event.key === 'Escape') { event.preventDefault(); closePanel(); }
+    if (event.key === 'Tab') {
+      const controls = [$('#close'), ...$('#panelBody').querySelectorAll('a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled])')];
+      const first = controls[0], last = controls[controls.length - 1];
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus({preventScroll:true}); }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus({preventScroll:true}); }
+    }
+  });
+}
 function openCalendarEvent(row) {
   const event=Array.isArray(row)?row[5]:row;
   const title=event?.title || (Array.isArray(row)?row[2]:'Untitled event');
@@ -608,8 +643,17 @@ function page(id){
     if(cue) cue.setAttribute('aria-label','Recommendations reviewed');
   }
 }
-function panel(k,t,html){ $('#panelKicker').textContent = k; $('#panelTitle').textContent = t; $('#panelBody').innerHTML = html; $('#backdrop').classList.add('open'); }
-function closePanel(){ $('#backdrop').classList.remove('open'); }
+function panel(k,t,html){ nextAppointmentReturn = null; $('#panelKicker').textContent = k; $('#panelTitle').textContent = t; $('#panelBody').innerHTML = html; $('#backdrop').classList.add('open'); }
+function closePanel(){
+  $('#backdrop').classList.remove('open');
+  const returnState = nextAppointmentReturn;
+  nextAppointmentReturn = null;
+  if (returnState) {
+    const target = returnState.focus?.isConnected && returnState.focus !== document.body ? returnState.focus : $('#nextAppointmentDetails');
+    target.focus({preventScroll:true});
+    window.scrollTo({left:returnState.x, top:returnState.y, behavior:'instant'});
+  }
+}
 function speak(text){
   const start = localStorage.getItem('jamesStart') || 'home';
     const script = text || `Good morning, Michael. I have your route starting from ${start}. Your next appointment is ${$('#nextTitle').textContent}. Leave by ${$('#leaveBy').textContent}. Otherwise, your day looks manageable.`;
@@ -1209,6 +1253,7 @@ if (personalMailDetailBack) {
   personalMailDetailBack.onclick = () => page('personalMail');
 }
   $('#close').onclick = closePanel;
+  bindNextAppointmentDetails();
   $('#backdrop').onclick = e => { if(e.target === $('#backdrop')) closePanel(); };
   $('#jamesOrb').onclick = () => { setOrbState('listening'); speak(); setTimeout(() => setOrbState('idle'), 3200); };
   

@@ -837,3 +837,9 @@ button:disabled{opacity:.4;cursor:default}
 #customerDemoHistory{max-height:22rem;overflow:auto}#customerNextOpen{display:inline-block;min-height:44px;padding:12px 16px;border:1px solid #c5a568;border-radius:8px;color:inherit}#customerNextOpen[hidden]{display:none}
 
 .customer-reminders{margin:16px 0}.customer-reminders summary{cursor:pointer;min-height:44px;padding:12px 0}.customer-reminder-item{padding:14px 0;border-top:1px solid var(--gs);overflow-wrap:anywhere}.customer-reminder-item h4{margin:0 0 8px}.customer-reminder-item input{max-width:100%;min-height:44px}.customer-reminder-item button,.customer-reminder-item a,#customerAddEmail{display:inline-block;min-height:44px;padding:10px 14px;border:1px solid #c5a568;border-radius:8px;color:inherit;background:transparent}.customer-reminder-item label{display:block;margin:12px 0}#customerAddEmail[hidden]{display:none}
+
+/* Next Appointment keeps its existing layout and opens the shared details panel. */
+#nextAppointmentCard:has(.next-details-button:not([hidden])){cursor:pointer}
+.next-details-button{margin-top:10px;min-height:44px;padding:8px 14px;border:1px solid var(--gold);border-radius:999px;background:transparent;color:inherit;font:inherit;cursor:pointer}
+.next-details-button[hidden]{display:none}
+.next-details-button:focus-visible{outline:3px solid var(--gold);outline-offset:4px}
