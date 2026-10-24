@@ -25,5 +25,6 @@ test('In-app link preserves OAuth state verification and canonical callback',()=
  assert.match(connect,/requireAuth\(req, res\)/);
  assert.match(connect,/google_oauth_state=\$\{state\}; HttpOnly; Secure; SameSite=Lax/);
  assert.match(callback,/state !== expectedState/);
- for(const content of [connect,callback])assert.match(content,/https:\/\/www\.getjames\.ai\/api\/google\/callback/);
+ for(const content of [connect,callback])assert.match(content,/redirect_uri: redirectUri/);
+ assert.equal(require('../lib/google/oauth-redirect.js').googleRedirectUri({headers:{}},{VERCEL_ENV:'production'}),'https://www.getjames.ai/api/google/callback');
 });

@@ -4,33 +4,35 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#11100f">
-  <title>James — Morning Briefing</title>
+  <title>James — Daily Briefing</title>
   <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="welcome.css">
 </head>
 
 <body>
 <script>
-  if (sessionStorage.getItem('jamesIntroDate') === new Date().toDateString()) {
-    document.documentElement.classList.add('james-session-active');
-  }
+  // Preference only: never put identity, credentials or conversation data here.
+  try {
+    document.documentElement.dataset.theme = localStorage.getItem('jamesTheme') === 'light' ? 'light' : 'dark';
+    if (sessionStorage.getItem('jamesIntroDate') === new Date().toDateString()) {
+      document.documentElement.classList.add('james-session-active');
+    }
+  } catch (_) { document.documentElement.dataset.theme = 'dark'; }
 </script>
 <section id="intro" class="intro" aria-label="James introduction">
-  <div class="intro-stage" aria-hidden="true">
-    <div class="orb big"><span>J</span></div>
-  </div>
-
   <div class="intro-copy">
     <small>JAMES</small>
     <h1 id="introGreeting">Good morning, Michael.</h1>
-    <p id="introSummary">I’ve prepared your briefing.</p>
-
-    <div id="routePrompt" class="route-prompt">
-      <div class="route-options">
-        <button data-start="Home">Home</button>
-        <button data-start="Office">Office</button>
-        <button data-start="Other">Other</button>
+    <figure id="perspectiveIntro" class="perspective-intro" aria-label="Today's Perspective">
+      <figcaption class="perspective-eyebrow">TODAY’S PERSPECTIVE</figcaption>
+      <blockquote id="perspectiveIntroText"></blockquote>
+      <div class="perspective-credit">
+        <span id="perspectiveIntroAuthor"></span>
+        <cite id="perspectiveIntroSource"></cite>
       </div>
-    </div>
+    </figure>
+
+
   </div>
 </section>
 
@@ -50,6 +52,7 @@
     </div>
 
     <div class="status-cluster">
+      <button id="jamesThemeToggle" class="james-theme-toggle" type="button" aria-label="Use light theme">Light</button>
       <button id="jamesOrb" class="orb mini persistent-orb" aria-label="Talk to James" title="Talk to James">
         <span>J</span>
         <i class="orb-status" aria-hidden="true"></i>
@@ -85,9 +88,19 @@
 
       <div class="sheet-head compact-head">
         <div>
-          <h3>Your Morning Briefing</h3>
+          <h3>Your Daily Briefing</h3>
         </div>
       </div>
+      <details id="perspectiveRevisit" class="perspective-revisit">
+        <summary>Today’s Perspective <span aria-hidden="true">↗</span></summary>
+        <div class="perspective-revisit-body">
+          <blockquote id="perspectiveBriefText"></blockquote>
+          <div class="perspective-credit">
+            <span id="perspectiveBriefAuthor"></span>
+            <cite id="perspectiveBriefSource"></cite>
+          </div>
+        </div>
+      </details>
 <div class="intel-strip">
   <div class="intel-card">
     <svg class="intel-icon" viewBox="0 0 24 24" aria-hidden="true">
@@ -150,13 +163,14 @@
   </div>
 </div>
       <div class="briefing-outlook">
-      <section class="next-card" aria-label="Next appointment">
+      <section class="next-card" id="nextAppointmentCard" aria-label="Next appointment">
         <div class="next-label">NEXT APPOINTMENT</div>
 
         <div class="next-main">
           <div class="next-identity">
             <h4 id="nextTitle">Loading calendar…</h4>
             <p id="nextType"></p>
+            <button type="button" id="nextAppointmentDetails" class="next-details-button" aria-haspopup="dialog" hidden disabled>Open Details</button>
           </div>
 
           <div class="countdown">
@@ -191,11 +205,12 @@
       <div class="brief-grid">
         <div class="calendar-column">
           <small>TODAY’S CALENDAR · 7:00 AM–7:00 PM</small>
-          <div class="calendar-actions"><button id="calendarRefreshButton" type="button">Refresh calendar</button><a id="googleCalendarConnectLink" href="/api/google/connect" hidden>Connect Google Calendar</a><details id="calendarDetails"><summary>Calendar details</summary><p id="calendarSyncStatus"></p><p id="calendarSyncSources"></p><p>Read window: previous 24 hours through the next 90 days. The briefing grid shows 7 AM–7 PM. Appointments lets you browse dates, including all-day and out-of-hours events.</p></details></div>
+          <div class="calendar-actions"><button id="calendarRefreshButton" type="button">Refresh calendar</button><a id="googleCalendarConnectLink" href="/api/google/connect" hidden>Connect Google Calendar</a></div>
           <p id="calendarVisibleWarning" role="status" aria-live="polite" hidden></p>
           <div id="allDayStrip" hidden></div>
           <div id="allDayRibbon" hidden>ALL DAY</div>
           <div id="calendar" class="calendar"></div>
+          <div class="calendar-diagnostics"><details id="calendarDetails"><summary>Calendar connection info</summary><p id="calendarSyncStatus"></p><p id="calendarFailureDetail" hidden></p><p id="calendarSyncSources"></p><p>Read window: previous 24 hours through the next 90 days. The briefing grid shows 7 AM–7 PM. Appointments lets you browse dates, including all-day and out-of-hours events.</p></details></div>
         </div>
 
         <aside>
@@ -238,6 +253,8 @@
     Proposals <b>—</b>
   </button>
 </div>
+<p id="customerSaveNotice" role="status"></p>
+<p id="customerReminderAlert" role="status" aria-live="polite"></p><details id="customerReminders" class="customer-reminders"><summary id="customerReminderSummary">Customer follow-ups</summary><p id="customerReminderStatus" role="status" aria-live="polite"></p><p class="customer-field-help">Reminders appear here while James is open and when you return. Device alerts while James is closed are not connected yet.</p><div id="customerReminderList"></div><button id="customerReminderRetry" type="button" hidden>Check follow-ups again</button></details><div class="customer-shortcut"><button id="customerActivityOpen" type="button" aria-haspopup="dialog" aria-controls="customerActivityOverlay"><span>Customer Activity</span><span aria-hidden="true">↗</span></button><small>Customer records and reported outcomes</small></div>
 </aside>
       </div>
     </div>
@@ -418,14 +435,69 @@
 </div>
 </section>
 
+  <!-- Customer Activity stores explicit user reports; it never infers completed visits. -->
+  <div id="customerActivityOverlay" class="customer-overlay" role="dialog" aria-modal="true" aria-labelledby="customerActivityTitle" hidden>
+    <div class="customer-overlay-shade" aria-hidden="true"></div>
+    <section class="customer-workspace" tabindex="-1">
+      <div class="customer-workspace-head">
+        <div><small>JAMES · WORKSPACE</small><h2 id="customerActivityTitle">Customer Activity</h2><p>Flexible suggested stops and contact outcomes</p></div>
+        <button id="customerActivityClose" type="button" aria-label="Exit Customer Activity workspace">Exit <span aria-hidden="true">×</span></button>
+      </div>
+      <p id="customerModeNotice" class="customer-demo-note">Record what happened and what comes next.</p>
+      <button id="customerModeSwitch" type="button">Show my saved companies</button>
+      <details class="customer-guide"><summary>How to use Customer Activity</summary><p>Choose a company on the left. Its people and details appear on the right. A company is the business; contacts are the people who work there.</p><p>Record who you reached, what actually happened and when. Add useful notes, then choose a proposed next step. Save and return to briefing saves your edits and updates contact history. Exit offers Save changes, Keep draft and exit, or Keep editing.</p><p>The five practice companies demonstrate the layout. They are not suggested stops based on your schedule or location.</p></details>
+      <div class="customer-workspace-grid">
+        <section class="customer-workspace-list" aria-label="Customer records">
+          <div class="customer-section-head"><h3>Companies</h3></div>
+          <div id="customerDemoList"></div><label for="customerNewName">New company name</label><input id="customerNewName" maxlength="180"><button id="customerAdd" type="button">Add company</button>
+
+        </section>
+        <section class="customer-workspace-detail" aria-label="Customer details">
+          <div class="customer-section-head"><h3 id="customerDemoName">Select a customer</h3><span id="customerDemoVisited" class="customer-visit-pill"></span></div>
+          <details id="companyEditor"><summary>Company and contact details</summary>
+            <label for="companyName">Company name</label><input id="companyName" maxlength="180">
+            <label for="companyPhone">Company phone</label><input id="companyPhone" type="tel" maxlength="80">
+            <label for="companyAddress">Location / address</label><input id="companyAddress" maxlength="400">
+            <h4>Contacts</h4><div id="companyContacts"></div>
+            <button id="companyAddContact" type="button">Add another contact</button>
+            <button id="companySave" type="button">Save company details</button>
+            <p id="companyEditStatus" role="status"></p>
+          </details>
+          <aside class="customer-last-card" aria-labelledby="customerLastTitle">
+            <h3 id="customerLastTitle">Last contact</h3><p id="customerLastSummary">Select a company to see its last contact.</p>
+            <details id="customerHistoryDetails"><summary id="customerViewHistory">All contact notes</summary><p id="customerDemoHistory" class="customer-demo-history">No recorded contact.</p></details>
+          </aside>
+          <section id="customerClosePrompt" hidden aria-labelledby="customerCloseTitle"><h3 id="customerCloseTitle">Save changes before closing?</h3><p>Keep draft retains your edits in this tab until reload.</p><div class="customer-actions"><button id="customerCloseSave" type="button">Save changes</button><button id="customerExitDraft" type="button">Keep draft and exit</button><button id="customerKeepEditing" type="button">Keep editing</button></div></section>
+          <h3>Record an activity</h3><label for="activityContact">Contact</label><select id="activityContact"><option value="">No specific contact</option></select><label for="customerOutcomeKind">What happened?</label>
+          <select id="customerOutcomeKind"><option value="">Choose an outcome</option><option value="attempted">Attempted visit</option><option value="not_available">Contact unavailable</option><option value="met">Met in person</option><option value="phone">Phone contact</option><option value="email">Email contact</option><option value="other">Other — explain in notes</option></select>
+          <label for="customerOccurredAt">When did it happen?</label><input id="customerOccurredAt" type="datetime-local">
+          <label for="customerDemoOutcome">Activity notes</label>
+          <textarea id="customerDemoOutcome" rows="4" maxlength="2000" placeholder="Example: Left a card and asked for the facilities manager."></textarea>
+          <label for="customerNextKind">Next step</label><select id="customerNextKind"><option value="">Choose an action</option><option>Call</option><option>Email</option><option>Text</option><option>Drop by</option><option>Other</option><option>No follow-up needed</option></select>
+          <section id="customerNextDetails" hidden aria-label="Follow-up commitment">
+            <label for="customerNextDetailsText">What will you do?</label><input id="customerNextDetailsText" maxlength="250" placeholder="Follow-up details">
+            <label for="customerNextWhen">When will you do it?</label><input id="customerNextWhen" type="datetime-local"><div class="customer-actions" id="customerQuickTimes"><button type="button" data-minutes="30">30 minutes</button><button type="button" data-minutes="60">1 hour</button><button type="button" data-custom="true">Custom date/time</button></div>
+
+            <a id="customerNextOpen" hidden>Open action</a><p id="customerNextOpenHelp" class="customer-field-help"></p>
+          </section>
+          <p id="customerDraftStatus" class="customer-draft-status" aria-live="polite">Open to load saved customer records.</p>
+          <div class="customer-actions">
+            <button id="customerDemoKeepDraft" type="button">Save and return to briefing</button><button id="customerReload" type="button" hidden>Check save status</button>
+
+          </div>
+        </section>
+      </div>
+    </section>
+  </div>
+
   <div id="backdrop" class="backdrop">
-    <aside class="panel">
+    <aside class="panel" role="dialog" aria-modal="true" aria-labelledby="panelTitle">
       <div class="panel-head">
         <div>
           <small id="panelKicker"></small>
           <h3 id="panelTitle"></h3>
         </div>
-        <button id="close">×</button>
+        <button id="close" type="button" aria-label="Close details">×</button>
       </div>
 
       <div id="panelBody"></div>
@@ -441,6 +513,9 @@
 
 <script src="mail-refresh.js"></script>
 <script src="calendar-sync.js"></script>
+<script src="welcome.js"></script>
+<script src="conversation-runtime.js"></script>
+<script src="conversation-ui.js"></script>
 <script src="app.js"></script>
 
 </body>
