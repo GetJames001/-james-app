@@ -56,6 +56,8 @@ module.exports = async function handler(req, res) {
     return res.status(400).json({ ok: false, error: "INVALID_REQUEST" });
   }
 
+  if (route === "api/isolated-qa-diagnostic") return require("./isolated-qa-diagnostic.js")(req, res);
+
   // Protected Vercel Preview only: self-contained fictional interface.
   // Never exposed by production and never reads a real auth/session/provider.
   if(route === "customer-demo" || route === "customer-demo.html"){
