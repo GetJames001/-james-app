@@ -19,3 +19,5 @@ async function inspect(env, fetcher = fetch) {
   return result;
 }
 module.exports = async function(req,res){res.setHeader('Cache-Control','no-store'); const host=String(process.env.VERCEL_URL||''); if(!host.startsWith('james-isolated-qa-1bd8f93-') || process.env.VERCEL_ENV!=='preview') return res.status(404).end(); if(req.method!=='GET') return res.status(405).end(); return res.status(200).json(await inspect(process.env)); };
+
+// Rebuild the isolated Preview with its updated session setting.
