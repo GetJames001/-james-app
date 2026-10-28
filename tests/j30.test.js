@@ -49,3 +49,19 @@ test('task cannot start a third browser session when paused progress remains',as
 test('cancellation during awaited scope verification prevents cached result presentation',async()=>fixture(async f=>{
  await f.run(request);let active=true,checks=0,release;const replay=createShoppingCapability({...f.options,verifyScope:async()=>{checks++;if(checks===2)return new Promise(resolve=>release=resolve);return true}});const pending=replay({...request,isCurrent:()=>active});while(!release)await new Promise(resolve=>setImmediate(resolve));active=false;release(true);await assert.rejects(pending,/TASK_INTERRUPTED/);assert.equal(f.counts().openCount,1);
 }));
+const {createRedisCheckpoints,createRedisBackend}=require('../j30/redis-checkpoints.cjs');
+function redisFixture(){const values=new Map(),commands=[];const backend={read:async k=>{commands.push(k);return values.get(k)??null},compareAndSwap:async(k,old,next)=>{commands.push(k);if((values.get(k)??null)!==old)return false;values.set(k,next);return true}};return {values,commands,backend,store:createRedisCheckpoints(backend)}};
+test('host-compatible Redis CAS checkpoints preserve progress across adapter recreation',async()=>{
+ const r=redisFixture();await r.store.exclusive(scope,request.taskId,async store=>{assert.equal(await store.read(),null);await store.write({scope,taskId:request.taskId,status:'paused',results:[{name:'Confirmed fixture'}]})});
+ await createRedisCheckpoints(r.backend).exclusive(scope,request.taskId,async store=>assert.equal((await store.read()).results[0].name,'Confirmed fixture'));assert.ok(r.commands.every(k=>k.startsWith('james:j30:v1:')));assert.ok(r.commands.every(k=>!k.includes('james:tasks')));
+});
+test('Redis task lock prevents concurrent execution and survives uncertain release',async()=>{
+ const r=redisFixture();await r.store.exclusive(scope,request.taskId,async()=>{await assert.rejects(r.store.exclusive(scope,request.taskId,async()=>{}),/TASK_BUSY_OR_INTERRUPTED/)});
+ let calls=0;const failing=createRedisCheckpoints({...r.backend,compareAndSwap:async(...args)=>{calls++;if(calls===2)return false;return r.backend.compareAndSwap(...args)}});await assert.rejects(failing.exclusive(scope,'uncertain',async()=>true),/CHECKPOINT_RELEASE_UNCONFIRMED/);await assert.rejects(r.store.exclusive(scope,'uncertain',async()=>true),/TASK_BUSY_OR_INTERRUPTED/);
+});
+test('Redis checkpoint scope mismatch cannot be written or replayed to another account',async()=>{
+ const r=redisFixture();await assert.rejects(r.store.exclusive(scope,request.taskId,async store=>store.write({scope:{...scope,accountId:'foreign'},taskId:request.taskId})),/CHECKPOINT_INVALID/);await r.store.exclusive({...scope,accountId:'other'},request.taskId,async store=>assert.equal(await store.read(),null));assert.equal(r.values.size,2);
+});
+test('Redis REST backend uses existing server-side storage contract without exposing token',async()=>{
+ const values=new Map(),calls=[];const store=createRedisBackend({url:'https://fixture.invalid',token:'fictional-kv-secret',fetchImpl:async(_url,options)=>{const cmd=JSON.parse(options.body);calls.push(cmd);let result=null;if(cmd[0]==='GET')result=values.get(cmd[1])??null;else{const [,,,key,mode,old,next]=cmd;result=(mode==='absent'?!values.has(key):values.get(key)===old)?1:0;if(result)values.set(key,next)}return new Response(JSON.stringify({result}))}});await store.exclusive(scope,request.taskId,async row=>row.write({scope,taskId:request.taskId,status:'paused'}));assert.ok(calls.some(c=>c[0]==='EVAL'));assert.doesNotMatch(JSON.stringify(calls),/fictional-kv-secret/);
+});
