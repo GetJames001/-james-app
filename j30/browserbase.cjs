@@ -9,7 +9,7 @@ function allowResource({url,method,type,mainDocument=false}){
  if(u.protocol!=='https:'||u.port||u.username||u.password||u.pathname.includes('%')||!['GET','HEAD'].includes(method))return false;
  if(mainDocument){try{publicUrl(url);return type==='document'}catch{return false}}
  if(type==='document')return false;
- if(/cart|checkout|account|profile|login|signin|payment|order|gtag|analytics|tracking/i.test(u.pathname))return false;
+ if(/cart|checkout|account|profile|login|signin|payment|order|gtag|tracking/i.test(u.pathname))return false;
  if(u.hostname===HOST&&['script','stylesheet','font','image'].includes(type)&&
     /^(?:\/global\/assets\/|\/us\/en\/(?:search|product-lists|products|recommendations|nudge|experiment-fragment)\/)/.test(u.pathname)&&
     /\.(?:m?js|css|woff2?|svg|png|jpe?g|webp)$/i.test(u.pathname))return true;
@@ -79,7 +79,9 @@ function createBrowserbase({apiKey,projectId,enabled=false,usageApproved=false,m
    const denied=new Map();
    await context.route('**/*',async route=>{const req=route.request();let mainDocument=false;try{mainDocument=req.isNavigationRequest()&&req.frame().parentFrame()===null}catch{}
     if(allowResource({url:req.url(),method:req.method(),type:req.resourceType(),mainDocument}))return deliverResource(route);
-    try{const u=new URL(req.url()),key=u.hostname+u.pathname.slice(0,180)+' ['+req.method()+' '+req.resourceType()+']';if(denied.has(key)||denied.size<12)denied.set(key,(denied.get(key)||0)+1)}catch{}return route.abort()});
+    try{const u=new URL(req.url()),key=u.hostname+u.pathname.slice(0,180)+' ['+req.method()+' '+req.resourceType()+']';
+     if(!denied.has(key)&&denied.size>=32&&['fetch','xhr'].includes(req.resourceType())){const first=[...denied.keys()].find(k=>!/(fetch|xhr)\]$/.test(k));if(first)denied.delete(first)}
+     if(denied.has(key)||denied.size<32)denied.set(key,(denied.get(key)||0)+1)}catch{}return route.abort()});
    const page=await context.newPage();page.setDefaultTimeout(8000);
    return {id:session.id,driver:createShoppingDriver(page,()=>[...denied].map(([resource,count])=>({resource,count}))),close};
   }catch{try{await close()}catch{fail('CLEANUP_UNCONFIRMED')}fail('BROWSER_CONNECTION_FAILED')}
