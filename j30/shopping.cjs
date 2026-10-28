@@ -10,8 +10,13 @@ function createShoppingCapability({verifyScope,checkpoints,provider,now=Date.now
   await current();
   return checkpoints.exclusive(scope,taskId,async store=>{
    let task=await store.read();await current();if(task&&task.request!==text)throw Error('TASK_REQUEST_MISMATCH');
-   if(!task){const plan=parseRequest(text);task={version:1,scope,taskId,request:text,plan,status:'ready',sessionStarts:0,results:[],failures:[],remainingUrls:null,uncertainSession:false,cleanupUnconfirmed:false};await store.write(task)}
+   if(!task){const plan=parseRequest(text);task={version:1,verifierVersion:1,scope,taskId,request:text,plan,status:'ready',sessionStarts:0,results:[],failures:[],remainingUrls:null,uncertainSession:false,cleanupUnconfirmed:false};await store.write(task)}
    if(task.uncertainSession||task.cleanupUnconfirmed||task.status==='running')throw Error('RECONCILE_BEFORE_RETRY');
+   // One deliberate legacy verifier recheck, preserving failed evidence and session budget.
+   // Only confirmed read-verification failures qualify; uncertain sessions never do.
+   if(task.status==='incomplete'&&task.verifierVersion===undefined&&task.results.length===0&&task.failures.length>0&&task.failures.every(f=>f.error==='PRODUCT_NOT_VERIFIED')&&task.sessionStarts<2){
+    task.legacyVerificationFailures=structuredClone(task.failures);task.remainingUrls=[...new Set(task.failures.map(f=>f.url))].slice(0,3);task.failures=[];task.verifierVersion=1;task.status='ready';
+   }
    // A confirmed empty discovery may be retried within the SAME task/session budget.
    // Never retry product failures, uncertain creation or unconfirmed cleanup here.
    if(task.status==='incomplete'&&task.results.length===0&&task.failures.length===0&&task.remainingUrls?.length===0&&task.sessionStarts<2){task.status='ready';task.remainingUrls=null;}

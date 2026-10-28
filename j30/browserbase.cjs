@@ -114,15 +114,19 @@ function createShoppingDriver(page,networkEvidence=()=>[],authorizeSearch=()=>{}
    const links=await page.locator('a[href]').evaluateAll(nodes=>nodes.map(n=>n.href));const products=[...new Set(links.flatMap(href=>{try{return [publicUrl(href,{product:true})]}catch{return []}}))].slice(0,3);
    searchEvidence={stage:'discovery',anchorCount:links.length,productLinkCount:products.length,bodyCharacters:body.length,waitTimedOut:timedOut,pageTitle:(await page.title()).slice(0,160),publicPageExcerpt:body.slice(0,500),deniedResources:networkEvidence(),catalogResponseStatuses:catalogEvidence()};
    return products;},
-  async read(url){const actual=await visit(url,true);const raw=await page.locator('script[type="application/ld+json"]').allTextContents();
+  async read(url){const actual=await visit(url,true);
+   try{await page.waitForFunction(()=>Array.from(document.querySelectorAll('script[type="application/ld+json"]')).some(node=>{const text=node.textContent||'';return text.length<=100000&&/"@type"\s*:\s*(?:"Product"|\[[^\]]*"Product")/.test(text)}),undefined,{timeout:8000});await page.locator('h1').first().waitFor({state:'visible',timeout:5000})}catch{fail('PRODUCT_NOT_VERIFIED')}
+   const raw=await page.locator('script[type="application/ld+json"]').allTextContents();
    let found;function scan(v){if(!v||typeof v!=='object'||found)return;if(Array.isArray(v)){v.forEach(scan);return}const type=Array.isArray(v['@type'])?v['@type']:[v['@type']];if(type.includes('Product'))found=v;else if(v['@graph'])scan(v['@graph']);}
    for(const item of raw){if(item.length>100000)continue;try{scan(JSON.parse(item))}catch{}}
    const offers=Array.isArray(found?.offers)?found.offers:[found?.offers];const offer=offers.find(o=>o&&o.priceCurrency==='USD'&&o.price!==undefined&&/^\d+(\.\d{1,2})?$/.test(String(o.price)));
    if(typeof found?.name!=='string'||!found.name.trim()||!offer||!Number.isFinite(Number(offer.price))||Number(offer.price)<=0)fail('PRODUCT_NOT_VERIFIED');
    const visible=(await page.locator('body').innerText({timeout:5000})).replace(/\s+/g,'').toLowerCase();
-   const visibleName=found.name.split(',')[0].replace(/\s+/g,'').toLowerCase();
+   const identityText=value=>value.normalize('NFKC').toLowerCase().replace(/[^\p{L}\p{N}]/gu,'');
+   const heading=page.locator('h1').first();if(!await heading.isVisible())fail('PRODUCT_NOT_VERIFIED');
+   const visibleName=identityText(found.name),visibleIdentity=identityText(await heading.innerText({timeout:5000}));
    const amount=Number(offer.price),pricePattern=Number.isInteger(amount)?String(amount)+'(?:\\.00)?':amount.toFixed(2).replace('.','\\.');
-   if(!visibleName||!visible.includes(visibleName)||!new RegExp('(?:^|[^0-9])'+pricePattern+'(?:[^0-9]|$)').test(visible))fail('PRODUCT_NOT_VERIFIED');
+   if(!visibleName||visibleIdentity!==visibleName||!new RegExp('(?:^|[^0-9])'+pricePattern+'(?:[^0-9]|$)').test(visible))fail('PRODUCT_NOT_VERIFIED');
    const evidence={verification:'jsonld_and_visible_text',name:found.name.slice(0,250),price:Number(offer.price),currency:'USD',url:actual,availability:typeof offer.availability==='string'?offer.availability.slice(0,150):'unknown',observedAt:new Date().toISOString()};
    return {...evidence,evidenceHash:createHash('sha256').update(JSON.stringify(evidence)).digest('hex')};
   }
