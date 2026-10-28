@@ -134,7 +134,7 @@ test('Workbench follows host light and dark themes with readable saved cards, co
  await page.evaluate(async()=>{
   const {createDemoStore,createProject,createVersion}=await import('/workbench/core.js');
   const {createAsyncDemoStore}=await import('/workbench/async-session.js');const {mountAsyncWorkbench}=await import('/workbench/async-app.js');
-  const values=new Map(),storage={getItem:k=>values.get(k)??null,setItem:(k,v)=>values.set(k,v),removeItem:k=>values.delete(k)};
+  const values=new Map(),storage={get length(){return values.size},key:index=>[...values.keys()][index]??null,getItem:k=>values.get(k)??null,setItem:(k,v)=>values.set(k,v),removeItem:k=>values.delete(k)};
   const store=createDemoStore({storage,accountId:'theme-fixture'});store.seed([createVersion(createProject({accountId:'theme-fixture',title:'Theme fixture',objective:'Synthetic readability check'}),{content:'Synthetic working copy'})]);
   const root=document.getElementById('workbenchRoot');root.hidden=false;
   window.themeFixture=mountAsyncWorkbench(root,{store:createAsyncDemoStore(store),remoteMode:true});await window.themeFixture.ready;window.jamesPageNow('workbench');
