@@ -37,3 +37,18 @@ test('comparison renders cards and collapses diagnostics without unsafe product 
 });
 
 test('visible summary preserves verified product receipts in follow-up conversation context',async()=>{const f=fixture();f.input.value='Compare desk lamps under $50';await f.ui.ask();f.input.value='Which lamps did you find?';await f.ui.ask();const call=f.requests.find(r=>r.url==='/api/fast');assert.match(call.body.question,/Synthetic lamp/);assert.match(call.body.question,/USD 10/);assert.match(call.body.question,/https:\/\/www.ikea.com/);assert.doesNotMatch(call.body.question,/Blocked resources/)});
+
+test('fresh-search button creates a new task only after completed result and preserves old cards while pending',async()=>{
+ let release,calls=0;const f=fixture({research:async body=>{calls++;if(calls===2)return new Promise(r=>release=r);return {ok:true,result:{status:'completed',comparisonVerified:true,resultSource:'saved',products:[{name:'Synthetic lamp',price:10,currency:'USD',url:'https://www.ikea.com/us/en/p/synthetic/',observedAt:'fixture'}]}}}});
+ f.input.value='Compare desk lamps under $50';await f.ui.ask();assert.match(f.answer.textContent,/Saved result/);
+ const first=f.requests.find(r=>r.url==='/api/james/research').body.taskId;
+ const again=f.nodes.find(n=>n.textContent==='Search again');assert.ok(again);
+ const pending=again.onclick();while(!release)await new Promise(r=>setTimeout(r,0));
+ assert.match(f.answer.textContent,/Synthetic lamp/);
+ assert.notEqual(f.requests.filter(r=>r.url==='/api/james/research')[1].body.taskId,first);
+ release({ok:true,result:{status:'completed',comparisonVerified:true,resultSource:'fresh',products:[]}});await pending;assert.match(f.answer.textContent,/Fresh browser research/);
+});
+test('uncertain or incomplete research never offers a fresh-task bypass',async()=>{
+ const f=fixture({research:async()=>({ok:true,result:{status:'blocked',comparisonVerified:false,error:'CLEANUP_UNCONFIRMED',products:[]}})});
+ f.input.value='Compare desk lamps under $50';await f.ui.ask();assert.equal(f.nodes.some(n=>n.textContent==='Search again'),false);
+});

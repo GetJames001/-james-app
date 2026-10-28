@@ -47,6 +47,7 @@
    try{const raw=historyStorage?.getItem(cacheKey);if(raw&&raw.length<4000){const saved=JSON.parse(raw);if(JSON.stringify(saved.scope)===JSON.stringify(scope)&&saved.text===text&&typeof saved.taskId==='string'&&/^[\w-]{1,160}$/.test(saved.taskId))task=saved;}}catch{}
    if(!task){task={scope,text,taskId:crypto.randomUUID()};try{const raw=JSON.stringify(task);historyStorage.setItem(cacheKey,raw);if(historyStorage.getItem(cacheKey)!==raw)throw Error();}catch{throw Error('TASK_CHECKPOINT_UNAVAILABLE')}}
    status.textContent='James is researching public product pages…';
+   const searchStarted=Date.now();
    const response=await requestJSON('/api/james/research',{method:'POST',credentials:'same-origin',cache:'no-store',signal,headers:{'Content-Type':'application/json'},body:JSON.stringify({text,taskId:task.taskId,conversationId:scope.conversationId,generation:scope.generation})},90000);
    const data=await response.json();
    if(ticket!==revision||signal?.aborted)throw Error('TASK_INTERRUPTED');
@@ -61,11 +62,22 @@
    lines.push('Research task: '+String(result.taskId||task.taskId));
    if(result.error)lines.push('Stopped: '+String(result.error)+'. Do not start another task to bypass an uncertain result.');
    if(result.failures?.length)lines.push('Some product pages could not be verified.');
-   lines.push('No purchase made. No account connected.');const summary=result.comparisonVerified?'I found '+result.products.length+' IKEA lamps under $50. Here are their checked prices. Stock, shipping and taxes have not been verified.':'The product comparison is not complete. Some product pages could not be verified.';return {ok:true,answer:summary,historyAnswer:summary+'\n'+result.products.map(item=>String(item.name)+' — '+String(item.currency)+' '+String(item.price)+' · '+String(item.url)+' · Observed: '+String(item.observedAt)).join('\n'),shoppingResult:result};
+   lines.push('No purchase made. No account connected.');const summary=result.comparisonVerified?'I found '+result.products.length+' IKEA lamps under $50. Here are their checked prices. Stock, shipping and taxes have not been verified.':'The product comparison is not complete. Some product pages could not be verified.';return {ok:true,answer:summary,historyAnswer:summary+'\n'+result.products.map(item=>String(item.name)+' — '+String(item.currency)+' '+String(item.price)+' · '+String(item.url)+' · Observed: '+String(item.observedAt)).join('\n'),shoppingResult:result,shoppingTiming:{source:result.resultSource||'unknown',elapsedMs:Math.max(0,Date.now()-searchStarted)}};
   }
-  function renderShopping(result,summary){
+  function renderShopping(result,summary,timing,renderScope){
    answer.textContent='';
    const intro=doc.createElement('p');intro.textContent=summary;answer.append(intro);
+   const timingLabel=doc.createElement('p');timingLabel.textContent=(timing?.source==='saved'?'Saved result':timing?.source==='fresh'?'Fresh browser research':'Research result')+' · Response: '+((timing?.elapsedMs||0)/1000).toFixed(1)+' seconds';answer.append(timingLabel);
+   if(result.status==='completed'&&result.comparisonVerified&&!result.error){
+    const again=doc.createElement('button');again.type='button';again.textContent='Search again';again.setAttribute('style','padding:10px 16px;margin:8px 0');
+    again.onclick=async()=>{if(again.disabled||ending||scopeKey!==renderScope||JSON.stringify(identity?.current())!==renderScope)return;
+     if(input.value.trim()){status.textContent='Keep or send your draft before starting a fresh search.';return;}
+     again.disabled=true;
+     try{historyStorage.removeItem('james:j30-task:v1');if(historyStorage.getItem('james:j30-task:v1')!==null)throw Error('TASK_CHECKPOINT_UNAVAILABLE');await ask({text:'Compare desk lamps under $50'});}
+     catch{status.textContent='Fresh search could not start. Your previous comparison is retained.';}
+     finally{again.disabled=false;}
+    };answer.append(again);
+   }
    const grid=doc.createElement('div');grid.setAttribute('style','display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),1fr));gap:12px;white-space:normal;margin:16px 0');
    result.products.forEach((item,index)=>{
     const card=doc.createElement('article');card.setAttribute('aria-label','Option '+(index+1));card.setAttribute('style','border:1px solid currentColor;border-radius:12px;padding:16px;min-width:0');
@@ -113,7 +125,7 @@
     if(result.status!=='completed'||!result.isCurrent())throw Error('REQUEST_FAILED');
     const checked=await bridge.verifyIdentity();if(ticket!==revision)return;if(checked.status!=='ready'||!result.isCurrent()||JSON.stringify(identity.current())!==key){clear();throw Error('IDENTITY_UNAVAILABLE');}
     const data=result.result;if(data?.error==='FAST_MODEL_UNAVAILABLE')throw Error('MODEL_UNAVAILABLE');const reply=data.answer||data.final_recommendation?.recommendation;if(!reply)throw Error('EMPTY_ANSWER');
-    if(data.shoppingResult)renderShopping(data.shoppingResult,reply);else answer.textContent=reply;
+    if(data.shoppingResult)renderShopping(data.shoppingResult,reply,data.shoppingTiming,key);else answer.textContent=reply;
     if(data.final_recommendation?.confidence){const confidence=doc.createElement('p'),value=data.final_recommendation.confidence;confidence.textContent=`Confidence: ${Number.isFinite(value.score)?Math.round(value.score*100)+'%':''} ${value.label||''}`;answer.append(confidence);}
     if(data.final_recommendation){for(const [key,label] of [['reasons','Why'],['key_facts','Key facts'],['risks','Risks'],['what_would_change_the_answer','What would change the answer']]){
      const values=data.final_recommendation[key];if(!Array.isArray(values)||!values.length)continue;

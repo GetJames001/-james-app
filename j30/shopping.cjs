@@ -20,7 +20,7 @@ function createShoppingCapability({verifyScope,checkpoints,provider,now=Date.now
    // A confirmed empty discovery may be retried within the SAME task/session budget.
    // Never retry product failures, uncertain creation or unconfirmed cleanup here.
    if(task.status==='incomplete'&&task.results.length===0&&task.failures.length===0&&task.remainingUrls?.length===0&&task.sessionStarts<2){task.status='ready';task.remainingUrls=null;}
-   else if(['completed','incomplete'].includes(task.status))return report(task);
+   else if(['completed','incomplete'].includes(task.status))return {...report(task),resultSource:'saved'};
    if(task.sessionStarts>=2)throw Error('SESSION_BUDGET_EXHAUSTED');
    let session,started=now(),visited=0;
    try{
@@ -38,7 +38,7 @@ function createShoppingCapability({verifyScope,checkpoints,provider,now=Date.now
     if(session)try{await session.close()}catch{task.cleanupUnconfirmed=true;task.status='blocked';task.error='CLEANUP_UNCONFIRMED'}
     await store.write(task);
    }
-   await current();return report(task);
+   await current();return {...report(task),resultSource:'fresh'};
   });
  };
 }
