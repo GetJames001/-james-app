@@ -3,9 +3,29 @@
 const {createHash}=require('node:crypto');
 const fail=code=>{throw Error(code)};
 const HOST='www.ikea.com';
+const SEARCH_HOST='sik.search.blue.cdtapps.com';
+function allowResource({url,method,type,mainDocument=false}){
+ let u;try{u=new URL(url)}catch{return false}
+ if(u.protocol!=='https:'||u.port||u.username||u.password||u.pathname.includes('%')||!['GET','HEAD'].includes(method))return false;
+ if(mainDocument){try{publicUrl(url);return type==='document'}catch{return false}}
+ if(type==='document')return false;
+ if(/cart|checkout|account|profile|login|signin|payment|order|gtag|analytics|tracking/i.test(u.pathname))return false;
+ if(u.hostname===HOST&&['script','stylesheet','font','image'].includes(type)&&
+    /^(?:\/global\/assets\/|\/us\/en\/(?:search|product-lists|products|recommendations|nudge|experiment-fragment)\/)/.test(u.pathname)&&
+    /\.(?:m?js|css|woff2?|svg|png|jpe?g|webp)$/i.test(u.pathname))return true;
+ return u.hostname===SEARCH_HOST&&['fetch','xhr'].includes(type)&&/^\/us\/en\/search\/?$/.test(u.pathname)&&
+   ![...u.searchParams.keys()].some(k=>/token|password|email|auth|cookie/i.test(k));
+}
+async function deliverResource(route){
+ // route.continue follows redirects without rechecking this policy. Never follow one.
+ try{const response=await route.fetch({maxRedirects:0,maxRetries:0,timeout:10000});
+  if(response.status()>=300&&response.status()<400)return route.abort();
+  return route.fulfill({response});
+ }catch{return route.abort()}
+}
 function publicUrl(value,{product=false}={}){
  let u;try{u=new URL(value)}catch{fail('URL_DENIED')}
- if(u.protocol!=='https:'||u.hostname!==HOST||u.port||u.username||u.password||u.hash||/\b(cart|checkout|account|login|signin|payment|order)\b/i.test(u.pathname))fail('URL_DENIED');
+ if(u.protocol!=='https:'||u.hostname!==HOST||u.port||u.username||u.password||u.hash||/cart|checkout|account|profile|favorites|login|signin|payment|order/i.test(u.pathname))fail('URL_DENIED');
  if(!u.pathname.startsWith('/us/en/')||(product&&!u.pathname.startsWith('/us/en/p/')))fail('URL_DENIED');
  if(product)u.search='';else if([...u.searchParams.keys()].some(k=>k!=='q'))fail('URL_DENIED');
  return u.href;
@@ -36,7 +56,7 @@ function createBrowserbase({apiKey,projectId,enabled=false,usageApproved=false,m
    if(!Number.isSafeInteger(usage.browserMinutes)||usage.browserMinutes<0||usage.browserMinutes>maxUsageMinutes)fail('USAGE_ALLOWANCE_UNCONFIRMED');
   }
   // No keepAlive/Contexts/proxies, automatic CAPTCHA solving, logs or recordings.
-  const session=await api('sessions',{projectId,timeout:60,keepAlive:false,proxies:false,browserSettings:{solveCaptchas:false,recordSession:false,logSession:false,ignoreCertificateErrors:false,allowedDomains:[HOST]}});
+  const session=await api('sessions',{projectId,timeout:60,keepAlive:false,proxies:false,browserSettings:{solveCaptchas:false,recordSession:false,logSession:false,ignoreCertificateErrors:false,allowedDomains:[HOST,SEARCH_HOST]}});
   if(typeof session.id!=='string'||!/^[\w-]{1,160}$/.test(session.id))fail('PROVIDER_RESPONSE_INVALID');
   let browser,closed=false;
   async function close(){
@@ -57,7 +77,9 @@ function createBrowserbase({apiKey,projectId,enabled=false,usageApproved=false,m
    await context.routeWebSocket('**/*',socket=>socket.close());
    // Deny writes and off-merchant traffic even if a page tries to redirect us.
    const denied=new Map();
-   await context.route('**/*',async route=>{const req=route.request();try{publicUrl(req.url());if(!['GET','HEAD'].includes(req.method()))throw Error();return route.continue()}catch{try{const key=new URL(req.url()).hostname+' ['+req.resourceType()+']';if(denied.has(key)||denied.size<12)denied.set(key,(denied.get(key)||0)+1)}catch{}return route.abort()}});
+   await context.route('**/*',async route=>{const req=route.request();let mainDocument=false;try{mainDocument=req.isNavigationRequest()&&req.frame().parentFrame()===null}catch{}
+    if(allowResource({url:req.url(),method:req.method(),type:req.resourceType(),mainDocument}))return deliverResource(route);
+    try{const u=new URL(req.url()),key=u.hostname+u.pathname.slice(0,180)+' ['+req.method()+' '+req.resourceType()+']';if(denied.has(key)||denied.size<12)denied.set(key,(denied.get(key)||0)+1)}catch{}return route.abort()});
    const page=await context.newPage();page.setDefaultTimeout(8000);
    return {id:session.id,driver:createShoppingDriver(page,()=>[...denied].map(([resource,count])=>({resource,count}))),close};
   }catch{try{await close()}catch{fail('CLEANUP_UNCONFIRMED')}fail('BROWSER_CONNECTION_FAILED')}
@@ -93,4 +115,4 @@ function createShoppingDriver(page,networkEvidence=()=>[]){
   }
  };
 }
-module.exports={createBrowserbase,createShoppingDriver,parseRequest,publicUrl};
+module.exports={createBrowserbase,createShoppingDriver,parseRequest,publicUrl,allowResource,deliverResource};

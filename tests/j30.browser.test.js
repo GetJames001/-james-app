@@ -24,3 +24,21 @@ test('real browser rejects hidden/stale price metadata and site verification cha
 test('discovery waits for asynchronously rendered products and records bounded diagnostics',async()=>{
  const browser=await chromium.launch();try{const context=await browser.newContext();const page=await context.newPage();await context.route('**/*',route=>route.fulfill({contentType:'text/html',body:'<h1>Loading fixture</h1><script>setTimeout(()=>{document.body.insertAdjacentHTML("beforeend",\'<a href="/us/en/p/delayed-fixture/">Delayed</a>\')},250)</script>'}));const driver=createShoppingDriver(page);const links=await driver.search(origin+'/us/en/search/?q=lamps');assert.deepEqual(links,[origin+'/us/en/p/delayed-fixture/']);assert.equal(driver.diagnostics().productLinkCount,1);assert.equal(driver.diagnostics().waitTimedOut,false);assert.ok(driver.diagnostics().bodyCharacters>0);assert.equal(typeof driver.diagnostics().pageTitle,'string');assert.ok(driver.diagnostics().publicPageExcerpt.length<=500);assert.deepEqual(driver.diagnostics().deniedResources,[])}finally{await browser.close()}
 });
+test('browser resource gate permits static-script and public-search hydration while blocking account and write traffic',async()=>{
+ const {allowResource}=require('../j30/browserbase.cjs');const browser=await chromium.launch();try{const context=await browser.newContext({serviceWorkers:'block'}),page=await context.newPage(),allowed=[],denied=[];
+ await context.route('**/*',async route=>{const req=route.request();let mainDocument=false;try{mainDocument=req.isNavigationRequest()&&req.frame().parentFrame()===null}catch{}const url=new URL(req.url());if(!allowResource({url:req.url(),method:req.method(),type:req.resourceType(),mainDocument})){denied.push(url.hostname);return route.abort()}allowed.push(url.hostname+url.pathname);let body,contentType='text/html';
+ if(url.pathname==='/us/en/search/')body='<h1>Fixture search</h1><script src="/global/assets/dwf/listing/v2/fixture.js"></script>';
+ else if(url.hostname==='sik.search.blue.cdtapps.com'){body=JSON.stringify({products:['fixture-one','fixture-two']});contentType='application/json'}
+ else{body='fetch("https://accounts.ikea.com/blocked").catch(()=>{});fetch("https://sik.search.blue.cdtapps.com/us/en/search",{method:"POST",body:"blocked"}).catch(()=>{});fetch("https://sik.search.blue.cdtapps.com/us/en/search?q=lamps").then(r=>r.json()).then(v=>{for(const name of v.products){const a=document.createElement("a");a.href="/us/en/p/"+name+"/";a.textContent=name;document.body.append(a)}})';contentType='text/javascript'}
+ return route.fulfill({contentType,headers:{'Access-Control-Allow-Origin':origin},body});});
+ const links=await createShoppingDriver(page).search(origin+'/us/en/search/?q=lamps');assert.equal(links.length,2);assert.ok(allowed.includes('www.ikea.com/global/assets/dwf/listing/v2/fixture.js'));assert.ok(allowed.includes('sik.search.blue.cdtapps.com/us/en/search'));assert.ok(denied.includes('accounts.ikea.com'));assert.ok(denied.includes('sik.search.blue.cdtapps.com'));
+ }finally{await browser.close()}
+});
+test('actual HTTP redirect is not followed from an accepted resource into a blocked destination',async()=>{
+ const http=require('node:http'),{deliverResource}=require('../j30/browserbase.cjs');let outside=0;
+ const server=http.createServer((req,res)=>{if(req.url==='/outside'){outside++;res.end('must not load')}else{res.writeHead(302,{Location:'/outside'});res.end()}});await new Promise(r=>server.listen(0,'127.0.0.1',r));const upstream='http://127.0.0.1:'+server.address().port;
+ const browser=await chromium.launch();try{const context=await browser.newContext(),page=await context.newPage();let denied=0;
+ await context.route('**/*',route=>deliverResource({fetch:options=>context.request.get(upstream+'/asset',options),abort:()=>{denied++;return route.abort()},fulfill:options=>route.fulfill(options)}));
+ await assert.rejects(page.goto(origin+'/global/assets/dwf/listing/v2/redirect.js'));assert.equal(denied,1);assert.equal(outside,0);
+ }finally{await browser.close();await new Promise(r=>server.close(r))}
+});
