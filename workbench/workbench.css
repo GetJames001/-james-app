@@ -7,3 +7,26 @@
 
 @media(min-width:801px) and (orientation:landscape){.wb .studio[data-hide-left=true]{grid-template-columns:0 minmax(0,1fr) 280px}.wb .studio[data-hide-right=true]{grid-template-columns:220px minmax(0,1fr) 0}.wb .studio[data-hide-left=true][data-hide-right=true]{grid-template-columns:0 minmax(0,1fr) 0}.wb .studio[data-hide-left=true] .rail.left,.wb .studio[data-hide-right=true] .rail.right{visibility:hidden;padding:0;overflow:hidden}}
 @media(max-width:800px),(orientation:portrait) and (max-width:1100px){.wb .rail-toggle{display:none}}
+
+/* Match the existing James light palette; keep the recovered layout intact. */
+html[data-theme="light"] .wb{
+  color-scheme:light;--navy:#f6f2e9;--ink:#172238;--muted:#4c5968;
+  --gold:#78551f;--panel:#fffdf8;--line:#a59880;--warm:#eee7d9;
+  color:var(--ink);background:#f6f2e9;
+}
+html[data-theme="light"] .wb .topbar{background:#f8f5ef;}
+/* The host's generic .cards article background is important: fence it here. */
+html[data-theme="light"] .wb .project-card{background:var(--panel)!important;color:var(--ink);}
+html[data-theme="light"] .wb :is(.resume,.asset,.composer,dialog){background:#f2eee4;color:var(--ink);}
+html[data-theme="light"] .wb .review-strip{background:linear-gradient(110deg,#eee7d9,#f8f5ef);border-color:var(--line);}
+html[data-theme="light"] .wb :is(input,textarea,select){background:#fffdf8;color:var(--ink);border-color:#837763;}
+html[data-theme="light"] .wb :is(input,textarea)::placeholder{color:#596371;opacity:1;}
+html[data-theme="light"] .wb .primary{background:#855d24;color:#fff;border-color:#855d24;}
+html[data-theme="light"] .wb .primary:hover{background:#704b1b;}
+html[data-theme="light"] .wb button:hover{background:#e9e0ce;border-color:var(--gold);}
+html[data-theme="light"] .wb :is(.filter.active,.mobile-tabs .active,.compare-switch .active,.next-box){background:#e9e0ce;color:#604217;}
+html[data-theme="light"] .wb .note-list li{border-color:#a5988066;}
+html[data-theme="light"] .wb .save-state.error{color:#8b3024;}
+html[data-theme="light"] .wb .error-banner{background:#f7e9e4;color:#692b22;border-color:#a75645;}
+html[data-theme="light"] .wb dialog::backdrop{background:#17223888;}
+html[data-theme="light"] .wb :is(button,input,textarea,select,a,summary):focus-visible{outline:3px solid #6e4b1c;outline-offset:3px;}

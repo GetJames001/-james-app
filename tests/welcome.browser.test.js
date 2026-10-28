@@ -123,3 +123,41 @@ test('Mail distinguishes a disconnected workspace from a verified empty inbox, a
  assert.doesNotMatch(await page.locator('.mail-state-notice').first().textContent(),/not connected/);
  await context.close();
 }));
+
+function contrastRatio(fg,bg){
+ const luminance=color=>{const channels=color.match(/[\d.]+/g).slice(0,3).map(Number).map(v=>{v/=255;return v<=.04045?v/12.92:((v+.055)/1.055)**2.4});return .2126*channels[0]+.7152*channels[1]+.0722*channels[2]};
+ const a=luminance(fg),b=luminance(bg);return (Math.max(a,b)+.05)/(Math.min(a,b)+.05);
+}
+test('Workbench follows host light and dark themes with readable saved cards, composer and dialogs',async()=>fixture(async(b,url)=>{
+ const {page,context}=await pageFor(b,url,{viewport:{width:1366,height:1024}});
+ await page.addInitScript(()=>{sessionStorage.setItem('jamesIntroDate',new Date().toDateString());localStorage.setItem('jamesTheme','dark')});await page.goto(url);
+ await page.evaluate(async()=>{
+  const {createDemoStore,createProject,createVersion}=await import('/workbench/core.js');
+  const {createAsyncDemoStore}=await import('/workbench/async-session.js');const {mountAsyncWorkbench}=await import('/workbench/async-app.js');
+  const values=new Map(),storage={getItem:k=>values.get(k)??null,setItem:(k,v)=>values.set(k,v),removeItem:k=>values.delete(k)};
+  const store=createDemoStore({storage,accountId:'theme-fixture'});store.seed([createVersion(createProject({accountId:'theme-fixture',title:'Theme fixture',objective:'Synthetic readability check'}),{content:'Synthetic working copy'})]);
+  const root=document.getElementById('workbenchRoot');root.hidden=false;
+  window.themeFixture=mountAsyncWorkbench(root,{store:createAsyncDemoStore(store),remoteMode:true});await window.themeFixture.ready;window.jamesPageNow('workbench');
+ });
+ const colors=async(selector,background)=>page.locator(selector).evaluate((e,bg)=>({text:getComputedStyle(e).color,background:getComputedStyle(document.querySelector(bg)).backgroundColor}),background);
+ for(const theme of ['light','dark']){
+  await page.evaluate(t=>JamesWelcome.applyTheme(t),theme);
+  const root=await colors('#workbenchRoot','#workbenchRoot');assert.equal(root.background,theme==='light'?'rgb(246, 242, 233)':'rgb(7, 18, 37)');
+  for(const selector of ['.card-body .card-title','.card-body p','.card-body .eyebrow','.card-body .tag','.card-footer']){
+   const value=await colors('#workbenchRoot '+selector,'#workbenchRoot .project-card');assert.ok(contrastRatio(value.text,value.background)>=4.5,`${theme} ${selector} contrast: ${JSON.stringify(value)}`);
+  }
+ }
+ await page.getByRole('button',{name:'Open Theme fixture',exact:true}).click();await page.getByRole('textbox',{name:'Message James',exact:true}).fill('Unsent theme-check draft');
+ for(const viewport of [{width:1366,height:1024},{width:1024,height:1366}]){
+  await page.setViewportSize(viewport);
+  for(const theme of ['light','dark']){
+   await page.evaluate(t=>JamesWelcome.applyTheme(t),theme);
+   for(const selector of ['#draft','#copy']){const value=await colors('#workbenchRoot '+selector,'#workbenchRoot '+selector);assert.ok(contrastRatio(value.text,value.background)>=4.5,`${theme} ${selector} contrast`)}
+   assert.equal(await page.getByRole('textbox',{name:'Message James',exact:true}).inputValue(),'Unsent theme-check draft');
+   const send=await colors('#workbenchRoot #composer .primary','#workbenchRoot #composer .primary');assert.ok(contrastRatio(send.text,send.background)>=4.5,`${theme} Send contrast`);
+   assert.equal(await page.locator('#workbenchRoot').evaluate(e=>e.scrollWidth<=e.clientWidth+2),true);
+   await page.getByRole('button',{name:'Workbench settings',exact:true}).click();const dialog=await colors('#workbenchRoot dialog p:first-of-type','#workbenchRoot dialog');assert.ok(contrastRatio(dialog.text,dialog.background)>=4.5,`${theme} dialog contrast`);await page.getByRole('button',{name:'Close dialog',exact:true}).click();
+  }
+ }
+ await context.close();
+}));
