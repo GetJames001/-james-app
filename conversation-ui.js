@@ -7,7 +7,7 @@
   let identity,bridge,loading,preparing,revision=0,history=[],scopeKey='',closure=null,ending=false;
   const historyCacheKey='james:confirmed-conversation:v1';
   if(historyStorage===undefined)try{historyStorage=root.sessionStorage}catch{}
-  function forgetHistory(){try{historyStorage?.removeItem(historyCacheKey)}catch{}}
+  function forgetHistory(){try{historyStorage?.removeItem(historyCacheKey);historyStorage?.removeItem('james:j30-task:v1')}catch{}}
   function clear(preserveStored=false){if(!preserveStored)forgetHistory();history=[];scopeKey='';answer.textContent='';}
   function boundedHistory(items){
    const pairs=[];let size=0;
@@ -40,10 +40,30 @@
   }
   function providerQuestion(text){const recent=[];let size=text.length+40;for(const item of [...history].reverse()){const line=`${item.role}: ${item.text}`;if(size+line.length+1>12000)break;recent.unshift(line);size+=line.length+1;}return ['Recent conversation:',...recent,`User: ${text}`].join('\n');}
   const identityFetch=async(url,options)=>{const ticket=revision;const response=await requestJSON(url,options,8000);if(ticket===revision&&[401,403].includes(response.status)){++revision;bridge?.revoke();identity?.revoke();clear();stopInput();status.textContent='Sign in to continue';}return response;};
+  async function shoppingReply({text,scope,signal}){
+   const ticket=revision;const cacheKey='james:j30-task:v1';let task;
+   text='Compare desk lamps under $50';
+   if(typeof historyStorage?.getItem!=='function'||typeof historyStorage?.setItem!=='function')throw Error('TASK_CHECKPOINT_UNAVAILABLE');
+   try{const raw=historyStorage?.getItem(cacheKey);if(raw&&raw.length<4000){const saved=JSON.parse(raw);if(JSON.stringify(saved.scope)===JSON.stringify(scope)&&saved.text===text&&typeof saved.taskId==='string'&&/^[\w-]{1,160}$/.test(saved.taskId))task=saved;}}catch{}
+   if(!task){task={scope,text,taskId:crypto.randomUUID()};try{const raw=JSON.stringify(task);historyStorage.setItem(cacheKey,raw);if(historyStorage.getItem(cacheKey)!==raw)throw Error();}catch{throw Error('TASK_CHECKPOINT_UNAVAILABLE')}}
+   status.textContent='James is researching public product pages…';
+   const response=await requestJSON('/api/james/research',{method:'POST',credentials:'same-origin',cache:'no-store',signal,headers:{'Content-Type':'application/json'},body:JSON.stringify({text,taskId:task.taskId,conversationId:scope.conversationId,generation:scope.generation})},90000);
+   const data=await response.json();
+   if(ticket!==revision||signal?.aborted)throw Error('TASK_INTERRUPTED');
+   if(!response.ok||!data.ok){if([401,403].includes(response.status)){++revision;bridge.revoke();identity.revoke();clear();stopInput();status.textContent='Sign in to continue';}throw Error('RESEARCH_UNCONFIRMED')}
+   const result=data.result;
+   if(!result||!Array.isArray(result.products))throw Error('RESEARCH_UNCONFIRMED');
+   const lines=[result.comparisonVerified?'Verified public product comparison.':'The product comparison is not complete.', 'Task status: '+String(result.status),result.message];
+   for(const item of result.products)lines.push(String(item.name)+' — '+String(item.currency)+' '+String(item.price)+'\n'+String(item.url)+'\nObserved: '+String(item.observedAt));
+   if(result.error)lines.push('Stopped: '+String(result.error)+'. Do not start another task to bypass an uncertain result.');
+   if(result.failures?.length)lines.push('Some product pages could not be verified.');
+   lines.push('No purchase made. No account connected.');return {ok:true,answer:lines.filter(Boolean).join('\n\n')};
+  }
   async function runtime(){
    if(!loading)loading=loadRuntime().then(([ownerModule,bridgeModule])=>{
     identity=ownerModule.createConversationIdentityOwner({fetch:identityFetch,newOperationId:()=>crypto.randomUUID()});
-    bridge=bridgeModule.createConversationBridge({identityOwner:identity,newId:()=>crypto.randomUUID(),navigate,capabilities:{ask:async({text,signal})=>{
+    bridge=bridgeModule.createConversationBridge({identityOwner:identity,newId:()=>crypto.randomUUID(),navigate,capabilities:{ask:async({text,signal,scope})=>{
+     if(/^compare desk lamps under \$50[.!?]?$/i.test(text.trim()))return shoppingReply({text,signal,scope});
      const response=await requestJSON(chooseEndpoint(text),{method:'POST',credentials:'same-origin',cache:'no-store',signal,headers:{'Content-Type':'application/json'},body:JSON.stringify({question:providerQuestion(text),timezone:Intl.DateTimeFormat().resolvedOptions().timeZone})});
      const data=await bounded(response.json());
      if(!response.ok){if([502,503].includes(response.status)&&['FAST_MODEL_UNAVAILABLE','FAST_MODEL_NOT_CONFIGURED'].includes(data?.error))return {ok:false,error:'FAST_MODEL_UNAVAILABLE'};if([401,403].includes(response.status)){++revision;bridge.revoke();identity.revoke();clear();stopInput();status.textContent='Sign in to continue';}throw Error(data?.error==='FAST_MODEL_UNAVAILABLE'?'MODEL_UNAVAILABLE':'REQUEST_FAILED');}if(!data.ok)throw Error('REQUEST_FAILED');

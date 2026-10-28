@@ -19,7 +19,7 @@ function parseRequest(text){
  if(!query||query.length>150||/https?:|[<>]/i.test(query))fail('REQUEST_INVALID');
  return {query,maxPrice,currency:'USD',searchUrl:publicUrl('https://'+HOST+'/us/en/search/?q='+encodeURIComponent(query))};
 }
-function createBrowserbase({apiKey,projectId,enabled=false,usageApproved=false,fetchImpl=fetch,connectOverCDP}){
+function createBrowserbase({apiKey,projectId,enabled=false,usageApproved=false,maxUsageMinutes=null,fetchImpl=fetch,connectOverCDP}){
  async function api(path,body,method='POST'){
   let r;try{r=await fetchImpl('https://api.browserbase.com/v1/'+path,{method,redirect:'error',signal:AbortSignal.timeout(10000),headers:{'X-BB-API-Key':apiKey,'Content-Type':'application/json'},...(method==='POST'?{body:JSON.stringify(body)}:{})})}catch{fail('PROVIDER_REQUEST_UNCONFIRMED')}
   if(!r.ok)fail('PROVIDER_REQUEST_REJECTED');let data;try{data=await r.json()}catch{fail('PROVIDER_RESPONSE_INVALID')}return data;
@@ -30,6 +30,11 @@ function createBrowserbase({apiKey,projectId,enabled=false,usageApproved=false,f
  }
  return {preflight,async open(){
   preflight();
+  if(maxUsageMinutes!==null){
+   if(!Number.isSafeInteger(maxUsageMinutes)||maxUsageMinutes<0)fail('USAGE_UNCONFIRMED');
+   const usage=await api('projects/'+encodeURIComponent(projectId)+'/usage',undefined,'GET');
+   if(!Number.isSafeInteger(usage.browserMinutes)||usage.browserMinutes<0||usage.browserMinutes>maxUsageMinutes)fail('USAGE_ALLOWANCE_UNCONFIRMED');
+  }
   // No keepAlive/Contexts/proxies, automatic CAPTCHA solving, logs or recordings.
   const session=await api('sessions',{projectId,timeout:60,keepAlive:false,proxies:false,browserSettings:{solveCaptchas:false,recordSession:false,logSession:false,ignoreCertificateErrors:false,allowedDomains:[HOST]}});
   if(typeof session.id!=='string'||!/^[\w-]{1,160}$/.test(session.id))fail('PROVIDER_RESPONSE_INVALID');

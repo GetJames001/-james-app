@@ -17,7 +17,7 @@ function createRuntime({env,authorize,load}){
   if(!state.credentialsPresent)return res.status(503).json({ok:false,error:'PROVIDER_NOT_CONFIGURED'});
   try{
    const {chromium}=load('playwright');
-   const provider=load('./browserbase.cjs').createBrowserbase({apiKey:env.BROWSERBASE_API_KEY,projectId:env.BROWSERBASE_PROJECT_ID,enabled:true,usageApproved:true,connectOverCDP:chromium.connectOverCDP.bind(chromium)});
+   const provider=load('./browserbase.cjs').createBrowserbase({apiKey:env.BROWSERBASE_API_KEY,projectId:env.BROWSERBASE_PROJECT_ID,enabled:true,usageApproved:true,maxUsageMinutes:55,connectOverCDP:chromium.connectOverCDP.bind(chromium)});
    const checkpoints=load('./redis-checkpoints.cjs').createRedisBackend({url:env.KV_REST_API_URL,token:env.KV_REST_API_TOKEN});
    const conversationStore=load('../lib/conversation/storage.cjs').createStorage({url:env.KV_REST_API_URL,token:env.KV_REST_API_TOKEN});
    const handler=load('./host.cjs').createHostHandler({authorize,ownerIdentity:load('../lib/auth.js').configuredIdentity,conversationStore,checkpoints,provider,enabled:true});

@@ -1,0 +1,27 @@
+'use strict';
+const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),vm=require('node:vm');
+const {webcrypto}=require('node:crypto');
+const scope={accountId:'account-fixture',conversationId:'conversation-fixture',generation:1,status:'ready'};
+function fixture({storage=new Map(),research}={}){
+ const requests=[],nodes=[];const node=()=>({textContent:'',value:'',setAttribute(){},append(){},after(){}});const doc={createElement(){const n=node();nodes.push(n);return n}};
+ const input={...node(),ownerDocument:doc},answer=node(),askButton={...node(),parentNode:node()};
+ const sandbox={console,crypto:webcrypto,AbortController,setTimeout,clearTimeout,Intl,Event,sessionStorage:{getItem:k=>storage.get(k)??null,setItem:(k,v)=>storage.set(k,v),removeItem:k=>storage.delete(k)}};
+ vm.createContext(sandbox);
+ // Use actual host identity + bridge implementation; no independent assistant.
+ const root=fs.existsSync(path.join(__dirname,'../conversation-runtime.js'))?path.join(__dirname,'..'):path.join(__dirname,'../../james-work');
+ vm.runInContext(fs.readFileSync(path.join(root,'conversation-runtime.js'),'utf8'),sandbox);
+ vm.runInContext(fs.readFileSync(path.join(__dirname,'../conversation-ui.js'),'utf8'),sandbox);
+ const fetcher=async(url,options)=>{const body=options?.body?JSON.parse(options.body):null;requests.push({url,body});let data;
+  if(url==='/api/james/conversation')data=scope;
+  else if(url==='/api/james/research')data=research?await research(body):{ok:true,result:{status:'completed',comparisonVerified:true,message:'Fixture evidence only',products:[{name:'Synthetic lamp',price:10,currency:'USD',url:'https://www.ikea.com/us/en/p/synthetic/',observedAt:'2026-10-28T20:00:00Z'}]}};
+  else data={ok:true,answer:'Normal James reply'};
+  return {ok:true,status:200,json:async()=>data};};
+ const ui=sandbox.JamesConversationUI.mount({input,answer,askButton,fetcher});return {ui,input,answer,requests,storage,nodes};
+}
+test('natural pilot uses existing verified scope and displays receipts without model calls',async()=>{const f=fixture();f.input.value='Compare desk lamps under $50';assert.equal((await f.ui.ask()).status,'completed');const calls=f.requests.filter(r=>r.url==='/api/james/research');assert.equal(calls.length,1);assert.equal(calls[0].body.conversationId,scope.conversationId);assert.equal(calls[0].body.generation,1);assert.equal(calls[0].body.accountId,undefined);assert.match(f.answer.textContent,/Synthetic lamp/);assert.match(f.answer.textContent,/No purchase made/);assert.ok(!f.requests.some(r=>r.url==='/api/fast'))});
+test('reload and repeated request reuse saved task; revoke clears client pointer',async()=>{const a=fixture();a.input.value='Compare desk lamps under $50';await a.ui.ask();const first=a.requests.find(r=>r.url==='/api/james/research').body.taskId;const b=fixture({storage:a.storage});b.input.value=a.requests.find(r=>r.url==='/api/james/research').body.text;await b.ui.ask();assert.equal(b.requests.find(r=>r.url==='/api/james/research').body.taskId,first);b.ui.revoke();assert.equal(b.storage.has('james:j30-task:v1'),false)});
+test('cancel suppresses late research and retains draft and retry task ID',async()=>{let release,entered;const start=new Promise(r=>entered=r);const f=fixture({research:body=>new Promise(r=>{release=r;entered()})});f.input.value='Compare desk lamps under $50';const pending=f.ui.ask();await start;f.ui.cancelReply();release({ok:true,result:{status:'completed',comparisonVerified:true,message:'Late',products:[]}});await pending;assert.equal(f.answer.textContent,'');assert.equal(f.input.value,'Compare desk lamps under $50');assert.equal(f.storage.has('james:j30-task:v1'),true)});
+test('ordinary and project questions retain existing model path',async()=>{const f=fixture();f.input.value='Tell me about our project';await f.ui.ask();await f.ui.askWorkbench('Compare desk lamps under $50',{title:'Synthetic Windows',versions:[]});assert.equal(f.requests.filter(r=>r.url==='/api/fast').length,2);assert.equal(f.requests.filter(r=>r.url==='/api/james/research').length,0)});
+test('incomplete comparison is never presented as verified',async()=>{const f=fixture({research:async()=>({ok:true,result:{status:'blocked',comparisonVerified:false,message:'Insufficient verified evidence',error:'CLEANUP_UNCONFIRMED',products:[]}})});f.input.value='Compare desk lamps under $50';await f.ui.ask();assert.match(f.answer.textContent,/not complete/);assert.match(f.answer.textContent,/CLEANUP_UNCONFIRMED/);assert.doesNotMatch(f.answer.textContent,/Verified public product comparison/)});
+test('punctuation and case retries reuse the canonical task',async()=>{const f=fixture();f.input.value='Compare desk lamps under $50.';await f.ui.ask();f.input.value='compare desk lamps under $50';await f.ui.ask();const calls=f.requests.filter(r=>r.url==='/api/james/research');assert.equal(calls[0].body.taskId,calls[1].body.taskId);assert.equal(calls[0].body.text,'Compare desk lamps under $50')});
+test('unavailable or silently failing task storage cannot start research',async()=>{const broken={get(){return undefined},set(){},delete(){}};const f=fixture({storage:broken});f.input.value='Compare desk lamps under $50';assert.equal((await f.ui.ask()).status,'failed');assert.equal(f.requests.filter(r=>r.url==='/api/james/research').length,0);assert.equal(f.input.value,'Compare desk lamps under $50')});
