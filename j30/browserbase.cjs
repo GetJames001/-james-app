@@ -4,21 +4,33 @@ const {createHash}=require('node:crypto');
 const fail=code=>{throw Error(code)};
 const HOST='www.ikea.com';
 const SEARCH_HOST='sik.search.blue.cdtapps.com';
-function allowResource({url,method,type,mainDocument=false}){
+function catalogSearchPayload(body,contentType){
+ if(typeof body!=='string'||Buffer.byteLength(body)>16000||!/^application\/json(?:;|$)/i.test(contentType||''))return null;
+ let data;try{data=JSON.parse(body)}catch{return null}
+ if(typeof data?.searchParameters?.input!=='string'||data.searchParameters.input.trim().toLowerCase()!=='desk lamps'||data.searchParameters.type!=='QUERY')return null;
+ // Construct the catalog request from trusted constants. Never forward page-supplied
+ // credentials, location, visitor IDs, extra components, actions or unknown fields.
+ return JSON.stringify({searchParameters:{input:'desk lamps',type:'QUERY'},components:[{component:'PRIMARY_AREA',columns:4,types:{main:'PRODUCT'}}]});
+}
+const publicSearchBody=(body,contentType)=>catalogSearchPayload(body,contentType)!==null;
+function allowResource({url,method,type,mainDocument=false,body,contentType}){
  let u;try{u=new URL(url)}catch{return false}
- if(u.protocol!=='https:'||u.port||u.username||u.password||u.pathname.includes('%')||!['GET','HEAD'].includes(method))return false;
+ if(u.protocol!=='https:'||u.port||u.username||u.password||u.pathname.includes('%'))return false;
+ const search=u.hostname===SEARCH_HOST&&['fetch','xhr'].includes(type)&&/^\/us\/en\/search\/?$/.test(u.pathname)&&![...u.searchParams.keys()].some(k=>/token|password|email|auth|cookie/i.test(k));
+ if(method==='POST')return !mainDocument&&search&&publicSearchBody(body,contentType);
+ if(!['GET','HEAD'].includes(method))return false;
  if(mainDocument){try{publicUrl(url);return type==='document'}catch{return false}}
  if(type==='document')return false;
  if(/cart|checkout|account|profile|login|signin|payment|order|gtag|tracking/i.test(u.pathname))return false;
  if(u.hostname===HOST&&['script','stylesheet','font','image'].includes(type)&&
     /^(?:\/global\/assets\/|\/us\/en\/(?:search|product-lists|products|recommendations|nudge|experiment-fragment)\/)/.test(u.pathname)&&
     /\.(?:m?js|css|woff2?|svg|png|jpe?g|webp)$/i.test(u.pathname))return true;
- return u.hostname===SEARCH_HOST&&['fetch','xhr'].includes(type)&&/^\/us\/en\/search\/?$/.test(u.pathname)&&
-   ![...u.searchParams.keys()].some(k=>/token|password|email|auth|cookie/i.test(k));
+ if(u.hostname===HOST&&['fetch','xhr'].includes(type)&&/^\/us\/en\/products\/price-package-(?:scripts|styles)\.html$/.test(u.pathname))return true;
+ return search;
 }
-async function deliverResource(route){
+async function deliverResource(route,requestOptions={}){
  // route.continue follows redirects without rechecking this policy. Never follow one.
- try{const response=await route.fetch({maxRedirects:0,maxRetries:0,timeout:10000});
+ try{const response=await route.fetch({...requestOptions,maxRedirects:0,maxRetries:0,timeout:10000});
   if(response.status()>=300&&response.status()<400)return route.abort();
   return route.fulfill({response});
  }catch{return route.abort()}
@@ -78,7 +90,10 @@ function createBrowserbase({apiKey,projectId,enabled=false,usageApproved=false,m
    // Deny writes and off-merchant traffic even if a page tries to redirect us.
    const denied=new Map();
    await context.route('**/*',async route=>{const req=route.request();let mainDocument=false;try{mainDocument=req.isNavigationRequest()&&req.frame().parentFrame()===null}catch{}
-    if(allowResource({url:req.url(),method:req.method(),type:req.resourceType(),mainDocument}))return deliverResource(route);
+    if(allowResource({url:req.url(),method:req.method(),type:req.resourceType(),mainDocument,body:req.postData?.(),contentType:req.headers?.()['content-type']})){
+     if(req.method()==='POST')return deliverResource(route,{url:'https://sik.search.blue.cdtapps.com/us/en/search',postData:catalogSearchPayload(req.postData(),req.headers()['content-type']),headers:{'Content-Type':'application/json',Accept:'application/json',Origin:'https://www.ikea.com'}});
+     return deliverResource(route);
+    }
     try{const u=new URL(req.url()),key=u.hostname+u.pathname.slice(0,180)+' ['+req.method()+' '+req.resourceType()+']';
      if(!denied.has(key)&&denied.size>=32&&['fetch','xhr'].includes(req.resourceType())){const first=[...denied.keys()].find(k=>!/(fetch|xhr)\]$/.test(k));if(first)denied.delete(first)}
      if(denied.has(key)||denied.size<32)denied.set(key,(denied.get(key)||0)+1)}catch{}return route.abort()});
@@ -117,4 +132,4 @@ function createShoppingDriver(page,networkEvidence=()=>[]){
   }
  };
 }
-module.exports={createBrowserbase,createShoppingDriver,parseRequest,publicUrl,allowResource,deliverResource};
+module.exports={createBrowserbase,createShoppingDriver,parseRequest,publicUrl,allowResource,deliverResource,publicSearchBody,catalogSearchPayload};
