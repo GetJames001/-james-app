@@ -1,0 +1,80 @@
+'use strict';
+// Server-only. No arbitrary click/fill/evaluate capability is exposed to James.
+const {createHash}=require('node:crypto');
+const fail=code=>{throw Error(code)};
+const HOST='www.ikea.com';
+function publicUrl(value,{product=false}={}){
+ let u;try{u=new URL(value)}catch{fail('URL_DENIED')}
+ if(u.protocol!=='https:'||u.hostname!==HOST||u.port||u.username||u.password||u.hash||/\b(cart|checkout|account|login|signin|payment|order)\b/i.test(u.pathname))fail('URL_DENIED');
+ if(!u.pathname.startsWith('/us/en/')||(product&&!u.pathname.startsWith('/us/en/p/')))fail('URL_DENIED');
+ if(product)u.search='';else if([...u.searchParams.keys()].some(k=>k!=='q'))fail('URL_DENIED');
+ return u.href;
+}
+function parseRequest(text){
+ if(typeof text!=='string'||!text.trim()||text.length>1000)fail('REQUEST_INVALID');
+ if(/\b(buy|purchase|checkout|log\s*in|sign\s*in|connect|subscribe|add\s+to\s+cart)\b/i.test(text))fail('ACTION_NOT_AUTHORIZED');
+ const budget=text.match(/(?:under|below|up to|maximum|max)\s*\$\s*(\d+(?:\.\d{1,2})?)/i);
+ const maxPrice=budget?Number(budget[1]):null;if(maxPrice!==null&&!(maxPrice>0&&maxPrice<=10000))fail('REQUEST_INVALID');
+ const query=text.replace(/^(?:please\s+)?(?:find|compare|research|show me)\s+/i,'').replace(/(?:under|below|up to|maximum|max)\s*\$\s*\d+(?:\.\d{1,2})?.*$/i,'').replace(/[.!?]+$/,'').trim();
+ if(!query||query.length>150||/https?:|[<>]/i.test(query))fail('REQUEST_INVALID');
+ return {query,maxPrice,currency:'USD',searchUrl:publicUrl('https://'+HOST+'/us/en/search/?q='+encodeURIComponent(query))};
+}
+function createBrowserbase({apiKey,projectId,enabled=false,usageApproved=false,fetchImpl=fetch,connectOverCDP}){
+ async function api(path,body,method='POST'){
+  let r;try{r=await fetchImpl('https://api.browserbase.com/v1/'+path,{method,redirect:'error',signal:AbortSignal.timeout(10000),headers:{'X-BB-API-Key':apiKey,'Content-Type':'application/json'},...(method==='POST'?{body:JSON.stringify(body)}:{})})}catch{fail('PROVIDER_REQUEST_UNCONFIRMED')}
+  if(!r.ok)fail('PROVIDER_REQUEST_REJECTED');let data;try{data=await r.json()}catch{fail('PROVIDER_RESPONSE_INVALID')}return data;
+ }
+ function preflight(){
+  if(!enabled)fail('EXECUTION_DISABLED');if(!usageApproved)fail('USAGE_APPROVAL_REQUIRED');if(!apiKey||!projectId)fail('PROVIDER_NOT_CONFIGURED');if(typeof connectOverCDP!=='function')fail('DRIVER_NOT_CONFIGURED');
+  return {provider:'browserbase',sessionTimeoutSeconds:60,maxSessionsPerTask:2};
+ }
+ return {preflight,async open(){
+  preflight();
+  // No keepAlive/Contexts/proxies, automatic CAPTCHA solving, logs or recordings.
+  const session=await api('sessions',{projectId,timeout:60,keepAlive:false,proxies:false,browserSettings:{solveCaptchas:false,recordSession:false,logSession:false,ignoreCertificateErrors:false,allowedDomains:[HOST]}});
+  if(typeof session.id!=='string'||!/^[\w-]{1,160}$/.test(session.id))fail('PROVIDER_RESPONSE_INVALID');
+  let browser,closed=false;
+  async function close(){
+   if(closed)return;
+   try{await api('sessions/'+session.id,{status:'REQUEST_RELEASE'})}finally{try{await browser?.close()}catch{}}
+   for(let attempt=0;attempt<3;attempt++){
+    const state=await api('sessions/'+session.id,undefined,'GET');
+    if(['COMPLETED','TIMED_OUT','ERROR'].includes(state.status)){closed=true;return}
+    if(attempt<2)await new Promise(resolve=>setTimeout(resolve,100));
+   }
+   fail('CLEANUP_UNCONFIRMED');
+  }
+  try{
+   const url=new URL(session.connectUrl);if(url.protocol!=='wss:'||!(url.hostname==='connect.browserbase.com'||url.hostname.endsWith('.browserbase.com')))fail('PROVIDER_RESPONSE_INVALID');
+   browser=await connectOverCDP(session.connectUrl,{timeout:10000});
+   const context=await browser.newContext({serviceWorkers:'block',acceptDownloads:false});if(!context)fail('BROWSER_CONTEXT_UNAVAILABLE');
+   if(typeof context.routeWebSocket!=='function')fail('WEBSOCKET_GATE_UNAVAILABLE');
+   await context.routeWebSocket('**/*',socket=>socket.close());
+   // Deny writes and off-merchant traffic even if a page tries to redirect us.
+   await context.route('**/*',async route=>{const req=route.request();try{publicUrl(req.url());if(!['GET','HEAD'].includes(req.method()))throw Error();return route.continue()}catch{return route.abort()}});
+   const page=await context.newPage();page.setDefaultTimeout(8000);
+   return {id:session.id,driver:createShoppingDriver(page),close};
+  }catch{try{await close()}catch{fail('CLEANUP_UNCONFIRMED')}fail('BROWSER_CONNECTION_FAILED')}
+ }};
+}
+function createShoppingDriver(page){
+ async function visit(url,product=false){publicUrl(url,{product});await page.goto(url,{waitUntil:'domcontentloaded',timeout:12000});const actual=publicUrl(page.url(),{product});
+  const blocked=await page.locator('body').innerText({timeout:5000});if(/verify you are human|captcha|access denied|unusual traffic|checking your browser/i.test(blocked.slice(0,12000)))fail('SITE_REQUIRES_USER_REVIEW');return actual;
+ }
+ return {
+  async search(url){await visit(url);const links=await page.locator('a[href]').evaluateAll(nodes=>nodes.map(n=>n.href));return [...new Set(links.flatMap(href=>{try{return [publicUrl(href,{product:true})]}catch{return []}}))].slice(0,3);},
+  async read(url){const actual=await visit(url,true);const raw=await page.locator('script[type="application/ld+json"]').allTextContents();
+   let found;function scan(v){if(!v||typeof v!=='object'||found)return;if(Array.isArray(v)){v.forEach(scan);return}const type=Array.isArray(v['@type'])?v['@type']:[v['@type']];if(type.includes('Product'))found=v;else if(v['@graph'])scan(v['@graph']);}
+   for(const item of raw){if(item.length>100000)continue;try{scan(JSON.parse(item))}catch{}}
+   const offers=Array.isArray(found?.offers)?found.offers:[found?.offers];const offer=offers.find(o=>o&&o.priceCurrency==='USD'&&o.price!==undefined&&/^\d+(\.\d{1,2})?$/.test(String(o.price)));
+   if(typeof found?.name!=='string'||!found.name.trim()||!offer||!Number.isFinite(Number(offer.price))||Number(offer.price)<=0)fail('PRODUCT_NOT_VERIFIED');
+   const visible=(await page.locator('body').innerText({timeout:5000})).replace(/\s+/g,'').toLowerCase();
+   const visibleName=found.name.split(',')[0].replace(/\s+/g,'').toLowerCase();
+   const amount=Number(offer.price),pricePattern=Number.isInteger(amount)?String(amount)+'(?:\\.00)?':amount.toFixed(2).replace('.','\\.');
+   if(!visibleName||!visible.includes(visibleName)||!new RegExp('(?:^|[^0-9])'+pricePattern+'(?:[^0-9]|$)').test(visible))fail('PRODUCT_NOT_VERIFIED');
+   const evidence={verification:'jsonld_and_visible_text',name:found.name.slice(0,250),price:Number(offer.price),currency:'USD',url:actual,availability:typeof offer.availability==='string'?offer.availability.slice(0,150):'unknown',observedAt:new Date().toISOString()};
+   return {...evidence,evidenceHash:createHash('sha256').update(JSON.stringify(evidence)).digest('hex')};
+  }
+ };
+}
+module.exports={createBrowserbase,createShoppingDriver,parseRequest,publicUrl};
