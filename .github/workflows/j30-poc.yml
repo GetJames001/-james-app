@@ -2,7 +2,7 @@ name: J30 isolated proof of concept
 on:
   pull_request:
     branches: [integration/workbench-host-20261028]
-    paths: ['j30/**', 'tests/j30*.test.js', '.github/workflows/j30-poc.yml']
+    paths: ['api/gateway.js', 'j30/**', 'tests/j30*.test.js', '.github/workflows/j30-poc.yml']
 permissions:
   contents: read
 jobs:
@@ -17,5 +17,5 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npx playwright install --with-deps chromium
-      - run: node --test tests/j30.test.js tests/j30.browser.test.js
+      - run: node --test tests/j30.test.js tests/j30.browser.test.js tests/j30-runtime.test.js
       - run: node j30/preflight.cjs
