@@ -69,11 +69,11 @@
    const intro=doc.createElement('p');intro.textContent=summary;answer.append(intro);
    const timingLabel=doc.createElement('p');timingLabel.textContent=(timing?.source==='saved'?'Saved result':timing?.source==='fresh'?'New research attempt':'Research result')+' · Response: '+((timing?.elapsedMs||0)/1000).toFixed(1)+' seconds';answer.append(timingLabel);
    if(result.status==='completed'&&result.comparisonVerified&&!result.error){
-    const again=doc.createElement('button');again.type='button';again.textContent='Search again';again.setAttribute('style','padding:10px 16px;margin:8px 0');
+    const again=doc.createElement('button');again.type='button';again.textContent='Check these again';again.setAttribute('style','padding:10px 16px;margin:8px 0');
     again.onclick=async()=>{if(again.disabled||ending||scopeKey!==renderScope||JSON.stringify(identity?.current())!==renderScope)return;
      if(input.value.trim()){status.textContent='Keep or send your draft before starting a fresh search.';return;}
      again.disabled=true;
-     try{const saved=JSON.parse(historyStorage.getItem('james:j30-task:v1')||'null');if(!saved||saved.taskId!==result.taskId||JSON.stringify(saved.scope)!==renderScope){status.textContent='This comparison has been superseded. Continue the current research task.';return;}historyStorage.removeItem('james:j30-task:v1');if(historyStorage.getItem('james:j30-task:v1')!==null)throw Error('TASK_CHECKPOINT_UNAVAILABLE');await ask({text:'Compare desk lamps under $50'});}
+     try{const saved=JSON.parse(historyStorage.getItem('james:j30-task:v1')||'null');if(!saved||saved.taskId!==result.taskId||JSON.stringify(saved.scope)!==renderScope){status.textContent='This comparison has been superseded. Continue the current research task.';return;}historyStorage.removeItem('james:j30-task:v1');if(historyStorage.getItem('james:j30-task:v1')!==null)throw Error('TASK_CHECKPOINT_UNAVAILABLE');await ask({text:'Compare desk lamps under $50',previousComparison:result});}
      catch{status.textContent='Fresh search could not start. Your previous comparison is retained.';}
      finally{/* A consumed button never clears a newer or uncertain task. */}
     };answer.append(again);
@@ -84,7 +84,7 @@
     const title=doc.createElement('h4');title.textContent=(index+1)+'. '+String(item.name);title.setAttribute('style','margin:0 0 8px;font-size:1.05em;line-height:1.4');
     const price=doc.createElement('p');price.textContent='IKEA · '+(item.currency==='USD'?'$'+Number(item.price).toFixed(2):String(item.currency)+' '+String(item.price));price.setAttribute('style','font-size:1.2em;font-weight:700;margin:8px 0');
     const checked=doc.createElement('p');checked.textContent='Name and price checked on the product page.';
-    const time=doc.createElement('p');time.textContent='Checked: '+String(item.observedAt);time.setAttribute('style','font-size:.85em;overflow-wrap:anywhere');
+    const time=doc.createElement('p');const checkedDate=new Date(item.observedAt);time.textContent=Number.isFinite(checkedDate.getTime())?'Checked: '+new Intl.DateTimeFormat(undefined,{dateStyle:'medium',timeStyle:'short'}).format(checkedDate):'Check time unavailable';time.setAttribute('style','font-size:.85em;overflow-wrap:anywhere');
     card.append(title,price,checked,time);
     try{const url=new URL(item.url);if(url.protocol==='https:'&&url.hostname==='www.ikea.com'&&!url.username&&!url.password&&!url.port&&url.pathname.startsWith('/us/en/p/')){const link=doc.createElement('a');link.textContent='View product ↗';link.setAttribute('href',url.href);link.setAttribute('target','_blank');link.setAttribute('rel','noopener noreferrer');link.setAttribute('style','display:inline-block;padding:10px 0;text-decoration:underline;color:inherit');card.append(link);}}catch{}
     grid.append(card);
@@ -124,7 +124,12 @@
     if(ticket!==revision||result.status==='superseded')return;
     if(result.status!=='completed'||!result.isCurrent())throw Error('REQUEST_FAILED');
     const checked=await bridge.verifyIdentity();if(ticket!==revision)return;if(checked.status!=='ready'||!result.isCurrent()||JSON.stringify(identity.current())!==key){clear();throw Error('IDENTITY_UNAVAILABLE');}
-    const data=result.result;if(data?.error==='FAST_MODEL_UNAVAILABLE')throw Error('MODEL_UNAVAILABLE');const reply=data.answer||data.final_recommendation?.recommendation;if(!reply)throw Error('EMPTY_ANSWER');
+    const data=result.result;if(data?.error==='FAST_MODEL_UNAVAILABLE')throw Error('MODEL_UNAVAILABLE');let reply=data.answer||data.final_recommendation?.recommendation;if(!reply)throw Error('EMPTY_ANSWER');
+    if(request.previousComparison&&data.shoppingTiming?.source==='fresh'&&data.shoppingResult?.comparisonVerified){
+     const before=request.previousComparison.products||[],after=data.shoppingResult.products;
+     const signature=items=>JSON.stringify(items.map(p=>[p.url,p.name,p.currency,p.price]).sort((a,b)=>String(a[0]).localeCompare(String(b[0]))));
+     reply=signature(before)===signature(after)?'I checked again. The same '+after.length+' IKEA lamps remain in this comparison at unchanged observed prices. Stock, shipping and taxes remain unverified.':'I checked again. The products or observed prices changed; the updated comparison is below. Stock, shipping and taxes remain unverified.';
+    }
     if(data.shoppingResult)renderShopping(data.shoppingResult,reply,data.shoppingTiming,key);else answer.textContent=reply;
     if(data.final_recommendation?.confidence){const confidence=doc.createElement('p'),value=data.final_recommendation.confidence;confidence.textContent=`Confidence: ${Number.isFinite(value.score)?Math.round(value.score*100)+'%':''} ${value.label||''}`;answer.append(confidence);}
     if(data.final_recommendation){for(const [key,label] of [['reasons','Why'],['key_facts','Key facts'],['risks','Risks'],['what_would_change_the_answer','What would change the answer']]){

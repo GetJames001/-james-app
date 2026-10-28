@@ -42,7 +42,7 @@ test('fresh-search button creates a new task only after completed result and pre
  let release,calls=0;const f=fixture({research:async body=>{calls++;if(calls===2)return new Promise(r=>release=r);return {ok:true,result:{status:'completed',comparisonVerified:true,resultSource:'saved',taskId:body.taskId,products:[{name:'Synthetic lamp',price:10,currency:'USD',url:'https://www.ikea.com/us/en/p/synthetic/',observedAt:'fixture'}]}}}});
  f.input.value='Compare desk lamps under $50';await f.ui.ask();assert.match(f.answer.textContent,/Saved result/);
  const first=f.requests.find(r=>r.url==='/api/james/research').body.taskId;
- const again=f.nodes.find(n=>n.textContent==='Search again');assert.ok(again);
+ const again=f.nodes.find(n=>n.textContent==='Check these again');assert.ok(again);
  const pending=again.onclick();while(!release)await new Promise(r=>setTimeout(r,0));
  assert.match(f.answer.textContent,/Synthetic lamp/);
  assert.notEqual(f.requests.filter(r=>r.url==='/api/james/research')[1].body.taskId,first);
@@ -50,12 +50,21 @@ test('fresh-search button creates a new task only after completed result and pre
 });
 test('uncertain or incomplete research never offers a fresh-task bypass',async()=>{
  const f=fixture({research:async()=>({ok:true,result:{status:'blocked',comparisonVerified:false,error:'CLEANUP_UNCONFIRMED',products:[]}})});
- f.input.value='Compare desk lamps under $50';await f.ui.ask();assert.equal(f.nodes.some(n=>n.textContent==='Search again'),false);
+ f.input.value='Compare desk lamps under $50';await f.ui.ask();assert.equal(f.nodes.some(n=>n.textContent==='Check these again'),false);
 });
 
 test('old fresh-search button cannot clear a new uncertain task after failure',async()=>{
  let calls=0;const f=fixture({research:async body=>{calls++;if(calls>1)throw Error('uncertain request');return {ok:true,result:{taskId:body.taskId,status:'completed',comparisonVerified:true,products:[]}}}});
- f.input.value='Compare desk lamps under $50';await f.ui.ask();const again=f.nodes.find(n=>n.textContent==='Search again');
+ f.input.value='Compare desk lamps under $50';await f.ui.ask();const again=f.nodes.find(n=>n.textContent==='Check these again');
  await again.onclick();const current=f.storage.get('james:j30-task:v1');await again.onclick();
  assert.equal(calls,2);assert.equal(f.storage.get('james:j30-task:v1'),current);assert.equal(again.disabled,true);
+});
+
+test('successful recheck explicitly distinguishes unchanged prices from changed prices',async()=>{
+ for(const changed of [false,true]){
+ let count=0;const f=fixture({research:async body=>({ok:true,result:{taskId:body.taskId,status:'completed',comparisonVerified:true,resultSource:++count===1?'saved':'fresh',products:[{name:'Fixture lamp',price:changed&&count>1?12:10,currency:'USD',url:'https://www.ikea.com/us/en/p/fixture/',observedAt:'2026-10-28T20:00:00Z'}]}})});
+ f.input.value='Compare desk lamps under $50';await f.ui.ask();await f.nodes.find(n=>n.textContent==='Check these again').onclick();
+ assert.match(f.answer.children[0].textContent,changed?/prices changed/:/unchanged observed prices/);
+ assert.doesNotMatch(f.answer.textContent,/Checked: 2026-10-28T/);
+ }
 });
