@@ -19,6 +19,15 @@ async function fixture(options={}){
  const flush=()=>new Promise(resolve=>setImmediate(resolve));
  return {input,answer,ui,pending,flush,fetcher,status:askButton.parentNode.afterElement,stops:()=>stops,store};
 }
+test('stale Workbench End cannot stop or close a replacement conversation',async()=>{
+ const f=await fixture();f.input.value='First conversation';const first=f.ui.ask();await f.flush();f.pending[0].resolve('First ready');await first;
+ const old=await f.ui.snapshotIdentity();await f.ui.end();
+ f.input.value='Replacement conversation';const next=f.ui.ask();await f.flush();f.pending[1].resolve('Replacement ready');await next;
+ const current=await f.ui.snapshotIdentity();assert.notDeepEqual(current,old);
+ const stops=f.stops(),status=f.status.textContent;
+ assert.equal((await f.ui.end(old)).status,'superseded');assert.equal(f.stops(),stops);assert.equal(f.status.textContent,status);assert.equal(f.answer.textContent,'Replacement ready');
+ const head=await f.fetcher('/api/james/conversation',{method:'GET'});const saved=await head.json();assert.equal(saved.status,'ready');assert.equal(saved.conversationId,current.conversationId);
+});
 test('visible typed binding suppresses interrupted answer and retains a changed draft',async()=>{
  const f=await fixture();f.input.value='First';const a=f.ui.ask();await f.flush();assert.equal(f.pending.length,1);
  f.input.value='Correction';const b=f.ui.ask();await f.flush();assert.equal(f.pending.length,2);

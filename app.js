@@ -593,6 +593,11 @@ function buildCalendar(){
 }
 
 function page(id){
+  if(!window.jamesWorkbenchNavigating && (id==='workbench'||document.getElementById('workbench')?.classList.contains('active'))){window.jamesWorkbenchNavigate?.(id);return;}
+  pageNow(id);
+}
+window.jamesPageNow=pageNow;
+function pageNow(id){
   if(id === "attention") openAttentionSavedView();
   else clearAttentionSavedView();
   sessionStorage.setItem('jamesCurrentPage', id);
@@ -1263,7 +1268,7 @@ if (SpeechRecognition && voiceJamesButton) {
   };
 }
 
-  window.jamesConversationUI=window.JamesConversationUI.mount({input:$('#jamesQuestion'),answer:$('#jamesAnswer'),askButton:$('#askJamesButton'),stopInput:()=>{stopJamesDictation();window.speechSynthesis?.cancel();},navigate:async door=>{page(door==='calendar'?'appointments':door);return true;},chooseEndpoint:question=>!detectUtility(question)&&shouldUseCouncil(question)?'/api/council':'/api/fast'});
+  window.jamesConversationUI=window.JamesConversationUI.mount({input:$('#jamesQuestion'),answer:$('#jamesAnswer'),askButton:$('#askJamesButton'),stopInput:()=>{stopJamesDictation();window.speechSynthesis?.cancel();},navigate:async door=>{const id=door==='calendar'?'appointments':door;if(id==='workbench'||document.getElementById('workbench')?.classList.contains('active'))return await window.jamesWorkbenchNavigate?.(id);page(id);return true;},chooseEndpoint:question=>!detectUtility(question)&&shouldUseCouncil(question)?'/api/council':'/api/fast'});
   window.addEventListener('pagehide',()=>window.jamesConversationUI?.revoke());
 });
 

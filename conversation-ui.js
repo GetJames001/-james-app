@@ -58,8 +58,9 @@
     if(input.value.trim()===text)input.value='';status.textContent='Ready';
    }catch(error){if(ticket===revision){if(identity&&!identity.current())clear();status.textContent=closure?'End is not confirmed. Try End conversation again.':error?.message==='MODEL_UNAVAILABLE'?"James's configured model is unavailable. Your draft is still here.":'James could not complete this request. Your draft is still here.';}}
   }
-  async function end(){
-   if(ending)return;ending=true;const ticket=++revision;stopInput();bridge?.end();clear();status.textContent='Ending conversation…';
+  async function end(expectedScope){
+   if(expectedScope){const current=identity?.current();if(!current||current.accountId!==expectedScope.accountId||current.conversationId!==expectedScope.conversationId||current.generation!==expectedScope.generation)return {status:"superseded"};}
+   if(ending)return;ending=true;root.dispatchEvent?.(new Event('james-conversation-ended'));const ticket=++revision;stopInput();bridge?.end();clear();status.textContent='Ending conversation…';
    try{
     if(preparing)try{await preparing}catch{}
     if(!identity){if(ticket===revision)status.textContent='No conversation has started on this screen.';return;}
@@ -75,8 +76,8 @@
     status.textContent=closure?'End is not confirmed. Try End conversation again.':'Conversation ended';
    }catch{if(ticket===revision){closure=closure||{retry:()=>identity.end()};status.textContent='End is not confirmed. Try End conversation again.';}}finally{ending=false;}
   }
-  askButton.onclick=ask;endButton.onclick=end;
-  return {ask,end,async navigate(door){if(bridge?.snapshot().identity)return bridge.navigate(door);return {status:'unavailable'};},revoke(){++revision;stopInput();bridge?.revoke();identity?.revoke();clear();status.textContent='Sign in to continue';}};
+  askButton.onclick=ask;endButton.onclick=()=>end();
+  return {ask,end,async snapshotIdentity(){await runtime();return identity.snapshotIdentity();},async navigate(door){if(bridge?.snapshot().identity)return bridge.navigate(door);return {status:'unavailable'};},revoke(){++revision;stopInput();bridge?.revoke();identity?.revoke();clear();status.textContent='Sign in to continue';}};
  }
  root.JamesConversationUI={mount};
 })(typeof window==='undefined'?globalThis:window);
