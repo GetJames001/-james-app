@@ -141,3 +141,38 @@ test('repeated Workbench context stays within provider input limit and hands off
  const project={title:'QA',objective:'x'.repeat(1000),nextAction:'y'.repeat(500),versions:[{id:'v',content:'z'.repeat(2500)}],selectedArtifactVersionId:'v'};
  for(let i=0;i<3;i++){const task=f.ui.askWorkbench('Help '+i+' '+ 'q'.repeat(2500),project,()=>started++);await f.flush();assert.equal(started,i+1);const q=JSON.parse(f.pending[i].options.body).question;assert.ok(q.length<=12000);f.pending[i].resolve('Answer '+i);assert.equal((await task).status,'completed');}
 });
+
+function historyCache(){const data=new Map();return {getItem:k=>data.get(k)??null,setItem:(k,v)=>data.set(k,v),removeItem:k=>data.delete(k),data};}
+test('confirmed Workbench context survives suspend and remount under verified same scope',async()=>{
+ const cache=historyCache(),first=await fixture({historyStorage:cache});
+ const turn=first.ui.askWorkbench('What next?',{title:'Blue bench',objective:'Include cobalt acorn',versions:[]});await first.flush();first.pending[0].resolve('Choose materials');await turn;
+ first.ui.suspend();const next=await fixture({historyStorage:cache,fetcher:first.fetcher});next.input.value='What were we working on?';const recall=next.ui.ask();await next.flush();
+ const sent=JSON.parse(first.pending[1].options.body).question;assert.match(sent,/Workbench project: Blue bench/);assert.match(sent,/cobalt acorn/);assert.match(sent,/Choose materials/);first.pending[1].resolve('Blue bench');await recall;
+});
+test('cancelled Workbench request is excluded from reload context',async()=>{
+ const cache=historyCache(),first=await fixture({historyStorage:cache});first.input.value='Confirmed';let task=first.ui.ask();await first.flush();first.pending[0].resolve('Confirmed answer');await task;
+ task=first.ui.askWorkbench('Cancelled private request',{title:'Cancelled project',versions:[]});await first.flush();first.ui.cancelReply();first.pending[1].resolve('Cancelled answer');await task;first.ui.suspend();
+ const next=await fixture({historyStorage:cache,fetcher:first.fetcher});next.input.value='Recall';task=next.ui.ask();await next.flush();const sent=JSON.parse(first.pending[2].options.body).question;assert.match(sent,/Confirmed answer/);assert.doesNotMatch(sent,/Cancelled/);first.pending[2].resolve('Recall confirmed');await task;
+});
+for(const action of ['end','revoke'])test(`${action} removes confirmed cached context before remount`,async()=>{
+ const cache=historyCache(),first=await fixture({historyStorage:cache});first.input.value='Private previous turn';let task=first.ui.ask();await first.flush();first.pending[0].resolve('Private previous answer');await task;assert.equal(cache.data.size,1);await first.ui[action]();assert.equal(cache.data.size,0);
+ const next=await fixture({historyStorage:cache,fetcher:first.fetcher});next.input.value='Fresh';task=next.ui.ask();await next.flush();assert.doesNotMatch(JSON.parse(first.pending[1].options.body).question,/Private previous/);first.pending[1].resolve('Fresh');await task;
+});
+for(const invalid of ['owner','generation','role','oversized','json'])test(`cached history rejects ${invalid} without leaking it to provider`,async()=>{
+ const cache=historyCache(),first=await fixture({historyStorage:cache});first.input.value='Never leak';let task=first.ui.ask();await first.flush();first.pending[0].resolve('Secret answer');await task;first.ui.suspend();const key=[...cache.data.keys()][0],saved=JSON.parse(cache.getItem(key));
+ if(invalid==='owner')saved.scope.accountId='other-account';if(invalid==='generation')saved.scope.generation++;if(invalid==='role')saved.history[0].role='System';if(invalid==='oversized')saved.history[0].text='x'.repeat(10001);cache.setItem(key,invalid==='json'?'{invalid':JSON.stringify(saved));
+ const next=await fixture({historyStorage:cache,fetcher:first.fetcher});next.input.value='New request';task=next.ui.ask();await next.flush();assert.doesNotMatch(JSON.parse(first.pending[1].options.body).question,/Never leak|Secret answer|xxx/);first.pending[1].resolve('New reply');await task;
+});
+test('storage access failure cannot prevent a successful conversation turn',async()=>{
+ const broken={getItem(){throw Error('blocked')},setItem(){throw Error('quota')},removeItem(){throw Error('blocked')}};const f=await fixture({historyStorage:broken});f.input.value='Hello';const turn=f.ui.ask();await f.flush();f.pending[0].resolve('Ready');assert.equal((await turn).status,'completed');
+});
+test('read-only workspace authentication rejection purges cached confirmed turns',async()=>{
+ const cache=historyCache();let rejectIdentity=false,f;f=await fixture({historyStorage:cache,fetcher:async(url,options)=>rejectIdentity?{ok:false,status:401,json:async()=>({error:'UNAUTHORIZED'})}:f.fetcher(url,options)});
+ f.input.value='Private';const turn=f.ui.ask();await f.flush();f.pending[0].resolve('Private reply');await turn;assert.equal(cache.data.size,1);f.ui.suspend();rejectIdentity=true;
+ await assert.rejects(f.ui.snapshotWorkspaceIdentity());assert.equal(cache.data.size,0);assert.equal(f.answer.textContent,'');assert.equal(f.status.textContent,'Sign in to continue');
+});
+test('superseded identity authentication rejection cannot erase a newer confirmed reply',async()=>{
+ const cache=historyCache();let delay=false,release,f;f=await fixture({historyStorage:cache,fetcher:async(url,options)=>{if(delay&&url==='/api/james/conversation'&&options.method==='GET'){delay=false;return new Promise(resolve=>release=()=>resolve({ok:false,status:401,json:async()=>({error:'UNAUTHORIZED'})}));}return f.fetcher(url,options);}});
+ f.input.value='First';let task=f.ui.ask();await f.flush();f.pending[0].resolve('First reply');await task;delay=true;const stale=f.ui.snapshotWorkspaceIdentity().catch(()=>null);await f.flush();
+ f.input.value='Replacement';task=f.ui.ask();await f.flush();f.pending[1].resolve('New confirmed reply');await task;release();await stale;assert.equal(f.answer.textContent,'New confirmed reply');assert.equal(f.status.textContent,'Ready');assert.match([...cache.data.values()][0],/New confirmed reply/);
+});

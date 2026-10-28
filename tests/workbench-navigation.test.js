@@ -3,9 +3,9 @@ const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const vm=require('node:vm');
 function fixture(identity){
- const events={},calls={mounted:0,shown:[],navigation:[]};
+ const events={},calls={mounted:0,shown:[],navigation:[],ended:0};
  const elements={workbenchRoot:{hidden:true},workbenchStatus:{textContent:''},workbench:{classList:{contains:()=>true}},workbenchExit:{}};
- const context={document:{hidden:false,getElementById:id=>elements[id],addEventListener:(name,fn)=>events[name]=fn},window:{jamesPageNow:id=>calls.shown.push(id),jamesConversationUI:{snapshotWorkspaceIdentity:identity,end(){}},fetch(){},addEventListener:(name,fn)=>events[name]=fn},setInterval(){},mountAsyncWorkbench(){},createWorkbenchAccountLifecycle(){calls.mounted++;return{}},createWorkbenchDoor(){return{navigate:async(id)=>{calls.navigation.push(id);return true},revoke(){}}},createIdentityObserver(){return{check:async()=>({status:'verified'}),dispose(){}}}};
+ const context={document:{hidden:false,getElementById:id=>elements[id],addEventListener:(name,fn)=>events[name]=fn},window:{jamesPageNow:id=>calls.shown.push(id),jamesConversationUI:{snapshotWorkspaceIdentity:identity,end(){calls.ended++}},fetch(){},addEventListener:(name,fn)=>events[name]=fn},setInterval(){},mountAsyncWorkbench(){},createWorkbenchAccountLifecycle(options){calls.mounted++;calls.stopVoice=options.stopVoice;return{}},createWorkbenchDoor(){return{navigate:async(id)=>{calls.navigation.push(id);return true},revoke(){calls.stopVoice?.()}}},createIdentityObserver(){return{check:async()=>({status:'verified'}),dispose(){}}}};
  vm.createContext(context);
  vm.runInContext(fs.readFileSync(require.resolve('../workbench/host.mjs'),'utf8').replace(/^import .*;\n/gm,''),context);
  return {events,calls,elements,navigate:context.window.jamesWorkbenchNavigate};
@@ -22,4 +22,10 @@ test('Workbench ordinary navigation before entry leaves conversation and lifecyc
 test('Workbench unavailable identity cannot mount or report success',async()=>{
  const h=fixture(async()=>{throw Error('unavailable')});
  assert.equal(await h.navigate('workbench'),false);assert.equal(h.calls.mounted,0);assert.equal(h.elements.workbenchRoot.hidden,true);assert.match(h.elements.workbenchStatus.textContent,/could not verify/);
+});
+test('pagehide teardown preserves shared conversation and BFCache return verifies a new mount',async()=>{
+ const h=fixture(async()=>({accountId:'qa',conversationId:'current',generation:1}));assert.equal(await h.navigate('workbench'),true);assert.equal(h.calls.mounted,1);
+ h.events.pagehide();assert.equal(h.calls.ended,0);assert.equal(h.elements.workbenchRoot.hidden,true);
+ h.events.pageshow({persisted:true});await new Promise(resolve=>setImmediate(resolve));assert.equal(h.calls.mounted,2);assert.deepEqual(h.calls.navigation,['workbench','workbench']);
+ h.events['james-conversation-ended']();assert.equal(h.calls.ended,1);
 });

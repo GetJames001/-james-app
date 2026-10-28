@@ -1269,7 +1269,7 @@ if (SpeechRecognition && voiceJamesButton) {
 }
 
   window.jamesConversationUI=window.JamesConversationUI.mount({input:$('#jamesQuestion'),answer:$('#jamesAnswer'),askButton:$('#askJamesButton'),stopInput:()=>{stopJamesDictation();window.speechSynthesis?.cancel();},navigate:async door=>{const id=door==='calendar'?'appointments':door;if(id==='workbench'||document.getElementById('workbench')?.classList.contains('active'))return await window.jamesWorkbenchNavigate?.(id);page(id);return true;},chooseEndpoint:question=>!detectUtility(question)&&shouldUseCouncil(question)?'/api/council':'/api/fast'});
-  window.addEventListener('pagehide',()=>window.jamesConversationUI?.revoke());
+  window.addEventListener('pagehide',()=>window.jamesConversationUI?.suspend());
 });
 
 
