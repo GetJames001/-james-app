@@ -35,3 +35,22 @@ test('Workbench unavailable storage fails without private error leakage',async()
  const r=response();await handler({method:'POST',headers:{'content-type':'application/json'},body:{action:'list',accountId:'owner',accountGeneration:1}},r);
  assert.equal(r.code,503);assert.doesNotMatch(JSON.stringify(r.body),/private credential/);
 });
+
+ test('Workbench nested modules are bundled and served only through authenticated GET/HEAD',async()=>{
+ const fs=require('node:fs'),path=require('node:path');
+ const config=JSON.parse(fs.readFileSync('vercel.json','utf8')).functions['api/gateway.js'].includeFiles;
+ for(const extension of ['js','mjs','css','svg'])assert.ok(config.includes('workbench/**/*.'+extension));
+ const old={...process.env};process.env.JAMES_AUTH_EMAIL='qa@example.test';process.env.JAMES_SESSION_SECRET='fictional-secret-'.repeat(4);
+ try{
+ const gateway=require('../api/gateway.js');
+ const headers={host:'getjames.ai',cookie:`${auth.SESSION_COOKIE}=${auth.createSessionToken('qa@example.test')}`};
+ const files=fs.readdirSync('workbench').filter(n=>/\.(js|mjs|css)$/.test(n)).map(n=>'workbench/'+n);
+ files.push('workbench/assets/card-front.svg');
+ for(const asset of files){
+  const r=response();r.send=function(body){this.body=body;return this};r.end=function(){return this};
+  await gateway({method:'GET',headers,query:{path:asset}},r);
+  assert.equal(r.code,200,asset);assert.equal(r.body,fs.readFileSync(asset,'utf8'));assert.match(r.headers['Cache-Control'],/no-store/);
+  const denied=response();await gateway({method:'GET',headers:{host:'getjames.ai'},query:{path:asset}},denied);assert.equal(denied.code,401,asset);
+ }
+ }finally{for(const k of Object.keys(process.env))if(!(k in old))delete process.env[k];Object.assign(process.env,old)}
+ });
