@@ -56,13 +56,14 @@ function createBrowserbase({apiKey,projectId,enabled=false,usageApproved=false,m
    if(typeof context.routeWebSocket!=='function')fail('WEBSOCKET_GATE_UNAVAILABLE');
    await context.routeWebSocket('**/*',socket=>socket.close());
    // Deny writes and off-merchant traffic even if a page tries to redirect us.
-   await context.route('**/*',async route=>{const req=route.request();try{publicUrl(req.url());if(!['GET','HEAD'].includes(req.method()))throw Error();return route.continue()}catch{return route.abort()}});
+   const denied=new Map();
+   await context.route('**/*',async route=>{const req=route.request();try{publicUrl(req.url());if(!['GET','HEAD'].includes(req.method()))throw Error();return route.continue()}catch{try{const key=new URL(req.url()).hostname+' ['+req.resourceType()+']';if(denied.has(key)||denied.size<12)denied.set(key,(denied.get(key)||0)+1)}catch{}return route.abort()}});
    const page=await context.newPage();page.setDefaultTimeout(8000);
-   return {id:session.id,driver:createShoppingDriver(page),close};
+   return {id:session.id,driver:createShoppingDriver(page,()=>[...denied].map(([resource,count])=>({resource,count}))),close};
   }catch{try{await close()}catch{fail('CLEANUP_UNCONFIRMED')}fail('BROWSER_CONNECTION_FAILED')}
  }};
 }
-function createShoppingDriver(page){
+function createShoppingDriver(page,networkEvidence=()=>[]){
  let searchEvidence=null;
  async function visit(url,product=false){publicUrl(url,{product});const response=await page.goto(url,{waitUntil:'domcontentloaded',timeout:12000});const actual=publicUrl(page.url(),{product});
   if(response&&response.status()>=400)fail('PAGE_RESPONSE_UNVERIFIED');
@@ -76,7 +77,7 @@ function createShoppingDriver(page){
    const body=await page.locator('body').innerText({timeout:5000});
    if(/verify you are human|captcha|access denied|unusual traffic|checking your browser/i.test(body.slice(0,12000)))fail('SITE_REQUIRES_USER_REVIEW');
    const links=await page.locator('a[href]').evaluateAll(nodes=>nodes.map(n=>n.href));const products=[...new Set(links.flatMap(href=>{try{return [publicUrl(href,{product:true})]}catch{return []}}))].slice(0,3);
-   searchEvidence={stage:'discovery',anchorCount:links.length,productLinkCount:products.length,bodyCharacters:body.length,waitTimedOut:timedOut};
+   searchEvidence={stage:'discovery',anchorCount:links.length,productLinkCount:products.length,bodyCharacters:body.length,waitTimedOut:timedOut,pageTitle:(await page.title()).slice(0,160),publicPageExcerpt:body.slice(0,500),deniedResources:networkEvidence()};
    return products;},
   async read(url){const actual=await visit(url,true);const raw=await page.locator('script[type="application/ld+json"]').allTextContents();
    let found;function scan(v){if(!v||typeof v!=='object'||found)return;if(Array.isArray(v)){v.forEach(scan);return}const type=Array.isArray(v['@type'])?v['@type']:[v['@type']];if(type.includes('Product'))found=v;else if(v['@graph'])scan(v['@graph']);}

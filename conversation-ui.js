@@ -56,6 +56,7 @@
    const lines=[result.comparisonVerified?'Verified public product comparison.':'The product comparison is not complete.', 'Task status: '+String(result.status),result.message];
    for(const item of result.products)lines.push(String(item.name)+' — '+String(item.currency)+' '+String(item.price)+'\n'+String(item.url)+'\nObserved: '+String(item.observedAt));
    if(result.searchEvidence)lines.push('Discovery: '+result.searchEvidence.productLinkCount+' product links; '+result.searchEvidence.anchorCount+' total links; '+result.searchEvidence.bodyCharacters+' visible characters; wait expired: '+result.searchEvidence.waitTimedOut+'.');
+   if(result.searchEvidence?.pageTitle)lines.push('Page: '+result.searchEvidence.pageTitle+'\n'+result.searchEvidence.publicPageExcerpt+'\nBlocked resources: '+JSON.stringify(result.searchEvidence.deniedResources));
    lines.push('Research task: '+String(result.taskId||task.taskId));
    if(result.error)lines.push('Stopped: '+String(result.error)+'. Do not start another task to bypass an uncertain result.');
    if(result.failures?.length)lines.push('Some product pages could not be verified.');
