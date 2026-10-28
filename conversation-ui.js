@@ -61,7 +61,25 @@
    lines.push('Research task: '+String(result.taskId||task.taskId));
    if(result.error)lines.push('Stopped: '+String(result.error)+'. Do not start another task to bypass an uncertain result.');
    if(result.failures?.length)lines.push('Some product pages could not be verified.');
-   lines.push('No purchase made. No account connected.');return {ok:true,answer:lines.filter(Boolean).join('\n\n')};
+   lines.push('No purchase made. No account connected.');const summary=result.comparisonVerified?'I found '+result.products.length+' IKEA lamps under $50. Here are their checked prices. Stock, shipping and taxes have not been verified.':'The product comparison is not complete. Some product pages could not be verified.';return {ok:true,answer:summary,shoppingResult:result};
+  }
+  function renderShopping(result,summary){
+   answer.textContent='';
+   const intro=doc.createElement('p');intro.textContent=summary;answer.append(intro);
+   const grid=doc.createElement('div');grid.setAttribute('style','display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),1fr));gap:12px;white-space:normal;margin:16px 0');
+   result.products.forEach((item,index)=>{
+    const card=doc.createElement('article');card.setAttribute('aria-label','Option '+(index+1));card.setAttribute('style','border:1px solid currentColor;border-radius:12px;padding:16px;min-width:0');
+    const title=doc.createElement('h4');title.textContent=(index+1)+'. '+String(item.name);title.setAttribute('style','margin:0 0 8px;font-size:1.05em;line-height:1.4');
+    const price=doc.createElement('p');price.textContent='IKEA · '+(item.currency==='USD'?'$'+Number(item.price).toFixed(2):String(item.currency)+' '+String(item.price));price.setAttribute('style','font-size:1.2em;font-weight:700;margin:8px 0');
+    const checked=doc.createElement('p');checked.textContent='Name and price checked on the product page.';
+    const time=doc.createElement('p');time.textContent='Checked: '+String(item.observedAt);time.setAttribute('style','font-size:.85em;overflow-wrap:anywhere');
+    card.append(title,price,checked,time);
+    try{const url=new URL(item.url);if(url.protocol==='https:'&&url.hostname==='www.ikea.com'&&!url.username&&!url.password&&url.pathname.startsWith('/us/en/p/')){const link=doc.createElement('a');link.textContent='View product ↗';link.setAttribute('href',url.href);link.setAttribute('target','_blank');link.setAttribute('rel','noopener noreferrer');link.setAttribute('style','display:inline-block;padding:10px 0;text-decoration:underline;color:inherit');card.append(link);}}catch{}
+    grid.append(card);
+   });
+   answer.append(grid);
+   const limits=doc.createElement('p');limits.textContent='IKEA only · Stock, shipping, taxes and suitability have not been verified. No purchase made. No account connected.';answer.append(limits);
+   const details=doc.createElement('details'),label=doc.createElement('summary'),diagnostics=doc.createElement('pre');label.textContent='Research details';diagnostics.textContent=JSON.stringify(result,null,2);diagnostics.setAttribute('style','white-space:pre-wrap;overflow-wrap:anywhere;font-size:.8em;max-height:320px;overflow:auto');details.append(label,diagnostics);answer.append(details);
   }
   async function runtime(){
    if(!loading)loading=loadRuntime().then(([ownerModule,bridgeModule])=>{
@@ -95,7 +113,7 @@
     if(result.status!=='completed'||!result.isCurrent())throw Error('REQUEST_FAILED');
     const checked=await bridge.verifyIdentity();if(ticket!==revision)return;if(checked.status!=='ready'||!result.isCurrent()||JSON.stringify(identity.current())!==key){clear();throw Error('IDENTITY_UNAVAILABLE');}
     const data=result.result;if(data?.error==='FAST_MODEL_UNAVAILABLE')throw Error('MODEL_UNAVAILABLE');const reply=data.answer||data.final_recommendation?.recommendation;if(!reply)throw Error('EMPTY_ANSWER');
-    answer.textContent=reply;
+    if(data.shoppingResult)renderShopping(data.shoppingResult,reply);else answer.textContent=reply;
     if(data.final_recommendation?.confidence){const confidence=doc.createElement('p'),value=data.final_recommendation.confidence;confidence.textContent=`Confidence: ${Number.isFinite(value.score)?Math.round(value.score*100)+'%':''} ${value.label||''}`;answer.append(confidence);}
     if(data.final_recommendation){for(const [key,label] of [['reasons','Why'],['key_facts','Key facts'],['risks','Risks'],['what_would_change_the_answer','What would change the answer']]){
      const values=data.final_recommendation[key];if(!Array.isArray(values)||!values.length)continue;

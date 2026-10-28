@@ -3,9 +3,9 @@ const test=require('node:test'),assert=require('node:assert/strict'),fs=require(
 const {webcrypto}=require('node:crypto');
 const scope={accountId:'account-fixture',conversationId:'conversation-fixture',generation:1,status:'ready'};
 function fixture({storage=new Map(),research}={}){
- const requests=[],nodes=[];const node=()=>({textContent:'',value:'',setAttribute(){},append(){},after(){}});const doc={createElement(){const n=node();nodes.push(n);return n}};
+ const requests=[],nodes=[];const node=()=>({ownText:'',children:[],attrs:{},get textContent(){return this.ownText+this.children.map(n=>n.textContent).join('')},set textContent(v){this.ownText=v;this.children=[]},value:'',setAttribute(k,v){this.attrs[k]=v},append(...items){this.children.push(...items)},after(){}});const doc={createElement(){const n=node();n.tag=arguments[0];nodes.push(n);return n}};
  const input={...node(),ownerDocument:doc},answer=node(),askButton={...node(),parentNode:node()};
- const sandbox={console,crypto:webcrypto,AbortController,setTimeout,clearTimeout,Intl,Event,sessionStorage:{getItem:k=>storage.get(k)??null,setItem:(k,v)=>storage.set(k,v),removeItem:k=>storage.delete(k)}};
+ const sandbox={console,crypto:webcrypto,AbortController,URL,setTimeout,clearTimeout,Intl,Event,sessionStorage:{getItem:k=>storage.get(k)??null,setItem:(k,v)=>storage.set(k,v),removeItem:k=>storage.delete(k)}};
  vm.createContext(sandbox);
  // Use actual host identity + bridge implementation; no independent assistant.
  const root=fs.existsSync(path.join(__dirname,'../conversation-runtime.js'))?path.join(__dirname,'..'):path.join(__dirname,'../../james-work');
@@ -25,3 +25,13 @@ test('ordinary and project questions retain existing model path',async()=>{const
 test('incomplete comparison is never presented as verified',async()=>{const f=fixture({research:async()=>({ok:true,result:{status:'blocked',comparisonVerified:false,message:'Insufficient verified evidence',error:'CLEANUP_UNCONFIRMED',products:[]}})});f.input.value='Compare desk lamps under $50';await f.ui.ask();assert.match(f.answer.textContent,/not complete/);assert.match(f.answer.textContent,/CLEANUP_UNCONFIRMED/);assert.doesNotMatch(f.answer.textContent,/Verified public product comparison/)});
 test('punctuation and case retries reuse the canonical task',async()=>{const f=fixture();f.input.value='Compare desk lamps under $50.';await f.ui.ask();f.input.value='compare desk lamps under $50';await f.ui.ask();const calls=f.requests.filter(r=>r.url==='/api/james/research');assert.equal(calls[0].body.taskId,calls[1].body.taskId);assert.equal(calls[0].body.text,'Compare desk lamps under $50')});
 test('unavailable or silently failing task storage cannot start research',async()=>{const broken={get(){return undefined},set(){},delete(){}};const f=fixture({storage:broken});f.input.value='Compare desk lamps under $50';assert.equal((await f.ui.ask()).status,'failed');assert.equal(f.requests.filter(r=>r.url==='/api/james/research').length,0);assert.equal(f.input.value,'Compare desk lamps under $50')});
+
+test('comparison renders cards and collapses diagnostics without unsafe product links',async()=>{
+ const f=fixture({research:async()=>({ok:true,result:{status:'completed',comparisonVerified:true,products:[{name:'<img onerror=alert(1)>',price:19.99,currency:'USD',url:'javascript:alert(1)',observedAt:'fixture'}],searchEvidence:{deniedResources:['technical fixture']}}})});
+ f.input.value='Compare desk lamps under $50';await f.ui.ask();
+ assert.equal(f.nodes.filter(n=>n.tag==='article').length,1);
+ assert.equal(f.nodes.filter(n=>n.tag==='a').length,0);
+ const details=f.nodes.find(n=>n.tag==='details');assert.ok(details);assert.equal(details.attrs.open,undefined);
+ assert.match(details.textContent,/technical fixture/);assert.match(f.answer.textContent,/IKEA only/);
+ assert.match(f.answer.children[0].textContent,/I found 1 IKEA/);assert.doesNotMatch(f.answer.children[0].textContent,/technical fixture/);
+});
