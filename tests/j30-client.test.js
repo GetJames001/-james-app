@@ -68,3 +68,13 @@ test('successful recheck explicitly distinguishes unchanged prices from changed 
  assert.doesNotMatch(f.answer.textContent,/Checked: 2026-10-28T/);
  }
 });
+
+test('visible Stop response cancels without ending conversation or losing retry identity',async()=>{
+ let release,entered;const start=new Promise(r=>entered=r);const f=fixture({research:()=>new Promise(r=>{release=r;entered()})});
+ const stop=f.nodes.find(n=>n.textContent==='Stop response');assert.ok(stop);assert.equal(stop.disabled,true);
+ f.input.value='Compare desk lamps under $50';const pending=f.ui.ask();await start;assert.equal(stop.disabled,false);
+ const pointer=f.storage.get('james:j30-task:v1');stop.onclick();assert.equal(stop.disabled,true);
+ release({ok:true,result:{status:'completed',comparisonVerified:true,products:[]}});await pending;
+ assert.equal(f.answer.textContent,'');assert.equal(f.input.value,'Compare desk lamps under $50');assert.equal(f.storage.get('james:j30-task:v1'),pointer);
+ assert.equal(f.requests.some(r=>r.body?.action==='end'),false);
+});
