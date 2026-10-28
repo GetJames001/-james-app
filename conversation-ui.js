@@ -67,15 +67,15 @@
   function renderShopping(result,summary,timing,renderScope){
    answer.textContent='';
    const intro=doc.createElement('p');intro.textContent=summary;answer.append(intro);
-   const timingLabel=doc.createElement('p');timingLabel.textContent=(timing?.source==='saved'?'Saved result':timing?.source==='fresh'?'Fresh browser research':'Research result')+' · Response: '+((timing?.elapsedMs||0)/1000).toFixed(1)+' seconds';answer.append(timingLabel);
+   const timingLabel=doc.createElement('p');timingLabel.textContent=(timing?.source==='saved'?'Saved result':timing?.source==='fresh'?'New research attempt':'Research result')+' · Response: '+((timing?.elapsedMs||0)/1000).toFixed(1)+' seconds';answer.append(timingLabel);
    if(result.status==='completed'&&result.comparisonVerified&&!result.error){
     const again=doc.createElement('button');again.type='button';again.textContent='Search again';again.setAttribute('style','padding:10px 16px;margin:8px 0');
     again.onclick=async()=>{if(again.disabled||ending||scopeKey!==renderScope||JSON.stringify(identity?.current())!==renderScope)return;
      if(input.value.trim()){status.textContent='Keep or send your draft before starting a fresh search.';return;}
      again.disabled=true;
-     try{historyStorage.removeItem('james:j30-task:v1');if(historyStorage.getItem('james:j30-task:v1')!==null)throw Error('TASK_CHECKPOINT_UNAVAILABLE');await ask({text:'Compare desk lamps under $50'});}
+     try{const saved=JSON.parse(historyStorage.getItem('james:j30-task:v1')||'null');if(!saved||saved.taskId!==result.taskId||JSON.stringify(saved.scope)!==renderScope){status.textContent='This comparison has been superseded. Continue the current research task.';return;}historyStorage.removeItem('james:j30-task:v1');if(historyStorage.getItem('james:j30-task:v1')!==null)throw Error('TASK_CHECKPOINT_UNAVAILABLE');await ask({text:'Compare desk lamps under $50'});}
      catch{status.textContent='Fresh search could not start. Your previous comparison is retained.';}
-     finally{again.disabled=false;}
+     finally{/* A consumed button never clears a newer or uncertain task. */}
     };answer.append(again);
    }
    const grid=doc.createElement('div');grid.setAttribute('style','display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),1fr));gap:12px;white-space:normal;margin:16px 0');
