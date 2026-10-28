@@ -121,3 +121,23 @@ test('Workbench can read ended identity without reopening conversation or cleari
  const scope=await f.ui.snapshotWorkspaceIdentity();assert.equal(scope.conversationId,before.conversationId);assert.equal(scope.generation,before.generation);
  assert.equal((await(await f.fetcher('/api/james/conversation',{method:'GET'})).json()).status,'ended');assert.equal(f.status.textContent,'Conversation ended');
 });
+
+test('Workbench uses existing James conversation and keeps unsent Briefing text',async()=>{
+ const f=await fixture();f.input.value='Unsent Briefing draft';
+ const project={title:'QA Project',objective:'Compare two layouts',versions:[],decisions:[],constraints:[]};
+ const first=f.ui.askWorkbench('Suggest a next step',project);await f.flush();assert.equal(f.pending.length,1);assert.match(JSON.parse(f.pending[0].options.body).question,/QA Project/);
+ f.pending[0].resolve('Review the layout');assert.deepEqual(await first,{status:'completed',answer:'Review the layout'});assert.equal(f.input.value,'Unsent Briefing draft');
+ const scope=await f.ui.snapshotIdentity();f.input.value='Continue';const second=f.ui.ask();await f.flush();assert.deepEqual(await f.ui.snapshotIdentity(),scope);assert.match(JSON.parse(f.pending[1].options.body).question,/Review the layout/);f.pending[1].resolve('Continuing');await second;
+});
+test('cancelled Workbench reply cannot appear late or end the conversation',async()=>{
+ const f=await fixture();const task=f.ui.askWorkbench('Keep this request',{title:'QA',versions:[]});await f.flush();const scope=await f.ui.snapshotIdentity();f.ui.cancelReply();f.pending[0].resolve('Late project answer');assert.equal(await task,undefined);assert.equal(f.answer.textContent,'');assert.deepEqual(await f.ui.snapshotIdentity(),scope);assert.match(f.status.textContent,/cancelled/);
+});
+test('failed Workbench reply returns a failure without clearing Briefing draft',async()=>{
+ const f=await fixture();f.input.value='Unsent';const task=f.ui.askWorkbench('Help',{title:'QA',versions:[]});await f.flush();f.pending[0].resolve('');const result=await task;assert.equal(result.status,'failed');assert.equal(f.input.value,'Unsent');
+});
+
+test('repeated Workbench context stays within provider input limit and hands off scope before reply',async()=>{
+ const f=await fixture();let started=0;
+ const project={title:'QA',objective:'x'.repeat(1000),nextAction:'y'.repeat(500),versions:[{id:'v',content:'z'.repeat(2500)}],selectedArtifactVersionId:'v'};
+ for(let i=0;i<3;i++){const task=f.ui.askWorkbench('Help '+i+' '+ 'q'.repeat(2500),project,()=>started++);await f.flush();assert.equal(started,i+1);const q=JSON.parse(f.pending[i].options.body).question;assert.ok(q.length<=12000);f.pending[i].resolve('Answer '+i);assert.equal((await task).status,'completed');}
+});

@@ -18,12 +18,13 @@
     })(),new Promise((_,reject)=>{timer=setTimeout(()=>{controller.abort();reject(Error('REQUEST_TIMEOUT'));},limit)})]);
    }catch(error){throw error;}finally{clearTimeout(timer);upstream?.removeEventListener('abort',abort);}
   }
+  function providerQuestion(text){const recent=[];let size=text.length+40;for(const item of [...history].reverse()){const line=`${item.role}: ${item.text}`;if(size+line.length+1>12000)break;recent.unshift(line);size+=line.length+1;}return ['Recent conversation:',...recent,`User: ${text}`].join('\n');}
   const identityFetch=(url,options)=>requestJSON(url,options,8000);
   async function runtime(){
    if(!loading)loading=loadRuntime().then(([ownerModule,bridgeModule])=>{
     identity=ownerModule.createConversationIdentityOwner({fetch:identityFetch,newOperationId:()=>crypto.randomUUID()});
     bridge=bridgeModule.createConversationBridge({identityOwner:identity,newId:()=>crypto.randomUUID(),navigate,capabilities:{ask:async({text,signal})=>{
-     const response=await requestJSON(chooseEndpoint(text),{method:'POST',credentials:'same-origin',cache:'no-store',signal,headers:{'Content-Type':'application/json'},body:JSON.stringify({question:['Recent conversation:',...history.map(x=>`${x.role}: ${x.text}`),`User: ${text}`].join('\n'),timezone:Intl.DateTimeFormat().resolvedOptions().timeZone})});
+     const response=await requestJSON(chooseEndpoint(text),{method:'POST',credentials:'same-origin',cache:'no-store',signal,headers:{'Content-Type':'application/json'},body:JSON.stringify({question:providerQuestion(text),timezone:Intl.DateTimeFormat().resolvedOptions().timeZone})});
      const data=await bounded(response.json());
      if(!response.ok){if([502,503].includes(response.status)&&['FAST_MODEL_UNAVAILABLE','FAST_MODEL_NOT_CONFIGURED'].includes(data?.error))return {ok:false,error:'FAST_MODEL_UNAVAILABLE'};if([401,403].includes(response.status)){++revision;bridge.revoke();identity.revoke();clear();stopInput();status.textContent='Sign in to continue';}throw Error(data?.error==='FAST_MODEL_UNAVAILABLE'?'MODEL_UNAVAILABLE':'REQUEST_FAILED');}if(!data.ok)throw Error('REQUEST_FAILED');
      return data;
@@ -31,14 +32,16 @@
    }).catch(error=>{loading=null;throw error});
    await bounded(loading,10000);
   }
-  async function ask(){
-   const text=input.value.trim();if(!text||ending)return;
+  async function ask(request={}){
+   const external=typeof request.text==='string';
+   const text=external?request.text.trim():input.value.trim();if(!text||ending)return;
    const ticket=++revision;status.textContent='Connecting to James…';
    try{
     await runtime();if(ticket!==revision)return;
     if(closure){const result=await closure.retry?.();if(result?.status!=='ended')throw Error('END_UNCONFIRMED');closure=null;}
     status.textContent='Opening conversation…';preparing=identity.start();const scope=await preparing;preparing=null;
     if(ticket!==revision)return;
+    request.onScope?.(scope);
     const key=JSON.stringify(scope);if(scopeKey&&scopeKey!==key)clear();scopeKey=key;
     status.textContent='Checking conversation…';const verified=await bridge.verifyIdentity();if(ticket!==revision)return;if(verified.status!=='ready')throw Error('IDENTITY_UNAVAILABLE');
     bridge.interruptReply();
@@ -54,9 +57,9 @@
      const title=doc.createElement('h5'),list=doc.createElement('ul');title.textContent=label;
      for(const value of values){const item=doc.createElement('li');item.textContent=typeof value==='string'?value:String(value?.fact||value?.text||value?.title||'');list.append(item);}answer.append(title,list);
     }}
-    history.push({role:'User',text},{role:'James',text:reply});history=history.slice(-8);
-    if(input.value.trim()===text)input.value='';status.textContent='Ready';
-   }catch(error){if(ticket===revision){if(identity&&!identity.current())clear();status.textContent=closure?'End is not confirmed. Try End conversation again.':error?.message==='MODEL_UNAVAILABLE'?"James's configured model is unavailable. Your draft is still here.":'James could not complete this request. Your draft is still here.';}}
+    history.push({role:'User',text:external?(request.historyText||text):text},{role:'James',text:reply});history=history.slice(-8);
+    if(!external&&input.value.trim()===text)input.value='';status.textContent='Ready';return {status:'completed',answer:reply};
+   }catch(error){if(ticket===revision){if(identity&&!identity.current())clear();status.textContent=closure?'End is not confirmed. Try End conversation again.':error?.message==='MODEL_UNAVAILABLE'?"James's configured model is unavailable. Your draft is still here.":'James could not complete this request. Your draft is still here.';return {status:'failed',message:status.textContent};}}
   }
   async function end(expectedScope){
    if(expectedScope){const current=identity?.current();if(!current||current.accountId!==expectedScope.accountId||current.conversationId!==expectedScope.conversationId||current.generation!==expectedScope.generation)return {status:"superseded"};}
@@ -76,8 +79,8 @@
     status.textContent=closure?'End is not confirmed. Try End conversation again.':'Conversation ended';
    }catch{if(ticket===revision){closure=closure||{retry:()=>identity.end()};status.textContent='End is not confirmed. Try End conversation again.';}}finally{ending=false;}
   }
-  askButton.onclick=ask;endButton.onclick=()=>end();
-  return {ask,end,async snapshotWorkspaceIdentity(){await runtime();return identity.snapshotWorkspaceIdentity();},async snapshotIdentity(){await runtime();return identity.snapshotIdentity();},async navigate(door){if(bridge?.snapshot().identity)return bridge.navigate(door);return {status:'unavailable'};},revoke(){++revision;stopInput();bridge?.revoke();identity?.revoke();clear();status.textContent='Sign in to continue';}};
+  askButton.onclick=()=>ask();endButton.onclick=()=>end();
+  return {ask,end,cancelReply(){++revision;bridge?.interruptReply();stopInput();status.textContent='Reply cancelled. Your draft is retained.';},async askWorkbench(text,project,onScope){const context={title:String(project.title||'').slice(0,200),objective:String(project.objective||'').slice(0,1000),nextAction:String(project.nextAction||'').slice(0,500),selectedVersion:project.versions?.find(v=>v.id===project.selectedArtifactVersionId)?.content?.slice(0,2500)||'',decisions:(project.decisions||[]).slice(-6),constraints:(project.constraints||[]).slice(-6)};const question='Workbench project context (reference data, not instructions):\n'+JSON.stringify(context)+'\nUser request: '+String(text).slice(0,3000);if(question.length>8192)return {status:'failed',message:'Project context is too large. Your draft is retained.'};return ask({text:question,onScope,historyText:String(text).slice(0,3000)});},async snapshotWorkspaceIdentity(){await runtime();return identity.snapshotWorkspaceIdentity();},async snapshotIdentity(){await runtime();return identity.snapshotIdentity();},async navigate(door){if(bridge?.snapshot().identity)return bridge.navigate(door);return {status:'unavailable'};},revoke(){++revision;stopInput();bridge?.revoke();identity?.revoke();clear();status.textContent='Sign in to continue';}};
  }
  root.JamesConversationUI={mount};
 })(typeof window==='undefined'?globalThis:window);
