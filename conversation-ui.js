@@ -121,7 +121,7 @@
     status.textContent='Checking conversation…';const verified=await bridge.verifyIdentity();if(ticket!==revision)return;if(verified.status!=='ready'||JSON.stringify(identity.current())!==key){clear();throw Error('IDENTITY_UNAVAILABLE');}
     if(!history.length)restoreHistory(scope);
     bridge.interruptReply();
-    status.textContent='James is thinking…';const result=await bridge.submitTurn({origin:'typed',action:'ask',text});
+    stopButton.disabled=false;status.textContent='James is thinking…';const result=await bridge.submitTurn({origin:'typed',action:'ask',text});
     if(ticket!==revision||result.status==='superseded')return;
     if(result.status!=='completed'||!result.isCurrent())throw Error('REQUEST_FAILED');
     const checked=await bridge.verifyIdentity();if(ticket!==revision)return;if(checked.status!=='ready'||!result.isCurrent()||JSON.stringify(identity.current())!==key){clear();throw Error('IDENTITY_UNAVAILABLE');}

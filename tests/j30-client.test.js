@@ -78,3 +78,9 @@ test('visible Stop response cancels without ending conversation or losing retry 
  assert.equal(f.answer.textContent,'');assert.equal(f.input.value,'Compare desk lamps under $50');assert.equal(f.storage.get('james:j30-task:v1'),pointer);
  assert.equal(f.requests.some(r=>r.body?.action==='end'),false);
 });
+
+test('new conversation scope retains an enabled Stop response while waiting',async()=>{
+ const original=scope.conversationId;let release,entered;const start=new Promise(r=>entered=r);let calls=0;
+ const f=fixture({research:async()=>{if(++calls===1)return {ok:true,result:{status:'completed',comparisonVerified:true,products:[]}};return new Promise(r=>{release=r;entered()})}});
+ try{f.input.value='Compare desk lamps under $50';await f.ui.ask();scope.conversationId='conversation-new-fixture';f.input.value='Compare desk lamps under $50';const pending=f.ui.ask();await start;const stop=f.nodes.find(n=>n.textContent==='Stop response');assert.equal(stop.disabled,false);stop.onclick();release({ok:true,result:{status:'completed',comparisonVerified:true,products:[]}});await pending;assert.equal(f.input.value,'Compare desk lamps under $50');}finally{scope.conversationId=original;}
+});
