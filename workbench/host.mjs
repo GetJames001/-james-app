@@ -14,9 +14,9 @@ window.jamesWorkbenchNavigate=async id=>{
   if(!door){
    status.textContent='Checking James conversation and account…';show('workbench');
    // Reuse the current owner. An ended conversation is never silently restarted.
-   const scope=await window.jamesConversationUI.snapshotIdentity();
+   const scope=await window.jamesConversationUI.snapshotWorkspaceIdentity();
    if(!current())return false;
-   lifecycle=createWorkbenchAccountLifecycle({fetch:async(url,options)=>{const verified=await window.jamesConversationUI.snapshotIdentity();if(!current()||verified.conversationId!==scope.conversationId||verified.generation!==scope.generation||verified.accountId!==scope.accountId){revoke();throw Error('Conversation changed');}return window.fetch(url,options);},root,conversationId:scope.conversationId,stopVoice:()=>window.jamesConversationUI.end(scope),mount:(target,options)=>(screen=mountAsyncWorkbench(target,{...options,remoteMode:true}))});
+   lifecycle=createWorkbenchAccountLifecycle({fetch:async(url,options)=>{const verified=await window.jamesConversationUI.snapshotWorkspaceIdentity();if(!current()||verified.conversationId!==scope.conversationId||verified.generation!==scope.generation||verified.accountId!==scope.accountId){revoke();throw Error('Conversation changed');}return window.fetch(url,options);},root,conversationId:scope.conversationId,stopVoice:()=>window.jamesConversationUI.end(scope),mount:(target,options)=>(screen=mountAsyncWorkbench(target,{...options,remoteMode:true}))});
    door=createWorkbenchDoor({lifecycle,getScreen:()=>screen,root,render:show,home:()=>show('briefing')});
    observer=createIdentityObserver({lifecycle,root,isActive:()=>!document.hidden&&document.getElementById('workbench').classList.contains('active'),onChanged:()=>{revoke();status.textContent='Sign in again before reopening Workbench.';},onUnavailable:()=>{status.textContent='Account check unavailable. Your draft is retained. Retry Workbench.';}});
   }
@@ -25,7 +25,7 @@ window.jamesWorkbenchNavigate=async id=>{
   if(moved){status.textContent='';if(id==='workbench')await observer.check();if(!current())return false;}
   else status.textContent='Workbench could not finish navigation. Keep this tab open; your draft is retained.';
   return moved;
- }catch{if(!current())return false;status.textContent='Workbench could not verify the current conversation or account. Return to Briefing and start a James conversation, then retry.';return false;}
+ }catch{if(!current())return false;status.textContent='Workbench could not verify the current conversation or account. Your projects have not been changed. Return to Briefing and retry.';return false;}
  finally{busy=false;}
 };
 document.getElementById('workbenchExit').onclick=()=>window.jamesWorkbenchNavigate('briefing');

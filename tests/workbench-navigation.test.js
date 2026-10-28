@@ -5,7 +5,7 @@ const vm=require('node:vm');
 function fixture(identity){
  const events={},calls={mounted:0,shown:[],navigation:[]};
  const elements={workbenchRoot:{hidden:true},workbenchStatus:{textContent:''},workbench:{classList:{contains:()=>true}},workbenchExit:{}};
- const context={document:{hidden:false,getElementById:id=>elements[id],addEventListener:(name,fn)=>events[name]=fn},window:{jamesPageNow:id=>calls.shown.push(id),jamesConversationUI:{snapshotIdentity:identity,end(){}},fetch(){},addEventListener:(name,fn)=>events[name]=fn},setInterval(){},mountAsyncWorkbench(){},createWorkbenchAccountLifecycle(){calls.mounted++;return{}},createWorkbenchDoor(){return{navigate:async(id)=>{calls.navigation.push(id);return true},revoke(){}}},createIdentityObserver(){return{check:async()=>({status:'verified'}),dispose(){}}}};
+ const context={document:{hidden:false,getElementById:id=>elements[id],addEventListener:(name,fn)=>events[name]=fn},window:{jamesPageNow:id=>calls.shown.push(id),jamesConversationUI:{snapshotWorkspaceIdentity:identity,end(){}},fetch(){},addEventListener:(name,fn)=>events[name]=fn},setInterval(){},mountAsyncWorkbench(){},createWorkbenchAccountLifecycle(){calls.mounted++;return{}},createWorkbenchDoor(){return{navigate:async(id)=>{calls.navigation.push(id);return true},revoke(){}}},createIdentityObserver(){return{check:async()=>({status:'verified'}),dispose(){}}}};
  vm.createContext(context);
  vm.runInContext(fs.readFileSync(require.resolve('../workbench/host.mjs'),'utf8').replace(/^import .*;\n/gm,''),context);
  return {events,calls,elements,navigate:context.window.jamesWorkbenchNavigate};

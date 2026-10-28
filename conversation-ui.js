@@ -77,7 +77,7 @@
    }catch{if(ticket===revision){closure=closure||{retry:()=>identity.end()};status.textContent='End is not confirmed. Try End conversation again.';}}finally{ending=false;}
   }
   askButton.onclick=ask;endButton.onclick=()=>end();
-  return {ask,end,async snapshotIdentity(){await runtime();return identity.snapshotIdentity();},async navigate(door){if(bridge?.snapshot().identity)return bridge.navigate(door);return {status:'unavailable'};},revoke(){++revision;stopInput();bridge?.revoke();identity?.revoke();clear();status.textContent='Sign in to continue';}};
+  return {ask,end,async snapshotWorkspaceIdentity(){await runtime();return identity.snapshotWorkspaceIdentity();},async snapshotIdentity(){await runtime();return identity.snapshotIdentity();},async navigate(door){if(bridge?.snapshot().identity)return bridge.navigate(door);return {status:'unavailable'};},revoke(){++revision;stopInput();bridge?.revoke();identity?.revoke();clear();status.textContent='Sign in to continue';}};
  }
  root.JamesConversationUI={mount};
 })(typeof window==='undefined'?globalThis:window);

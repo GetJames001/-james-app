@@ -114,3 +114,10 @@ test('separate UI sessions do not present a revoked session delayed answer',asyn
  assert.equal(second.answer.textContent,'Second session answer');assert.equal(second.input.value,'');
  assert.equal(first.input.value,'First session synthetic request');
 });
+
+test('Workbench can read ended identity without reopening conversation or clearing End',async()=>{
+ const f=await fixture();f.input.value='Create fixture conversation';const ask=f.ui.ask();await f.flush();f.pending[0].resolve('Fixture ready');await ask;await f.ui.end();
+ const before=await(await f.fetcher('/api/james/conversation',{method:'GET'})).json();assert.equal(before.status,'ended');
+ const scope=await f.ui.snapshotWorkspaceIdentity();assert.equal(scope.conversationId,before.conversationId);assert.equal(scope.generation,before.generation);
+ assert.equal((await(await f.fetcher('/api/james/conversation',{method:'GET'})).json()).status,'ended');assert.equal(f.status.textContent,'Conversation ended');
+});

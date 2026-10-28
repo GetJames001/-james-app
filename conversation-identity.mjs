@@ -64,5 +64,11 @@ export function createConversationIdentityOwner({fetch:fetcher,newOperationId}){
   }
   return attempt();
  }
- return {start:()=>resolve(true),snapshotIdentity:()=>resolve(false),canEnd,end,revoke(){epoch++;current=null;pendingEnd=null;closureScope=null},current:()=>current?{...current}:null};
+ async function snapshotWorkspaceIdentity(){
+  const ticket=epoch,value=await request();
+  if(ticket!==epoch)throw Error('Conversation request superseded');
+  if(!['ready','ended'].includes(value?.status))throw Error('Conversation identity unconfirmed');
+  return decode(value,value.status);
+ }
+ return {start:()=>resolve(true),snapshotIdentity:()=>resolve(false),snapshotWorkspaceIdentity,canEnd,end,revoke(){epoch++;current=null;pendingEnd=null;closureScope=null},current:()=>current?{...current}:null};
 }
