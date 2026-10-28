@@ -61,7 +61,7 @@
    lines.push('Research task: '+String(result.taskId||task.taskId));
    if(result.error)lines.push('Stopped: '+String(result.error)+'. Do not start another task to bypass an uncertain result.');
    if(result.failures?.length)lines.push('Some product pages could not be verified.');
-   lines.push('No purchase made. No account connected.');const summary=result.comparisonVerified?'I found '+result.products.length+' IKEA lamps under $50. Here are their checked prices. Stock, shipping and taxes have not been verified.':'The product comparison is not complete. Some product pages could not be verified.';return {ok:true,answer:summary,shoppingResult:result};
+   lines.push('No purchase made. No account connected.');const summary=result.comparisonVerified?'I found '+result.products.length+' IKEA lamps under $50. Here are their checked prices. Stock, shipping and taxes have not been verified.':'The product comparison is not complete. Some product pages could not be verified.';return {ok:true,answer:summary,historyAnswer:summary+'\n'+result.products.map(item=>String(item.name)+' — '+String(item.currency)+' '+String(item.price)+' · '+String(item.url)+' · Observed: '+String(item.observedAt)).join('\n'),shoppingResult:result};
   }
   function renderShopping(result,summary){
    answer.textContent='';
@@ -74,7 +74,7 @@
     const checked=doc.createElement('p');checked.textContent='Name and price checked on the product page.';
     const time=doc.createElement('p');time.textContent='Checked: '+String(item.observedAt);time.setAttribute('style','font-size:.85em;overflow-wrap:anywhere');
     card.append(title,price,checked,time);
-    try{const url=new URL(item.url);if(url.protocol==='https:'&&url.hostname==='www.ikea.com'&&!url.username&&!url.password&&url.pathname.startsWith('/us/en/p/')){const link=doc.createElement('a');link.textContent='View product ↗';link.setAttribute('href',url.href);link.setAttribute('target','_blank');link.setAttribute('rel','noopener noreferrer');link.setAttribute('style','display:inline-block;padding:10px 0;text-decoration:underline;color:inherit');card.append(link);}}catch{}
+    try{const url=new URL(item.url);if(url.protocol==='https:'&&url.hostname==='www.ikea.com'&&!url.username&&!url.password&&!url.port&&url.pathname.startsWith('/us/en/p/')){const link=doc.createElement('a');link.textContent='View product ↗';link.setAttribute('href',url.href);link.setAttribute('target','_blank');link.setAttribute('rel','noopener noreferrer');link.setAttribute('style','display:inline-block;padding:10px 0;text-decoration:underline;color:inherit');card.append(link);}}catch{}
     grid.append(card);
    });
    answer.append(grid);
@@ -120,7 +120,7 @@
      const title=doc.createElement('h5'),list=doc.createElement('ul');title.textContent=label;
      for(const value of values){const item=doc.createElement('li');item.textContent=typeof value==='string'?value:String(value?.fact||value?.text||value?.title||'');list.append(item);}answer.append(title,list);
     }}
-    history.push({role:'User',text:external?(request.historyText||text):text},{role:'James',text:reply});persistHistory(scope);
+    history.push({role:'User',text:external?(request.historyText||text):text},{role:'James',text:data.historyAnswer||reply});persistHistory(scope);
     if(!external&&input.value.trim()===text)input.value='';status.textContent='Ready';return {status:'completed',answer:reply};
    }catch(error){if(ticket===revision){if(identity&&!identity.current())clear();status.textContent=closure?'End is not confirmed. Try End conversation again.':error?.message==='MODEL_UNAVAILABLE'?"James's configured model is unavailable. Your draft is still here.":'James could not complete this request. Your draft is still here.';return {status:'failed',message:status.textContent};}}
   }

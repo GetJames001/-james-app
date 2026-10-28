@@ -35,3 +35,5 @@ test('comparison renders cards and collapses diagnostics without unsafe product 
  assert.match(details.textContent,/technical fixture/);assert.match(f.answer.textContent,/IKEA only/);
  assert.match(f.answer.children[0].textContent,/I found 1 IKEA/);assert.doesNotMatch(f.answer.children[0].textContent,/technical fixture/);
 });
+
+test('visible summary preserves verified product receipts in follow-up conversation context',async()=>{const f=fixture();f.input.value='Compare desk lamps under $50';await f.ui.ask();f.input.value='Which lamps did you find?';await f.ui.ask();const call=f.requests.find(r=>r.url==='/api/fast');assert.match(call.body.question,/Synthetic lamp/);assert.match(call.body.question,/USD 10/);assert.match(call.body.question,/https:\/\/www.ikea.com/);assert.doesNotMatch(call.body.question,/Blocked resources/)});
