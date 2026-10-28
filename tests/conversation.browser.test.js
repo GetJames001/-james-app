@@ -10,7 +10,7 @@ process.env.JAMES_AUTH_EMAIL='browser-fixture@example.test';
 process.env.JAMES_SESSION_SECRET='synthetic-browser-fixture-secret-at-least-32-characters';
 
 async function fixture(browser){
- const values=new Map();let failure=true,providerCalls=0;
+ const values=new Map();let failure=true,providerCalls=0;const questions=[];
  const store=createHeadStore({read:async k=>values.get(k)??null,compareAndSwap:async(k,old,next)=>{if((values.get(k)??null)!==old)return false;values.set(k,next);return true;}});
  const handler=createHandler({store});
  async function install(context){
@@ -26,15 +26,15 @@ async function fixture(browser){
    if(url.pathname==='/api/fast'){
     const response={code:200,setHeader(){},status(n){this.code=n;return this;},json(body){this.body=body;return this;}};
     if(!auth.requireAuth({headers},response,{csrf:true}))return route.fulfill({status:response.code,json:response.body});
-    providerCalls++;
+    providerCalls++;questions.push(JSON.parse(request.postData()).question);
     return route.fulfill({status:failure?502:200,json:failure?{ok:false,error:'FAST_MODEL_UNAVAILABLE'}:{ok:true,answer:'Recovered fixture reply'}});
    }
    if(['/conversation-ui.js','/conversation-runtime.js'].includes(url.pathname))return route.fulfill({contentType:'text/javascript',body:fs.readFileSync(path.join(__dirname,'..',url.pathname.slice(1)),'utf8')});
-   if(url.pathname==='/')return route.fulfill({contentType:'text/html',body:`<!doctype html><label>Question<textarea id="question"></textarea></label><div><button id="ask">Ask James</button></div><div id="answer"></div><script src="/conversation-runtime.js"></script><script src="/conversation-ui.js"></script><script>window.testUI=JamesConversationUI.mount({input:document.querySelector('#question'),answer:document.querySelector('#answer'),askButton:document.querySelector('#ask')});document.querySelector('#ask').onclick=()=>testUI.ask();</script>`});
+   if(url.pathname==='/')return route.fulfill({contentType:'text/html',body:`<!doctype html><label>Question<textarea id="question"></textarea></label><div><button id="ask">Ask James</button></div><button id="project">Ask about project</button><div id="answer"></div><script src="/conversation-runtime.js"></script><script src="/conversation-ui.js"></script><script>window.testUI=JamesConversationUI.mount({input:document.querySelector('#question'),answer:document.querySelector('#answer'),askButton:document.querySelector('#ask')});document.querySelector('#ask').onclick=()=>testUI.ask();document.querySelector('#project').onclick=()=>testUI.askWorkbench('What next?',{title:'Synthetic bench',objective:'Use cobalt acorn',versions:[]});window.addEventListener('pagehide',()=>testUI.suspend());</script>`});
    return route.fulfill({status:404,body:''});
   });
  }
- return {install,recover(){failure=false;},calls:()=>providerCalls};
+ return {install,recover(){failure=false;},calls:()=>providerCalls,questions};
 }
 
 test('browser provider failure retains draft, retry works, and fresh read confirms End',async()=>{
@@ -54,5 +54,14 @@ test('browser provider failure retains draft, retry works, and fresh read confir
   const result=await denied.goto(origin+'/api/james/conversation');assert.equal(result.status(),401);
   assert.equal(JSON.parse(await denied.locator('body').innerText()).error,'UNAUTHORIZED');
   assert.equal(h.calls(),2);await outsider.close();await context.close();
+ }finally{await browser.close();}
+});
+test('browser reload retains verified Workbench context and End removes it',async()=>{
+ const browser=await chromium.launch();try{
+  const h=await fixture(browser),context=await browser.newContext();await h.install(context);h.recover();
+  await context.addCookies([{name:auth.SESSION_COOKIE,value:auth.createSessionToken(process.env.JAMES_AUTH_EMAIL),url:origin,secure:true,httpOnly:true,sameSite:'Strict'}]);
+  const page=await context.newPage();await page.goto(origin);await page.getByRole('button',{name:'Ask about project',exact:true}).click();await page.getByText('Recovered fixture reply',{exact:true}).waitFor();
+  await page.reload();await page.getByLabel('Question',{exact:true}).fill('What were we working on?');await page.getByRole('button',{name:'Ask James',exact:true}).click();await page.getByText('Recovered fixture reply',{exact:true}).waitFor();assert.match(h.questions[1],/Workbench project: Synthetic bench/);assert.match(h.questions[1],/cobalt acorn/);
+  await page.getByRole('button',{name:'End conversation',exact:true}).click();await page.getByRole('status').filter({hasText:'Conversation ended'}).waitFor();await page.reload();await page.getByLabel('Question',{exact:true}).fill('New conversation');await page.getByRole('button',{name:'Ask James',exact:true}).click();await page.getByText('Recovered fixture reply',{exact:true}).waitFor();assert.doesNotMatch(h.questions[2],/Synthetic bench|cobalt acorn/);await context.close();
  }finally{await browser.close();}
 });

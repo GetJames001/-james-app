@@ -17,10 +17,12 @@ const microsoftTriage = require("./microsoft/triage.js");
 const tasks = require("./tasks.js");
 const customerActivity = require("../lib/routes/customer-activity.js");
 const attention = require("../lib/routes/attention.js");
+const workbench = require('../lib/routes/workbench.js');
 const conversation = require("../lib/routes/conversation.js");
 
 const exactHandlers = new Map([
   ["api/health", health],
+  ["api/james/workbench", workbench],
   ["api/james/conversation", conversation],
   ["api/auth/login", login],
   ["api/auth/logout", logout],
@@ -88,6 +90,7 @@ module.exports = async function handler(req, res) {
     return app(req, res);
   }
   if (
+    route.startsWith("workbench/") ||
     route === "app.js" ||
     ["conversation-ui.js","conversation-runtime.js","conversation-identity.mjs","conversation-bridge.mjs"].includes(route) ||
     route === "mail-refresh.js" ||
