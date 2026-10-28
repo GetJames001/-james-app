@@ -21,3 +21,6 @@ test('real browser rejects hidden/stale price metadata and site verification cha
   const driver=createShoppingDriver(page);await assert.rejects(driver.read(origin+'/us/en/p/lamp/'),/PRODUCT_NOT_VERIFIED/);blocked=true;await assert.rejects(driver.read(origin+'/us/en/p/lamp/'),/SITE_REQUIRES_USER_REVIEW/);
  }finally{await browser.close();}
 });
+test('discovery waits for asynchronously rendered products and records bounded diagnostics',async()=>{
+ const browser=await chromium.launch();try{const context=await browser.newContext();const page=await context.newPage();await context.route('**/*',route=>route.fulfill({contentType:'text/html',body:'<h1>Loading fixture</h1><script>setTimeout(()=>{document.body.insertAdjacentHTML("beforeend",\'<a href="/us/en/p/delayed-fixture/">Delayed</a>\')},250)</script>'}));const driver=createShoppingDriver(page);const links=await driver.search(origin+'/us/en/search/?q=lamps');assert.deepEqual(links,[origin+'/us/en/p/delayed-fixture/']);assert.equal(driver.diagnostics().productLinkCount,1);assert.equal(driver.diagnostics().waitTimedOut,false);assert.ok(driver.diagnostics().bodyCharacters>0)}finally{await browser.close()}
+});

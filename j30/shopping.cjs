@@ -12,13 +12,16 @@ function createShoppingCapability({verifyScope,checkpoints,provider,now=Date.now
    let task=await store.read();await current();if(task&&task.request!==text)throw Error('TASK_REQUEST_MISMATCH');
    if(!task){const plan=parseRequest(text);task={version:1,scope,taskId,request:text,plan,status:'ready',sessionStarts:0,results:[],failures:[],remainingUrls:null,uncertainSession:false,cleanupUnconfirmed:false};await store.write(task)}
    if(task.uncertainSession||task.cleanupUnconfirmed||task.status==='running')throw Error('RECONCILE_BEFORE_RETRY');
-   if(['completed','incomplete'].includes(task.status))return report(task);
+   // A confirmed empty discovery may be retried within the SAME task/session budget.
+   // Never retry product failures, uncertain creation or unconfirmed cleanup here.
+   if(task.status==='incomplete'&&task.results.length===0&&task.failures.length===0&&task.remainingUrls?.length===0&&task.sessionStarts<2){task.status='ready';task.remainingUrls=null;}
+   else if(['completed','incomplete'].includes(task.status))return report(task);
    if(task.sessionStarts>=2)throw Error('SESSION_BUDGET_EXHAUSTED');
    let session,started=now(),visited=0;
    try{
     await current();await provider.preflight?.();task.status='running';task.sessionStarts++;task.uncertainSession=true;await store.write(task);
     session=await provider.open();task.sessionId=session.id;task.uncertainSession=false;await store.write(task);
-    await current();if(task.remainingUrls===null){task.remainingUrls=[...await session.driver.search(task.plan.searchUrl)];await current();await store.write(task)}
+    await current();if(task.remainingUrls===null){task.remainingUrls=[...await session.driver.search(task.plan.searchUrl)];task.searchEvidence=session.driver.diagnostics?.()||null;await current();await store.write(task)}
     while(task.remainingUrls.length&&visited<Math.min(3,Math.max(1,pauseAfter))){
      await current();if(now()-started>45000)throw Error('TASK_TIME_LIMIT');const url=task.remainingUrls[0];let item;
      try{item=await session.driver.read(url)}catch(error){if(!['PRODUCT_NOT_VERIFIED','SITE_REQUIRES_USER_REVIEW'].includes(error.message))throw error;task.failures.push({url,error:error.message});}
@@ -34,5 +37,5 @@ function createShoppingCapability({verifyScope,checkpoints,provider,now=Date.now
   });
  };
 }
-function report(task){const products=task.results.filter(p=>p.currency===task.plan.currency&&(task.plan.maxPrice===null||p.price<=task.plan.maxPrice)).sort((a,b)=>a.price-b.price);return {taskId:task.taskId,status:task.status,query:task.plan.query,products,excludedCount:task.results.length-products.length,failures:task.failures,error:task.error||null,comparisonVerified:task.status==='completed'&&products.length>=2,message:products.length>=2?'Compared observed public page names and USD prices. Product fit, stock, shipping and taxes are not fully verified.':'Not enough verified products to complete a comparison.',purchaseAuthorized:false,accountConnections:false};}
+function report(task){const products=task.results.filter(p=>p.currency===task.plan.currency&&(task.plan.maxPrice===null||p.price<=task.plan.maxPrice)).sort((a,b)=>a.price-b.price);return {taskId:task.taskId,status:task.status,query:task.plan.query,products,excludedCount:task.results.length-products.length,failures:task.failures,searchEvidence:task.searchEvidence||null,sessionStarts:task.sessionStarts,error:task.error||null,comparisonVerified:task.status==='completed'&&products.length>=2,message:products.length>=2?'Compared observed public page names and USD prices. Product fit, stock, shipping and taxes are not fully verified.':'Not enough verified products to complete a comparison.',purchaseAuthorized:false,accountConnections:false};}
 module.exports={createShoppingCapability,report};

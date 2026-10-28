@@ -63,11 +63,21 @@ function createBrowserbase({apiKey,projectId,enabled=false,usageApproved=false,m
  }};
 }
 function createShoppingDriver(page){
- async function visit(url,product=false){publicUrl(url,{product});await page.goto(url,{waitUntil:'domcontentloaded',timeout:12000});const actual=publicUrl(page.url(),{product});
+ let searchEvidence=null;
+ async function visit(url,product=false){publicUrl(url,{product});const response=await page.goto(url,{waitUntil:'domcontentloaded',timeout:12000});const actual=publicUrl(page.url(),{product});
+  if(response&&response.status()>=400)fail('PAGE_RESPONSE_UNVERIFIED');
   const blocked=await page.locator('body').innerText({timeout:5000});if(/verify you are human|captcha|access denied|unusual traffic|checking your browser/i.test(blocked.slice(0,12000)))fail('SITE_REQUIRES_USER_REVIEW');return actual;
  }
  return {
-  async search(url){await visit(url);const links=await page.locator('a[href]').evaluateAll(nodes=>nodes.map(n=>n.href));return [...new Set(links.flatMap(href=>{try{return [publicUrl(href,{product:true})]}catch{return []}}))].slice(0,3);},
+  diagnostics(){return searchEvidence?{...searchEvidence}:null;},
+  async search(url){await visit(url);
+   // Search results may hydrate after DOMContentLoaded. Wait for a real product link.
+   let timedOut=false;try{await page.locator('a[href*="/us/en/p/"]').first().waitFor({state:'attached',timeout:8000})}catch{timedOut=true}
+   const body=await page.locator('body').innerText({timeout:5000});
+   if(/verify you are human|captcha|access denied|unusual traffic|checking your browser/i.test(body.slice(0,12000)))fail('SITE_REQUIRES_USER_REVIEW');
+   const links=await page.locator('a[href]').evaluateAll(nodes=>nodes.map(n=>n.href));const products=[...new Set(links.flatMap(href=>{try{return [publicUrl(href,{product:true})]}catch{return []}}))].slice(0,3);
+   searchEvidence={stage:'discovery',anchorCount:links.length,productLinkCount:products.length,bodyCharacters:body.length,waitTimedOut:timedOut};
+   return products;},
   async read(url){const actual=await visit(url,true);const raw=await page.locator('script[type="application/ld+json"]').allTextContents();
    let found;function scan(v){if(!v||typeof v!=='object'||found)return;if(Array.isArray(v)){v.forEach(scan);return}const type=Array.isArray(v['@type'])?v['@type']:[v['@type']];if(type.includes('Product'))found=v;else if(v['@graph'])scan(v['@graph']);}
    for(const item of raw){if(item.length>100000)continue;try{scan(JSON.parse(item))}catch{}}
