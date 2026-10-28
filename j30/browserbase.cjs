@@ -6,7 +6,7 @@ const HOST='www.ikea.com';
 const SEARCH_HOST='sik.search.blue.cdtapps.com';
 function catalogSearchPayload(){
  // Trusted fixed public catalog read for this isolated pilot. No page data is copied.
- return JSON.stringify({searchParameters:{input:'desk lamps',type:'QUERY'},components:[{component:'PRIMARY_AREA',columns:4,types:{main:'PRODUCT'}}]});
+ return JSON.stringify({searchParameters:{input:'desk lamps',type:'QUERY'},components:[{component:'PRIMARY_AREA',columns:4,types:{main:'PRODUCT',breakouts:['CONTENT','PLANNER']}}]});
 }
 function allowResource({url,method,type,mainDocument=false,authorizedSearch=false}){
  let u;try{u=new URL(url)}catch{return false}
