@@ -12,7 +12,7 @@ function resourceKind({url,method,type,main=false,requestedUrl}){
   if(type==='stylesheet'&&/\.css$/.test(u.pathname))return 'stylesheet';
  }
  if(type==='image'&&u.hostname==='target.scene7.com'&&u.pathname.startsWith('/is/image/Target/'))return 'image';
- if(['fetch','xhr'].includes(type)&&u.hostname==='redsky.target.com'&&/^\/redsky_aggregations\/v1\/web\/pdp_client_v1$/.test(u.pathname)&&u.searchParams.get('tcin')===productId(requestedUrl))return 'json';
+ if(['fetch','xhr'].includes(type)&&u.hostname==='redsky.target.com'&&/^\/redsky_aggregations\/v1\/web\/pdp_client_v1$/.test(u.pathname)&&u.searchParams.getAll('tcin').length===1&&u.searchParams.get('tcin')===productId(requestedUrl))return 'json';
  return null;
 }
 const CSP="default-src 'none'; script-src https://assets.targetimg1.com 'unsafe-inline'; style-src https://assets.targetimg1.com 'unsafe-inline'; img-src https://target.scene7.com; connect-src https://redsky.target.com; frame-src 'none'; worker-src 'none'; object-src 'none'; form-action 'none'; base-uri 'none'";
