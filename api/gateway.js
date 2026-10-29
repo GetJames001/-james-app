@@ -23,6 +23,7 @@ const conversation = require("../lib/routes/conversation.js");
 const exactHandlers = new Map([
   ["api/health", health],
   ["api/james/workbench", workbench],
+  ["api/james/research", require("../j30/runtime.cjs")],
   ["api/james/conversation", conversation],
   ["api/auth/login", login],
   ["api/auth/logout", logout],
