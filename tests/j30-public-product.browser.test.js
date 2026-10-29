@@ -15,7 +15,12 @@ test('CSP-blocked stylesheet never exposes a normally hidden price as verified',
 test('tiny image collection and required CSS fit actual-byte budget in Chromium',async()=>{
  const browser=await chromium.launch();try{const fetched=[];const png=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+j5CkAAAAASUVORK5CYII=','base64');
  const images=Array.from({length:8},(_,i)=>'<img src="https://images.gap.com/tiny-'+i+'.png" width="10" height="10">').join('');
- const reader=createPublicProductReader({browser,fetchPublic:async(value,{kind})=>{fetched.push(kind);if(kind==='document')return {contentType:'text/html',body:Buffer.from(images+'<link rel="stylesheet" href="https://styles.gap.com/required.css">'+html())};if(kind==='stylesheet')return {contentType:'text/css',body:Buffer.from('.obsolete{display:none}')};if(kind==='image')return {contentType:'image/png',body:png};throw Error('PUBLIC_URL_DENIED')}});
+ const reader=createPublicProductReader({browser,fetchPublic:async(value,{kind})=>{fetched.push(kind);if(kind==='document')return {contentType:'text/html',body:Buffer.from(images+'<link rel="stylesheet" href="https://www.gap.com/required.css">'+html())};if(kind==='stylesheet')return {contentType:'text/css',body:Buffer.from('.obsolete{display:none}')};if(kind==='image')return {contentType:'image/png',body:png};throw Error('PUBLIC_URL_DENIED')}});
  assert.equal((await reader.read(url,{assertCurrent:async()=>{}})).price,39);assert.equal(fetched.filter(k=>k==='image').length,8);assert.equal(fetched.filter(k=>k==='stylesheet').length,1);
+ }finally{await browser.close()}
+});
+test('opaque cross-origin CSS remains unverified with bounded audit reason',async()=>{
+ const browser=await chromium.launch();try{const reader=createPublicProductReader({browser,fetchPublic:async(_value,{kind})=>kind==='stylesheet'?{contentType:'text/css',body:Buffer.from('.obsolete{display:none}')}:{contentType:'text/html',body:Buffer.from('<link rel="stylesheet" href="https://styles.gap.com/opaque.css">'+html())}});
+ await assert.rejects(reader.read(url,{assertCurrent:async()=>{}}),e=>e.message==='PRODUCT_NOT_VERIFIED'&&e.stage==='product_observation'&&e.reason==='STYLESHEET_AUDIT_FAILED');
  }finally{await browser.close()}
 });

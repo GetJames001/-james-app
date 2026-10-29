@@ -6,6 +6,7 @@ const fail=code=>{throw Error(code)};
 const transportErrors=new Set(['PUBLIC_URL_DENIED','PUBLIC_DNS_DENIED','PUBLIC_DNS_UNCONFIRMED','PUBLIC_RESPONSE_UNVERIFIED','PUBLIC_CONTENT_UNSUPPORTED','PUBLIC_RESPONSE_TOO_LARGE','PUBLIC_REQUEST_UNCONFIRMED','TASK_INTERRUPTED']);
 const identity=v=>typeof v==='string'?v.normalize('NFKC').toLowerCase().replace(/[^\p{L}\p{N}]/gu,''):'';
 function verifyPublicProduct(observation,{requestedUrl,observedAt}={}){
+ if(observation?.cssVerified!==true){const error=Error('PRODUCT_NOT_VERIFIED');error.reason='STYLESHEET_AUDIT_FAILED';throw error}
  const url=transportUrl(requestedUrl);if(transportUrl(observation?.url)!==url||transportUrl(observation?.canonical)!==url||observation.cssVerified!==true||observation.headingCount!==1||!identity(observation.heading)||!Array.isArray(observation.products)||observation.products.length>100)fail('PRODUCT_NOT_VERIFIED');
  const matches=observation.products.filter(p=>p&&identity(p.name)===identity(observation.heading)&&(!p.url||(()=>{try{return transportUrl(p.url)===url}catch{return false}})()));
  if(matches.length!==1)fail('PRODUCT_NOT_VERIFIED');const p=matches[0],offers=Array.isArray(p.offers)?p.offers:[p.offers];
@@ -58,7 +59,7 @@ function createPublicProductReader({browser,fetchPublic,now=()=>new Date().toISO
     return {url:location.href,canonical:document.querySelector('link[rel="canonical"]')?.href,cssVerified,headingCount:hs.length,heading:h?.innerText,products,prices,images:Array.from(document.querySelectorAll('img')).slice(0,100).map(n=>({url:n.currentSrc||n.src,visible:visible(n),loaded:n.complete&&n.naturalWidth>0}))};
    }));
    await current();return verifyPublicProduct(observation,{requestedUrl:url,observedAt:now()});
-  }catch(error){const safe=Error(transportErrors.has(error?.message)||['PRODUCT_NOT_VERIFIED','WEBSOCKET_GATE_UNAVAILABLE'].includes(error?.message)?error.message:'READER_EXECUTION_UNCONFIRMED');safe.stage=stage;if(safe.message==='PUBLIC_RESPONSE_UNVERIFIED'&&Number.isInteger(documentStatus)&&documentStatus>=100&&documentStatus<=599)safe.httpStatus=documentStatus;if(resourceExhausted)safe.reason='RESOURCE_BUDGET_EXHAUSTED';else if(styleUnconfirmed)safe.reason='STYLESHEET_FETCH_REJECTED';throw safe;}finally{stopped.abort();clearTimeout(timer);if(context)await closeContext(context);else if(acquiring){acquiring.then(ctx=>closeContext(ctx)).catch(()=>{});fail('CLEANUP_UNCONFIRMED')}}
+  }catch(error){const safe=Error(transportErrors.has(error?.message)||['PRODUCT_NOT_VERIFIED','WEBSOCKET_GATE_UNAVAILABLE'].includes(error?.message)?error.message:'READER_EXECUTION_UNCONFIRMED');safe.stage=stage;if(safe.message==='PUBLIC_RESPONSE_UNVERIFIED'&&Number.isInteger(documentStatus)&&documentStatus>=100&&documentStatus<=599)safe.httpStatus=documentStatus;if(resourceExhausted)safe.reason='RESOURCE_BUDGET_EXHAUSTED';else if(styleUnconfirmed)safe.reason='STYLESHEET_FETCH_REJECTED';else if(error?.reason==='STYLESHEET_AUDIT_FAILED')safe.reason=error.reason;throw safe;}finally{stopped.abort();clearTimeout(timer);if(context)await closeContext(context);else if(acquiring){acquiring.then(ctx=>closeContext(ctx)).catch(()=>{});fail('CLEANUP_UNCONFIRMED')}}
  }};
 }
 module.exports={verifyPublicProduct,createPublicProductReader};
