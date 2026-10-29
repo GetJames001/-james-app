@@ -7,7 +7,7 @@ const SEARCH_HOST='sik.search.blue.cdtapps.com';
 const SUPPORTED_QUERIES=['desk lamps','table lamps','bookshelves','office chairs'];
 function catalogSearchPayload(query='desk lamps'){
  if(!SUPPORTED_QUERIES.includes(query))fail('REQUEST_INVALID');
- // Trusted allowlisted public catalog read for this isolated pilot. No page data is copied.
+ // Trusted fixed public catalog read for this isolated pilot. No page data is copied.
  return JSON.stringify({searchParameters:{input:query,type:'QUERY'},components:[{component:'PRIMARY_AREA',columns:4,types:{main:'PRODUCT',breakouts:['CONTENT','PLANNER']}}]});
 }
 function allowResource({url,method,type,mainDocument=false,authorizedSearch=false}){
@@ -56,24 +56,26 @@ function parseRequest(text){
  query=query.toLowerCase().replace(/\s+/g,' ');if(!SUPPORTED_QUERIES.includes(query))fail('REQUEST_UNSUPPORTED');
  return {query,maxPrice,currency:'USD',searchUrl:publicUrl('https://'+HOST+'/us/en/search/?q='+encodeURIComponent(query))};
 }
-function createBrowserbase({apiKey,projectId,enabled=false,usageApproved=false,maxUsageMinutes=null,fetchImpl=fetch,connectOverCDP}){
- async function api(path,body,method='POST'){
-  let r;try{r=await fetchImpl('https://api.browserbase.com/v1/'+path,{method,redirect:'error',signal:AbortSignal.timeout(10000),headers:{'X-BB-API-Key':apiKey,'Content-Type':'application/json'},...(method==='POST'?{body:JSON.stringify(body)}:{})})}catch{fail('PROVIDER_REQUEST_UNCONFIRMED')}
+function createBrowserbase({apiKey,projectId,enabled=false,usageApproved=false,maxUsageMinutes=null,fetchImpl=fetch,connectOverCDP,createDriver}){
+ async function api(path,body,method='POST',signal){
+  let r;try{r=await fetchImpl('https://api.browserbase.com/v1/'+path,{method,redirect:'error',signal:signal?AbortSignal.any([signal,AbortSignal.timeout(10000)]):AbortSignal.timeout(10000),headers:{'X-BB-API-Key':apiKey,'Content-Type':'application/json'},...(method==='POST'?{body:JSON.stringify(body)}:{})})}catch{fail('PROVIDER_REQUEST_UNCONFIRMED')}
   if(!r.ok)fail('PROVIDER_REQUEST_REJECTED');let data;try{data=await r.json()}catch{fail('PROVIDER_RESPONSE_INVALID')}return data;
  }
  function preflight(){
-  if(!enabled)fail('EXECUTION_DISABLED');if(!usageApproved)fail('USAGE_APPROVAL_REQUIRED');if(!apiKey||!projectId)fail('PROVIDER_NOT_CONFIGURED');if(typeof connectOverCDP!=='function')fail('DRIVER_NOT_CONFIGURED');
+  if(!enabled)fail('EXECUTION_DISABLED');if(!usageApproved)fail('USAGE_APPROVAL_REQUIRED');if(!apiKey||!projectId)fail('PROVIDER_NOT_CONFIGURED');if(typeof connectOverCDP!=='function'||createDriver!==undefined&&typeof createDriver!=='function')fail('DRIVER_NOT_CONFIGURED');
   return {provider:'browserbase',sessionTimeoutSeconds:60,maxSessionsPerTask:2};
  }
- return {preflight,async open(){
-  preflight();
+ return {preflight,async open({assertCurrent,signal}={}){
+  async function current(){if(signal?.aborted)fail('TASK_INTERRUPTED');if(assertCurrent)await assertCurrent();if(signal?.aborted)fail('TASK_INTERRUPTED')}
+  preflight();await current();
   if(maxUsageMinutes!==null){
    if(!Number.isSafeInteger(maxUsageMinutes)||maxUsageMinutes<0)fail('USAGE_UNCONFIRMED');
-   const usage=await api('projects/'+encodeURIComponent(projectId)+'/usage',undefined,'GET');
+   const usage=await api('projects/'+encodeURIComponent(projectId)+'/usage',undefined,'GET',signal);
    if(!Number.isSafeInteger(usage.browserMinutes)||usage.browserMinutes<0||usage.browserMinutes>maxUsageMinutes)fail('USAGE_ALLOWANCE_UNCONFIRMED');
   }
+  await current();
   // No keepAlive/Contexts/proxies, automatic CAPTCHA solving, logs or recordings.
-  const session=await api('sessions',{projectId,timeout:60,keepAlive:false,proxies:false,browserSettings:{solveCaptchas:false,recordSession:false,logSession:false,ignoreCertificateErrors:false,allowedDomains:[HOST,SEARCH_HOST]}});
+  const session=await api('sessions',{projectId,timeout:60,keepAlive:false,proxies:false,browserSettings:{solveCaptchas:false,recordSession:false,logSession:false,ignoreCertificateErrors:false,allowedDomains:[HOST,SEARCH_HOST]}},'POST',signal);
   if(typeof session.id!=='string'||!/^[\w-]{1,160}$/.test(session.id))fail('PROVIDER_RESPONSE_INVALID');
   let browser,closed=false;
   async function close(){
@@ -87,8 +89,12 @@ function createBrowserbase({apiKey,projectId,enabled=false,usageApproved=false,m
    fail('CLEANUP_UNCONFIRMED');
   }
   try{
+   await current();
    const url=new URL(session.connectUrl);if(url.protocol!=='wss:'||!(url.hostname==='connect.browserbase.com'||url.hostname.endsWith('.browserbase.com')))fail('PROVIDER_RESPONSE_INVALID');
    browser=await connectOverCDP(session.connectUrl,{timeout:10000});
+   // Server-owned alternative reader; it must create its own protected contexts.
+   // The existing IKEA driver remains the default. No raw browser reaches the client.
+   if(createDriver){await current();const driver=await createDriver(browser);if(typeof driver?.read!=='function')fail('DRIVER_NOT_CONFIGURED');await current();return {id:session.id,driver,close}}
    const context=await browser.newContext({serviceWorkers:'block',acceptDownloads:false});if(!context)fail('BROWSER_CONTEXT_UNAVAILABLE');
    if(typeof context.routeWebSocket!=='function')fail('WEBSOCKET_GATE_UNAVAILABLE');
    await context.routeWebSocket('**/*',socket=>socket.close());

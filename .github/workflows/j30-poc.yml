@@ -17,5 +17,5 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npx playwright install --with-deps chromium
-      - run: node --test tests/j30.test.js tests/j30.browser.test.js tests/j30-runtime.test.js tests/j30-client.test.js tests/j30-public-fetch.test.js tests/j30-public-product.test.js tests/j30-public-product.browser.test.js tests/j30-discovery.test.js tests/j30-target.test.js tests/j30-target.browser.test.js tests/conversation.browser.test.js
+      - run: node --test tests/j30.test.js tests/j30.browser.test.js tests/j30-runtime.test.js tests/j30-client.test.js tests/j30-public-fetch.test.js tests/j30-public-product.test.js tests/j30-public-product.browser.test.js tests/j30-general-shopping.test.js tests/j30-provider-guards.test.js tests/j30-discovery.test.js tests/j30-target.test.js tests/j30-target.browser.test.js tests/conversation.browser.test.js
       - run: node j30/preflight.cjs

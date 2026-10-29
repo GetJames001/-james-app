@@ -1,7 +1,8 @@
 'use strict';
 const {createShoppingCapability}=require('./shopping.cjs');
-// Deliberately NOT registered in api/gateway.js. An isolated developer adapter only.
-function createHostHandler({authorize,ownerIdentity,conversationStore,checkpoints,provider,enabled=false}){
+// Internal adapter for the isolated research runtime. Capability selection is server-owned.
+function createHostHandler({authorize,ownerIdentity,conversationStore,checkpoints,provider,enabled=false,researchFactory=createShoppingCapability}){
+ if(typeof researchFactory!=='function')throw Error('HOST_DEPENDENCIES_REQUIRED');
  return async(req,res)=>{
   if(!authorize(req,res,{csrf:true}))return;
   res.setHeader('Cache-Control','private, no-store');
@@ -12,9 +13,9 @@ function createHostHandler({authorize,ownerIdentity,conversationStore,checkpoint
   const owner=ownerIdentity();if(!owner)return res.status(503).json({ok:false,error:'OWNER_UNAVAILABLE'});
   let scope;try{const head=await conversationStore.execute(owner);if(head?.status!=='ready'||head.conversationId!==body.conversationId||head.generation!==body.generation)throw Error();const {accountId,conversationId,generation}=head;scope={accountId,conversationId,generation}}catch{return res.status(409).json({ok:false,error:'CONVERSATION_UNCONFIRMED'})}
   const controller=new AbortController();req.on?.('aborted',()=>controller.abort());
-  const research=createShoppingCapability({checkpoints,provider,verifyScope:async current=>{const head=await conversationStore.execute(owner);return head?.status==='ready'&&['accountId','conversationId','generation'].every(k=>head[k]===current[k])}});
+  const research=researchFactory({checkpoints,provider,verifyScope:async current=>{const head=await conversationStore.execute(owner);return head?.status==='ready'&&['accountId','conversationId','generation'].every(k=>head[k]===current[k])}});
   try{const result=await research({text:body.text,taskId:body.taskId,scope,signal:controller.signal,isCurrent:()=>!controller.signal.aborted});return res.status(200).json({ok:true,result})}
-  catch(error){const safe=['ACTION_NOT_AUTHORIZED','REQUEST_INVALID','SCOPE_INVALID','TASK_INTERRUPTED','TASK_BUSY_OR_INTERRUPTED','RECONCILE_BEFORE_RETRY','TASK_REQUEST_MISMATCH','SESSION_BUDGET_EXHAUSTED'];return res.status(409).json({ok:false,error:safe.includes(error.message)?error.message:'TASK_UNCONFIRMED'})}
+  catch(error){const safe=['ACTION_NOT_AUTHORIZED','REQUEST_INVALID','SCOPE_INVALID','TASK_INTERRUPTED','TASK_BUSY_OR_INTERRUPTED','RECONCILE_BEFORE_RETRY','TASK_REQUEST_MISMATCH','SESSION_BUDGET_EXHAUSTED','DISCOVERY_DISABLED','DISCOVERY_NOT_CONFIGURED','FREE_SEARCH_ALLOWANCE_UNVERIFIED','DISCOVERY_REQUEST_UNSUPPORTED'];return res.status(409).json({ok:false,error:safe.includes(error.message)?error.message:'TASK_UNCONFIRMED'})}
  };
 }
 module.exports={createHostHandler};
