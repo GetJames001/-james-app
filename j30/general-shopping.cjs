@@ -53,7 +53,7 @@ function createGeneralShoppingCapability({verifyScope,checkpoints,discover,provi
    try{
     await current();await valueWithin(()=>provider.preflight?.(),activeSignal);await current();
     task.status='running';task.sessionStarts++;task.uncertainSession=true;await store.write(task);
-    opening=Promise.resolve().then(async()=>{await current();return provider.open({assertCurrent:current,signal:activeSignal})});session=await valueWithin(()=>opening,activeSignal);task.uncertainSession=false;task.sessionId=session.id;await store.write(task);await current();
+    opening=Promise.resolve().then(async()=>{await current();return provider.open({assertCurrent:current,signal:activeSignal,navigationHosts:[...new Set(task.remaining.map(url=>new URL(url).hostname))]})});session=await valueWithin(()=>opening,activeSignal);task.uncertainSession=false;task.sessionId=session.id;await store.write(task);await current();
     while(task.remaining.length&&visited<pauseAfter){
      await current();stage='product_observation';const url=task.remaining[0];
      try{const receipt=await valueWithin(()=>session.driver.read(url,{assertCurrent:current,signal:activeSignal}),activeSignal);await current();const product=productReceipt(receipt);if(product.url!==url)fail('PRODUCT_NOT_VERIFIED');task.results.push(product)}

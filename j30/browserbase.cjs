@@ -56,7 +56,7 @@ function parseRequest(text){
  query=query.toLowerCase().replace(/\s+/g,' ');if(!SUPPORTED_QUERIES.includes(query))fail('REQUEST_UNSUPPORTED');
  return {query,maxPrice,currency:'USD',searchUrl:publicUrl('https://'+HOST+'/us/en/search/?q='+encodeURIComponent(query))};
 }
-function createBrowserbase({apiKey,projectId,enabled=false,usageApproved=false,maxUsageMinutes=null,fetchImpl=fetch,connectOverCDP,createDriver}){
+function createBrowserbase({apiKey,projectId,enabled=false,usageApproved=false,maxUsageMinutes=null,fetchImpl=fetch,connectOverCDP,createDriver,allowTaskNavigation=false}){
  async function api(path,body,method='POST',signal){
   let r;try{r=await fetchImpl('https://api.browserbase.com/v1/'+path,{method,redirect:'error',signal:signal?AbortSignal.any([signal,AbortSignal.timeout(10000)]):AbortSignal.timeout(10000),headers:{'X-BB-API-Key':apiKey,'Content-Type':'application/json'},...(method==='POST'?{body:JSON.stringify(body)}:{})})}catch{fail('PROVIDER_REQUEST_UNCONFIRMED')}
   if(!r.ok)fail('PROVIDER_REQUEST_REJECTED');let data;try{data=await r.json()}catch{fail('PROVIDER_RESPONSE_INVALID')}return data;
@@ -65,9 +65,10 @@ function createBrowserbase({apiKey,projectId,enabled=false,usageApproved=false,m
   if(!enabled)fail('EXECUTION_DISABLED');if(!usageApproved)fail('USAGE_APPROVAL_REQUIRED');if(!apiKey||!projectId)fail('PROVIDER_NOT_CONFIGURED');if(typeof connectOverCDP!=='function'||createDriver!==undefined&&typeof createDriver!=='function')fail('DRIVER_NOT_CONFIGURED');
   return {provider:'browserbase',sessionTimeoutSeconds:60,maxSessionsPerTask:2};
  }
- return {preflight,async open({assertCurrent,signal}={}){
+ return {preflight,async open({assertCurrent,signal,navigationHosts}={}){
   async function current(){if(signal?.aborted)fail('TASK_INTERRUPTED');if(assertCurrent)await assertCurrent();if(signal?.aborted)fail('TASK_INTERRUPTED')}
   preflight();await current();
+  let domains=[HOST,SEARCH_HOST];if(allowTaskNavigation===true){if(!Array.isArray(navigationHosts)||!navigationHosts.length||navigationHosts.length>5)fail('NAVIGATION_SCOPE_INVALID');domains=[...new Set(navigationHosts)];for(const host of domains){let url;try{url=new URL('https://'+host+'/')}catch{fail('NAVIGATION_SCOPE_INVALID')}if(typeof host!=='string'||host.length>253||!/^[a-z0-9.-]+$/.test(host)||url.hostname!==host||!require('./discovery.cjs').candidateUrl(url.href))fail('NAVIGATION_SCOPE_INVALID')}}
   if(maxUsageMinutes!==null){
    if(!Number.isSafeInteger(maxUsageMinutes)||maxUsageMinutes<0)fail('USAGE_UNCONFIRMED');
    const usage=await api('projects/'+encodeURIComponent(projectId)+'/usage',undefined,'GET',signal);
@@ -75,7 +76,7 @@ function createBrowserbase({apiKey,projectId,enabled=false,usageApproved=false,m
   }
   await current();
   // No keepAlive/Contexts/proxies, automatic CAPTCHA solving, logs or recordings.
-  const session=await api('sessions',{projectId,timeout:60,keepAlive:false,proxies:false,browserSettings:{solveCaptchas:false,recordSession:false,logSession:false,ignoreCertificateErrors:false,allowedDomains:[HOST,SEARCH_HOST]}},'POST',signal);
+  const session=await api('sessions',{projectId,timeout:60,keepAlive:false,proxies:false,browserSettings:{solveCaptchas:false,recordSession:false,logSession:false,ignoreCertificateErrors:false,allowedDomains:domains}},'POST',signal);
   if(typeof session.id!=='string'||!/^[\w-]{1,160}$/.test(session.id))fail('PROVIDER_RESPONSE_INVALID');
   let browser,closed=false;
   async function close(){
