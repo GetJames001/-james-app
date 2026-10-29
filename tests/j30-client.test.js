@@ -84,3 +84,16 @@ test('new conversation scope retains an enabled Stop response while waiting',asy
  const f=fixture({research:async()=>{if(++calls===1)return {ok:true,result:{status:'completed',comparisonVerified:true,products:[]}};return new Promise(r=>{release=r;entered()})}});
  try{f.input.value='Compare desk lamps under $50';await f.ui.ask();scope.conversationId='conversation-new-fixture';f.input.value='Compare desk lamps under $50';const pending=f.ui.ask();await start;const stop=f.nodes.find(n=>n.textContent==='Stop response');assert.equal(stop.disabled,false);stop.onclick();release({ok:true,result:{status:'completed',comparisonVerified:true,products:[]}});await pending;assert.equal(f.input.value,'Compare desk lamps under $50');}finally{scope.conversationId=original;}
 });
+
+test('Resume research retries the retained task without model routing or clearing a changed draft',async()=>{
+ let release,entered;const start=new Promise(r=>entered=r);let count=0;
+ const f=fixture({research:body=>++count===1?new Promise(r=>{release=r;entered()}):{ok:true,result:{taskId:body.taskId,status:'completed',comparisonVerified:true,resultSource:'saved',products:[]}}});
+ f.input.value='Compare desk lamps under $50';const pending=f.ui.ask();await start;
+ f.ui.cancelReply();const resume=f.nodes.find(n=>n.textContent==='Resume research');assert.equal(resume.hidden,false);
+ release({ok:true,result:{status:'completed',comparisonVerified:true,products:[]}});await pending;
+ f.input.value='My unsent draft';await resume.onclick();
+ const calls=f.requests.filter(r=>r.url==='/api/james/research');assert.equal(calls.length,2);assert.equal(calls[0].body.taskId,calls[1].body.taskId);assert.equal(f.requests.some(r=>r.url==='/api/fast'),false);assert.equal(f.input.value,'My unsent draft');assert.equal(resume.hidden,true);
+});
+test('stale Resume research cannot restart a different task after revoke',async()=>{
+ let release,entered;const start=new Promise(r=>entered=r);const f=fixture({research:()=>new Promise(r=>{release=r;entered()})});f.input.value='Compare desk lamps under $50';const pending=f.ui.ask();await start;f.ui.cancelReply();const resume=f.nodes.find(n=>n.textContent==='Resume research');f.ui.revoke();await resume.onclick();release({ok:true,result:{status:'completed',comparisonVerified:true,products:[]}});await pending;assert.equal(f.requests.filter(r=>r.url==='/api/james/research').length,1);assert.equal(resume.hidden,true);
+});

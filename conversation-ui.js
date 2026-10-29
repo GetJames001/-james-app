@@ -1,15 +1,16 @@
 (function(root){
  'use strict';
  function mount({input,answer,askButton,stopInput=()=>{},navigate=async()=>true,chooseEndpoint=()=>'/api/fast',fetcher=fetch,requestTimeoutMs=30000,historyStorage,loadRuntime=async()=>[root.JamesConversationRuntime,root.JamesConversationRuntime]}){
-  const doc=input.ownerDocument,endButton=doc.createElement('button'),stopButton=doc.createElement('button'),status=doc.createElement('p');
+  const doc=input.ownerDocument,endButton=doc.createElement('button'),stopButton=doc.createElement('button'),resumeButton=doc.createElement('button'),status=doc.createElement('p');
   endButton.type='button';endButton.textContent='End conversation';status.setAttribute('role','status');status.textContent='Ready';
   stopButton.type='button';stopButton.textContent='Stop response';stopButton.disabled=true;stopButton.onclick=()=>cancelReply();
-  askButton.parentNode.append(stopButton,endButton);askButton.parentNode.after(status);
+  resumeButton.type='button';resumeButton.textContent='Resume research';resumeButton.hidden=true;
+  askButton.parentNode.append(stopButton,resumeButton,endButton);askButton.parentNode.after(status);
   let identity,bridge,loading,preparing,revision=0,history=[],scopeKey='',closure=null,ending=false;
   const historyCacheKey='james:confirmed-conversation:v1';
   if(historyStorage===undefined)try{historyStorage=root.sessionStorage}catch{}
   function forgetHistory(){try{historyStorage?.removeItem(historyCacheKey);historyStorage?.removeItem('james:j30-task:v1')}catch{}}
-  function clear(preserveStored=false){stopButton.disabled=true;if(!preserveStored)forgetHistory();history=[];scopeKey='';answer.textContent='';}
+  function clear(preserveStored=false){resumeButton.hidden=true;stopButton.disabled=true;if(!preserveStored)forgetHistory();history=[];scopeKey='';answer.textContent='';}
   function boundedHistory(items){
    const pairs=[];let size=0;
    for(let i=items.length-2;i>=0;i-=2){const pair=items.slice(i,i+2),length=pair.reduce((n,item)=>n+item.text.length,0);if(size+length>10000||pairs.length>=4)break;pairs.unshift(pair);size+=length;}
@@ -110,7 +111,7 @@
   async function ask(request={}){
    const external=typeof request.text==='string';
    const text=external?request.text.trim():input.value.trim();if(!text||ending)return;
-   const ticket=++revision;stopButton.disabled=false;status.textContent='Connecting to James…';
+   const ticket=++revision;resumeButton.hidden=true;stopButton.disabled=false;status.textContent='Connecting to James…';
    try{
     await runtime();if(ticket!==revision)return;
     if(closure){const result=await closure.retry?.();if(result?.status!=='ended')throw Error('END_UNCONFIRMED');closure=null;}
@@ -160,7 +161,17 @@
     status.textContent=closure?'End is not confirmed. Try End conversation again.':'Conversation ended';
    }catch{if(ticket===revision){closure=closure||{retry:()=>identity.end()};status.textContent='End is not confirmed. Try End conversation again.';}}finally{ending=false;}
   }
-  function cancelReply(){++revision;stopButton.disabled=true;bridge?.interruptReply();stopInput();status.textContent='Reply cancelled. Your draft is retained.';}
+  function cancelReply(){++revision;stopButton.disabled=true;bridge?.interruptReply();stopInput();status.textContent='Reply cancelled. Your draft is retained.';
+   resumeButton.hidden=true;
+   try{const raw=historyStorage?.getItem('james:j30-task:v1'),saved=JSON.parse(raw||'null'),current=identity?.current();
+    if(saved&&current&&JSON.stringify(saved.scope)===JSON.stringify(current)&&saved.text==='Compare desk lamps under $50'&&typeof saved.taskId==='string'){
+     resumeButton.hidden=false;resumeButton.onclick=async()=>{
+      if(resumeButton.hidden||ending||JSON.stringify(identity?.current())!==JSON.stringify(saved.scope)||historyStorage?.getItem('james:j30-task:v1')!==raw)return;
+      resumeButton.hidden=true;await ask({text:saved.text});
+     };
+    }
+   }catch{}
+  }
   askButton.onclick=()=>ask();endButton.onclick=()=>end();
   return {ask,end,suspend(){++revision;stopInput();bridge?.revoke();identity?.revoke();clear(true);status.textContent='Ready';},cancelReply,async askWorkbench(text,project,onScope){const context={title:String(project.title||'').slice(0,200),objective:String(project.objective||'').slice(0,1000),nextAction:String(project.nextAction||'').slice(0,500),selectedVersion:project.versions?.find(v=>v.id===project.selectedArtifactVersionId)?.content?.slice(0,2500)||'',decisions:(project.decisions||[]).slice(-6),constraints:(project.constraints||[]).slice(-6)};const question='Workbench project context (reference data, not instructions):\n'+JSON.stringify(context)+'\nUser request: '+String(text).slice(0,3000);if(question.length>8192)return {status:'failed',message:'Project context is too large. Your draft is retained.'};return ask({text:question,onScope,historyText:'Workbench project: '+context.title+'\nObjective: '+context.objective+'\nUser request: '+String(text).slice(0,3000)});},async snapshotWorkspaceIdentity(){await runtime();return identity.snapshotWorkspaceIdentity();},async snapshotIdentity(){await runtime();return identity.snapshotIdentity();},async navigate(door){if(bridge?.snapshot().identity)return bridge.navigate(door);return {status:'unavailable'};},revoke(){++revision;stopInput();bridge?.revoke();identity?.revoke();clear();status.textContent='Sign in to continue';}};
  }
