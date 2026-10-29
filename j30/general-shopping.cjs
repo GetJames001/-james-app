@@ -58,7 +58,7 @@ function createGeneralShoppingCapability({verifyScope,checkpoints,discover,provi
      catch(error){if(!['PRODUCT_NOT_VERIFIED','PUBLIC_URL_DENIED','PUBLIC_DNS_DENIED','PUBLIC_DNS_UNCONFIRMED','PUBLIC_RESPONSE_UNVERIFIED','PUBLIC_CONTENT_UNSUPPORTED','PUBLIC_RESPONSE_TOO_LARGE','PUBLIC_REQUEST_UNCONFIRMED'].includes(error?.message))throw error;await current();task.failures.push({url,error:'PRODUCT_NOT_VERIFIED',diagnostic:{stage:stages.has(error?.stage)?error.stage:stage,code:error.message}})}
      task.remaining.shift();visited++;await store.write(task);
     }
-    task.status=task.remaining.length?'paused':task.results.filter(p=>task.plan.maxPrice===null||p.price<=task.plan.maxPrice).length>=2?'completed':'incomplete';delete task.error;
+    task.status=task.remaining.length?'paused':task.results.filter(p=>task.plan.maxPrice===null||p.price<=task.plan.maxPrice).length>=2?'completed':'incomplete';delete task.error;delete task.diagnostic;
    }catch(error){task.diagnostic={stage:stages.has(error?.stage)?error.stage:stage,code:diagnosticCodes.has(error?.message)?error.message:'READER_EXECUTION_UNCONFIRMED'};task.status=error?.message==='TASK_INTERRUPTED'?'paused':'blocked';task.error=error?.message==='TASK_INTERRUPTED'?'TASK_INTERRUPTED':'EXECUTION_UNCONFIRMED';if(error?.message==='CLEANUP_UNCONFIRMED'){task.cleanupUnconfirmed=true;task.error='CLEANUP_UNCONFIRMED'}}
    finally{
     if(session)try{await closeSession(session)}catch{task.cleanupUnconfirmed=true;task.status='blocked';task.error='CLEANUP_UNCONFIRMED';task.diagnostic={stage:'cleanup',code:'CLEANUP_UNCONFIRMED'}}
