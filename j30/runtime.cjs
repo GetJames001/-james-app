@@ -1,6 +1,6 @@
 'use strict';
 const BRANCH='poc/j30-browserbase-shopping-20261028';
-function createRuntime({env,authorize,load}){
+function createRuntime({env,authorize,load,emitDiagnostic=event=>console.info(JSON.stringify(event))}){
  return async(req,res)=>{
   res.setHeader('Cache-Control','private, no-store');
   res.setHeader('X-Content-Type-Options','nosniff');
@@ -16,6 +16,8 @@ function createRuntime({env,authorize,load}){
   if(req.method!=='POST')return res.status(405).json({ok:false,error:'METHOD_NOT_ALLOWED'});
   if(!state.enabled||!state.usageApproved)return res.status(503).json({ok:false,error:'J30_EXECUTION_DISABLED'});
   if(!state.credentialsPresent)return res.status(503).json({ok:false,error:'PROVIDER_NOT_CONFIGURED'});
+  const started=Date.now();
+  function recordDiagnostic(value){try{const event=load('./research-diagnostics.cjs').researchDiagnostic({...value,commit:env.VERCEL_GIT_COMMIT_SHA});const pending=emitDiagnostic(event);if(pending&&typeof pending.catch==='function')pending.catch(()=>{})}catch{}}
   try{
    const {chromium}=load('playwright');
    const browserbase=load('./browserbase.cjs');let general=false;
@@ -30,9 +32,9 @@ function createRuntime({env,authorize,load}){
     const search=load('./discovery.cjs').createBrowserbaseSearch({apiKey:env.BROWSERBASE_API_KEY,enabled:true,usageApproved:true,reserveFreeCall});
     researchFactory=options=>{const discover=load('./discovery.cjs').createDiscoveryCapability({...options,search});const research=load('./general-shopping.cjs').createGeneralShoppingCapability({...options,discover});return load('./research-recovery.cjs').createRecoverableResearch({...options,research})};
    }
-   const handler=load('./host.cjs').createHostHandler({authorize,ownerIdentity:load('../lib/auth.js').configuredIdentity,conversationStore,checkpoints,provider,enabled:true,...(researchFactory?{researchFactory}:{})});
+   const handler=load('./host.cjs').createHostHandler({authorize,ownerIdentity:load('../lib/auth.js').configuredIdentity,conversationStore,checkpoints,provider,enabled:true,onOutcome:recordDiagnostic,...(researchFactory?{researchFactory}:{})});
    return await handler(req,res);
-  }catch{return res.status(503).json({ok:false,error:'J30_RUNTIME_UNAVAILABLE'})}
+  }catch{recordDiagnostic({errorCode:'J30_RUNTIME_UNAVAILABLE',elapsedMs:Math.max(0,Date.now()-started)});return res.status(503).json({ok:false,error:'J30_RUNTIME_UNAVAILABLE'})}
  };
 }
 // Literal require keeps the CDP client in the hosted function dependency trace.
