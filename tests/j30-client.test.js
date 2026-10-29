@@ -141,3 +141,10 @@ test('transcript quota failure retains uncertain task identity and category inde
  f.input.value='Compare table lamps under $75';await f.ui.ask();const saved=JSON.parse(f.storage.get('james:j30-task:v1'));assert.ok(f.storage.has('james:j30-task-index:v1'));
  f.input.value='Compare table lamps under $75';await f.ui.ask();const calls=f.requests.filter(r=>r.url==='/api/james/research');assert.equal(calls.length,2);assert.equal(calls[0].body.taskId,saved.taskId);assert.equal(calls[1].body.taskId,saved.taskId);
 });
+
+test('malformed transcript scope cannot erase uncertain research on reload',async()=>{
+ const storage=new Map();const research=async body=>({ok:true,result:{taskId:body.taskId,status:'blocked',comparisonVerified:false,error:'CLEANUP_UNCONFIRMED',products:[]}});
+ const first=fixture({storage,research});first.input.value='Compare table lamps under $75';await first.ui.ask();const id=first.requests.find(r=>r.url==='/api/james/research').body.taskId;
+ storage.set('james:confirmed-conversation:v1',JSON.stringify({version:1,scope:'garbage',history:[]}));
+ const second=fixture({storage,research});second.input.value='Compare table lamps under $75';await second.ui.ask();assert.equal(second.requests.find(r=>r.url==='/api/james/research').body.taskId,id);
+});

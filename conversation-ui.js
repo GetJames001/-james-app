@@ -22,7 +22,7 @@
     const raw=historyStorage?.getItem(historyCacheKey);if(!raw)return;
     if(raw.length>64000)throw Error('Invalid history');
     const saved=JSON.parse(raw);
-    if(saved?.scope&&JSON.stringify(saved.scope)!==JSON.stringify(scope)){forgetHistory();return;}
+    if(saved?.scope&&JSON.stringify(saved.scope)!==JSON.stringify(scope)){forgetTranscript();return;}
     if(!saved||Object.keys(saved).sort().join('|')!=='history|scope|version'||saved.version!==1||JSON.stringify(saved.scope)!==JSON.stringify(scope)||!Array.isArray(saved.history)||saved.history.length>8||saved.history.length%2)throw Error('Invalid history');
     let size=0;for(let i=0;i<saved.history.length;i++){const item=saved.history[i];if(!item||Object.keys(item).sort().join('|')!=='role|text'||item.role!==(i%2?'James':'User')||typeof item.text!=='string'||!item.text.trim())throw Error('Invalid history');size+=item.text.length;}if(size>10000)throw Error('Invalid history');
     history=saved.history;
