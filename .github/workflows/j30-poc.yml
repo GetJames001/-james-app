@@ -1,7 +1,7 @@
 name: J30 isolated proof of concept
 on:
   pull_request:
-    branches: [integration/workbench-host-20261028]
+    branches: [integration/workbench-host-20261028, poc/j30-browserbase-shopping-20261028]
     paths: ['conversation-ui.js', 'api/gateway.js', 'j30/**', 'tests/j30*.test.js', '.github/workflows/j30-poc.yml']
 permissions:
   contents: read
@@ -17,5 +17,5 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npx playwright install --with-deps chromium
-      - run: node --test tests/j30.test.js tests/j30.browser.test.js tests/j30-runtime.test.js tests/j30-client.test.js tests/conversation.browser.test.js
+      - run: node --test tests/j30.test.js tests/j30.browser.test.js tests/j30-runtime.test.js tests/j30-client.test.js tests/j30-target.test.js tests/j30-target.browser.test.js tests/conversation.browser.test.js
       - run: node j30/preflight.cjs
