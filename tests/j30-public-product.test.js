@@ -26,8 +26,20 @@ for(const status of [301,403,429,'403',600])test('document rejection carries onl
 test('small images release unused byte reservations before required CSS',async()=>{
  let handler;const fetched=[],aborted=[];
  async function resource(type,value){await handler({request:()=>({resourceType:()=>type,isNavigationRequest:()=>type==='document',frame:()=>({parentFrame:()=>null}),url:()=>value,method:()=> 'GET'}),fulfill:async()=>{},abort:async()=>{aborted.push(value)}})}
- const page={goto:async()=>{await resource('document',url);for(let i=0;i<8;i++)await resource('image','https://images.gap.com/tiny-'+i+'.png');await resource('stylesheet','https://styles.gap.com/required.css')},evaluate:async()=>observation()};
+ const page={goto:async()=>{await resource('document',url);for(let i=0;i<8;i++)await resource('image','https://images.gap.com/tiny-'+i+'.png');await resource('stylesheet','https://styles.gap.com/required.css')},evaluate:async(_fn,arg)=>arg?true:observation()};
  const context=lifecycleContext({page});context.route=async(_pattern,route)=>{handler=route};
  const reader=createPublicProductReader({browser:{newContext:async()=>context},now:()=> '2026-10-29T00:00:00.000Z',fetchPublic:async(value,{kind})=>{fetched.push(kind);return {contentType:kind==='stylesheet'?'text/css':kind==='image'?'image/png':'text/html',body:Buffer.from('small')}}});
  assert.equal((await reader.read(url,{assertCurrent:async()=>{}})).price,39);assert.equal(fetched.length,10);assert.equal(fetched.at(-1),'stylesheet');assert.deepEqual(aborted,[]);
+});
+test('required CSS after request limit still fails closed with precise reason',async()=>{
+ let handler,calls=0;async function resource(type,value){await handler({request:()=>({resourceType:()=>type,isNavigationRequest:()=>type==='document',frame:()=>({parentFrame:()=>null}),url:()=>value,method:()=> 'GET'}),fulfill:async()=>{},abort:async()=>{}})}
+ const page={goto:async()=>{await resource('document',url);for(let i=0;i<48;i++)await resource('image','https://images.gap.com/tiny-'+i+'.png');await resource('stylesheet','https://styles.gap.com/required.css')},evaluate:async()=>observation()};
+ const context=lifecycleContext({page});context.route=async(_pattern,route)=>{handler=route};const reader=createPublicProductReader({browser:{newContext:async()=>context},fetchPublic:async()=>{calls++;return {contentType:'image/png',body:Buffer.from('small')}}});
+ await assert.rejects(reader.read(url,{assertCurrent:async()=>{}}),e=>e.message==='PRODUCT_NOT_VERIFIED'&&e.reason==='REQUEST_LIMIT_EXHAUSTED');assert.equal(calls,48);
+});
+test('CSS replay cancellation cannot return a late receipt or fetch a new resource',async()=>{
+ let handler,calls=0,closed=0;const controller=new AbortController();async function resource(type,value){await handler({request:()=>({resourceType:()=>type,isNavigationRequest:()=>type==='document',frame:()=>({parentFrame:()=>null}),url:()=>value,method:()=> 'GET'}),fulfill:async()=>{},abort:async()=>{}})}
+ const page={goto:async()=>{await resource('document',url);await resource('stylesheet','https://styles.gap.com/required.css')},evaluate:async()=>{controller.abort();return new Promise(()=>{})}};
+ const context=lifecycleContext({page,close:async()=>{closed++}});context.route=async(_pattern,route)=>{handler=route};const reader=createPublicProductReader({browser:{newContext:async()=>context},fetchPublic:async()=>{calls++;return {contentType:'text/css',body:Buffer.from('small')}}});
+ await assert.rejects(reader.read(url,{signal:controller.signal,assertCurrent:async()=>{}}),/TASK_INTERRUPTED/);assert.equal(calls,2);assert.equal(closed,1);
 });
