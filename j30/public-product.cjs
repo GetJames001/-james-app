@@ -50,9 +50,7 @@ function createPublicProductReader({browser,fetchPublic,now=()=>new Date().toISO
     try{await current();const response=await budget.run(kind==='stylesheet'?500000:2000000,()=>fetchPublic(request.url(),{kind,assertCurrent:current,signal:activeSignal}),{signal:activeSignal});await current();if(kind!=='document')resources.set(kind+':'+request.url(),{contentType:response.contentType,body:Buffer.from(response.body)});await route.fulfill({status:200,contentType:response.contentType,body:response.body,headers:renderHeaders})}catch(error){if(error?.message==='RESOURCE_BUDGET_EXHAUSTED')resourceReason='BYTE_BUDGET_EXHAUSTED';if(main&&request.url()===url){documentError=transportErrors.has(error?.message)?error.message:'PUBLIC_REQUEST_UNCONFIRMED';documentStatus=error?.httpStatus}if(type==='stylesheet')styleUnconfirmed=true;return route.abort()}
    }));
    const page=await active(()=>context.newPage());stage='document_navigation';try{await active(()=>page.goto(url,{waitUntil:'load',timeout:20000}))}catch(error){if(documentError)fail(documentError);throw error}await current();if(styleUnconfirmed)fail('PRODUCT_NOT_VERIFIED');stage='product_observation';
-   replaying=true;const cachedStyles=[...resources.keys()].filter(key=>key.startsWith('stylesheet:')).map(key=>key.slice('stylesheet:'.length));
-   if(!await active(()=>replayOpaqueStylesheets(page,cachedStyles))||styleUnconfirmed){const error=Error('PRODUCT_NOT_VERIFIED');error.reason='STYLESHEET_AUDIT_FAILED';throw error}await current();
-   const observation=await active(()=>page.evaluate(()=>{
+   const observe=()=>{
     const visible=n=>Boolean(n&&typeof n.checkVisibility==='function'&&n.checkVisibility({checkOpacity:true,checkVisibilityCSS:true})&&n.getBoundingClientRect().width>0&&n.getBoundingClientRect().height>0);
     const hs=Array.from(document.querySelectorAll('h1')).filter(visible),h=hs[0],products=[];let scanned=0;
     // CSP/offline failures can occur before a route callback. Require inspectable,
@@ -65,9 +63,17 @@ function createPublicProductReader({browser,fetchPublic,now=()=>new Date().toISO
     const roots=Array.from(document.querySelectorAll('[itemscope][itemtype="https://schema.org/Product"],[itemscope][itemtype="http://schema.org/Product"]')).filter(n=>h&&n.contains(h));
     const prices=roots.length===1?Array.from(roots[0].querySelectorAll('[itemprop="price"]')).filter(n=>visible(n)&&n.closest('[itemscope][itemtype="https://schema.org/Product"],[itemscope][itemtype="http://schema.org/Product"]')===roots[0]).map(n=>({text:n.innerText,sameProductRoot:true})):[];
     return {url:location.href,canonical:document.querySelector('link[rel="canonical"]')?.href,cssVerified,headingCount:hs.length,heading:h?.innerText,products,prices,images:Array.from(document.querySelectorAll('img')).slice(0,100).map(n=>({url:n.currentSrc||n.src,visible:visible(n),loaded:n.complete&&n.naturalWidth>0}))};
-   }));
+   };
+   const original=await active(()=>page.evaluate(observe));await current();
+   replaying=true;const cachedStyles=[...resources.keys()].filter(key=>key.startsWith('stylesheet:')).map(key=>key.slice('stylesheet:'.length));
+   if(!await active(()=>replayOpaqueStylesheets(page,cachedStyles,{assertCurrent:current,signal:activeSignal}))||styleUnconfirmed){const error=Error('PRODUCT_NOT_VERIFIED');error.reason='STYLESHEET_AUDIT_FAILED';throw error}await current();
+   const observation=cachedStyles.length?await active(()=>page.evaluate(observe)):original;
+   // Changing crossorigin must never manufacture newly visible price evidence.
+   // Only CSS auditability may differ; identity, prices and images must agree.
+   const snapshot=value=>{const {cssVerified,...rest}=value;return JSON.stringify(rest)};
+   if(snapshot(original)!==snapshot(observation)){const error=Error('PRODUCT_NOT_VERIFIED');error.reason='STYLESHEET_RENDER_CHANGED';throw error}
    await current();return verifyPublicProduct(observation,{requestedUrl:url,observedAt:now()});
-  }catch(error){const safe=Error(transportErrors.has(error?.message)||['PRODUCT_NOT_VERIFIED','WEBSOCKET_GATE_UNAVAILABLE'].includes(error?.message)?error.message:'READER_EXECUTION_UNCONFIRMED');safe.stage=stage;if(safe.message==='PUBLIC_RESPONSE_UNVERIFIED'&&Number.isInteger(documentStatus)&&documentStatus>=100&&documentStatus<=599)safe.httpStatus=documentStatus;if(resourceReason)safe.reason=resourceReason;else if(styleUnconfirmed)safe.reason='STYLESHEET_FETCH_REJECTED';else if(error?.reason==='STYLESHEET_AUDIT_FAILED')safe.reason=error.reason;throw safe;}finally{stopped.abort();clearTimeout(timer);if(context)await closeContext(context);else if(acquiring){acquiring.then(ctx=>closeContext(ctx)).catch(()=>{});fail('CLEANUP_UNCONFIRMED')}}
+  }catch(error){const safe=Error(transportErrors.has(error?.message)||['PRODUCT_NOT_VERIFIED','WEBSOCKET_GATE_UNAVAILABLE'].includes(error?.message)?error.message:'READER_EXECUTION_UNCONFIRMED');safe.stage=stage;if(safe.message==='PUBLIC_RESPONSE_UNVERIFIED'&&Number.isInteger(documentStatus)&&documentStatus>=100&&documentStatus<=599)safe.httpStatus=documentStatus;if(resourceReason)safe.reason=resourceReason;else if(styleUnconfirmed)safe.reason='STYLESHEET_FETCH_REJECTED';else if(['STYLESHEET_AUDIT_FAILED','STYLESHEET_RENDER_CHANGED'].includes(error?.reason))safe.reason=error.reason;throw safe;}finally{stopped.abort();clearTimeout(timer);if(context)await closeContext(context);else if(acquiring){acquiring.then(ctx=>closeContext(ctx)).catch(()=>{});fail('CLEANUP_UNCONFIRMED')}}
  }};
 }
 module.exports={verifyPublicProduct,createPublicProductReader};
