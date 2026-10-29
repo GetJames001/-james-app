@@ -54,3 +54,9 @@ test('product photo requires matching metadata and a loaded visible image',async
  matching=false;const second=await driver.read(origin+'/us/en/p/fixture/');assert.equal(second.image,undefined);matching=true;hidden=true;const third=await driver.read(origin+'/us/en/p/fixture/');assert.equal(third.image,undefined);hidden=false;parentHidden=true;const fourth=await driver.read(origin+'/us/en/p/fixture/');assert.equal(fourth.image,undefined);
  }finally{await browser.close();}
 });
+
+test('parallel product reader uses separate pages and closes every page after settling',async()=>{
+ const {readProductBatch}=require('../j30/browserbase.cjs');const browser=await chromium.launch();try{const context=await browser.newContext();await context.route('**/*',async route=>{await new Promise(r=>setTimeout(r,50));const name=route.request().url().includes('one')?'One':'Two';return route.fulfill({contentType:'text/html',body:'<h1>'+name+'</h1><p>$10</p><script type="application/ld+json">'+JSON.stringify({'@type':'Product',name,offers:{price:'10',priceCurrency:'USD'}})+'</script>'});});
+ const results=await readProductBatch(context,[origin+'/us/en/p/one/',origin+'/us/en/p/two/']);assert.deepEqual(results.map(r=>r.status),['fulfilled','fulfilled']);assert.equal(results[0].value.name,'One');assert.equal(results[1].value.name,'Two');assert.equal(context.pages().length,0);await assert.rejects(readProductBatch(context,[1,2,3]),/READ_BATCH_INVALID/);
+ }finally{await browser.close();}
+});

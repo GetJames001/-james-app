@@ -98,9 +98,15 @@ function createBrowserbase({apiKey,projectId,enabled=false,usageApproved=false,m
      if(!denied.has(key)&&denied.size>=32&&['fetch','xhr'].includes(req.resourceType())){const first=[...denied.keys()].find(k=>!/(fetch|xhr)\]$/.test(k));if(first)denied.delete(first)}
      if(denied.has(key)||denied.size<32)denied.set(key,(denied.get(key)||0)+1)}catch{}return route.abort()});
    const page=await context.newPage();page.setDefaultTimeout(8000);
-   return {id:session.id,driver:createShoppingDriver(page,()=>[...denied].map(([resource,count])=>({resource,count})),url=>{authorizedSearch=new URL(url).searchParams.get('q')==='desk lamps';},()=>[...catalogResponseStatuses]),close};
+   const driver=createShoppingDriver(page,()=>[...denied].map(([resource,count])=>({resource,count})),url=>{authorizedSearch=new URL(url).searchParams.get('q')==='desk lamps';},()=>[...catalogResponseStatuses]);
+   driver.readBatch=urls=>readProductBatch(context,urls);
+   return {id:session.id,driver,close};
   }catch{try{await close()}catch{fail('CLEANUP_UNCONFIRMED')}fail('BROWSER_CONNECTION_FAILED')}
  }};
+}
+async function readProductBatch(context,urls){
+    if(!Array.isArray(urls)||!urls.length||urls.length>2)fail('READ_BATCH_INVALID');urls.forEach(url=>publicUrl(url,{product:true}));
+    return Promise.allSettled(urls.map(async url=>{let productPage;try{productPage=await context.newPage();productPage.setDefaultTimeout(8000);return await createShoppingDriver(productPage).read(url);}finally{if(productPage)try{await productPage.close()}catch{}}}));
 }
 function createShoppingDriver(page,networkEvidence=()=>[],authorizeSearch=()=>{},catalogEvidence=()=>[]){
  let searchEvidence=null;
@@ -140,4 +146,4 @@ function createShoppingDriver(page,networkEvidence=()=>[],authorizeSearch=()=>{}
   }
  };
 }
-module.exports={createBrowserbase,createShoppingDriver,parseRequest,publicUrl,allowResource,deliverResource,catalogSearchPayload,productImageUrl};
+module.exports={createBrowserbase,createShoppingDriver,parseRequest,publicUrl,allowResource,deliverResource,catalogSearchPayload,productImageUrl,readProductBatch};

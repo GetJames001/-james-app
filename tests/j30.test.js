@@ -82,3 +82,15 @@ test('stage timings survive saved-result replay without another browser session'
  const result=await run(request);assert.ok(result.timing.browserStartMs>=0);assert.ok(result.timing.discoveryMs>=0);assert.equal(result.timing.productReadMs.length,3);assert.ok(result.timing.cleanupMs>=0);assert.ok(result.timing.totalExecutionMs>0);
  const again=await run(request);assert.deepEqual(again.timing,result.timing);assert.equal(again.resultSource,'saved');assert.deepEqual(f.counts(),{openCount:1,closeCount:1,reads:3});
 }));
+
+test('two-at-a-time reads preserve checkpoint order and the pause limit',async()=>fixture(async f=>{
+ const original=f.provider.open;let active=0,maxActive=0;const batches=[];
+ f.provider.open=async()=>{const session=await original();const read=session.driver.read;session.driver.readBatch=async urls=>{batches.push(urls.length);return Promise.allSettled(urls.map(async url=>{active++;maxActive=Math.max(maxActive,active);await new Promise(r=>setTimeout(r,5));try{return await read(url)}finally{active--;}}));};return session;};
+ const result=await f.run(request);assert.equal(result.status,'completed');assert.deepEqual(batches,[2,1]);assert.equal(maxActive,2);assert.equal(active,0);assert.deepEqual(f.counts(),{openCount:1,closeCount:1,reads:3});assert.equal(result.products.length,3);
+}));
+test('cancelled batch settles before cleanup and keeps uncommitted URLs for same-task recovery',async()=>fixture(async f=>{
+ let current=true,settled=false;const original=f.provider.open;
+ f.provider.open=async()=>{const s=await original();const close=s.close;s.driver.readBatch=async urls=>{current=false;await new Promise(r=>setTimeout(r,5));settled=true;return urls.map(url=>({status:'fulfilled',value:{url,name:'Fixture',price:10,currency:'USD'}}));};s.close=async()=>{assert.equal(settled,true);await close()};return s;};
+ await assert.rejects(f.run({...request,isCurrent:()=>current}),/TASK_INTERRUPTED/);assert.equal(f.counts().closeCount,1);
+ const files=await fs.readdir(f.directory);const row=JSON.parse(await fs.readFile(path.join(f.directory,files[0]),'utf8'));assert.equal(row.results.length,0);assert.equal(row.remainingUrls.length,3);
+}));

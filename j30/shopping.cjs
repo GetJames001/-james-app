@@ -27,10 +27,19 @@ function createShoppingCapability({verifyScope,checkpoints,provider,now=Date.now
     await current();await provider.preflight?.();task.status='running';task.sessionStarts++;task.uncertainSession=true;await store.write(task);
     stageStarted=now();session=await provider.open();timing.browserStartMs=Math.max(0,now()-stageStarted);task.sessionId=session.id;task.uncertainSession=false;await store.write(task);
     await current();if(task.remainingUrls===null){stageStarted=now();task.remainingUrls=[...await session.driver.search(task.plan.searchUrl)];timing.discoveryMs=Math.max(0,now()-stageStarted);task.searchEvidence=session.driver.diagnostics?.()||null;await current();await store.write(task)}
+    timing.productReadMode=typeof session.driver.readBatch==='function'?'batches_of_at_most_two':'sequential';
     while(task.remainingUrls.length&&visited<Math.min(3,Math.max(1,pauseAfter))){
-     await current();if(now()-started>45000)throw Error('TASK_TIME_LIMIT');const url=task.remainingUrls[0];let item;
-     stageStarted=now();try{item=await session.driver.read(url)}catch(error){if(!['PRODUCT_NOT_VERIFIED','SITE_REQUIRES_USER_REVIEW'].includes(error.message))throw error;task.failures.push({url,error:error.message});}finally{timing.productReadMs.push(Math.max(0,now()-stageStarted));}
-     await current();if(item)task.results.push(item);task.remainingUrls.shift();visited++;await store.write(task);
+     await current();if(now()-started>45000)throw Error('TASK_TIME_LIMIT');
+     const limit=Math.min(typeof session.driver.readBatch==='function'?2:1,task.remainingUrls.length,Math.min(3,Math.max(1,pauseAfter))-visited),urls=task.remainingUrls.slice(0,limit);
+     stageStarted=now();const settled=typeof session.driver.readBatch==='function'?await session.driver.readBatch(urls):await Promise.allSettled(urls.map(url=>session.driver.read(url)));
+     timing.productReadMs.push(Math.max(0,now()-stageStarted));
+     if(!Array.isArray(settled)||settled.length!==urls.length)throw Error('READ_BATCH_INVALID');
+     for(let index=0;index<urls.length;index++){
+      await current();const entry=settled[index];
+      if(entry.status==='fulfilled')task.results.push(entry.value);
+      else{const error=entry.reason;if(!['PRODUCT_NOT_VERIFIED','SITE_REQUIRES_USER_REVIEW'].includes(error?.message))throw error||Error('PRODUCT_NOT_VERIFIED');task.failures.push({url:urls[index],error:error.message});}
+      task.remainingUrls.shift();visited++;await store.write(task);
+     }
     }
     task.status=task.remainingUrls.length?'paused':task.results.filter(p=>p.currency===task.plan.currency&&(task.plan.maxPrice===null||p.price<=task.plan.maxPrice)).length>=2?'completed':'incomplete';
    }catch(error){task.status=error.message==='TASK_INTERRUPTED'?'paused':'blocked';task.error=['TASK_INTERRUPTED','TASK_TIME_LIMIT','EXECUTION_DISABLED','USAGE_APPROVAL_REQUIRED','PROVIDER_NOT_CONFIGURED','SITE_REQUIRES_USER_REVIEW','CLEANUP_UNCONFIRMED'].includes(error.message)?error.message:'EXECUTION_UNCONFIRMED';
