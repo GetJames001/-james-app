@@ -4,7 +4,7 @@ const {createHash}=require('node:crypto');
 const fail=()=>{throw Error('PRODUCT_NOT_VERIFIED')};
 function productUrl(value){
  let u;try{u=new URL(value)}catch{fail()}
- if(u.protocol!=='https:'||u.hostname!=='www.target.com'||u.port||u.username||u.password||u.hash||u.pathname.includes('%')||!/^\/p\/[a-z0-9-]+\/-\/A-\d{5,12}$/.test(u.pathname))fail();
+ if(u.protocol!=='https:'||u.hostname!=='www.target.com'||u.port||u.username||u.password||u.hash||u.pathname.includes('%')||!/^\/p\/(?:[a-z0-9-]+\/)?-\/A-\d{5,12}$/.test(u.pathname))fail();
  u.search='';return u.href;
 }
 function productId(value){return new URL(productUrl(value)).pathname.match(/A-(\d+)$/)[1]}
@@ -22,7 +22,10 @@ function verifyObservation(observation,{requestedUrl,observedAt=new Date().toISO
  if(typeof name!=='string'||!name.trim()||name.length>500||!observation.headingVisible||identity(name)!==identity(observation.ogTitle))fail();
  // Read the selected product's main price only. Recommendation/old/member/range prices do not qualify.
  if(observation.priceCount!==1||!observation.priceVisible||typeof observation.priceText!=='string')fail();
- const match=observation.priceText.trim().match(/^\$(\d{1,3}(?:,\d{3})*|\d+)\.(\d{2})$/);
+ let selected=observation.priceText.trim();
+ const parts=observation.priceParts;
+ if(Array.isArray(parts)&&parts.length===3&&parts.every(p=>p?.visible===true&&typeof p.text==='string')&&parts[0].decoration==='none'&&parts[1].text.trim()==='reg'&&parts[2].decoration==='line-through'&&/^\$\d+(?:,\d{3})*\.\d{2}$/.test(parts[0].text)&&/^\$\d+(?:,\d{3})*\.\d{2}$/.test(parts[2].text)&&parts.map(p=>p.text).join('')===selected&&Number(parts[0].text.replace(/[$,]/g,''))<Number(parts[2].text.replace(/[$,]/g,'')))selected=parts[0].text;
+ const match=selected.match(/^\$(\d{1,3}(?:,\d{3})*|\d+)\.(\d{2})$/);
  if(!match)fail();const price=Number(match[1].replaceAll(',','')+'.'+match[2]);
  if(!(price>0&&price<=10000)||!Number.isFinite(Date.parse(observedAt)))fail();
  const metadataImage=imageUrl(observation.ogImage);
@@ -39,11 +42,11 @@ function createTargetReader(page,{now=()=>new Date().toISOString()}={}){
   if(!response||response.status()!==200)fail();
   productUrl(page.url());
   await page.locator('h1').first().waitFor({state:'visible',timeout:8000});
-  await page.locator('[data-test="module-product-detail-price-v2"] [data-test="price-cdui-row"]').waitFor({state:'visible',timeout:8000});
+  await page.locator('[data-test="module-product-detail-price-v2"] [data-test="price-cdui-row"]').filter({hasText:/\$/}).first().waitFor({state:'visible',timeout:8000});
   const observation=await page.evaluate(()=>{
    const visible=n=>Boolean(n&&typeof n.checkVisibility==='function'&&n.checkVisibility({checkOpacity:true,checkVisibilityCSS:true})&&n.getBoundingClientRect().width>0&&n.getBoundingClientRect().height>0);
-   const headings=Array.from(document.querySelectorAll('h1')).filter(visible),prices=Array.from(document.querySelectorAll('[data-test="module-product-detail-price-v2"] [data-test="price-cdui-row"]')).filter(visible),h=headings[0],p=prices[0];
-   return {url:location.href,canonical:document.querySelector('link[rel="canonical"]')?.href,heading:h?.innerText,headingVisible:headings.length===1,ogTitle:document.querySelector('meta[property="og:title"]')?.content,ogImage:document.querySelector('meta[property="og:image"]')?.content,priceCount:prices.length,priceText:p?.innerText,priceVisible:visible(p),images:Array.from(document.querySelectorAll('img')).slice(0,100).map(n=>({url:n.currentSrc||n.src,visible:visible(n),loaded:n.complete&&n.naturalWidth>0}))};
+   const headings=Array.from(document.querySelectorAll('h1')).filter(visible),prices=Array.from(document.querySelectorAll('[data-test="module-product-detail-price-v2"] [data-test="price-cdui-row"]')).filter(n=>visible(n)&&n.innerText.includes('$')),h=headings[0],p=prices[0];
+   return {url:location.href,canonical:document.querySelector('link[rel="canonical"]')?.href,heading:h?.innerText,headingVisible:headings.length===1,ogTitle:document.querySelector('meta[property="og:title"]')?.content,ogImage:document.querySelector('meta[property="og:image"]')?.content,priceCount:prices.length,priceText:p?.innerText,priceParts:p?Array.from(p.querySelectorAll('span')).map(n=>({text:n.innerText,visible:visible(n),decoration:getComputedStyle(n).textDecorationLine})):[],priceVisible:visible(p),images:Array.from(document.querySelectorAll('img')).slice(0,100).map(n=>({url:n.currentSrc||n.src,visible:visible(n),loaded:n.complete&&n.naturalWidth>0}))};
   });
   return verifyObservation(observation,{requestedUrl:requested,observedAt:now()});
  }};
