@@ -107,3 +107,10 @@ test('invalid saved task references never expose Resume or start fresh work',asy
  assert.equal(f.nodes.find(n=>n.textContent==='Resume research').hidden,true);release({ok:true,result:{status:'completed',comparisonVerified:true,products:[]}});await pending;assert.equal(f.requests.filter(r=>r.url==='/api/james/research').length,1);
  }
 });
+
+test('cards show only verified safe photos with no-referrer and a working missing-image fallback',async()=>{
+ for(const url of ['https://www.ikea.com/us/en/images/products/fixture-lamp__123.jpg','https://evil.test/pixel.jpg']){
+ const f=fixture({research:async()=>({ok:true,result:{status:'completed',comparisonVerified:true,products:[{name:'Fixture lamp',price:10,currency:'USD',image:{url,verification:'product_metadata_and_loaded_visible_image'}}]}})});f.input.value='Compare desk lamps under $50';await f.ui.ask();
+ const photos=f.nodes.filter(n=>n.tag==='img');assert.equal(photos.length,url.includes('evil')?0:1);if(photos.length){assert.equal(photos[0].attrs.referrerpolicy,'no-referrer');photos[0].onerror();assert.equal(photos[0].attrs.style,'display:none');assert.equal(f.nodes.find(n=>n.textContent==='Product image unavailable').hidden,false);}
+ }
+});

@@ -88,6 +88,12 @@
     const checked=doc.createElement('p');checked.textContent='Name and price checked on the product page.';
     const time=doc.createElement('p');const checkedDate=new Date(item.observedAt);time.textContent=Number.isFinite(checkedDate.getTime())?'Checked: '+new Intl.DateTimeFormat(undefined,{dateStyle:'medium',timeStyle:'short'}).format(checkedDate):'Check time unavailable';time.setAttribute('style','font-size:.85em;overflow-wrap:anywhere');
     card.append(title,price,checked,time);
+    let imageAdded=false;
+    try{const url=new URL(item.image?.url);if(item.image?.verification==='product_metadata_and_loaded_visible_image'&&url.protocol==='https:'&&url.hostname==='www.ikea.com'&&!url.port&&!url.username&&!url.password&&!url.search&&!url.hash&&/^\/us\/en\/images\/products\/[a-zA-Z0-9_/-]+\.(?:avif|jpe?g|png|webp)$/i.test(url.pathname)){
+     const img=doc.createElement('img');img.setAttribute('src',url.href);img.setAttribute('alt',String(item.name));img.setAttribute('loading','lazy');img.setAttribute('referrerpolicy','no-referrer');img.setAttribute('style','display:block;width:100%;height:180px;object-fit:contain;background:#fff;border-radius:8px;margin:12px 0');
+     const fallback=doc.createElement('p');fallback.textContent='Product image unavailable';fallback.hidden=true;img.onerror=()=>{img.hidden=true;img.setAttribute('style','display:none');fallback.hidden=false;};card.append(img,fallback);imageAdded=true;
+    }}catch{}
+    if(!imageAdded){const fallback=doc.createElement('p');fallback.textContent='No verified product image yet';card.append(fallback);}
     try{const url=new URL(item.url);if(url.protocol==='https:'&&url.hostname==='www.ikea.com'&&!url.username&&!url.password&&!url.port&&url.pathname.startsWith('/us/en/p/')){const link=doc.createElement('a');link.textContent='View product ↗';link.setAttribute('href',url.href);link.setAttribute('target','_blank');link.setAttribute('rel','noopener noreferrer');link.setAttribute('style','display:inline-block;padding:10px 0;text-decoration:underline;color:inherit');card.append(link);}}catch{}
     grid.append(card);
    });
