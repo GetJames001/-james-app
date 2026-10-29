@@ -166,7 +166,7 @@
   function offerResume(){
    resumeButton.hidden=true;
    try{const raw=historyStorage?.getItem('james:j30-task:v1'),saved=JSON.parse(raw||'null'),current=identity?.current();
-    if(saved&&current&&JSON.stringify(saved.scope)===JSON.stringify(current)&&saved.text==='Compare desk lamps under $50'&&typeof saved.taskId==='string'){
+    if(raw&&raw.length<4000&&saved&&current&&JSON.stringify(saved.scope)===JSON.stringify(current)&&saved.text==='Compare desk lamps under $50'&&typeof saved.taskId==='string'&&/^[\w-]{1,160}$/.test(saved.taskId)){
      resumeButton.hidden=false;resumeButton.onclick=async()=>{
       if(resumeButton.hidden||ending||JSON.stringify(identity?.current())!==JSON.stringify(saved.scope)||historyStorage?.getItem('james:j30-task:v1')!==raw)return;
       resumeButton.hidden=true;await ask({text:saved.text});

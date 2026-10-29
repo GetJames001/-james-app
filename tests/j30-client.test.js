@@ -99,3 +99,11 @@ test('stale Resume research cannot restart a different task after revoke',async(
 });
 
 test('model failure offers saved research recovery without creating another task',async()=>{const f=fixture({modelUnavailable:true});f.input.value='Compare desk lamps under $50';await f.ui.ask();const task=f.storage.get('james:j30-task:v1');f.input.value='A different question';await f.ui.ask();const resume=f.nodes.find(n=>n.textContent==='Resume research');assert.equal(resume.hidden,false);await resume.onclick();assert.equal(f.storage.get('james:j30-task:v1'),task);assert.equal(f.input.value,'A different question');});
+
+test('invalid saved task references never expose Resume or start fresh work',async()=>{
+ for(const taskId of ['invalid/id','x'.repeat(5000)]){
+ let release,entered;const start=new Promise(r=>entered=r);const f=fixture({research:()=>new Promise(r=>{release=r;entered()})});f.input.value='Compare desk lamps under $50';const pending=f.ui.ask();await start;
+ const saved=JSON.parse(f.storage.get('james:j30-task:v1'));saved.taskId=taskId;f.storage.set('james:j30-task:v1',JSON.stringify(saved));f.ui.cancelReply();
+ assert.equal(f.nodes.find(n=>n.textContent==='Resume research').hidden,true);release({ok:true,result:{status:'completed',comparisonVerified:true,products:[]}});await pending;assert.equal(f.requests.filter(r=>r.url==='/api/james/research').length,1);
+ }
+});
