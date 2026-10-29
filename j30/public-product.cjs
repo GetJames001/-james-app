@@ -3,6 +3,7 @@ const {createHash}=require('node:crypto');
 const {transportUrl,currentWithin,valueWithin}=require('./public-fetch.cjs');
 const {createResourceBudget}=require('./resource-budget.cjs');
 const {replayOpaqueStylesheets}=require('./stylesheet-replay.cjs');
+const {verifyDataProduct}=require('./data-product-evidence.cjs');
 const fail=code=>{throw Error(code)};
 const transportErrors=new Set(['PUBLIC_URL_DENIED','PUBLIC_DNS_DENIED','PUBLIC_DNS_UNCONFIRMED','PUBLIC_RESPONSE_UNVERIFIED','PUBLIC_CONTENT_UNSUPPORTED','PUBLIC_RESPONSE_TOO_LARGE','PUBLIC_REQUEST_UNCONFIRMED','TASK_INTERRUPTED']);
 const identity=v=>typeof v==='string'?v.normalize('NFKC').toLowerCase().replace(/[^\p{L}\p{N}]/gu,''):'';
@@ -10,17 +11,18 @@ function verifyPublicProduct(observation,{requestedUrl,observedAt}={}){
  if(observation?.cssVerified!==true){const error=Error('PRODUCT_NOT_VERIFIED');error.reason='STYLESHEET_AUDIT_FAILED';throw error}
  const url=transportUrl(requestedUrl);if(transportUrl(observation?.url)!==url||transportUrl(observation?.canonical)!==url||observation.cssVerified!==true||observation.headingCount!==1||!identity(observation.heading)||!Array.isArray(observation.products)||observation.products.length>100)fail('PRODUCT_NOT_VERIFIED');
  const matches=observation.products.filter(p=>p&&identity(p.name)===identity(observation.heading)&&(!p.url||(()=>{try{return transportUrl(p.url)===url}catch{return false}})()));
- if(matches.length!==1)fail('PRODUCT_NOT_VERIFIED');const p=matches[0],offers=Array.isArray(p.offers)?p.offers:[p.offers];
+ if(matches.length!==1)fail('PRODUCT_NOT_VERIFIED');const p=matches[0],dataBased=Array.isArray(observation.prices)&&observation.prices.length===0&&observation.dataIdentity!==undefined,offers=Array.isArray(p.offers)?p.offers:[p.offers];
  if(offers.length!==1)fail('PRODUCT_NOT_VERIFIED');const offer=offers[0];
- if(!offer||offer.priceCurrency!=='USD'||!/^\d+(?:\.\d{1,2})?$/.test(String(offer.price)))fail('PRODUCT_NOT_VERIFIED');
- const price=Number(offer.price);if(!(price>0&&price<=10000))fail('PRODUCT_NOT_VERIFIED');
+ if(!dataBased&&(!offer||offer.priceCurrency!=='USD'||!/^\d+(?:\.\d{1,2})?$/.test(String(offer.price))))fail('PRODUCT_NOT_VERIFIED');
+ const price=dataBased?verifyDataProduct(p,observation.dataIdentity):Number(offer.price);if(!(price>0&&price<=10000))fail('PRODUCT_NOT_VERIFIED');
+ if(dataBased&&offer.url&&transportUrl(offer.url)!==url)fail('PRODUCT_NOT_VERIFIED');
  // Generic path accepts one current, visible price in Product microdata containing the heading.
  // Unsupported or ambiguous layouts stay unverified; retailer adapters may add stronger specific evidence.
- if(!Array.isArray(observation.prices)||observation.prices.length!==1||!observation.prices[0].sameProductRoot||!new RegExp('^\\$?'+price.toFixed(2).replace('.','\\.')+'$').test(observation.prices[0].text.trim()))fail('PRODUCT_NOT_VERIFIED');
+ if(!dataBased&&(!Array.isArray(observation.prices)||observation.prices.length!==1||!observation.prices[0].sameProductRoot||!new RegExp('^\\$?'+price.toFixed(2).replace('.','\\.')+'$').test(observation.prices[0].text.trim())))fail('PRODUCT_NOT_VERIFIED');
  if(typeof p.name!=='string'||p.name.length>500||!Number.isFinite(Date.parse(observedAt)))fail('PRODUCT_NOT_VERIFIED');
  const metadataImages=(Array.isArray(p.image)?p.image:[p.image]).flatMap(v=>{try{return [transportUrl(typeof v==='string'?v:v?.url)]}catch{return []}});
  const image=metadataImages.find(value=>Array.isArray(observation.images)&&observation.images.some(n=>n?.url===value&&n.visible&&n.loaded));
- const receipt={name:p.name,price,currency:'USD',url,sourceHost:new URL(url).hostname,verification:'static_rendered_product_microdata_and_jsonld',observedAt,availability:'unknown',fitVerified:false,...(image?{image:{url:image,verification:'product_metadata_and_loaded_visible_image'}}:{})};
+ const receipt={name:p.name,price,currency:'USD',url,sourceHost:new URL(url).hostname,verification:dataBased?'static_rendered_product_id_and_jsonld':'static_rendered_product_microdata_and_jsonld',observedAt,availability:'unknown',fitVerified:false,...(image?{image:{url:image,verification:'product_metadata_and_loaded_visible_image'}}:{})};
  return {...receipt,evidenceHash:createHash('sha256').update(JSON.stringify(receipt)).digest('hex')};
 }
 function createPublicProductReader({browser,fetchPublic,now=()=>new Date().toISOString(),timeoutMs=30000,cleanupTimeoutMs=3000}){
@@ -62,7 +64,16 @@ function createPublicProductReader({browser,fetchPublic,now=()=>new Date().toISO
     for(const n of Array.from(document.querySelectorAll('script[type="application/ld+json"]')).slice(0,20)){const text=n.textContent||'';if(text.length>200000)continue;try{scan(JSON.parse(text))}catch{}}
     const roots=Array.from(document.querySelectorAll('[itemscope][itemtype="https://schema.org/Product"],[itemscope][itemtype="http://schema.org/Product"]')).filter(n=>h&&n.contains(h));
     const prices=roots.length===1?Array.from(roots[0].querySelectorAll('[itemprop="price"]')).filter(n=>visible(n)&&n.closest('[itemscope][itemtype="https://schema.org/Product"],[itemscope][itemtype="http://schema.org/Product"]')===roots[0]).map(n=>({text:n.innerText,sameProductRoot:true})):[];
-    return {url:location.href,canonical:document.querySelector('link[rel="canonical"]')?.href,cssVerified,headingCount:hs.length,heading:h?.innerText,products,prices,images:Array.from(document.querySelectorAll('img')).slice(0,100).map(n=>({url:n.currentSrc||n.src,visible:visible(n),loaded:n.complete&&n.naturalWidth>0}))};
+    const idSelector='[data-pid],[data-product-id]',allIds=Array.from(document.querySelectorAll(idSelector)),headingRoots=allIds.filter(n=>h&&n.contains(h)),selected=headingRoots.length===1?headingRoots[0]:null;
+    const id=selected?.getAttribute('data-pid')||selected?.getAttribute('data-product-id');let dataIdentity;
+    if(selected&&id&&(!selected.hasAttribute('data-pid')||!selected.hasAttribute('data-product-id')||selected.getAttribute('data-pid')===selected.getAttribute('data-product-id'))){
+     const current=n=>{for(let parent=n;parent;parent=parent.parentElement)if(['DEL','S'].includes(parent.tagName)||getComputedStyle(parent).textDecorationLine.includes('line-through'))return false;return visible(n)};
+     const contextParts=[],walker=document.createTreeWalker(selected,NodeFilter.SHOW_TEXT);let textNode,scannedText=0,contextLength=0,contextBounded=true;
+     while(textNode=walker.nextNode()){if(++scannedText>2000){contextBounded=false;break}const parent=textNode.parentElement,text=textNode.textContent?.trim();if(text&&parent?.closest(idSelector)===selected&&(visible(parent)||getComputedStyle(parent).display==='contents')){contextLength+=text.length+1;if(contextLength>8000){contextBounded=false;break}contextParts.push(text)}}
+     const leaves=Array.from(selected.querySelectorAll('.price .sales .value,[itemprop="price"]')).filter(n=>!n.children.length&&current(n)&&n.closest(idSelector)===selected);
+     dataIdentity={id,rootContext:contextBounded?contextParts.join(' '):undefined,headingRootCount:headingRoots.length,rootCount:allIds.filter(n=>n.getAttribute('data-pid')===id||n.getAttribute('data-product-id')===id).length,prices:leaves.slice(0,101).map(n=>{const container=n.closest('.price');return {text:n.innerText.trim(),sameProductRoot:!!container&&selected.contains(container),context:container?.innerText?.trim(),currentAmounts:container?Array.from(container.querySelectorAll('.value,[itemprop="price"]')).filter(p=>!p.children.length&&current(p)&&p.closest(idSelector)===selected&&/^\$\d+(?:\.\d{2})$/.test(p.innerText.trim())).slice(0,101).map(p=>p.innerText.trim()):[]}})};
+    }
+    return {url:location.href,canonical:document.querySelector('link[rel="canonical"]')?.href,cssVerified,headingCount:hs.length,heading:h?.innerText,products,prices,...(dataIdentity?{dataIdentity}:{}),images:Array.from(document.querySelectorAll('img')).slice(0,100).map(n=>({url:n.currentSrc||n.src,visible:visible(n),loaded:n.complete&&n.naturalWidth>0}))};
    };
    const original=await active(()=>page.evaluate(observe));await current();
    replaying=true;const cachedStyles=[...resources.keys()].filter(key=>key.startsWith('stylesheet:')).map(key=>key.slice('stylesheet:'.length));
@@ -73,7 +84,7 @@ function createPublicProductReader({browser,fetchPublic,now=()=>new Date().toISO
    const snapshot=value=>{const {cssVerified,...rest}=value;return JSON.stringify(rest)};
    if(snapshot(original)!==snapshot(observation)){const error=Error('PRODUCT_NOT_VERIFIED');error.reason='STYLESHEET_RENDER_CHANGED';throw error}
    await current();return verifyPublicProduct(observation,{requestedUrl:url,observedAt:now()});
-  }catch(error){const safe=Error(transportErrors.has(error?.message)||['PRODUCT_NOT_VERIFIED','WEBSOCKET_GATE_UNAVAILABLE'].includes(error?.message)?error.message:'READER_EXECUTION_UNCONFIRMED');safe.stage=stage;if(safe.message==='PUBLIC_RESPONSE_UNVERIFIED'&&Number.isInteger(documentStatus)&&documentStatus>=100&&documentStatus<=599)safe.httpStatus=documentStatus;if(resourceReason)safe.reason=resourceReason;else if(styleUnconfirmed)safe.reason='STYLESHEET_FETCH_REJECTED';else if(['STYLESHEET_AUDIT_FAILED','STYLESHEET_RENDER_CHANGED'].includes(error?.reason))safe.reason=error.reason;throw safe;}finally{stopped.abort();clearTimeout(timer);if(context)await closeContext(context);else if(acquiring){acquiring.then(ctx=>closeContext(ctx)).catch(()=>{});fail('CLEANUP_UNCONFIRMED')}}
+  }catch(error){const safe=Error(transportErrors.has(error?.message)||['PRODUCT_NOT_VERIFIED','WEBSOCKET_GATE_UNAVAILABLE'].includes(error?.message)?error.message:'READER_EXECUTION_UNCONFIRMED');safe.stage=stage;if(safe.message==='PUBLIC_RESPONSE_UNVERIFIED'&&Number.isInteger(documentStatus)&&documentStatus>=100&&documentStatus<=599)safe.httpStatus=documentStatus;if(resourceReason)safe.reason=resourceReason;else if(styleUnconfirmed)safe.reason='STYLESHEET_FETCH_REJECTED';else if(['STYLESHEET_AUDIT_FAILED','STYLESHEET_RENDER_CHANGED','IDENTITY_UNVERIFIED','PRICE_UNVERIFIED'].includes(error?.reason))safe.reason=error.reason;throw safe;}finally{stopped.abort();clearTimeout(timer);if(context)await closeContext(context);else if(acquiring){acquiring.then(ctx=>closeContext(ctx)).catch(()=>{});fail('CLEANUP_UNCONFIRMED')}}
  }};
 }
 module.exports={verifyPublicProduct,createPublicProductReader};
