@@ -16,11 +16,12 @@ async function valueWithin(operation,signal){
  try{const value=await Promise.race([Promise.resolve().then(operation),new Promise((_,reject)=>{stop=()=>reject(Error('TASK_INTERRUPTED'));signal.addEventListener('abort',stop,{once:true});if(signal.aborted)stop()})]);if(signal.aborted)fail('TASK_INTERRUPTED');return value}finally{if(stop)signal.removeEventListener('abort',stop)}
 }
 async function currentWithin(assertCurrent,signal){await valueWithin(assertCurrent,signal)}
-function createPublicFetch({lookup=dns.lookup,request=https.request,timeoutMs=10000}={}){
+function createPublicFetch({lookup=dns.lookup,request=https.request,timeoutMs=10000,allowActiveContent=false}={}){
  if(!Number.isInteger(timeoutMs)||timeoutMs<1||timeoutMs>10000)fail('PUBLIC_FETCH_INVALID');
  return async function fetchPublic(value,{kind='document',assertCurrent,signal}={}){
   const url=transportUrl(value),u=new URL(url);
   const limits={document:2000000,stylesheet:500000,image:2000000},types={document:/^text\/html(?:\s*;|$)/i,stylesheet:/^text\/css(?:\s*;|$)/i,image:/^image\/(?:png|jpeg|webp|avif)(?:\s*;|$)/i};
+  if(allowActiveContent===true){limits.script=2000000;limits.json=2000000;types.script=/^(?:application|text)\/(?:javascript|ecmascript)(?:\s*;|$)/i;types.json=/^application\/json(?:\s*;|$)/i;}
   if(!Object.hasOwn(limits,kind)||typeof assertCurrent!=='function')fail('PUBLIC_FETCH_INVALID');
   const deadline=new AbortController(),timer=setTimeout(()=>deadline.abort(),timeoutMs),activeSignal=signal?AbortSignal.any([signal,deadline.signal]):deadline.signal;
   async function current(){await currentWithin(assertCurrent,activeSignal)}

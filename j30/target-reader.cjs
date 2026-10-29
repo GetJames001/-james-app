@@ -18,6 +18,7 @@ function identity(value){return typeof value==='string'?value.normalize('NFKC').
 function verifyObservation(observation,{requestedUrl,observedAt=new Date().toISOString()}={}){
  const actual=productUrl(observation?.url),requested=productUrl(requestedUrl),canonical=productUrl(observation?.canonical);
  if(productId(actual)!==productId(requested)||productId(actual)!==productId(canonical))fail();
+ if(observation.cssVerified!==true)fail();
  const name=observation.heading;
  if(typeof name!=='string'||!name.trim()||name.length>500||!observation.headingVisible||identity(name)!==identity(observation.ogTitle))fail();
  // Read the selected product's main price only. Recommendation/old/member/range prices do not qualify.
@@ -36,17 +37,18 @@ function verifyObservation(observation,{requestedUrl,observedAt=new Date().toISO
 // The host MUST supply a fresh protected page with deny-by-default network,
 // redirect, write, iframe, WebSocket and download gates before registering this.
 // This adapter verifies receipts; it does not create or secure browser sessions.
-function createTargetReader(page,{now=()=>new Date().toISOString()}={}){
+function createTargetReader(page,{now=()=>new Date().toISOString(),verifyRender=async()=>{}}={}){
  return {async read(url){
   const requested=productUrl(url);const response=await page.goto(requested,{waitUntil:'domcontentloaded',timeout:12000});
   if(!response||response.status()!==200)fail();
   productUrl(page.url());
   await page.locator('h1').first().waitFor({state:'visible',timeout:8000});
   await page.locator('[data-test="module-product-detail-price-v2"] [data-test="price-cdui-row"]').filter({hasText:/\$/}).first().waitFor({state:'visible',timeout:8000});
+  await verifyRender();
   const observation=await page.evaluate(()=>{
    const visible=n=>Boolean(n&&typeof n.checkVisibility==='function'&&n.checkVisibility({checkOpacity:true,checkVisibilityCSS:true})&&n.getBoundingClientRect().width>0&&n.getBoundingClientRect().height>0);
    const headings=Array.from(document.querySelectorAll('h1')).filter(visible),prices=Array.from(document.querySelectorAll('[data-test="module-product-detail-price-v2"] [data-test="price-cdui-row"]')).filter(n=>visible(n)&&n.innerText.includes('$')),h=headings[0],p=prices[0];
-   return {url:location.href,canonical:document.querySelector('link[rel="canonical"]')?.href,heading:h?.innerText,headingVisible:headings.length===1,ogTitle:document.querySelector('meta[property="og:title"]')?.content,ogImage:document.querySelector('meta[property="og:image"]')?.content,priceCount:prices.length,priceText:p?.innerText,priceParts:p?Array.from(p.querySelectorAll('span')).map(n=>({text:n.innerText,visible:visible(n),decoration:getComputedStyle(n).textDecorationLine})):[],priceVisible:visible(p),images:Array.from(document.querySelectorAll('img')).slice(0,100).map(n=>({url:n.currentSrc||n.src,visible:visible(n),loaded:n.complete&&n.naturalWidth>0}))};
+   return {cssVerified:!Array.from(document.querySelectorAll('link[rel~="stylesheet"]')).some(n=>!n.disabled&&!n.sheet),url:location.href,canonical:document.querySelector('link[rel="canonical"]')?.href,heading:h?.innerText,headingVisible:headings.length===1,ogTitle:document.querySelector('meta[property="og:title"]')?.content,ogImage:document.querySelector('meta[property="og:image"]')?.content,priceCount:prices.length,priceText:p?.innerText,priceParts:p?Array.from(p.querySelectorAll('span')).map(n=>({text:n.innerText,visible:visible(n),decoration:getComputedStyle(n).textDecorationLine})):[],priceVisible:visible(p),images:Array.from(document.querySelectorAll('img')).slice(0,100).map(n=>({url:n.currentSrc||n.src,visible:visible(n),loaded:n.complete&&n.naturalWidth>0}))};
   });
   return verifyObservation(observation,{requestedUrl:requested,observedAt:now()});
  }};
