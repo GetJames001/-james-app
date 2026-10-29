@@ -134,3 +134,10 @@ test('a cancelled category remains resumable after another supported request',as
 });
 
 test('corrupt task index cannot discard old progress or start provider work',async()=>{const f=fixture();f.storage.set('james:j30-task-index:v1','not json');f.input.value='Compare table lamps under $75';assert.equal((await f.ui.ask()).status,'failed');assert.equal(f.requests.some(r=>r.url==='/api/james/research'),false);assert.equal(f.input.value,'Compare table lamps under $75');});
+
+test('transcript quota failure retains uncertain task identity and category index',async()=>{
+ const storage=new Map(),set=storage.set.bind(storage);storage.set=(key,value)=>{if(key==='james:confirmed-conversation:v1')throw Error('quota');return set(key,value);};
+ const f=fixture({storage,research:async body=>({ok:true,result:{taskId:body.taskId,status:'blocked',comparisonVerified:false,error:'CLEANUP_UNCONFIRMED',products:[]}})});
+ f.input.value='Compare table lamps under $75';await f.ui.ask();const saved=JSON.parse(f.storage.get('james:j30-task:v1'));assert.ok(f.storage.has('james:j30-task-index:v1'));
+ f.input.value='Compare table lamps under $75';await f.ui.ask();const calls=f.requests.filter(r=>r.url==='/api/james/research');assert.equal(calls.length,2);assert.equal(calls[0].body.taskId,saved.taskId);assert.equal(calls[1].body.taskId,saved.taskId);
+});

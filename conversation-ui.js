@@ -9,6 +9,7 @@
   let identity,bridge,loading,preparing,revision=0,history=[],scopeKey='',closure=null,ending=false;
   const historyCacheKey='james:confirmed-conversation:v1';
   if(historyStorage===undefined)try{historyStorage=root.sessionStorage}catch{}
+  function forgetTranscript(){try{historyStorage?.removeItem(historyCacheKey)}catch{}}
   function forgetHistory(){try{historyStorage?.removeItem(historyCacheKey);historyStorage?.removeItem('james:j30-task:v1');historyStorage?.removeItem('james:j30-task-index:v1')}catch{}}
   function clear(preserveStored=false){resumeButton.hidden=true;stopButton.disabled=true;if(!preserveStored)forgetHistory();history=[];scopeKey='';answer.textContent='';}
   function boundedHistory(items){
@@ -21,12 +22,13 @@
     const raw=historyStorage?.getItem(historyCacheKey);if(!raw)return;
     if(raw.length>64000)throw Error('Invalid history');
     const saved=JSON.parse(raw);
+    if(saved?.scope&&JSON.stringify(saved.scope)!==JSON.stringify(scope)){forgetHistory();return;}
     if(!saved||Object.keys(saved).sort().join('|')!=='history|scope|version'||saved.version!==1||JSON.stringify(saved.scope)!==JSON.stringify(scope)||!Array.isArray(saved.history)||saved.history.length>8||saved.history.length%2)throw Error('Invalid history');
     let size=0;for(let i=0;i<saved.history.length;i++){const item=saved.history[i];if(!item||Object.keys(item).sort().join('|')!=='role|text'||item.role!==(i%2?'James':'User')||typeof item.text!=='string'||!item.text.trim())throw Error('Invalid history');size+=item.text.length;}if(size>10000)throw Error('Invalid history');
     history=saved.history;
-   }catch{forgetHistory();}
+   }catch{forgetTranscript();}
   }
-  function persistHistory(scope){history=boundedHistory(history);try{historyStorage?.setItem(historyCacheKey,JSON.stringify({version:1,scope,history}))}catch{forgetHistory();}}
+  function persistHistory(scope){history=boundedHistory(history);try{historyStorage?.setItem(historyCacheKey,JSON.stringify({version:1,scope,history}))}catch{forgetTranscript();}}
 
   async function bounded(operation,ms=requestTimeoutMs){let timer;try{return await Promise.race([operation,new Promise((_,reject)=>{timer=setTimeout(()=>reject(Error('REQUEST_TIMEOUT')),ms)})]);}finally{clearTimeout(timer)}}
   async function requestJSON(url,options,limit=requestTimeoutMs){
