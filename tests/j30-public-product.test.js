@@ -2,7 +2,7 @@
 const test=require('node:test'),assert=require('node:assert/strict');
 const {verifyPublicProduct,createPublicProductReader}=require('../j30/public-product.cjs');
 const url='https://www.gap.com/browse/product.do?pid=synthetic';
-const observation=()=>({url,canonical:url,headingCount:1,heading:'Blue button-up sweater',products:[{'@type':'Product',name:'Blue button-up sweater',url,offers:{price:'39.00',priceCurrency:'USD'}}],prices:[{text:'$39.00',sameProductRoot:true}],images:[]});
+const observation=()=>({url,canonical:url,cssVerified:true,headingCount:1,heading:'Blue button-up sweater',products:[{'@type':'Product',name:'Blue button-up sweater',url,offers:{price:'39.00',priceCurrency:'USD'}}],prices:[{text:'$39.00',sameProductRoot:true}],images:[]});
 const verify=o=>verifyPublicProduct(o,{requestedUrl:url,observedAt:'2026-10-29T00:00:00.000Z'});
 test('generic receipt verifies name and scoped price without retailer/category allowlist',()=>{const r=verify(observation());assert.equal(r.price,39);assert.equal(r.sourceHost,'www.gap.com');assert.equal(r.fitVerified,false);assert.equal(r.availability,'unknown');assert.match(r.evidenceHash,/^[a-f0-9]{64}$/)});
 for(const [key,value]of [['canonical','https://www.gap.com/browse/product.do?pid=other'],['headingCount',2],['heading','Red cardigan'],['prices',[]],['prices',[{text:'$39.00 - $45.00',sameProductRoot:true}]],['prices',[{text:'$39.00',sameProductRoot:false}]],['prices',[{text:'$39.00',sameProductRoot:true},{text:'$39.00',sameProductRoot:true}]]])test('ambiguous/wrong product observation denied '+key+' '+JSON.stringify(value),()=>assert.throws(()=>verify({...observation(),[key]:value})));

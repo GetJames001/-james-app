@@ -4,7 +4,7 @@ const {transportUrl,currentWithin,valueWithin}=require('./public-fetch.cjs');
 const fail=code=>{throw Error(code)};
 const identity=v=>typeof v==='string'?v.normalize('NFKC').toLowerCase().replace(/[^\p{L}\p{N}]/gu,''):'';
 function verifyPublicProduct(observation,{requestedUrl,observedAt}={}){
- const url=transportUrl(requestedUrl);if(transportUrl(observation?.url)!==url||transportUrl(observation?.canonical)!==url||observation.headingCount!==1||!identity(observation.heading)||!Array.isArray(observation.products)||observation.products.length>100)fail('PRODUCT_NOT_VERIFIED');
+ const url=transportUrl(requestedUrl);if(transportUrl(observation?.url)!==url||transportUrl(observation?.canonical)!==url||observation.cssVerified!==true||observation.headingCount!==1||!identity(observation.heading)||!Array.isArray(observation.products)||observation.products.length>100)fail('PRODUCT_NOT_VERIFIED');
  const matches=observation.products.filter(p=>p&&identity(p.name)===identity(observation.heading)&&(!p.url||(()=>{try{return transportUrl(p.url)===url}catch{return false}})()));
  if(matches.length!==1)fail('PRODUCT_NOT_VERIFIED');const p=matches[0],offers=Array.isArray(p.offers)?p.offers:[p.offers];
  if(offers.length!==1)fail('PRODUCT_NOT_VERIFIED');const offer=offers[0];
@@ -45,11 +45,16 @@ function createPublicProductReader({browser,fetchPublic,now=()=>new Date().toISO
    const observation=await active(()=>page.evaluate(()=>{
     const visible=n=>Boolean(n&&typeof n.checkVisibility==='function'&&n.checkVisibility({checkOpacity:true,checkVisibilityCSS:true})&&n.getBoundingClientRect().width>0&&n.getBoundingClientRect().height>0);
     const hs=Array.from(document.querySelectorAll('h1')).filter(visible),h=hs[0],products=[];let scanned=0;
+    // CSP/offline failures can occur before a route callback. Require inspectable,
+    // loaded stylesheets/imports; opaque or missing CSS keeps this strict path unverified.
+    let cssVerified=!Array.from(document.querySelectorAll('link[rel~="stylesheet"]')).some(n=>!n.disabled&&!n.sheet),ruleCount=0;const sheets=new Set();
+    function audit(sheet){if(!sheet||sheets.has(sheet))return; sheets.add(sheet);if(sheets.size>100){cssVerified=false;return}try{for(const rule of sheet.cssRules){if(++ruleCount>5000){cssVerified=false;return}if(rule.type===CSSRule.IMPORT_RULE){if(!rule.styleSheet||!rule.href.startsWith('https:'))cssVerified=false;else audit(rule.styleSheet)}}}catch{cssVerified=false}}
+    for(const sheet of document.styleSheets)if(!sheet.disabled)audit(sheet);
     function scan(v,depth=0){if(!v||typeof v!=='object'||++scanned>500||depth>8)return;if(Array.isArray(v)){for(const item of v)scan(item,depth+1);return}const types=Array.isArray(v['@type'])?v['@type']:[v['@type']];if(types.includes('Product'))products.push(v);else if(v['@graph'])scan(v['@graph'],depth+1)}
     for(const n of Array.from(document.querySelectorAll('script[type="application/ld+json"]')).slice(0,20)){const text=n.textContent||'';if(text.length>200000)continue;try{scan(JSON.parse(text))}catch{}}
     const roots=Array.from(document.querySelectorAll('[itemscope][itemtype="https://schema.org/Product"],[itemscope][itemtype="http://schema.org/Product"]')).filter(n=>h&&n.contains(h));
     const prices=roots.length===1?Array.from(roots[0].querySelectorAll('[itemprop="price"]')).filter(n=>visible(n)&&n.closest('[itemscope][itemtype="https://schema.org/Product"],[itemscope][itemtype="http://schema.org/Product"]')===roots[0]).map(n=>({text:n.innerText,sameProductRoot:true})):[];
-    return {url:location.href,canonical:document.querySelector('link[rel="canonical"]')?.href,headingCount:hs.length,heading:h?.innerText,products,prices,images:Array.from(document.querySelectorAll('img')).slice(0,100).map(n=>({url:n.currentSrc||n.src,visible:visible(n),loaded:n.complete&&n.naturalWidth>0}))};
+    return {url:location.href,canonical:document.querySelector('link[rel="canonical"]')?.href,cssVerified,headingCount:hs.length,heading:h?.innerText,products,prices,images:Array.from(document.querySelectorAll('img')).slice(0,100).map(n=>({url:n.currentSrc||n.src,visible:visible(n),loaded:n.complete&&n.naturalWidth>0}))};
    }));
    await current();return verifyPublicProduct(observation,{requestedUrl:url,observedAt:now()});
   }finally{stopped.abort();clearTimeout(timer);if(context)await closeContext(context);else if(acquiring){acquiring.then(ctx=>closeContext(ctx)).catch(()=>{});fail('CLEANUP_UNCONFIRMED')}}
