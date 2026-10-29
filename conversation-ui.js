@@ -6,7 +6,7 @@
   stopButton.type='button';stopButton.textContent='Stop response';stopButton.disabled=true;stopButton.onclick=()=>cancelReply();
   resumeButton.type='button';resumeButton.textContent='Resume research';resumeButton.hidden=true;
   askButton.parentNode.append(stopButton,resumeButton,endButton);askButton.parentNode.after(status);
-  let identity,bridge,loading,preparing,revision=0,history=[],scopeKey='',closure=null,ending=false;
+  let identity,bridge,loading,preparing,revision=0,history=[],scopeKey='',closure=null,ending=false,recheckIntent=null;
   const historyCacheKey='james:confirmed-conversation:v1';
   if(historyStorage===undefined)try{historyStorage=root.sessionStorage}catch{}
   function forgetTranscript(){try{historyStorage?.removeItem(historyCacheKey)}catch{}}
@@ -65,7 +65,8 @@
    if(!task)task={scope,text,taskId:crypto.randomUUID()};storeTask(task);
    status.textContent='James is researching public product pages…';
    const searchStarted=Date.now();
-   const response=await requestJSON('/api/james/research',{method:'POST',credentials:'same-origin',cache:'no-store',signal,headers:{'Content-Type':'application/json'},body:JSON.stringify({text,taskId:task.taskId,conversationId:scope.conversationId,generation:scope.generation})},90000);
+   const recheck=recheckIntent?.ticket===ticket&&recheckIntent.taskId===task.taskId;recheckIntent=null;
+   const response=await requestJSON('/api/james/research',{method:'POST',credentials:'same-origin',cache:'no-store',signal,headers:{'Content-Type':'application/json'},body:JSON.stringify({text,taskId:task.taskId,conversationId:scope.conversationId,generation:scope.generation,...(recheck?{recheckIncomplete:true}:{})})},90000);
    const data=await response.json();
    if(ticket!==revision||signal?.aborted)throw Error('TASK_INTERRUPTED');
    if(!response.ok||!data.ok){if([401,403].includes(response.status)){++revision;bridge.revoke();identity.revoke();clear();stopInput();status.textContent='Sign in to continue';}if(plan.web&&data.error==='FREE_SEARCH_ALLOWANCE_UNVERIFIED')return {ok:false,error:'FREE_SEARCH_ALLOWANCE_UNVERIFIED'};throw Error('RESEARCH_UNCONFIRMED')}
@@ -85,6 +86,10 @@
    answer.textContent='';
    const intro=doc.createElement('p');intro.textContent=summary;answer.append(intro);
    const timingLabel=doc.createElement('p');timingLabel.textContent=(timing?.source==='saved'?'Saved result':timing?.source==='fresh'?'New research attempt':'Research result')+' · Response: '+((timing?.elapsedMs||0)/1000).toFixed(1)+' seconds';answer.append(timingLabel);
+   if(result.searchScope==='web'&&result.status==='incomplete'&&!result.error&&result.failures?.length&&result.sessionStarts<2){
+    const retry=doc.createElement('button');retry.type='button';retry.textContent='Retry unverified pages';
+    retry.onclick=async()=>{if(retry.disabled||ending||scopeKey!==renderScope||JSON.stringify(identity?.current())!==renderScope)return;if(input.value.trim()){status.textContent='Keep or send your draft before retrying.';return}try{const saved=JSON.parse(historyStorage.getItem('james:j30-task:v1')||'null');if(!saved||saved.taskId!==result.taskId||JSON.stringify(saved.scope)!==renderScope)return;retry.disabled=true;await ask({text:saved.text,recheckTaskId:result.taskId})}catch{status.textContent='Retry could not start. Your task is retained.'}};answer.append(retry);
+   }
    if(result.status==='completed'&&result.comparisonVerified&&!result.error){
     const again=doc.createElement('button');again.type='button';again.textContent='Check these again';again.setAttribute('style','padding:10px 16px;margin:8px 0');
     again.onclick=async()=>{if(again.disabled||ending||scopeKey!==renderScope||JSON.stringify(identity?.current())!==renderScope)return;
@@ -143,7 +148,7 @@
     const key=JSON.stringify(scope);if(scopeKey&&scopeKey!==key)clear();scopeKey=key;
     status.textContent='Checking conversation…';const verified=await bridge.verifyIdentity();if(ticket!==revision)return;if(verified.status!=='ready'||JSON.stringify(identity.current())!==key){clear();throw Error('IDENTITY_UNAVAILABLE');}
     if(!history.length)restoreHistory(scope);
-    bridge.interruptReply();
+    bridge.interruptReply();recheckIntent=request.recheckTaskId?{ticket,taskId:request.recheckTaskId}:null;
     stopButton.disabled=false;status.textContent='James is thinking…';const result=await bridge.submitTurn({origin:'typed',action:'ask',text});
     if(ticket!==revision||result.status==='superseded')return;
     if(result.status!=='completed'||!result.isCurrent())throw Error('REQUEST_FAILED');
@@ -163,7 +168,7 @@
     }}
     history.push({role:'User',text:external?(request.historyText||text):text},{role:'James',text:data.historyAnswer||reply});persistHistory(scope);
     if(!external&&input.value.trim()===text)input.value='';status.textContent='Ready';return {status:'completed',answer:reply};
-   }catch(error){if(ticket===revision){if(identity&&!identity.current())clear();status.textContent=closure?'End is not confirmed. Try End conversation again.':error?.message==='MODEL_UNAVAILABLE'?"James's configured model is unavailable. Your draft is still here.":error?.message==='GENERAL_SHOPPING_NOT_READY'?'General shopping is not enabled in this Preview yet. Your draft is retained.':error?.message==='FREE_SEARCH_ALLOWANCE_UNVERIFIED'?'Included search usage is not confirmed. No new search was made. Your draft is retained.':'James could not complete this request. Your draft is still here.';if(['MODEL_UNAVAILABLE','FREE_SEARCH_ALLOWANCE_UNVERIFIED'].includes(error?.message))offerResume();return {status:'failed',message:status.textContent};}}finally{if(ticket===revision)stopButton.disabled=true;}
+   }catch(error){if(ticket===revision){if(identity&&!identity.current())clear();status.textContent=closure?'End is not confirmed. Try End conversation again.':error?.message==='MODEL_UNAVAILABLE'?"James's configured model is unavailable. Your draft is still here.":error?.message==='GENERAL_SHOPPING_NOT_READY'?'General shopping is not enabled in this Preview yet. Your draft is retained.':error?.message==='FREE_SEARCH_ALLOWANCE_UNVERIFIED'?'Included search usage is not confirmed. No new search was made. Your draft is retained.':'James could not complete this request. Your draft is still here.';if(['MODEL_UNAVAILABLE','FREE_SEARCH_ALLOWANCE_UNVERIFIED'].includes(error?.message))offerResume();return {status:'failed',message:status.textContent};}}finally{if(recheckIntent?.ticket===ticket)recheckIntent=null;if(ticket===revision)stopButton.disabled=true;}
   }
   async function end(expectedScope){
    if(expectedScope){const current=identity?.current();if(!current||current.accountId!==expectedScope.accountId||current.conversationId!==expectedScope.conversationId||current.generation!==expectedScope.generation)return {status:"superseded"};}

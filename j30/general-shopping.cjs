@@ -6,7 +6,8 @@ const {transportUrl,currentWithin,valueWithin}=require('./public-fetch.cjs');
 const fail=code=>{throw Error(code)};
 const stages=new Set(['provider_open','context_setup','document_navigation','product_observation','cleanup']);
 const diagnosticCodes=new Set(['BROWSER_CONNECTION_FAILED','CLEANUP_UNCONFIRMED','PROVIDER_REQUEST_UNCONFIRMED','PROVIDER_REQUEST_REJECTED','PROVIDER_RESPONSE_INVALID','USAGE_ALLOWANCE_UNCONFIRMED','USAGE_UNCONFIRMED','WEBSOCKET_GATE_UNAVAILABLE','READER_EXECUTION_UNCONFIRMED','TASK_INTERRUPTED','PUBLIC_URL_DENIED','PUBLIC_DNS_DENIED','PUBLIC_DNS_UNCONFIRMED','PUBLIC_RESPONSE_UNVERIFIED','PUBLIC_CONTENT_UNSUPPORTED','PUBLIC_RESPONSE_TOO_LARGE','PUBLIC_REQUEST_UNCONFIRMED','PRODUCT_NOT_VERIFIED']);
-function safeDiagnostic(value){return value&&stages.has(value.stage)&&diagnosticCodes.has(value.code)?{stage:value.stage,code:value.code}:undefined;}
+const reasons=new Set(['RESOURCE_BUDGET_EXHAUSTED','STYLESHEET_FETCH_REJECTED','STYLESHEET_AUDIT_FAILED','PRICE_UNVERIFIED','IDENTITY_UNVERIFIED']);
+function safeDiagnostic(value){return value&&stages.has(value.stage)&&diagnosticCodes.has(value.code)?{stage:value.stage,code:value.code,...(reasons.has(value.reason)?{reason:value.reason}:{})}:undefined;}
 function productReceipt(value){
  if(!value||typeof value.name!=='string'||!value.name.trim()||value.name.length>500||value.currency!=='USD'||typeof value.price!=='number'||!Number.isFinite(value.price)||value.price<=0||value.price>10000||typeof value.observedAt!=='string'||!Number.isFinite(Date.parse(value.observedAt))||!['static_rendered_product_microdata_and_jsonld','target_selected_product_identity_and_visible_price'].includes(value.verification)||value.fitVerified!==false||value.availability!=='unknown')fail('PRODUCT_NOT_VERIFIED');
  if(value.verification==='target_selected_product_identity_and_visible_price'&&require('./target-reader.cjs').productUrl(value.url)!==value.url)fail('PRODUCT_NOT_VERIFIED');
@@ -31,13 +32,13 @@ function validateCheckpoint(task,plan,scope,taskId){
 }
 function createGeneralShoppingCapability({verifyScope,checkpoints,discover,provider,timeoutMs=45000,cleanupTimeoutMs=10000}){
  if(typeof verifyScope!=='function'||!checkpoints?.exclusive||typeof discover!=='function'||typeof provider?.open!=='function'||!Number.isInteger(timeoutMs)||timeoutMs<1||timeoutMs>45000||!Number.isInteger(cleanupTimeoutMs)||cleanupTimeoutMs<1||cleanupTimeoutMs>10000)fail('HOST_DEPENDENCIES_REQUIRED');
- return async function research({text,scope,taskId,signal,isCurrent=()=>false,pauseAfter=5}){
+ return async function research({text,scope,taskId,signal,isCurrent=()=>false,pauseAfter=5,recheckIncomplete=false}){
   scopeKey(scope,taskId);const plan=discoveryRequest(text);if(!Number.isInteger(pauseAfter)||pauseAfter<1||pauseAfter>5)fail('REQUEST_INVALID');
   const deadline=new AbortController(),timer=setTimeout(()=>deadline.abort(),timeoutMs),activeSignal=signal?AbortSignal.any([signal,deadline.signal]):deadline.signal;
   async function current(){await currentWithin(async()=>{if(!isCurrent()||!await verifyScope(scope)||!isCurrent())fail('TASK_INTERRUPTED')},activeSignal)}
   try{await current();return await checkpoints.exclusive(scope,taskId,async store=>{
    let task=await store.read();await current();
-   if(task){if(task.kind!=='general-shopping'||task.request!==text)fail('TASK_REQUEST_MISMATCH');validateCheckpoint(task,plan,scope,taskId);if(task.uncertainSession||task.cleanupUnconfirmed||task.status==='running')fail('RECONCILE_BEFORE_RETRY');if(['completed','incomplete'].includes(task.status))return {...generalReport(task),resultSource:'saved'}}
+   if(task){if(task.kind!=='general-shopping'||task.request!==text)fail('TASK_REQUEST_MISMATCH');validateCheckpoint(task,plan,scope,taskId);if(task.uncertainSession||task.cleanupUnconfirmed||task.status==='running')fail('RECONCILE_BEFORE_RETRY');if(task.status==='incomplete'&&recheckIncomplete===true&&task.failures.length){if(task.sessionStarts>=2)fail('SESSION_BUDGET_EXHAUSTED');task.previousFailures=task.failures;task.remaining=task.failures.map(f=>f.url);task.failures=[];task.status='ready'}else if(['completed','incomplete'].includes(task.status))return {...generalReport(task),resultSource:'saved'}}
    else{task={version:1,kind:'general-shopping',scope,taskId,request:text,plan,status:'ready',results:[],failures:[],remaining:null,sessionStarts:0,uncertainSession:false,cleanupUnconfirmed:false};await store.write(task)}
    let discoverySource='saved';if(task.remaining===null){
     const discoveryId='discover-'+createHash('sha256').update(taskId).digest('hex').slice(0,40);
@@ -56,7 +57,7 @@ function createGeneralShoppingCapability({verifyScope,checkpoints,discover,provi
     while(task.remaining.length&&visited<pauseAfter){
      await current();stage='product_observation';const url=task.remaining[0];
      try{const receipt=await valueWithin(()=>session.driver.read(url,{assertCurrent:current,signal:activeSignal}),activeSignal);await current();const product=productReceipt(receipt);if(product.url!==url)fail('PRODUCT_NOT_VERIFIED');task.results.push(product)}
-     catch(error){if(!['PRODUCT_NOT_VERIFIED','PUBLIC_URL_DENIED','PUBLIC_DNS_DENIED','PUBLIC_DNS_UNCONFIRMED','PUBLIC_RESPONSE_UNVERIFIED','PUBLIC_CONTENT_UNSUPPORTED','PUBLIC_RESPONSE_TOO_LARGE','PUBLIC_REQUEST_UNCONFIRMED'].includes(error?.message))throw error;await current();task.failures.push({url,error:'PRODUCT_NOT_VERIFIED',diagnostic:{stage:stages.has(error?.stage)?error.stage:stage,code:error.message}})}
+     catch(error){if(!['PRODUCT_NOT_VERIFIED','PUBLIC_URL_DENIED','PUBLIC_DNS_DENIED','PUBLIC_DNS_UNCONFIRMED','PUBLIC_RESPONSE_UNVERIFIED','PUBLIC_CONTENT_UNSUPPORTED','PUBLIC_RESPONSE_TOO_LARGE','PUBLIC_REQUEST_UNCONFIRMED'].includes(error?.message))throw error;await current();task.failures.push({url,error:'PRODUCT_NOT_VERIFIED',diagnostic:{stage:stages.has(error?.stage)?error.stage:stage,code:error.message,...(reasons.has(error.reason)?{reason:error.reason}:{})}})}
      task.remaining.shift();visited++;await store.write(task);
     }
     task.status=task.remaining.length?'paused':task.results.filter(p=>task.plan.maxPrice===null||p.price<=task.plan.maxPrice).length>=2?'completed':'incomplete';delete task.error;delete task.diagnostic;

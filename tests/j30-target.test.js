@@ -27,3 +27,4 @@ test('protected Target context late arrival remains unconfirmed and is closed',a
 test('protected Target cannot execute when scope guard is revoked',async()=>{let contexts=0;const reader=createProtectedTargetReader({browser:{newContext:async()=>{contexts++}},fetchPublic:async()=>{}});await assert.rejects(reader.read(url,{assertCurrent:async()=>{throw Error('TASK_INTERRUPTED')}}),/TASK_INTERRUPTED/);assert.equal(contexts,0)});
 
 test('protected Target JSON denies duplicate product selectors',()=>assert.equal(policy({url:'https://redsky.target.com/redsky_aggregations/v1/web/pdp_client_v1?tcin=89419019&tcin=11111111',type:'fetch'}),null));
+test('Target rejection reason identifies style audit without disclosing page text',()=>assert.throws(()=>verify({...fixture(),cssVerified:false}),e=>e.message==='PRODUCT_NOT_VERIFIED'&&e.reason==='STYLESHEET_AUDIT_FAILED'));

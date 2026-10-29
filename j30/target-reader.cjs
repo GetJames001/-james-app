@@ -1,7 +1,7 @@
 'use strict';
-// Isolated retailer adapter. Not registered with the hosted shopping capability yet.
+// Server-owned retailer adapter used only through protected hosted rendering.
 const {createHash}=require('node:crypto');
-const fail=()=>{throw Error('PRODUCT_NOT_VERIFIED')};
+const fail=(reason='IDENTITY_UNVERIFIED')=>{const error=Error('PRODUCT_NOT_VERIFIED');error.reason=reason;throw error};
 function productUrl(value){
  let u;try{u=new URL(value)}catch{fail()}
  if(u.protocol!=='https:'||u.hostname!=='www.target.com'||u.port||u.username||u.password||u.hash||u.pathname.includes('%')||!/^\/p\/(?:[a-z0-9-]+\/)?-\/A-\d{5,12}$/.test(u.pathname))fail();
@@ -18,16 +18,16 @@ function identity(value){return typeof value==='string'?value.normalize('NFKC').
 function verifyObservation(observation,{requestedUrl,observedAt=new Date().toISOString()}={}){
  const actual=productUrl(observation?.url),requested=productUrl(requestedUrl),canonical=productUrl(observation?.canonical);
  if(productId(actual)!==productId(requested)||productId(actual)!==productId(canonical))fail();
- if(observation.cssVerified!==true)fail();
+ if(observation.cssVerified!==true)fail('STYLESHEET_AUDIT_FAILED');
  const name=observation.heading;
  if(typeof name!=='string'||!name.trim()||name.length>500||!observation.headingVisible||identity(name)!==identity(observation.ogTitle))fail();
  // Read the selected product's main price only. Recommendation/old/member/range prices do not qualify.
- if(observation.priceCount!==1||!observation.priceVisible||typeof observation.priceText!=='string')fail();
+ if(observation.priceCount!==1||!observation.priceVisible||typeof observation.priceText!=='string')fail('PRICE_UNVERIFIED');
  let selected=observation.priceText.trim();
  const parts=observation.priceParts;
  if(Array.isArray(parts)&&parts.length===3&&parts.every(p=>p?.visible===true&&typeof p.text==='string')&&parts[0].decoration==='none'&&parts[1].text.trim()==='reg'&&parts[2].decoration==='line-through'&&/^\$\d+(?:,\d{3})*\.\d{2}$/.test(parts[0].text)&&/^\$\d+(?:,\d{3})*\.\d{2}$/.test(parts[2].text)&&parts.map(p=>p.text).join('')===selected&&Number(parts[0].text.replace(/[$,]/g,''))<Number(parts[2].text.replace(/[$,]/g,'')))selected=parts[0].text;
  const match=selected.match(/^\$(\d{1,3}(?:,\d{3})*|\d+)\.(\d{2})$/);
- if(!match)fail();const price=Number(match[1].replaceAll(',','')+'.'+match[2]);
+ if(!match)fail('PRICE_UNVERIFIED');const price=Number(match[1].replaceAll(',','')+'.'+match[2]);
  if(!(price>0&&price<=10000)||!Number.isFinite(Date.parse(observedAt)))fail();
  const metadataImage=imageUrl(observation.ogImage);
  const photo=metadataImage&&Array.isArray(observation.images)&&observation.images.some(n=>n.visible&&n.loaded&&imageUrl(n.url)===metadataImage)?metadataImage:null;
