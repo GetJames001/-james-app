@@ -94,3 +94,9 @@ test('cancelled batch settles before cleanup and keeps uncommitted URLs for same
  await assert.rejects(f.run({...request,isCurrent:()=>current}),/TASK_INTERRUPTED/);assert.equal(f.counts().closeCount,1);
  const files=await fs.readdir(f.directory);const row=JSON.parse(await fs.readFile(path.join(f.directory,files[0]),'utf8'));assert.equal(row.results.length,0);assert.equal(row.remainingUrls.length,3);
 }));
+
+for(const budget of [1,2])test('batch respects explicit integer pause budget '+budget,async()=>fixture(async f=>{
+ const original=f.provider.open;const batches=[];f.provider.open=async()=>{const s=await original();s.driver.readBatch=async urls=>{batches.push(urls.length);return Promise.allSettled(urls.map(url=>s.driver.read(url)))};return s;};
+ const result=await f.run({...request,pauseAfter:budget});assert.equal(result.status,'paused');assert.equal(result.products.length,budget);assert.deepEqual(batches,[budget]);assert.equal(f.counts().reads,budget);
+}));
+test('invalid fractional pause budgets fail before browser execution',async()=>fixture(async f=>{for(const pauseAfter of [0.5,1.5,NaN,Infinity])await assert.rejects(f.run({...request,pauseAfter}),/REQUEST_INVALID/);assert.equal(f.counts().openCount,0)}));

@@ -5,6 +5,7 @@ const {scopeKey}=require('./checkpoints.cjs');
 function createShoppingCapability({verifyScope,checkpoints,provider,now=Date.now}){
  if(typeof verifyScope!=='function'||!checkpoints?.exclusive||!provider?.open)throw Error('HOST_DEPENDENCIES_REQUIRED');
  return async function researchShopping({text,scope,taskId,signal,isCurrent=()=>false,pauseAfter=3}){
+  if(!Number.isInteger(pauseAfter)||pauseAfter<1||pauseAfter>3)throw Error('REQUEST_INVALID');
   scopeKey(scope,taskId);const sameScope=()=>verifyScope(scope);
   async function current(){if(signal?.aborted||!isCurrent())throw Error('TASK_INTERRUPTED');const verified=await sameScope();if(signal?.aborted||!isCurrent()||!verified)throw Error('TASK_INTERRUPTED')}
   await current();
