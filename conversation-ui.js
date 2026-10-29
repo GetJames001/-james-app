@@ -141,7 +141,7 @@
     }}
     history.push({role:'User',text:external?(request.historyText||text):text},{role:'James',text:data.historyAnswer||reply});persistHistory(scope);
     if(!external&&input.value.trim()===text)input.value='';status.textContent='Ready';return {status:'completed',answer:reply};
-   }catch(error){if(ticket===revision){if(identity&&!identity.current())clear();status.textContent=closure?'End is not confirmed. Try End conversation again.':error?.message==='MODEL_UNAVAILABLE'?"James's configured model is unavailable. Your draft is still here.":'James could not complete this request. Your draft is still here.';return {status:'failed',message:status.textContent};}}finally{if(ticket===revision)stopButton.disabled=true;}
+   }catch(error){if(ticket===revision){if(identity&&!identity.current())clear();status.textContent=closure?'End is not confirmed. Try End conversation again.':error?.message==='MODEL_UNAVAILABLE'?"James's configured model is unavailable. Your draft is still here.":'James could not complete this request. Your draft is still here.';if(error?.message==='MODEL_UNAVAILABLE')offerResume();return {status:'failed',message:status.textContent};}}finally{if(ticket===revision)stopButton.disabled=true;}
   }
   async function end(expectedScope){
    if(expectedScope){const current=identity?.current();if(!current||current.accountId!==expectedScope.accountId||current.conversationId!==expectedScope.conversationId||current.generation!==expectedScope.generation)return {status:"superseded"};}
@@ -161,7 +161,9 @@
     status.textContent=closure?'End is not confirmed. Try End conversation again.':'Conversation ended';
    }catch{if(ticket===revision){closure=closure||{retry:()=>identity.end()};status.textContent='End is not confirmed. Try End conversation again.';}}finally{ending=false;}
   }
-  function cancelReply(){++revision;stopButton.disabled=true;bridge?.interruptReply();stopInput();status.textContent='Reply cancelled. Your draft is retained.';
+  function cancelReply(){++revision;stopButton.disabled=true;bridge?.interruptReply();stopInput();status.textContent='Reply cancelled. Your draft is retained.';offerResume();
+  }
+  function offerResume(){
    resumeButton.hidden=true;
    try{const raw=historyStorage?.getItem('james:j30-task:v1'),saved=JSON.parse(raw||'null'),current=identity?.current();
     if(saved&&current&&JSON.stringify(saved.scope)===JSON.stringify(current)&&saved.text==='Compare desk lamps under $50'&&typeof saved.taskId==='string'){

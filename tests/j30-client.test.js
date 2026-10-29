@@ -2,7 +2,7 @@
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),vm=require('node:vm');
 const {webcrypto}=require('node:crypto');
 const scope={accountId:'account-fixture',conversationId:'conversation-fixture',generation:1,status:'ready'};
-function fixture({storage=new Map(),research}={}){
+function fixture({storage=new Map(),research,modelUnavailable=false}={}){
  const requests=[],nodes=[];const node=()=>({ownText:'',children:[],attrs:{},get textContent(){return this.ownText+this.children.map(n=>n.textContent).join('')},set textContent(v){this.ownText=v;this.children=[]},value:'',setAttribute(k,v){this.attrs[k]=v},append(...items){this.children.push(...items)},after(){}});const doc={createElement(){const n=node();n.tag=arguments[0];nodes.push(n);return n}};
  const input={...node(),ownerDocument:doc},answer=node(),askButton={...node(),parentNode:node()};
  const sandbox={console,crypto:webcrypto,AbortController,URL,setTimeout,clearTimeout,Intl,Event,sessionStorage:{getItem:k=>storage.get(k)??null,setItem:(k,v)=>storage.set(k,v),removeItem:k=>storage.delete(k)}};
@@ -14,7 +14,7 @@ function fixture({storage=new Map(),research}={}){
  const fetcher=async(url,options)=>{const body=options?.body?JSON.parse(options.body):null;requests.push({url,body});let data;
   if(url==='/api/james/conversation')data=scope;
   else if(url==='/api/james/research')data=research?await research(body):{ok:true,result:{status:'completed',comparisonVerified:true,message:'Fixture evidence only',products:[{name:'Synthetic lamp',price:10,currency:'USD',url:'https://www.ikea.com/us/en/p/synthetic/',observedAt:'2026-10-28T20:00:00Z'}]}};
-  else data={ok:true,answer:'Normal James reply'};
+  else if(modelUnavailable)return {ok:false,status:503,json:async()=>({ok:false,error:'FAST_MODEL_NOT_CONFIGURED'})};else data={ok:true,answer:'Normal James reply'};
   return {ok:true,status:200,json:async()=>data};};
  const ui=sandbox.JamesConversationUI.mount({input,answer,askButton,fetcher});return {ui,input,answer,requests,storage,nodes};
 }
@@ -97,3 +97,5 @@ test('Resume research retries the retained task without model routing or clearin
 test('stale Resume research cannot restart a different task after revoke',async()=>{
  let release,entered;const start=new Promise(r=>entered=r);const f=fixture({research:()=>new Promise(r=>{release=r;entered()})});f.input.value='Compare desk lamps under $50';const pending=f.ui.ask();await start;f.ui.cancelReply();const resume=f.nodes.find(n=>n.textContent==='Resume research');f.ui.revoke();await resume.onclick();release({ok:true,result:{status:'completed',comparisonVerified:true,products:[]}});await pending;assert.equal(f.requests.filter(r=>r.url==='/api/james/research').length,1);assert.equal(resume.hidden,true);
 });
+
+test('model failure offers saved research recovery without creating another task',async()=>{const f=fixture({modelUnavailable:true});f.input.value='Compare desk lamps under $50';await f.ui.ask();const task=f.storage.get('james:j30-task:v1');f.input.value='A different question';await f.ui.ask();const resume=f.nodes.find(n=>n.textContent==='Resume research');assert.equal(resume.hidden,false);await resume.onclick();assert.equal(f.storage.get('james:j30-task:v1'),task);assert.equal(f.input.value,'A different question');});
