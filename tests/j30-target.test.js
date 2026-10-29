@@ -28,3 +28,4 @@ test('protected Target cannot execute when scope guard is revoked',async()=>{let
 
 test('protected Target JSON denies duplicate product selectors',()=>assert.equal(policy({url:'https://redsky.target.com/redsky_aggregations/v1/web/pdp_client_v1?tcin=89419019&tcin=11111111',type:'fetch'}),null));
 test('Target rejection reason identifies style audit without disclosing page text',()=>assert.throws(()=>verify({...fixture(),cssVerified:false}),e=>e.message==='PRODUCT_NOT_VERIFIED'&&e.reason==='STYLESHEET_AUDIT_FAILED'));
+test('Target heading wait failure yields bounded stage reason rather than raw browser text',async()=>{const reader=createTargetReader({goto:async()=>({status:()=>200}),url:()=>url,locator:()=>({first:()=>({waitFor:async()=>{throw Error('private browser details')}})})});await assert.rejects(reader.read(url),e=>e.message==='READER_EXECUTION_UNCONFIRMED'&&e.reason==='HEADING_NOT_RENDERED')});

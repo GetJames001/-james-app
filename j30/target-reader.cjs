@@ -42,8 +42,8 @@ function createTargetReader(page,{now=()=>new Date().toISOString(),verifyRender=
   const requested=productUrl(url);const response=await page.goto(requested,{waitUntil:'domcontentloaded',timeout:12000});
   if(!response||response.status()!==200)fail();
   productUrl(page.url());
-  await page.locator('h1').first().waitFor({state:'visible',timeout:8000});
-  await page.locator('[data-test="module-product-detail-price-v2"] [data-test="price-cdui-row"]').filter({hasText:/\$/}).first().waitFor({state:'visible',timeout:8000});
+  try{await page.locator('h1').first().waitFor({state:'visible',timeout:8000})}catch{const error=Error('READER_EXECUTION_UNCONFIRMED');error.reason='HEADING_NOT_RENDERED';throw error}
+  try{await page.locator('[data-test="module-product-detail-price-v2"] [data-test="price-cdui-row"]').filter({hasText:/\$/}).first().waitFor({state:'visible',timeout:8000})}catch{const error=Error('READER_EXECUTION_UNCONFIRMED');error.reason='PRICE_NOT_RENDERED';throw error}
   await verifyRender();
   const observation=await page.evaluate(()=>{
    const visible=n=>Boolean(n&&typeof n.checkVisibility==='function'&&n.checkVisibility({checkOpacity:true,checkVisibilityCSS:true})&&n.getBoundingClientRect().width>0&&n.getBoundingClientRect().height>0);

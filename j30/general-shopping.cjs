@@ -6,7 +6,7 @@ const {transportUrl,currentWithin,valueWithin}=require('./public-fetch.cjs');
 const fail=code=>{throw Error(code)};
 const stages=new Set(['provider_open','context_setup','document_navigation','product_observation','cleanup']);
 const diagnosticCodes=new Set(['BROWSER_CONNECTION_FAILED','CLEANUP_UNCONFIRMED','PROVIDER_REQUEST_UNCONFIRMED','PROVIDER_REQUEST_REJECTED','PROVIDER_RESPONSE_INVALID','USAGE_ALLOWANCE_UNCONFIRMED','USAGE_UNCONFIRMED','WEBSOCKET_GATE_UNAVAILABLE','READER_EXECUTION_UNCONFIRMED','TASK_INTERRUPTED','PUBLIC_URL_DENIED','PUBLIC_DNS_DENIED','PUBLIC_DNS_UNCONFIRMED','PUBLIC_RESPONSE_UNVERIFIED','PUBLIC_CONTENT_UNSUPPORTED','PUBLIC_RESPONSE_TOO_LARGE','PUBLIC_REQUEST_UNCONFIRMED','PRODUCT_NOT_VERIFIED']);
-const reasons=new Set(['RESOURCE_BUDGET_EXHAUSTED','STYLESHEET_FETCH_REJECTED','STYLESHEET_AUDIT_FAILED','PRICE_UNVERIFIED','IDENTITY_UNVERIFIED']);
+const reasons=new Set(['RESOURCE_BUDGET_EXHAUSTED','STYLESHEET_FETCH_REJECTED','STYLESHEET_AUDIT_FAILED','PRICE_UNVERIFIED','IDENTITY_UNVERIFIED','HEADING_NOT_RENDERED','PRICE_NOT_RENDERED']);
 function safeDiagnostic(value){return value&&stages.has(value.stage)&&diagnosticCodes.has(value.code)?{stage:value.stage,code:value.code,...(reasons.has(value.reason)?{reason:value.reason}:{})}:undefined;}
 function productReceipt(value){
  if(!value||typeof value.name!=='string'||!value.name.trim()||value.name.length>500||value.currency!=='USD'||typeof value.price!=='number'||!Number.isFinite(value.price)||value.price<=0||value.price>10000||typeof value.observedAt!=='string'||!Number.isFinite(Date.parse(value.observedAt))||!['static_rendered_product_microdata_and_jsonld','target_selected_product_identity_and_visible_price'].includes(value.verification)||value.fitVerified!==false||value.availability!=='unknown')fail('PRODUCT_NOT_VERIFIED');
@@ -61,7 +61,7 @@ function createGeneralShoppingCapability({verifyScope,checkpoints,discover,provi
      task.remaining.shift();visited++;await store.write(task);
     }
     task.status=task.remaining.length?'paused':task.results.filter(p=>task.plan.maxPrice===null||p.price<=task.plan.maxPrice).length>=2?'completed':'incomplete';delete task.error;delete task.diagnostic;
-   }catch(error){task.diagnostic={stage:stages.has(error?.stage)?error.stage:stage,code:diagnosticCodes.has(error?.message)?error.message:'READER_EXECUTION_UNCONFIRMED'};task.status=error?.message==='TASK_INTERRUPTED'?'paused':'blocked';task.error=error?.message==='TASK_INTERRUPTED'?'TASK_INTERRUPTED':'EXECUTION_UNCONFIRMED';if(error?.message==='CLEANUP_UNCONFIRMED'){task.cleanupUnconfirmed=true;task.error='CLEANUP_UNCONFIRMED'}}
+   }catch(error){task.diagnostic={stage:stages.has(error?.stage)?error.stage:stage,code:diagnosticCodes.has(error?.message)?error.message:'READER_EXECUTION_UNCONFIRMED',...(reasons.has(error.reason)?{reason:error.reason}:{})};task.status=error?.message==='TASK_INTERRUPTED'?'paused':'blocked';task.error=error?.message==='TASK_INTERRUPTED'?'TASK_INTERRUPTED':'EXECUTION_UNCONFIRMED';if(error?.message==='CLEANUP_UNCONFIRMED'){task.cleanupUnconfirmed=true;task.error='CLEANUP_UNCONFIRMED'}}
    finally{
     if(session)try{await closeSession(session)}catch{task.cleanupUnconfirmed=true;task.status='blocked';task.error='CLEANUP_UNCONFIRMED';task.diagnostic={stage:'cleanup',code:'CLEANUP_UNCONFIRMED'}}
     else if(opening){opening.then(value=>closeSession(value)).catch(()=>{});task.uncertainSession=true;task.status='blocked';task.error='CLEANUP_UNCONFIRMED'}
