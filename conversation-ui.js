@@ -6,7 +6,7 @@
   stopButton.type='button';stopButton.textContent='Stop response';stopButton.disabled=true;stopButton.onclick=()=>cancelReply();
   resumeButton.type='button';resumeButton.textContent='Resume research';resumeButton.hidden=true;
   askButton.parentNode.append(stopButton,resumeButton,endButton);askButton.parentNode.after(status);
-  let identity,bridge,loading,preparing,revision=0,history=[],scopeKey='',closure=null,ending=false,recheckIntent=null;
+  let identity,bridge,loading,preparing,revision=0,history=[],scopeKey='',closure=null,ending=false,recheckIntent=null,freshIntent=null;
   const historyCacheKey='james:confirmed-conversation:v1';
   if(historyStorage===undefined)try{historyStorage=root.sessionStorage}catch{}
   function forgetTranscript(){try{historyStorage?.removeItem(historyCacheKey)}catch{}}
@@ -68,11 +68,13 @@
    status.textContent='James is researching public product pages…';
    const searchStarted=Date.now();
    const recheck=recheckIntent?.ticket===ticket&&recheckIntent.taskId===task.taskId;if(recheckIntent?.ticket===ticket)recheckIntent=null;
-   const response=await requestJSON('/api/james/research',{method:'POST',credentials:'same-origin',cache:'no-store',signal,headers:{'Content-Type':'application/json'},body:JSON.stringify({text,taskId:task.taskId,conversationId:scope.conversationId,generation:scope.generation,...(recheck?{recheckIncomplete:true}:{})})},90000);
+   const fresh=plan.web&&freshIntent?.ticket===ticket;if(freshIntent?.ticket===ticket)freshIntent=null;
+   const response=await requestJSON('/api/james/research',{method:'POST',credentials:'same-origin',cache:'no-store',signal,headers:{'Content-Type':'application/json'},body:JSON.stringify({text,taskId:task.taskId,conversationId:scope.conversationId,generation:scope.generation,...(recheck?{recheckIncomplete:true}:{}),...(fresh?{fresh:true}:{})})},90000);
    const data=await response.json();
    if(ticket!==revision||signal?.aborted)throw Error('TASK_INTERRUPTED');
-   if(!response.ok||!data.ok){if([401,403].includes(response.status)){++revision;bridge.revoke();identity.revoke();clear();stopInput();status.textContent='Sign in to continue';}if(plan.web&&data.error==='FREE_SEARCH_ALLOWANCE_UNVERIFIED')return {ok:false,error:'FREE_SEARCH_ALLOWANCE_UNVERIFIED'};throw Error('RESEARCH_UNCONFIRMED')}
+   if(!response.ok||!data.ok){if([401,403].includes(response.status)){++revision;bridge.revoke();identity.revoke();clear();stopInput();status.textContent='Sign in to continue';}if(plan.web&&['FREE_SEARCH_ALLOWANCE_UNVERIFIED','FREE_SEARCH_LIMIT_REACHED'].includes(data.error))return {ok:false,error:data.error};throw Error('RESEARCH_UNCONFIRMED')}
    const result=data.result;
+   if(plan.web&&result?.taskId!==task.taskId){if(result?.recoveredTask!==true||result.requestedTaskId!==task.taskId||typeof result.taskId!=='string'||!/^[\w-]{1,160}$/.test(result.taskId)||result.taskId.startsWith('__j30_')||result.searchScope!=='web')throw Error('RESEARCH_UNCONFIRMED');task={...task,taskId:result.taskId};storeTask(task);}
    if(!result||!Array.isArray(result.products)||plan.web&&(result.taskId!==task.taskId||result.searchScope!=='web'))throw Error('RESEARCH_UNCONFIRMED');
    const lines=[result.comparisonVerified?'Verified public product comparison.':'The product comparison is not complete.', 'Task status: '+String(result.status),result.message];
    for(const item of result.products)lines.push(String(item.name)+' — '+String(item.currency)+' '+String(item.price)+'\n'+String(item.url)+'\nObserved: '+String(item.observedAt));
@@ -97,7 +99,7 @@
     again.onclick=async()=>{if(again.disabled||ending||scopeKey!==renderScope||JSON.stringify(identity?.current())!==renderScope)return;
      if(input.value.trim()){status.textContent='Keep or send your draft before starting a fresh search.';return;}
      again.disabled=true;
-     try{const saved=JSON.parse(historyStorage.getItem('james:j30-task:v1')||'null');if(!saved||saved.taskId!==result.taskId||JSON.stringify(saved.scope)!==renderScope){status.textContent='This comparison has been superseded. Continue the current research task.';return;}forgetTask(saved);await ask({text:saved.text,previousComparison:result});}
+     try{const saved=JSON.parse(historyStorage.getItem('james:j30-task:v1')||'null');if(!saved||saved.taskId!==result.taskId||JSON.stringify(saved.scope)!==renderScope){status.textContent='This comparison has been superseded. Continue the current research task.';return;}forgetTask(saved);await ask({text:saved.text,previousComparison:result,fresh:result.searchScope==='web'});}
      catch{status.textContent='Fresh search could not start. Your previous comparison is retained.';}
      finally{/* A consumed button never clears a newer or uncertain task. */}
     };answer.append(again);
@@ -150,12 +152,12 @@
     const key=JSON.stringify(scope);if(scopeKey&&scopeKey!==key)clear();scopeKey=key;
     status.textContent='Checking conversation…';const verified=await bridge.verifyIdentity();if(ticket!==revision)return;if(verified.status!=='ready'||JSON.stringify(identity.current())!==key){clear();throw Error('IDENTITY_UNAVAILABLE');}
     if(!history.length)restoreHistory(scope);
-    bridge.interruptReply();recheckIntent=request.recheckTaskId?{ticket,taskId:request.recheckTaskId}:null;
+    bridge.interruptReply();recheckIntent=request.recheckTaskId?{ticket,taskId:request.recheckTaskId}:null;freshIntent=request.fresh===true?{ticket}:null;
     stopButton.disabled=false;status.textContent='James is thinking…';const result=await bridge.submitTurn({origin:'typed',action:'ask',text});
     if(ticket!==revision||result.status==='superseded')return;
     if(result.status!=='completed'||!result.isCurrent())throw Error('REQUEST_FAILED');
     const checked=await bridge.verifyIdentity();if(ticket!==revision)return;if(checked.status!=='ready'||!result.isCurrent()||JSON.stringify(identity.current())!==key){clear();throw Error('IDENTITY_UNAVAILABLE');}
-    const data=result.result;if(data?.error==='FAST_MODEL_UNAVAILABLE')throw Error('MODEL_UNAVAILABLE');if(['GENERAL_SHOPPING_NOT_READY','FREE_SEARCH_ALLOWANCE_UNVERIFIED'].includes(data?.error))throw Error(data.error);let reply=data.answer||data.final_recommendation?.recommendation;if(!reply)throw Error('EMPTY_ANSWER');
+    const data=result.result;if(data?.error==='FAST_MODEL_UNAVAILABLE')throw Error('MODEL_UNAVAILABLE');if(['GENERAL_SHOPPING_NOT_READY','FREE_SEARCH_ALLOWANCE_UNVERIFIED','FREE_SEARCH_LIMIT_REACHED'].includes(data?.error))throw Error(data.error);let reply=data.answer||data.final_recommendation?.recommendation;if(!reply)throw Error('EMPTY_ANSWER');
     if(request.previousComparison&&data.shoppingTiming?.source==='fresh'&&data.shoppingResult?.comparisonVerified){
      const before=request.previousComparison.products||[],after=data.shoppingResult.products;
      const signature=items=>JSON.stringify(items.map(p=>[p.url,p.name,p.currency,p.price]).sort((a,b)=>String(a[0]).localeCompare(String(b[0]))));
@@ -170,7 +172,7 @@
     }}
     history.push({role:'User',text:external?(request.historyText||text):text},{role:'James',text:data.historyAnswer||reply});persistHistory(scope);
     if(!external&&input.value.trim()===text)input.value='';status.textContent='Ready';return {status:'completed',answer:reply};
-   }catch(error){if(ticket===revision){if(identity&&!identity.current())clear();status.textContent=closure?'End is not confirmed. Try End conversation again.':error?.message==='MODEL_UNAVAILABLE'?"James's configured model is unavailable. Your draft is still here.":error?.message==='GENERAL_SHOPPING_NOT_READY'?'General shopping is not enabled in this Preview yet. Your draft is retained.':error?.message==='FREE_SEARCH_ALLOWANCE_UNVERIFIED'?'Included search usage is not confirmed. No new search was made. Your draft is retained.':'James could not complete this request. Your draft is still here.';if(['MODEL_UNAVAILABLE','FREE_SEARCH_ALLOWANCE_UNVERIFIED'].includes(error?.message))offerResume();return {status:'failed',message:status.textContent};}}finally{if(recheckIntent?.ticket===ticket)recheckIntent=null;if(ticket===revision)stopButton.disabled=true;}
+   }catch(error){if(ticket===revision){if(identity&&!identity.current())clear();status.textContent=closure?'End is not confirmed. Try End conversation again.':error?.message==='MODEL_UNAVAILABLE'?"James's configured model is unavailable. Your draft is still here.":error?.message==='GENERAL_SHOPPING_NOT_READY'?'General shopping is not enabled in this Preview yet. Your draft is retained.':error?.message==='FREE_SEARCH_LIMIT_REACHED'?'The pilot search test limit has been reached. No new search was made. Your draft is retained.':error?.message==='FREE_SEARCH_ALLOWANCE_UNVERIFIED'?'Included search usage is not confirmed. No new search was made. Your draft is retained.':'James could not complete this request. Your draft is still here.';if(['MODEL_UNAVAILABLE','FREE_SEARCH_ALLOWANCE_UNVERIFIED'].includes(error?.message))offerResume();return {status:'failed',message:status.textContent};}}finally{if(recheckIntent?.ticket===ticket)recheckIntent=null;if(freshIntent?.ticket===ticket)freshIntent=null;if(ticket===revision)stopButton.disabled=true;}
   }
   async function end(expectedScope){
    if(expectedScope){const current=identity?.current();if(!current||current.accountId!==expectedScope.accountId||current.conversationId!==expectedScope.conversationId||current.generation!==expectedScope.generation)return {status:"superseded"};}

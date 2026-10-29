@@ -42,3 +42,36 @@ test('explicit incomplete recheck reuses discovery and only retries failed URLs 
 test('explicit incomplete recheck cannot reset session cap or expose arbitrary error reason',async()=>fixture(async f=>{const open=f.provider.open;f.provider.open=async()=>{const s=await open();s.driver.read=async()=>{const e=Error('PRODUCT_NOT_VERIFIED');e.reason='secret-private-cookie';throw e};return s};await f.run(request);const result=await f.run({...request,recheckIncomplete:true});assert.equal(result.sessionStarts,2);assert.equal(JSON.stringify(result).includes('secret-private'),false);await assert.rejects(f.run({...request,recheckIncomplete:true}),/SESSION_BUDGET_EXHAUSTED/);assert.equal(f.counts().searches,1);assert.equal(f.counts().opens,2)}));
 test('general orchestration derives navigation hosts from validated remaining candidates',async()=>fixture(async f=>{const open=f.provider.open;let hosts;f.provider.open=async options=>{hosts=options.navigationHosts;return open(options)};await f.run(request);assert.deepEqual(hosts,urls.map(url=>new URL(url).hostname))}));
 test('blocked renderer report retains only approved timeout reason',async()=>fixture(async f=>{const open=f.provider.open;f.provider.open=async()=>{const s=await open();s.driver.read=async()=>{const e=Error('READER_EXECUTION_UNCONFIRMED');e.reason='PRICE_NOT_RENDERED';throw e};return s};const result=await f.run(request);assert.equal(result.status,'blocked');assert.equal(result.diagnostic.reason,'PRICE_NOT_RENDERED')}));
+const {createRecoverableResearch,INDEX_ID}=require('../j30/research-recovery.cjs');
+test('server recovery survives cleared tab state and recreated capability without another search',async()=>fixture(async f=>{
+ const run=()=>createRecoverableResearch({...f.options,research:createGeneralShoppingCapability(f.options)});
+ const first=await run()(request),recovered=await run()({...request,taskId:'new-tab-random-id',text:'Find me a BLUE BUTTON-UP sweater below $50.'});
+ assert.equal(recovered.taskId,first.taskId);assert.equal(recovered.requestedTaskId,'new-tab-random-id');assert.equal(recovered.recoveredTask,true);assert.equal(recovered.resultSource,'saved');assert.deepEqual(recovered.products,first.products);assert.deepEqual(f.counts(),{searches:1,opens:1,reads:3,closes:1});
+}));
+test('server recovery never joins accounts conversations or ended generations',async()=>fixture(async f=>{
+ const run=createRecoverableResearch({...f.options,research:f.run});await run(request);
+ for(const [key,value]of [['accountId','another-account'],['conversationId','another-conversation'],['generation',2]]){const r=await run({...request,scope:{...scope,[key]:value},taskId:'new-'+key});assert.equal(r.taskId,'new-'+key);assert.equal(r.recoveredTask,undefined);assert.equal(r.resultSource,'fresh')}
+ assert.equal(f.counts().searches,4);
+}));
+test('explicit fresh run preserves old receipt and is recovered as latest only when tab pointer is missing',async()=>fixture(async f=>{
+ const run=createRecoverableResearch({...f.options,research:f.run});const old=await run(request),fresh=await run({...request,taskId:'explicit-new-run',fresh:true});assert.equal(fresh.taskId,'explicit-new-run');assert.equal(fresh.resultSource,'fresh');
+ const latest=await run({...request,taskId:'lost-tab-new-id'});assert.equal(latest.taskId,fresh.taskId);assert.equal(latest.resultSource,'saved');
+ const oldAgain=await run(request);assert.equal(oldAgain.taskId,old.taskId);assert.deepEqual(oldAgain.products,old.products);assert.equal(f.counts().searches,2);
+}));
+test('lost pointer and explicit fresh action cannot bypass unconfirmed cleanup or reset task budget',async()=>fixture(async f=>{
+ const open=f.provider.open;f.provider.open=async()=>{const s=await open();s.close=async()=>{throw Error('private cleanup detail')};return s};const run=createRecoverableResearch({...f.options,research:f.run});assert.equal((await run(request)).error,'CLEANUP_UNCONFIRMED');
+ await assert.rejects(run({...request,taskId:'lost-pointer'}),/RECONCILE_BEFORE_RETRY/);await assert.rejects(run({...request,taskId:'new-fresh',fresh:true}),/FRESH_RESEARCH_NOT_ALLOWED/);assert.equal(f.counts().opens,1);assert.equal(f.counts().searches,1);
+}));
+test('scope revocation while recording recovery pointer prevents all provider work',async()=>fixture(async f=>{
+ let active=true;const checkpoints={exclusive:(s,id,fn)=>f.checkpoints.exclusive(s,id,store=>fn({...store,write:async row=>{await store.write(row);if(id===INDEX_ID)active=false}}))};
+ const run=createRecoverableResearch({...f.options,checkpoints,verifyScope:async()=>active,research:f.run});await assert.rejects(run(request),/TASK_INTERRUPTED/);assert.equal(f.counts().searches,0);assert.equal(f.counts().opens,0);
+}));
+test('hung recovery scope guard is bounded before any storage or execution',async()=>{
+ let calls=0;const run=createRecoverableResearch({timeoutMs:10,verifyScope:()=>new Promise(()=>{}),checkpoints:{exclusive:()=>{calls++}},research:async()=>{calls++}});await assert.rejects(run(request),/TASK_INTERRUPTED/);assert.equal(calls,0);
+});
+test('reserved registry task ID cannot execute or replace the research index',async()=>fixture(async f=>{const run=createRecoverableResearch({...f.options,research:f.run});await assert.rejects(run({...request,taskId:INDEX_ID}),/REQUEST_INVALID/);assert.equal(f.counts().searches,0)}));
+test('known pre-index uncertain task never remaps to newer indexed results',async()=>fixture(async f=>{
+ const open=f.provider.open;let failCleanup=true;f.provider.open=async()=>{const s=await open();if(failCleanup)s.close=async()=>{throw Error('unconfirmed cleanup')};return s};
+ const old=await f.run(request);assert.equal(old.error,'CLEANUP_UNCONFIRMED');failCleanup=false;const run=createRecoverableResearch({...f.options,research:f.run});const newer=await run({...request,taskId:'newer-indexed-task'});assert.equal(newer.status,'completed');
+ await assert.rejects(run(request),/RECONCILE_BEFORE_RETRY/);await assert.rejects(run({...request,fresh:true}),/FRESH_RESEARCH_NOT_ALLOWED/);const recovered=await run({...request,taskId:'lost-newer-pointer'});assert.equal(recovered.taskId,newer.taskId);assert.equal(recovered.resultSource,'saved');assert.equal(f.counts().searches,2);
+}));

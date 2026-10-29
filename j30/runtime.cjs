@@ -28,7 +28,7 @@ function createRuntime({env,authorize,load}){
     let grant;try{grant=JSON.parse(env.J30_FREE_SEARCH_GRANT||'null')}catch{}
     const reserveFreeCall=load('./search-allowance.cjs').createFreeSearchReservation({checkpoints,providerIdentity:'browserbase-project:'+env.BROWSERBASE_PROJECT_ID,grant});
     const search=load('./discovery.cjs').createBrowserbaseSearch({apiKey:env.BROWSERBASE_API_KEY,enabled:true,usageApproved:true,reserveFreeCall});
-    researchFactory=options=>{const discover=load('./discovery.cjs').createDiscoveryCapability({...options,search});return load('./general-shopping.cjs').createGeneralShoppingCapability({...options,discover})};
+    researchFactory=options=>{const discover=load('./discovery.cjs').createDiscoveryCapability({...options,search});const research=load('./general-shopping.cjs').createGeneralShoppingCapability({...options,discover});return load('./research-recovery.cjs').createRecoverableResearch({...options,research})};
    }
    const handler=load('./host.cjs').createHostHandler({authorize,ownerIdentity:load('../lib/auth.js').configuredIdentity,conversationStore,checkpoints,provider,enabled:true,...(researchFactory?{researchFactory}:{})});
    return await handler(req,res);

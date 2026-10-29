@@ -71,4 +71,4 @@ function createGeneralShoppingCapability({verifyScope,checkpoints,discover,provi
   })}finally{clearTimeout(timer)}
  };
 }
-module.exports={productReceipt,generalReport,createGeneralShoppingCapability};
+module.exports={productReceipt,generalReport,validateCheckpoint,createGeneralShoppingCapability};

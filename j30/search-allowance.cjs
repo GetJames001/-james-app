@@ -19,7 +19,8 @@ function createFreeSearchReservation({checkpoints,providerIdentity,grant,now=Dat
    let row=existing;
    if(row){if(row.kind!=='included-search-reservations'||row.grantFingerprint!==fingerprint||!Number.isInteger(row.reserved)||row.reserved<0||row.reserved>snapshot.maxCalls)throw Error('SEARCH_ALLOWANCE_UNCONFIRMED')}
    else row={version:1,kind:'included-search-reservations',scope,taskId,grantFingerprint:fingerprint,reserved:0};
-   if(!validGrant(snapshot,now())||row.reserved>=snapshot.maxCalls)return false;
+   if(!validGrant(snapshot,now()))return false;
+   if(row.reserved>=snapshot.maxCalls)throw Error('FREE_SEARCH_LIMIT_REACHED');
    row.reserved++;await store.write(row);
    // A write that became stale still consumes its reservation, but starts no search.
    return validGrant(snapshot,now());
