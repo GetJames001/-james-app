@@ -22,6 +22,11 @@ function candidatesFromSearch(data,{now=()=>new Date().toISOString()}={}){
  if(!data||!Array.isArray(data.results)||data.results.length>25)fail('DISCOVERY_RESPONSE_INVALID');
  const candidates=[],seen=new Set(),hosts=new Map();
  for(const item of data.results){const url=candidateUrl(item?.url);if(!url||seen.has(url)||typeof item.title!=='string'||!item.title.trim()||item.title.length>500)continue;
+  // Only confirmed retailer listing routes are excluded. Unknown retailers may
+  // use /shop/, /browse/ or /category/ for real products and remain eligible.
+  const destination=new URL(url),path=destination.pathname,hostname=destination.hostname.replace(/^www\./,'');
+  if(hostname==='nordstromrack.com'&&/^\/shop\/(?:women|men|kids|home)(?:\/|$)/i.test(path))continue;
+  if(hostname==='nordstrom.com'&&/^\/browse\/(?:women|men|kids|home)(?:\/|$)/i.test(path))continue;
   const host=new URL(url).hostname.replace(/^www\./,'');if((hosts.get(host)||0)>=2)continue;
   seen.add(url);hosts.set(host,(hosts.get(host)||0)+1);candidates.push({title:item.title.trim(),url,sourceHost:host,observedAt:now(),verification:'search_candidate_only',productVerified:false,navigationApproved:false});
   if(candidates.length===5)break;
