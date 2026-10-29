@@ -32,12 +32,12 @@ function createPublicFetch({lookup=dns.lookup,request=https.request,timeoutMs=10
   // Pin the checked IPv4 address for the actual TLS connection. Do not resolve again.
   const address=addresses[0].address;await current();
   return await new Promise((resolve,reject)=>{
-   let req,settled=false;const done=(error,result)=>{if(settled)return;settled=true;if(error)reject(Error(error));else resolve(result)};
+   let req,settled=false;const done=(error,result,httpStatus)=>{if(settled)return;settled=true;if(error){const failure=Error(error);if(error==='PUBLIC_RESPONSE_UNVERIFIED'&&Number.isInteger(httpStatus)&&httpStatus>=100&&httpStatus<=599)failure.httpStatus=httpStatus;reject(failure)}else resolve(result)};
    try{req=request(url,{method:'GET',agent:false,family:4,autoSelectFamily:false,servername:u.hostname,rejectUnauthorized:true,signal:activeSignal,headers:{Accept:kind==='document'?'text/html':kind==='stylesheet'?'text/css':'image/png,image/jpeg,image/webp,image/avif','Accept-Encoding':'identity'},lookup:(hostname,options,callback)=>{
     if(hostname!==u.hostname)return callback(Error('PUBLIC_DNS_DENIED'));
     if(options?.all)return callback(null,[{address,family:4}]);callback(null,address,4);
    }},response=>{
-    const rejectResponse=code=>{done(code);response.destroy();req?.destroy()};
+    const rejectResponse=code=>{done(code,undefined,response.statusCode);response.destroy();req?.destroy()};
     if(response.statusCode!==200)return rejectResponse('PUBLIC_RESPONSE_UNVERIFIED');
     if(!types[kind].test(response.headers['content-type']||'')||(response.headers['content-encoding']&&response.headers['content-encoding']!=='identity'))return rejectResponse('PUBLIC_CONTENT_UNSUPPORTED');
     const length=response.headers['content-length'];if(length&&(!/^\d+$/.test(length)||Number(length)>limits[kind]))return rejectResponse('PUBLIC_RESPONSE_TOO_LARGE');
