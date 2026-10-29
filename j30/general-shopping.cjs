@@ -4,6 +4,9 @@ const {scopeKey}=require('./checkpoints.cjs');
 const {discoveryRequest}=require('./discovery.cjs');
 const {transportUrl,currentWithin,valueWithin}=require('./public-fetch.cjs');
 const fail=code=>{throw Error(code)};
+const stages=new Set(['provider_open','context_setup','document_navigation','product_observation','cleanup']);
+const diagnosticCodes=new Set(['BROWSER_CONNECTION_FAILED','CLEANUP_UNCONFIRMED','PROVIDER_REQUEST_UNCONFIRMED','PROVIDER_REQUEST_REJECTED','PROVIDER_RESPONSE_INVALID','USAGE_ALLOWANCE_UNCONFIRMED','USAGE_UNCONFIRMED','WEBSOCKET_GATE_UNAVAILABLE','READER_EXECUTION_UNCONFIRMED','TASK_INTERRUPTED','PUBLIC_URL_DENIED','PUBLIC_DNS_DENIED','PUBLIC_DNS_UNCONFIRMED','PUBLIC_RESPONSE_UNVERIFIED','PUBLIC_CONTENT_UNSUPPORTED','PUBLIC_RESPONSE_TOO_LARGE','PUBLIC_REQUEST_UNCONFIRMED','PRODUCT_NOT_VERIFIED']);
+function safeDiagnostic(value){return value&&stages.has(value.stage)&&diagnosticCodes.has(value.code)?{stage:value.stage,code:value.code}:undefined;}
 function productReceipt(value){
  if(!value||typeof value.name!=='string'||!value.name.trim()||value.name.length>500||value.currency!=='USD'||typeof value.price!=='number'||!Number.isFinite(value.price)||value.price<=0||value.price>10000||typeof value.observedAt!=='string'||!Number.isFinite(Date.parse(value.observedAt))||value.verification!=='static_rendered_product_microdata_and_jsonld'||value.fitVerified!==false||value.availability!=='unknown')fail('PRODUCT_NOT_VERIFIED');
  const url=transportUrl(value.url);if(url!==value.url||value.sourceHost!==new URL(url).hostname)fail('PRODUCT_NOT_VERIFIED');
@@ -14,7 +17,7 @@ function productReceipt(value){
 function generalReport(task){
  const all=task.results.map(productReceipt),products=all.filter(p=>task.plan.maxPrice===null||p.price<=task.plan.maxPrice).sort((a,b)=>a.price-b.price);
  if(new Set(all.map(p=>p.url)).size!==all.length)fail('CHECKPOINT_INVALID');
- return {taskId:task.taskId,status:task.status,query:task.plan.query,maxPrice:task.plan.maxPrice,searchScope:'web',products,sourceHostCount:new Set(products.map(p=>p.sourceHost.replace(/^www\./,''))).size,excludedCount:all.length-products.length,failures:task.failures.map(f=>({url:transportUrl(f.url),error:'PRODUCT_NOT_VERIFIED'})),sessionStarts:task.sessionStarts,error:['TASK_INTERRUPTED','CLEANUP_UNCONFIRMED','EXECUTION_UNCONFIRMED'].includes(task.error)?task.error:null,comparisonVerified:task.status==='completed'&&products.length>=2,fitVerified:false,purchaseAuthorized:false,accountConnections:false};
+ return {...(safeDiagnostic(task.diagnostic)?{diagnostic:safeDiagnostic(task.diagnostic)}:{}),taskId:task.taskId,status:task.status,query:task.plan.query,maxPrice:task.plan.maxPrice,searchScope:'web',products,sourceHostCount:new Set(products.map(p=>p.sourceHost.replace(/^www\./,''))).size,excludedCount:all.length-products.length,failures:task.failures.map(f=>({url:transportUrl(f.url),error:'PRODUCT_NOT_VERIFIED',...(safeDiagnostic(f.diagnostic)?{diagnostic:safeDiagnostic(f.diagnostic)}:{})})),sessionStarts:task.sessionStarts,error:['TASK_INTERRUPTED','CLEANUP_UNCONFIRMED','EXECUTION_UNCONFIRMED'].includes(task.error)?task.error:null,comparisonVerified:task.status==='completed'&&products.length>=2,fitVerified:false,purchaseAuthorized:false,accountConnections:false};
 }
 function validateCheckpoint(task,plan,scope,taskId){
  try{
@@ -43,22 +46,22 @@ function createGeneralShoppingCapability({verifyScope,checkpoints,discover,provi
    }
    if(!task.remaining.length){task.status=task.results.filter(p=>task.plan.maxPrice===null||p.price<=task.plan.maxPrice).length>=2?'completed':'incomplete';await store.write(task);await current();return {...generalReport(task),resultSource:discoverySource}}
    if(task.sessionStarts>=2)fail('SESSION_BUDGET_EXHAUSTED');
-   let session,opening,visited=0;const closures=new WeakMap();
+   let session,opening,visited=0,stage='provider_open';const closures=new WeakMap();
    function closeSession(value){if(closures.has(value))return closures.get(value);const closing=(async()=>{let stop;try{await Promise.race([Promise.resolve().then(()=>value.close()),new Promise((_,reject)=>{stop=setTimeout(()=>reject(Error('CLEANUP_UNCONFIRMED')),cleanupTimeoutMs)})])}catch{fail('CLEANUP_UNCONFIRMED')}finally{clearTimeout(stop)}})();closures.set(value,closing);return closing}
    try{
     await current();await valueWithin(()=>provider.preflight?.(),activeSignal);await current();
     task.status='running';task.sessionStarts++;task.uncertainSession=true;await store.write(task);
     opening=Promise.resolve().then(async()=>{await current();return provider.open({assertCurrent:current,signal:activeSignal})});session=await valueWithin(()=>opening,activeSignal);task.uncertainSession=false;task.sessionId=session.id;await store.write(task);await current();
     while(task.remaining.length&&visited<pauseAfter){
-     await current();const url=task.remaining[0];
+     await current();stage='product_observation';const url=task.remaining[0];
      try{const receipt=await valueWithin(()=>session.driver.read(url,{assertCurrent:current,signal:activeSignal}),activeSignal);await current();const product=productReceipt(receipt);if(product.url!==url)fail('PRODUCT_NOT_VERIFIED');task.results.push(product)}
-     catch(error){if(!['PRODUCT_NOT_VERIFIED','PUBLIC_URL_DENIED','PUBLIC_DNS_DENIED','PUBLIC_DNS_UNCONFIRMED','PUBLIC_RESPONSE_UNVERIFIED','PUBLIC_CONTENT_UNSUPPORTED','PUBLIC_RESPONSE_TOO_LARGE','PUBLIC_REQUEST_UNCONFIRMED'].includes(error?.message))throw error;await current();task.failures.push({url,error:'PRODUCT_NOT_VERIFIED'})}
+     catch(error){if(!['PRODUCT_NOT_VERIFIED','PUBLIC_URL_DENIED','PUBLIC_DNS_DENIED','PUBLIC_DNS_UNCONFIRMED','PUBLIC_RESPONSE_UNVERIFIED','PUBLIC_CONTENT_UNSUPPORTED','PUBLIC_RESPONSE_TOO_LARGE','PUBLIC_REQUEST_UNCONFIRMED'].includes(error?.message))throw error;await current();task.failures.push({url,error:'PRODUCT_NOT_VERIFIED',diagnostic:{stage:stages.has(error?.stage)?error.stage:stage,code:error.message}})}
      task.remaining.shift();visited++;await store.write(task);
     }
     task.status=task.remaining.length?'paused':task.results.filter(p=>task.plan.maxPrice===null||p.price<=task.plan.maxPrice).length>=2?'completed':'incomplete';delete task.error;
-   }catch(error){task.status=error?.message==='TASK_INTERRUPTED'?'paused':'blocked';task.error=error?.message==='TASK_INTERRUPTED'?'TASK_INTERRUPTED':'EXECUTION_UNCONFIRMED';if(error?.message==='CLEANUP_UNCONFIRMED'){task.cleanupUnconfirmed=true;task.error='CLEANUP_UNCONFIRMED'}}
+   }catch(error){task.diagnostic={stage:stages.has(error?.stage)?error.stage:stage,code:diagnosticCodes.has(error?.message)?error.message:'READER_EXECUTION_UNCONFIRMED'};task.status=error?.message==='TASK_INTERRUPTED'?'paused':'blocked';task.error=error?.message==='TASK_INTERRUPTED'?'TASK_INTERRUPTED':'EXECUTION_UNCONFIRMED';if(error?.message==='CLEANUP_UNCONFIRMED'){task.cleanupUnconfirmed=true;task.error='CLEANUP_UNCONFIRMED'}}
    finally{
-    if(session)try{await closeSession(session)}catch{task.cleanupUnconfirmed=true;task.status='blocked';task.error='CLEANUP_UNCONFIRMED'}
+    if(session)try{await closeSession(session)}catch{task.cleanupUnconfirmed=true;task.status='blocked';task.error='CLEANUP_UNCONFIRMED';task.diagnostic={stage:'cleanup',code:'CLEANUP_UNCONFIRMED'}}
     else if(opening){opening.then(value=>closeSession(value)).catch(()=>{});task.uncertainSession=true;task.status='blocked';task.error='CLEANUP_UNCONFIRMED'}
     await store.write(task);
    }

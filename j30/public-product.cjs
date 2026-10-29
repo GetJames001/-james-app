@@ -2,6 +2,7 @@
 const {createHash}=require('node:crypto');
 const {transportUrl,currentWithin,valueWithin}=require('./public-fetch.cjs');
 const fail=code=>{throw Error(code)};
+const transportErrors=new Set(['PUBLIC_URL_DENIED','PUBLIC_DNS_DENIED','PUBLIC_DNS_UNCONFIRMED','PUBLIC_RESPONSE_UNVERIFIED','PUBLIC_CONTENT_UNSUPPORTED','PUBLIC_RESPONSE_TOO_LARGE','PUBLIC_REQUEST_UNCONFIRMED','TASK_INTERRUPTED']);
 const identity=v=>typeof v==='string'?v.normalize('NFKC').toLowerCase().replace(/[^\p{L}\p{N}]/gu,''):'';
 function verifyPublicProduct(observation,{requestedUrl,observedAt}={}){
  const url=transportUrl(requestedUrl);if(transportUrl(observation?.url)!==url||transportUrl(observation?.canonical)!==url||observation.cssVerified!==true||observation.headingCount!==1||!identity(observation.heading)||!Array.isArray(observation.products)||observation.products.length>100)fail('PRODUCT_NOT_VERIFIED');
@@ -27,7 +28,7 @@ function createPublicProductReader({browser,fetchPublic,now=()=>new Date().toISO
   async function current(){await currentWithin(assertCurrent,activeSignal)}
   const active=operation=>valueWithin(operation,activeSignal),closures=new WeakMap();
   function closeContext(ctx){if(closures.has(ctx))return closures.get(ctx);const promise=(async()=>{let closeTimer;try{await Promise.race([Promise.resolve().then(()=>ctx.close()),new Promise((_,reject)=>{closeTimer=setTimeout(()=>reject(Error('CLEANUP_UNCONFIRMED')),cleanupTimeoutMs)})])}catch{fail('CLEANUP_UNCONFIRMED')}finally{clearTimeout(closeTimer)}})();closures.set(ctx,promise);return promise;}
-  let context,acquiring;let count=0,reserved=0,styleUnconfirmed=false;
+  let context,acquiring;let stage='context_setup',documentError=null;let count=0,reserved=0,styleUnconfirmed=false;
   try{
    await current();acquiring=Promise.resolve().then(()=>browser.newContext({offline:true,javaScriptEnabled:false,serviceWorkers:'block',acceptDownloads:false}));
    // A context can arrive after cancellation. Attempt bounded cleanup, but keep the
@@ -39,9 +40,9 @@ function createPublicProductReader({browser,fetchPublic,now=()=>new Date().toISO
     const kind=main&&request.url()===url?'document':!request.isNavigationRequest()&&type==='stylesheet'?'stylesheet':!request.isNavigationRequest()&&type==='image'?'image':null;
     if(request.method()!=='GET'||!kind||++count>20){if(type==='stylesheet')styleUnconfirmed=true;return route.abort()}
     reserved+=kind==='stylesheet'?500000:2000000;if(reserved>12000000){if(type==='stylesheet')styleUnconfirmed=true;return route.abort()}
-    try{await current();const response=await fetchPublic(request.url(),{kind,assertCurrent:current,signal:activeSignal});await current();await route.fulfill({status:200,contentType:response.contentType,body:response.body,headers:{'Content-Security-Policy':"default-src 'none'; style-src https: 'unsafe-inline'; img-src https:; script-src 'none'; connect-src 'none'; frame-src 'none'; form-action 'none'; base-uri 'none'"}})}catch{if(type==='stylesheet')styleUnconfirmed=true;return route.abort()}
+    try{await current();const response=await fetchPublic(request.url(),{kind,assertCurrent:current,signal:activeSignal});await current();await route.fulfill({status:200,contentType:response.contentType,body:response.body,headers:{'Content-Security-Policy':"default-src 'none'; style-src https: 'unsafe-inline'; img-src https:; script-src 'none'; connect-src 'none'; frame-src 'none'; form-action 'none'; base-uri 'none'"}})}catch(error){if(main&&request.url()===url)documentError=transportErrors.has(error?.message)?error.message:'PUBLIC_REQUEST_UNCONFIRMED';if(type==='stylesheet')styleUnconfirmed=true;return route.abort()}
    }));
-   const page=await active(()=>context.newPage());await active(()=>page.goto(url,{waitUntil:'load',timeout:20000}));await current();if(styleUnconfirmed)fail('PRODUCT_NOT_VERIFIED');
+   const page=await active(()=>context.newPage());stage='document_navigation';try{await active(()=>page.goto(url,{waitUntil:'load',timeout:20000}))}catch(error){if(documentError)fail(documentError);throw error}await current();if(styleUnconfirmed)fail('PRODUCT_NOT_VERIFIED');stage='product_observation';
    const observation=await active(()=>page.evaluate(()=>{
     const visible=n=>Boolean(n&&typeof n.checkVisibility==='function'&&n.checkVisibility({checkOpacity:true,checkVisibilityCSS:true})&&n.getBoundingClientRect().width>0&&n.getBoundingClientRect().height>0);
     const hs=Array.from(document.querySelectorAll('h1')).filter(visible),h=hs[0],products=[];let scanned=0;
@@ -57,7 +58,7 @@ function createPublicProductReader({browser,fetchPublic,now=()=>new Date().toISO
     return {url:location.href,canonical:document.querySelector('link[rel="canonical"]')?.href,cssVerified,headingCount:hs.length,heading:h?.innerText,products,prices,images:Array.from(document.querySelectorAll('img')).slice(0,100).map(n=>({url:n.currentSrc||n.src,visible:visible(n),loaded:n.complete&&n.naturalWidth>0}))};
    }));
    await current();return verifyPublicProduct(observation,{requestedUrl:url,observedAt:now()});
-  }finally{stopped.abort();clearTimeout(timer);if(context)await closeContext(context);else if(acquiring){acquiring.then(ctx=>closeContext(ctx)).catch(()=>{});fail('CLEANUP_UNCONFIRMED')}}
+  }catch(error){const safe=Error(transportErrors.has(error?.message)||['PRODUCT_NOT_VERIFIED','WEBSOCKET_GATE_UNAVAILABLE'].includes(error?.message)?error.message:'READER_EXECUTION_UNCONFIRMED');safe.stage=stage;throw safe;}finally{stopped.abort();clearTimeout(timer);if(context)await closeContext(context);else if(acquiring){acquiring.then(ctx=>closeContext(ctx)).catch(()=>{});fail('CLEANUP_UNCONFIRMED')}}
  }};
 }
 module.exports={verifyPublicProduct,createPublicProductReader};
