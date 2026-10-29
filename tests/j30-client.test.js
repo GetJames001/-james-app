@@ -114,3 +114,23 @@ test('cards show only verified safe photos with no-referrer and a working missin
  const photos=f.nodes.filter(n=>n.tag==='img');assert.equal(photos.length,url.includes('evil')?0:1);if(photos.length){assert.equal(photos[0].attrs.referrerpolicy,'no-referrer');photos[0].onerror();assert.equal(photos[0].attrs.style,'display:none');assert.equal(f.nodes.find(n=>n.textContent==='Product image unavailable').hidden,false);}
  }
 });
+
+test('different category requests keep separate resumable task IDs and canonical budgets',async()=>{
+ const f=fixture();for(const text of ['Compare desk lamps under $50','Please find table lamps below $75.','Show me bookshelves up to $100','Compare desk lamps under $50']){f.input.value=text;await f.ui.ask();}
+ const calls=f.requests.filter(r=>r.url==='/api/james/research');assert.equal(calls.length,4);assert.equal(calls[1].body.text,'Compare table lamps under $75');assert.equal(calls[2].body.text,'Compare bookshelves under $100');assert.equal(calls[0].body.taskId,calls[3].body.taskId);assert.notEqual(calls[0].body.taskId,calls[1].body.taskId);assert.equal(f.requests.some(r=>r.url==='/api/fast'),false);
+ f.ui.revoke();assert.equal(f.storage.has('james:j30-task-index:v1'),false);
+});
+test('recheck preserves the selected category and budget',async()=>{
+ const f=fixture({research:async body=>({ok:true,result:{taskId:body.taskId,status:'completed',comparisonVerified:true,query:'table lamps',products:[]}})});
+ f.input.value='Compare table lamps under $75';await f.ui.ask();await f.nodes.find(n=>n.textContent==='Check these again').onclick();const calls=f.requests.filter(r=>r.url==='/api/james/research');assert.equal(calls.length,2);assert.equal(calls[1].body.text,'Compare table lamps under $75');assert.notEqual(calls[0].body.taskId,calls[1].body.taskId);
+});
+test('unsupported shopping requests give explicit scope without claiming a search or invoking models',async()=>{
+ const f=fixture();f.input.value='Compare dining tables under $100';await f.ui.ask();assert.match(f.answer.textContent,/No search was performed/);assert.equal(f.requests.some(r=>['/api/fast','/api/james/research'].includes(r.url)),false);
+});
+test('a cancelled category remains resumable after another supported request',async()=>{
+ let release,entered;const started=new Promise(r=>entered=r);let count=0;const f=fixture({research:async body=>++count===1?new Promise(r=>{release=r;entered()}):{ok:true,result:{taskId:body.taskId,status:'completed',comparisonVerified:true,products:[]}}});
+ f.input.value='Compare table lamps under $75';const pending=f.ui.ask();await started;const first=f.requests.find(r=>r.url==='/api/james/research').body.taskId;f.ui.cancelReply();release({ok:true,result:{status:'completed',comparisonVerified:true,products:[]}});await pending;
+ f.input.value='Compare bookshelves under $100';await f.ui.ask();f.input.value='Compare table lamps under $75';await f.ui.ask();assert.equal(f.requests.filter(r=>r.url==='/api/james/research')[2].body.taskId,first);
+});
+
+test('corrupt task index cannot discard old progress or start provider work',async()=>{const f=fixture();f.storage.set('james:j30-task-index:v1','not json');f.input.value='Compare table lamps under $75';assert.equal((await f.ui.ask()).status,'failed');assert.equal(f.requests.some(r=>r.url==='/api/james/research'),false);assert.equal(f.input.value,'Compare table lamps under $75');});

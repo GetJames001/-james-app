@@ -4,9 +4,11 @@ const {createHash}=require('node:crypto');
 const fail=code=>{throw Error(code)};
 const HOST='www.ikea.com';
 const SEARCH_HOST='sik.search.blue.cdtapps.com';
-function catalogSearchPayload(){
- // Trusted fixed public catalog read for this isolated pilot. No page data is copied.
- return JSON.stringify({searchParameters:{input:'desk lamps',type:'QUERY'},components:[{component:'PRIMARY_AREA',columns:4,types:{main:'PRODUCT',breakouts:['CONTENT','PLANNER']}}]});
+const SUPPORTED_QUERIES=['desk lamps','table lamps','bookshelves','office chairs'];
+function catalogSearchPayload(query='desk lamps'){
+ if(!SUPPORTED_QUERIES.includes(query))fail('REQUEST_INVALID');
+ // Trusted allowlisted public catalog read for this isolated pilot. No page data is copied.
+ return JSON.stringify({searchParameters:{input:query,type:'QUERY'},components:[{component:'PRIMARY_AREA',columns:4,types:{main:'PRODUCT',breakouts:['CONTENT','PLANNER']}}]});
 }
 function allowResource({url,method,type,mainDocument=false,authorizedSearch=false}){
  let u;try{u=new URL(url)}catch{return false}
@@ -49,8 +51,9 @@ function parseRequest(text){
  if(/\b(buy|purchase|checkout|log\s*in|sign\s*in|connect|subscribe|add\s+to\s+cart)\b/i.test(text))fail('ACTION_NOT_AUTHORIZED');
  const budget=text.match(/(?:under|below|up to|maximum|max)\s*\$\s*(\d+(?:\.\d{1,2})?)/i);
  const maxPrice=budget?Number(budget[1]):null;if(maxPrice!==null&&!(maxPrice>0&&maxPrice<=10000))fail('REQUEST_INVALID');
- const query=text.replace(/^(?:please\s+)?(?:find|compare|research|show me)\s+/i,'').replace(/(?:under|below|up to|maximum|max)\s*\$\s*\d+(?:\.\d{1,2})?.*$/i,'').replace(/[.!?]+$/,'').trim();
+ let query=text.replace(/^(?:please\s+)?(?:find|compare|research|show me)\s+/i,'').replace(/(?:under|below|up to|maximum|max)\s*\$\s*\d+(?:\.\d{1,2})?.*$/i,'').replace(/[.!?]+$/,'').trim();
  if(!query||query.length>150||/https?:|[<>]/i.test(query))fail('REQUEST_INVALID');
+ query=query.toLowerCase().replace(/\s+/g,' ');if(!SUPPORTED_QUERIES.includes(query))fail('REQUEST_UNSUPPORTED');
  return {query,maxPrice,currency:'USD',searchUrl:publicUrl('https://'+HOST+'/us/en/search/?q='+encodeURIComponent(query))};
 }
 function createBrowserbase({apiKey,projectId,enabled=false,usageApproved=false,maxUsageMinutes=null,fetchImpl=fetch,connectOverCDP}){
@@ -90,17 +93,17 @@ function createBrowserbase({apiKey,projectId,enabled=false,usageApproved=false,m
    if(typeof context.routeWebSocket!=='function')fail('WEBSOCKET_GATE_UNAVAILABLE');
    await context.routeWebSocket('**/*',socket=>socket.close());
    // Deny writes and off-merchant traffic even if a page tries to redirect us.
-   const denied=new Map(),catalogResponseStatuses=[];let authorizedSearch=false;
+   const denied=new Map(),catalogResponseStatuses=[];let authorizedSearch=false,authorizedQuery=null;
    await context.route('**/*',async route=>{const req=route.request();let mainDocument=false;try{mainDocument=req.isNavigationRequest()&&req.frame().parentFrame()===null}catch{}
     if(allowResource({url:req.url(),method:req.method(),type:req.resourceType(),mainDocument,authorizedSearch})){
-     if(req.method()==='POST')return deliverResource(route,{url:'https://sik.search.blue.cdtapps.com/us/en/search',postData:catalogSearchPayload(),headers:{'Content-Type':'application/json',Accept:'application/json',Origin:'https://www.ikea.com'}},status=>{if(catalogResponseStatuses.length<3)catalogResponseStatuses.push(status)});
+     if(req.method()==='POST')return deliverResource(route,{url:'https://sik.search.blue.cdtapps.com/us/en/search',postData:catalogSearchPayload(authorizedQuery),headers:{'Content-Type':'application/json',Accept:'application/json',Origin:'https://www.ikea.com'}},status=>{if(catalogResponseStatuses.length<3)catalogResponseStatuses.push(status)});
      return deliverResource(route);
     }
     try{const u=new URL(req.url()),key=u.hostname+u.pathname.slice(0,180)+' ['+req.method()+' '+req.resourceType()+']';
      if(!denied.has(key)&&denied.size>=32&&['fetch','xhr'].includes(req.resourceType())){const first=[...denied.keys()].find(k=>!/(fetch|xhr)\]$/.test(k));if(first)denied.delete(first)}
      if(denied.has(key)||denied.size<32)denied.set(key,(denied.get(key)||0)+1)}catch{}return route.abort()});
    const page=await context.newPage();page.setDefaultTimeout(8000);
-   const driver=createShoppingDriver(page,()=>[...denied].map(([resource,count])=>({resource,count})),url=>{authorizedSearch=new URL(url).searchParams.get('q')==='desk lamps';},()=>[...catalogResponseStatuses]);
+   const driver=createShoppingDriver(page,()=>[...denied].map(([resource,count])=>({resource,count})),url=>{const query=new URL(url).searchParams.get('q');authorizedSearch=SUPPORTED_QUERIES.includes(query);authorizedQuery=authorizedSearch?query:null;},()=>[...catalogResponseStatuses]);
    driver.readBatch=urls=>readProductBatch(context,urls);
    return {id:session.id,driver,close};
   }catch{try{await close()}catch{fail('CLEANUP_UNCONFIRMED')}fail('BROWSER_CONNECTION_FAILED')}
