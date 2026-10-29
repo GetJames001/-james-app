@@ -100,3 +100,5 @@ for(const budget of [1,2])test('batch respects explicit integer pause budget '+b
  const result=await f.run({...request,pauseAfter:budget});assert.equal(result.status,'paused');assert.equal(result.products.length,budget);assert.deepEqual(batches,[budget]);assert.equal(f.counts().reads,budget);
 }));
 test('invalid fractional pause budgets fail before browser execution',async()=>fixture(async f=>{for(const pauseAfter of [0.5,1.5,NaN,Infinity])await assert.rejects(f.run({...request,pauseAfter}),/REQUEST_INVALID/);assert.equal(f.counts().openCount,0)}));
+
+test('verification skips custom fonts and thumbnail strips but keeps main product photos',()=>{const {allowResource}=require('../j30/browserbase.cjs');const image='https://www.ikea.com/us/en/images/products/fixture__123.jpg';assert.equal(allowResource({url:image+'?f=u',method:'GET',type:'image'}),false);assert.equal(allowResource({url:image+'?f=s',method:'GET',type:'image'}),true);assert.equal(allowResource({url:'https://www.ikea.com/global/assets/fixture.woff2',method:'GET',type:'font'}),false);});

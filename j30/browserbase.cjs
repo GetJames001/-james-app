@@ -16,6 +16,8 @@ function allowResource({url,method,type,mainDocument=false,authorizedSearch=fals
  if(!['GET','HEAD'].includes(method))return false;
  if(mainDocument){try{publicUrl(url);return type==='document'}catch{return false}}
  if(type==='document')return false;
+ // Verification uses rendered text and main photos, not custom fonts or thumbnail strips.
+ if(type==='font'||(type==='image'&&u.search==='?f=u'))return false;
  if(type==='image'&&productImageUrl(url))return true;
  if(/cart|checkout|account|profile|login|signin|payment|order|gtag|tracking/i.test(u.pathname))return false;
  if(u.hostname===HOST&&['script','stylesheet','font','image'].includes(type)&&
