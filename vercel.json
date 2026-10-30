@@ -1,7 +1,8 @@
 {
+  "buildCommand": "node j30/allowance-inspection.cjs && mkdir -p public && echo preview-build > public/build.txt",
   "functions": {
     "api/gateway.js": {
-      "includeFiles": "{*.html,*.js,*.mjs,*.css,*.png,assets/**/*.png,workbench/**/*.js,workbench/**/*.mjs,workbench/**/*.css,workbench/**/*.svg}",
+      "includeFiles": "{*.html,*.js,*.mjs,*.css,*.png,assets/**/*.png,j30/**/*.cjs,workbench/**/*.js,workbench/**/*.mjs,workbench/**/*.css,workbench/**/*.svg}",
       "maxDuration": 120
     }
   },
