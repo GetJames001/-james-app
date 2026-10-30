@@ -9,6 +9,21 @@ const origin='https://www.getjames.ai';
 process.env.JAMES_AUTH_EMAIL='browser-fixture@example.test';
 process.env.JAMES_SESSION_SECRET='synthetic-browser-fixture-secret-at-least-32-characters';
 
+test('shared James conversation does not carry customer records between business contexts',async()=>{
+ const browser=await chromium.launch();try{
+  const h=await fixture(browser),context=await browser.newContext();await h.install(context);h.recover();
+  await context.addCookies([{name:auth.SESSION_COOKIE,value:auth.createSessionToken(process.env.JAMES_AUTH_EMAIL),url:origin,secure:true,httpOnly:true,sameSite:'Strict'}]);
+  const page=await context.newPage();await page.goto(origin);
+  await page.evaluate(()=>{window.jamesDatabaseQuestion=async()=>({ok:true,databaseWorkspace:'business-a',answer:'Private Alpha Company · Ada Private · source-a'});});
+  await page.getByLabel('Question',{exact:true}).fill('Find my prospects');await page.getByRole('button',{name:'Ask James',exact:true}).click();await page.getByText('Private Alpha Company · Ada Private · source-a',{exact:true}).waitFor();
+  await page.evaluate(()=>{window.testUI.cancelReply();window.jamesDatabaseQuestion=async()=>({databaseWorkspace:'business-b',question:'Current business B reference: Fictional Beta Company'});});
+  await page.getByLabel('Question',{exact:true}).fill('Summarize current company');await page.getByRole('button',{name:'Ask James',exact:true}).click();await page.getByText('Recovered fixture reply',{exact:true}).waitFor();
+  assert.match(h.questions.at(-1),/Fictional Beta Company/);assert.doesNotMatch(h.questions.at(-1),/Private Alpha|Ada Private|source-a/);
+  await page.reload();await page.getByLabel('Question',{exact:true}).fill('Continue');await page.getByRole('button',{name:'Ask James',exact:true}).click();await page.getByText('Recovered fixture reply',{exact:true}).waitFor();assert.doesNotMatch(h.questions.at(-1),/Private Alpha|Ada Private|source-a|Fictional Beta/);
+  await context.close();
+ }finally{await browser.close();}
+});
+
 async function fixture(browser){
  const values=new Map();let failure=true,providerCalls=0;const questions=[];
  const store=createHeadStore({read:async k=>values.get(k)??null,compareAndSwap:async(k,old,next)=>{if((values.get(k)??null)!==old)return false;values.set(k,next);return true;}});
