@@ -1,5 +1,5 @@
 {
-  "buildCommand": "node j30/allowance-inspection.cjs && mkdir -p public",
+  "buildCommand": "node j30/allowance-inspection.cjs && mkdir -p public && echo preview-build > public/build.txt",
   "functions": {
     "api/gateway.js": {
       "includeFiles": "{*.html,*.js,*.mjs,*.css,*.png,assets/**/*.png,j30/**/*.cjs,workbench/**/*.js,workbench/**/*.mjs,workbench/**/*.css,workbench/**/*.svg}",
