@@ -44,7 +44,8 @@
    if(!loading)loading=loadRuntime().then(([ownerModule,bridgeModule])=>{
     identity=ownerModule.createConversationIdentityOwner({fetch:identityFetch,newOperationId:()=>crypto.randomUUID()});
     bridge=bridgeModule.createConversationBridge({identityOwner:identity,newId:()=>crypto.randomUUID(),navigate,capabilities:{ask:async({text,signal})=>{
-     const response=await requestJSON(chooseEndpoint(text),{method:'POST',credentials:'same-origin',cache:'no-store',signal,headers:{'Content-Type':'application/json'},body:JSON.stringify({question:providerQuestion(text),timezone:Intl.DateTimeFormat().resolvedOptions().timeZone})});
+     const database=await root.jamesDatabaseQuestion?.(text,signal);if(database?.answer)return database;const question=database?.question||text;if(question.length>8192)throw Error('CONTEXT_LIMIT');
+     const response=await requestJSON(chooseEndpoint(text),{method:'POST',credentials:'same-origin',cache:'no-store',signal,headers:{'Content-Type':'application/json'},body:JSON.stringify({question:providerQuestion(question),timezone:Intl.DateTimeFormat().resolvedOptions().timeZone})});
      const data=await bounded(response.json());
      if(!response.ok){if([502,503].includes(response.status)&&['FAST_MODEL_UNAVAILABLE','FAST_MODEL_NOT_CONFIGURED'].includes(data?.error))return {ok:false,error:'FAST_MODEL_UNAVAILABLE'};if([401,403].includes(response.status)){++revision;bridge.revoke();identity.revoke();clear();stopInput();status.textContent='Sign in to continue';}throw Error(data?.error==='FAST_MODEL_UNAVAILABLE'?'MODEL_UNAVAILABLE':'REQUEST_FAILED');}if(!data.ok)throw Error('REQUEST_FAILED');
      return data;
