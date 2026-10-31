@@ -87,3 +87,14 @@ test('business identity is authenticated, account-scoped and available without a
  const denied=await call(service(m,'owner-a',(_req,res)=>{res.status(401).json({ok:false,error:'UNAUTHORIZED'});return false;}),undefined,{method:'GET'});
  assert.equal(denied.statusCode,401);assert.equal(denied.body.accountId,undefined);
 });
+
+test('duplicate business names are rejected without altering existing records; original operation still replays',async()=>{
+ const {m,handler,workspace}=await setup(),before=m.writes();
+ for(const name of ['Fictional studio','  FICTIONAL   studio  ']){
+  const r=await call(handler,{action:'create_workspace',name,operationId:'duplicate-'+name.length});
+  assert.equal(r.statusCode,400);assert.equal(r.body.error,'WORKSPACE_EXISTS');
+ }
+ assert.equal(m.writes(),before);assert.equal((await m.store.workspaces('owner-a')).length,1);
+ assert.equal((await m.store.createWorkspace('owner-a',{name:'Fictional studio',operationId:'create-1'})).id,workspace);
+ assert.ok((await m.store.createWorkspace('different-owner',{name:'Fictional studio',operationId:'create-1'})).id);
+});

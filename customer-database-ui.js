@@ -49,7 +49,8 @@ function mount({container,fetcher=fetch,conversation=()=>root.jamesConversationU
  async function loadDaily(){dailyItems=[];$('jr-daily').replaceChildren();if(!workspace)return;
   const r=await request({action:'daily_list',workspaceId:workspace,date:$('jr-day').value});revision=r.revision;dailyItems=r.items;
   $('jr-daily').replaceChildren(...dailyItems.map(i=>node('p',i.company.name+' · '+(i.status==='pending'?'Pending':'Activity recorded'))));
-  if(!dailyItems.length)$('jr-daily').append(node('p','Select companies below to build your daily list.'));
+  if(!dailyItems.length)$('jr-daily').append(node('p',companies.length?'Select companies below to build your daily list.':'This business has no customer companies yet. Upload a customer file to begin.'));
+  if(!companies.length&&!batches.length)button('Upload a customer file',()=>{container.querySelector('[data-view="imports"]').click();$('jr-upload').open=true;file.focus();},$('jr-daily'));
  }
  const fileSearch=$('jr-file-search');fileSearch.oninput=()=>renderBatches();
  const searchField=$('jr-search');searchField.oninput=()=>{filters.query=searchField.value;search();};
@@ -75,14 +76,14 @@ function mount({container,fetcher=fetch,conversation=()=>root.jamesConversationU
  }
  async function request(body){
   const ticket=epoch,scope=await verify();if(ticket!==epoch||!active||body?.workspaceId&&body.workspaceId!==workspace)throw Error('Workspace changed; request not sent.');const controller=new AbortController();controllers.add(controller);const timer=setTimeout(()=>controller.abort(),15000);
-  try{const response=await fetcher('/api/customer-database',{method:body?'POST':'GET',credentials:'same-origin',cache:'no-store',redirect:'error',signal:controller.signal,...(body?{headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}:{})});const data=await response.json();if(ticket!==epoch)throw Error('Workspace changed; response discarded.');if([401,403].includes(response.status)){clear();conversation()?.revoke();throw Error('Sign in again before continuing.');}if(!response.ok||!data.ok)throw Error(data.error||'Database unavailable.');const checked=await verify();if(ticket!==epoch||checked.accountId!==scope.accountId)throw Error('Account changed; response discarded.');return data;}finally{clearTimeout(timer);controllers.delete(controller);}
+  try{const response=await fetcher('/api/customer-database',{method:body?'POST':'GET',credentials:'same-origin',cache:'no-store',redirect:'error',signal:controller.signal,...(body?{headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}:{})});const data=await response.json();if(ticket!==epoch)throw Error('Workspace changed; response discarded.');if([401,403].includes(response.status)){clear();conversation()?.revoke();throw Error('Sign in again before continuing.');}if(!response.ok||!data.ok){const error=Error(data.error==='WORKSPACE_EXISTS'?'This business already exists. Choose it from Business above.':data.error||'Database unavailable.');if(response.status===400&&data.error==='WORKSPACE_EXISTS')error.definiteRejection=true;throw error;}const checked=await verify();if(ticket!==epoch||checked.accountId!==scope.accountId)throw Error('Account changed; response discarded.');return data;}finally{clearTimeout(timer);controllers.delete(controller);}
  }
  function persistPending(){const raw=JSON.stringify({accountId:session.accountId,...pending});storage?.setItem(PENDING_KEY,raw);if(storage?.getItem(PENDING_KEY)!==raw)throw Error('Save recovery could not be stored. No save was sent.');}
  function forgetPending(){pending=null;try{storage?.removeItem(PENDING_KEY);}catch{}ui.recovery.hidden=true;}
  function recovery(){ui.recovery.hidden=!pending;if(!pending)return;ui.recovery.replaceChildren(node('p','Save outcome is unconfirmed. Check the same operation before trying another save.'));button('Check save outcome',()=>run(async()=>{if(!pending||pending.workspace!==workspace)throw Error('Reopen the original workspace to reconcile this save.');const p=pending,result=await request(p.body);forgetPending();await loadWorkspaces();if(p.kind==='create'){workspace=result.workspace.id;ui.workspace.value=workspace;remember();}await load();status('Save outcome verified.');}),ui.recovery);}
  async function mutate(body,kind){
   await verify();pending={body:JSON.parse(JSON.stringify(body)),kind,workspace};try{persistPending();}catch(error){pending=null;throw error;}
-  try{const result=await request(body);forgetPending();return result;}catch(error){recovery();throw error;}
+  try{const result=await request(body);forgetPending();return result;}catch(error){if(error.definiteRejection)forgetPending();else recovery();throw error;}
  }
  async function run(operation){if(busy)return;busy=true;controls();try{await operation();}catch(error){status(error.message||'Request failed. Your source file and saved records remain available.');}finally{busy=false;controls();}}
  function controls(){for(const el of container.querySelectorAll('button,input,select,textarea'))el.disabled=busy||(!!pending&&!ui.recovery.contains(el));}
