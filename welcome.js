@@ -5,15 +5,16 @@
   let finished = false;
   let started = false;
   let scene = null;
+  let startupFallback = null;
   const sceneForHour = hour => hour < 6 || hour >= 21 ? 'night' : hour < 11 ? 'morning' : hour < 17 ? 'noon' : 'evening';
-  function stopScene(){if(scene){const video=scene;scene=null;video.pause();video.removeAttribute('src');video.load();video.remove();}document.getElementById('intro')?.classList.remove('scene-awaiting');}
+  function stopScene(){if(startupFallback){root.clearTimeout(startupFallback);startupFallback=null;}if(scene){const video=scene;scene=null;video.pause();video.removeAttribute('src');video.load();video.remove();}document.getElementById('intro')?.classList.remove('scene-awaiting');}
   function playScene(){
     if(read('localStorage','jamesAnimation')==='off'||!document.createElement)return;
     const intro=document.getElementById('intro');if(!intro)return;
     intro.classList.add('scene-awaiting');
     const video=document.createElement('video');scene=video;
     video.className='living-scene';video.muted=true;video.defaultMuted=true;video.playsInline=true;video.setAttribute('playsinline','');video.setAttribute('aria-hidden','true');video.tabIndex=-1;video.preload='auto';
-    const reveal=()=>{if(!finished&&scene===video)video.classList.add('playing');};
+    const reveal=()=>{if(!finished&&scene===video){if(startupFallback){root.clearTimeout(startupFallback);startupFallback=null;}video.classList.add('playing');}};
     video.addEventListener('playing',()=>{
       // Wait for the first decoded frame on supported browsers before blending
       // over the still artwork. Older browsers blend after playback begins.
@@ -22,6 +23,7 @@
     });
     video.addEventListener('error',()=>{if(scene===video)stopScene();},{once:true});
     video.src='assets/scenes/'+sceneForHour(new Date().getHours())+'.mp4';intro.prepend(video);
+    startupFallback=root.setTimeout(()=>{if(scene===video&&!video.classList.contains('playing'))stopScene();},1500);
     try{const pending=video.play();pending?.catch(()=>{if(scene===video)stopScene();});}catch{stopScene();}
   }
   const read = (store, key) => { try { return root[store].getItem(key); } catch (_) { return null; } };
