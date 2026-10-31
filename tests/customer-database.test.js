@@ -76,3 +76,14 @@ test('import reversal preserves a company referenced in the daily list',async()=
 test('daily list and activity survive new store readback and remain business/account scoped',async()=>{const {m,handler,workspace}=await setup(),original=accept(await staged());await m.store.mutate('owner-a',workspace,0,()=>original);const c=original.document.companies[0],select=await call(handler,{action:'select_daily',workspaceId:workspace,date:dailyDate,ids:[c.id],expectedRevision:original.document.revision,operationId:'select-api'});assert.equal(select.statusCode,200);const record=await call(handler,{action:'record_activity',workspaceId:workspace,...activityCommand(c),expectedRevision:select.body.revision});assert.equal(record.statusCode,200);const fresh=createStore({command:m.command}),loaded=await fresh.load('owner-a',workspace);assert.equal(linked.projection(loaded,dailyDate).activities.length,1);const second=await m.store.createWorkspace('owner-a',{name:'Other business',operationId:'other-business'});assert.equal((await call(handler,{action:'daily_list',workspaceId:second.id,date:dailyDate})).body.items.length,0);assert.equal((await call(service(m,'owner-b'),{action:'daily_list',workspaceId:workspace,date:dailyDate})).statusCode,404);const replay=await call(handler,{action:'record_activity',workspaceId:workspace,...activityCommand(c),expectedRevision:0});assert.equal(replay.statusCode,200);assert.equal(replay.body.replayed,true);assert.equal(replay.body.document.activities.length,1);});
 
 test('daily-list writes upgrade schema so old v1-only writers fail closed',async()=>{const original=accept(await staged()).document;assert.equal(original.version,1);const r=linked.select(original,{date:dailyDate,ids:[original.companies[0].id],operationId:'version-upgrade'},now);assert.equal(r.document.version,2);assert.equal(model.validate(r.document),r.document);assert.equal(original.version,1);});
+
+test('business identity is authenticated, account-scoped and available without a conversation head',async()=>{
+ const m=memory(),handler=service(m);
+ const before=m.writes(),r=await call(handler,undefined,{method:'GET'});
+ assert.equal(r.statusCode,200);assert.match(r.body.accountId,/^account-[a-f0-9]{64}$/);
+ assert.deepEqual(r.body.workspaces,[]);assert.equal(m.writes(),before);
+ const other=await call(service(m,'owner-b'),undefined,{method:'GET'});
+ assert.notEqual(other.body.accountId,r.body.accountId);
+ const denied=await call(service(m,'owner-a',(_req,res)=>{res.status(401).json({ok:false,error:'UNAUTHORIZED'});return false;}),undefined,{method:'GET'});
+ assert.equal(denied.statusCode,401);assert.equal(denied.body.accountId,undefined);
+});

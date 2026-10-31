@@ -35,3 +35,35 @@ test('lost confirmation reconciles original operation and does not duplicate com
 
 
 test('existing Customer Activity form records a daily-list outcome on the same canonical Vault record',async()=>{const browser=await chromium.launch();try{const h=await fixture(browser,820,true),p=h.page;await createAndStage(p);await p.getByRole('button',{name:'Confirm reviewed import',exact:true}).click();await p.locator('#jr-status').filter({hasText:'Import saved and read back'}).waitFor();await p.getByRole('button',{name:'Today’s Activity',exact:true}).click();await p.getByLabel('Select Cobalt Acorn Studio',{exact:true}).check();await p.getByRole('button',{name:'Add selected to daily list',exact:true}).click();await p.locator('#jr-daily').filter({hasText:'Pending'}).waitFor();await p.getByRole('button',{name:'Open daily activity',exact:true}).click();await p.locator('#customerActivityOverlay').waitFor({state:'visible'});await p.locator('#customerDemoName').filter({hasText:'Cobalt Acorn Studio'}).waitFor();assert.equal(await p.locator('#companyName').isDisabled(),true);await p.locator('#customerOutcomeKind').selectOption('phone');const when=await p.evaluate(()=>{const d=new Date(Date.now()-60000);return new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,16);});await p.locator('#customerOccurredAt').fill(when);await p.locator('#customerDemoOutcome').fill('QA test—no real customer activity. Linked call readback.');await p.locator('#customerNextKind').selectOption('No follow-up needed');await p.locator('#customerDemoKeepDraft').click();await p.locator('#customerActivityOverlay').waitFor({state:'hidden'});await p.locator('#briefing.active').waitFor();await p.reload();await p.getByRole('button',{name:'Customer Information',exact:true}).click();await p.locator('#jr-daily').filter({hasText:'Activity recorded'}).waitFor();assert.match(await p.locator('#jr-detail').innerText(),/Linked call readback/);assert.equal(await p.getByRole('button',{name:'Cobalt Acorn Studio',exact:true}).count(),1);await h.context.close();}finally{await browser.close();}});
+
+test('a fresh sign-in can create and reopen a business without starting a conversation',async()=>{
+ const browser=await chromium.launch();try{
+  const h=await fixture(browser,820),p=h.page;
+  await p.evaluate(()=>{window.conversationReads=0;window.jamesConversationUI.snapshotWorkspaceIdentity=async()=>{window.conversationReads++;throw Error('Conversation identity unconfirmed');};});
+  await p.getByRole('button',{name:'Customer Information',exact:true}).click();
+  await p.getByText('Add a business',{exact:true}).click();
+  await p.getByRole('button',{name:'Add business',exact:true}).click();
+  await p.locator('#jr-status').filter({hasText:'Enter a business name first.'}).waitFor();
+  assert.equal(await p.getByRole('button',{name:'Check save outcome',exact:true}).count(),0);
+  await p.getByLabel('Business name').fill('Fresh sign-in QA');
+  await p.getByRole('button',{name:'Add business',exact:true}).click();
+  await p.locator('#jr-workspace option:checked').filter({hasText:'Fresh sign-in QA'}).waitFor({state:'attached'});
+  assert.equal(await p.evaluate(()=>window.conversationReads),0);
+  await p.reload();await p.getByRole('button',{name:'Customer Information',exact:true}).click();
+  await p.locator('#jr-workspace option:checked').filter({hasText:'Fresh sign-in QA'}).waitFor({state:'attached'});
+  assert.equal((await h.store.workspaces('fixture-account')).length,1);
+  await h.context.close();
+ }finally{await browser.close();}
+});
+
+test('an account change clears business data before another operation can be sent',async()=>{
+ const browser=await chromium.launch();try{
+  const h=await fixture(browser,390),p=h.page;await createAndStage(p);
+  h.account('different-account');
+  await p.getByRole('button',{name:'Confirm reviewed import',exact:true}).click();
+  await p.locator('#jr-status').filter({hasText:'Account changed.'}).waitFor();
+  assert.equal(await p.locator('#jr-workspace').inputValue(),'');
+  assert.equal((await h.store.workspaces('different-account')).length,0);
+  await h.context.close();
+ }finally{await browser.close();}
+});
