@@ -62,7 +62,7 @@ html[data-theme="light"] .customer-demo-note { background:#eee7d9; color:var(--i
 html[data-theme="light"] .customer-last-card { background:#f0e3c9; color:var(--ink); border-color:#936e36; }
 html[data-theme="light"] .customer-workspace :is(button,input,textarea,select,summary):focus-visible { outline:3px solid #6e4b1c; outline-offset:3px; }
 
-#intro .living-scene {position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;pointer-events:none;transition:opacity .2s ease;}
+#intro .living-scene {position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;pointer-events:none;transition:opacity .85s cubic-bezier(.22,1,.36,1);}
 #intro .living-scene.playing {opacity:1;}
 #intro::after {content:'';position:absolute;inset:0;background:var(--welcome-wash);pointer-events:none;}
 #intro .intro-copy {z-index:1;}
