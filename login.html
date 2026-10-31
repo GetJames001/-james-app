@@ -76,7 +76,47 @@
 
         if (!response.ok) throw new Error('Sign-in failed');
         try { sessionStorage.removeItem('jamesIntroDate'); } catch (_) {}
-        window.location.replace('/');
+        // Load the authenticated application into this document without discarding
+        // the already playing decorative scene. No app request is made before login.
+        const appResponse = await fetch('/', { credentials: 'same-origin', cache: 'no-store' });
+        if (!appResponse.ok) throw new Error('Unable to open James');
+        const html = await appResponse.text();
+        const parsed = new DOMParser().parseFromString(html, 'text/html');
+        if (!parsed.querySelector('#intro') || !parsed.querySelector('#app')) {
+          throw new Error('Invalid James application response');
+        }
+        const styles = [...parsed.head.querySelectorAll('link[rel="stylesheet"],style')];
+        for (const node of styles) document.head.append(document.importNode(node,true));
+        const scripts = [...parsed.body.querySelectorAll('script')].map(node=>({
+          src:node.getAttribute('src'),type:node.getAttribute('type'),text:node.textContent
+        }));
+        const bodyNodes = [...parsed.body.childNodes].filter(node=>node.nodeName!=='SCRIPT');
+        // Preserve the existing media node and first frame across authentication.
+        const existingScene = sceneVideo;
+        document.body.replaceChildren(...bodyNodes.map(node=>document.importNode(node,true)));
+        const intro = document.querySelector('#intro');
+        intro?.prepend(existingScene);
+        existingScene.classList.add('living-scene','playing');
+        existingScene.style.opacity = '1';
+        existingScene.style.zIndex = '0';
+        existingScene.style.filter = 'none';
+        document.documentElement.dataset.theme = document.documentElement.dataset.theme || 'dark';
+        for (const script of scripts) {
+          if (script.src) {
+            await new Promise((resolve,reject)=>{
+              const node=document.createElement('script');
+              if(script.type)node.type=script.type;
+              node.src=script.src;
+              node.onload=resolve;node.onerror=reject;
+              document.body.append(node);
+            });
+          } else if (script.text.trim()) {
+            const node=document.createElement('script');node.textContent=script.text;
+            document.body.append(node);
+          }
+        }
+        document.dispatchEvent(new Event('DOMContentLoaded'));
+        window.dispatchEvent(new Event('load'));
       } catch {
         message.textContent = 'James could not verify those credentials.';
         form.password.value = '';
