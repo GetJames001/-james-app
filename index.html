@@ -78,6 +78,7 @@
     <button data-page="travel">Travel</button>
     <button data-page="files">Files</button>
     <button data-page="workbench">Workbench</button>
+    <button data-page="customer-database">Customer Information</button>
     <button id="jamesNav" class="james-nav" data-page="insights">
   James
 </button>
@@ -255,7 +256,7 @@
   </button>
 </div>
 <p id="customerSaveNotice" role="status"></p>
-<p id="customerReminderAlert" role="status" aria-live="polite"></p><details id="customerReminders" class="customer-reminders"><summary id="customerReminderSummary">Customer follow-ups</summary><p id="customerReminderStatus" role="status" aria-live="polite"></p><p class="customer-field-help">Reminders appear here while James is open and when you return. Device alerts while James is closed are not connected yet.</p><div id="customerReminderList"></div><button id="customerReminderRetry" type="button" hidden>Check follow-ups again</button></details><div class="customer-shortcut"><button id="customerActivityOpen" type="button" aria-haspopup="dialog" aria-controls="customerActivityOverlay"><span>Customer Activity</span><span aria-hidden="true">↗</span></button><small>Customer records and reported outcomes</small></div>
+<p id="customerReminderAlert" role="status" aria-live="polite"></p><details id="customerReminders" class="customer-reminders"><summary id="customerReminderSummary">Customer follow-ups</summary><p id="customerReminderStatus" role="status" aria-live="polite"></p><p class="customer-field-help">Follow-ups appear here. Notifications while James is closed are not connected.</p><div id="customerReminderList"></div><button id="customerReminderRetry" type="button" hidden>Check follow-ups again</button></details><div class="customer-shortcut"><button id="customerActivityOpen" type="button" aria-haspopup="dialog" aria-controls="customerActivityOverlay"><span>Customer Activity</span><span aria-hidden="true">↗</span></button></div>
 </aside>
       </div>
     </div>
@@ -404,6 +405,8 @@
     </div>
   </section>
 
+  <section id="customer-database" class="page"></section>
+
   <section id="insights" class="page">
   <div class="sheet content-wide recommendation-sheet">
 
@@ -441,12 +444,12 @@
     <div class="customer-overlay-shade" aria-hidden="true"></div>
     <section class="customer-workspace" tabindex="-1">
       <div class="customer-workspace-head">
-        <div><small>JAMES · WORKSPACE</small><h2 id="customerActivityTitle">Customer Activity</h2><p>Flexible suggested stops and contact outcomes</p></div>
+        <div><small>JAMES · WORKSPACE</small><h2 id="customerActivityTitle">Customer Activity</h2></div>
         <button id="customerActivityClose" type="button" aria-label="Exit Customer Activity workspace">Exit <span aria-hidden="true">×</span></button>
       </div>
       <p id="customerModeNotice" class="customer-demo-note">Record what happened and what comes next.</p>
       <button id="customerModeSwitch" type="button">Show my saved companies</button>
-      <details class="customer-guide"><summary>How to use Customer Activity</summary><p>Choose a company on the left. Its people and details appear on the right. A company is the business; contacts are the people who work there.</p><p>Record who you reached, what actually happened and when. Add useful notes, then choose a proposed next step. Save and return to briefing saves your edits and updates contact history. Exit offers Save changes, Keep draft and exit, or Keep editing.</p><p>The five practice companies demonstrate the layout. They are not suggested stops based on your schedule or location.</p></details>
+      <details class="customer-guide"><summary>How to use Customer Activity</summary><p>Choose a company, record what happened, and save. Add a follow-up when needed.</p><p>The five practice companies demonstrate the layout. They are not suggested stops based on your schedule or location.</p></details>
       <div class="customer-workspace-grid">
         <section class="customer-workspace-list" aria-label="Customer records">
           <div class="customer-section-head"><h3>Companies</h3></div>
@@ -519,6 +522,8 @@
 <script src="conversation-runtime.js"></script>
 <script src="conversation-ui.js"></script>
 <script src="app.js"></script>
+<link rel="stylesheet" href="/customer-database.css">
+<script src="/customer-database-ui.js"></script>
 <script type="module" src="/workbench/host.mjs"></script>
 
 </body>

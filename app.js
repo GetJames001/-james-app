@@ -1353,6 +1353,7 @@ function initCustomerActivity() {
  let doc=null,selected=null,busy=false,uncertain=false,returnFocus=null,epoch=0;
  const drafts=new Map(),companyDrafts=new Map(),companyDirty=new Set();
  let pending=null,savingAll=false,remindersStale=false,reminderSignature='',reminderSessionExpired=false;
+ let linkedSource=null,legacyBefore=null;
  let practiceMode=true;
  try{practiceMode=sessionStorage.getItem('jamesCustomerMode')!=='saved';}catch{}
  let practiceDoc={schemaVersion:2,revision:0,activities:[],customers:[
@@ -1382,6 +1383,7 @@ function initCustomerActivity() {
  function followUpText(a){return a.nextAction? a.nextAction==='No follow-up needed'?'No follow-up needed':(a.followUpCompletedAt?'Follow-up completed: ':'Pending: ')+a.nextAction+(a.nextActionDetails?' — '+a.nextActionDetails:'')+(a.nextActionAt?' · '+new Date(a.nextActionAt).toLocaleString():'')+(a.remindAt?' · Reminder moved to '+new Date(a.remindAt).toLocaleString():''):'';}
  const localDateValue=date=>new Date(+date-date.getTimezoneOffset()*60000).toISOString().slice(0,16);
  function renderReminders(){
+  if(linkedSource)return;
   const items=(doc?.activities||[]).filter(a=>a.nextActionAt&&!a.followUpCompletedAt&&a.nextAction!=='No follow-up needed').sort((a,b)=>(a.remindAt||a.nextActionAt).localeCompare(b.remindAt||b.nextActionAt));
   const due=items.filter(a=>Date.parse(a.remindAt||a.nextActionAt)<=Date.now());
   const signature=JSON.stringify([practiceMode,remindersStale,uncertain,busy,savingAll,items,doc?.customers,due.map(a=>a.id)]);
@@ -1424,7 +1426,7 @@ function initCustomerActivity() {
    if(changed)companyDirty.add(selected);
   }
  }
- function controls(){const locked=busy||savingAll;$('customerModeSwitch').disabled=locked||uncertain;for(const el of $('companyEditor').querySelectorAll('input,button'))el.disabled=locked||uncertain||!selected;save.disabled=locked||uncertain||!doc||!selected;add.disabled=locked||uncertain||!doc;reload.disabled=locked||savingAll;reload.hidden=!uncertain;$('customerCloseSave').disabled=locked||uncertain;$('customerKeepEditing').disabled=locked;for(const b of $('customerDemoList').querySelectorAll('button'))b.disabled=locked;for(const el of Object.values(fields))el.disabled=locked||uncertain||!selected;$('customerNewName').disabled=locked||uncertain;for(const b of $('customerQuickTimes').querySelectorAll('button'))b.disabled=locked||uncertain;$('customerExitDraft').disabled=locked;renderReminders();}
+ function controls(){const locked=busy||savingAll;$('customerModeSwitch').disabled=locked||uncertain||!!linkedSource;for(const el of $('companyEditor').querySelectorAll('input,button'))el.disabled=locked||uncertain||!selected||!!linkedSource;save.disabled=locked||uncertain||!doc||!selected;add.disabled=locked||uncertain||!doc||!!linkedSource;reload.disabled=locked||savingAll;reload.hidden=!uncertain;$('customerCloseSave').disabled=locked||uncertain;$('customerKeepEditing').disabled=locked;for(const b of $('customerDemoList').querySelectorAll('button'))b.disabled=locked;for(const el of Object.values(fields))el.disabled=locked||uncertain||!selected;$('customerNewName').disabled=locked||uncertain||!!linkedSource;for(const b of $('customerQuickTimes').querySelectorAll('button'))b.disabled=locked||uncertain;$('customerExitDraft').disabled=locked;renderReminders();}
  function companyDraft(c){
   if(!c)return null;
   if(!companyDrafts.has(c.id)||!companyDirty.has(c.id))companyDrafts.set(c.id,{...c,contacts:(c.contacts|| (c.contact?[{id:uuid(),name:c.contact,phone:c.phone||'',email:''}]:[])).map(person=>({...person}))});
@@ -1455,7 +1457,7 @@ function initCustomerActivity() {
   commit({type:'upsert_customer',customer});
  };
  function render(){
-  $('customerModeNotice').textContent=practiceMode?'Practice template · Five fictional companies. Practice saves stay in this tab until reload; they do not change your saved customer records.':'Your saved companies · Record actual activity only.';
+  $('customerModeNotice').textContent=linkedSource?'Daily list · '+linkedSource.label:practiceMode?'Practice template · Five fictional companies. Practice saves stay in this tab until reload; they do not change your saved customer records.':'Your saved companies · Record actual activity only.';
   $('customerModeSwitch').textContent=practiceMode?'Show my saved companies':'Show five-company practice template';
   const list=$('customerDemoList');list.replaceChildren();
   for(const c of doc?.customers||[]){const b=document.createElement('button');b.type='button';b.textContent=c.name;b.setAttribute('aria-pressed',String(c.id===selected));b.disabled=busy;b.onclick=()=>{remember();selected=c.id;render();};list.append(b);}
@@ -1475,6 +1477,7 @@ function initCustomerActivity() {
   updateNext();controls();
  }
  async function request(method,body){
+  if(linkedSource)return linkedSource.request(method,body);
   if(practiceMode){
    if(method==='POST'){
     if(body.expectedRevision!==practiceDoc.revision)throw new Error('CONFLICT');
@@ -1531,7 +1534,19 @@ function initCustomerActivity() {
   try{sessionStorage.setItem('jamesCustomerMode',practiceMode?'practice':'saved');}catch{}
   load();
  };
- openButton.onclick=()=>{$('customerSaveNotice').textContent='';returnFocus=document.activeElement;overlay.hidden=false;closeButton.focus();if(!busy)load();};
+ openButton.onclick=()=>{if(linkedSource&&!hasChanges())releaseLinked();$('customerSaveNotice').textContent='';returnFocus=document.activeElement;overlay.hidden=false;closeButton.focus();if(!busy)load();};
+ window.jamesOpenLinkedCustomerActivity=async source=>{
+  if(busy||savingAll||uncertain||hasChanges()){announce('Save or reconcile the current activity before changing lists.');overlay.hidden=false;return false;}
+  if(linkedSource&&linkedSource.key!==source.key){announce('Finish the current daily activity first.');overlay.hidden=false;return false;}
+  if(!linkedSource){legacyBefore={doc,selected,practiceMode};clearPrivate();linkedSource=source;practiceMode=false;}
+  returnFocus=document.activeElement;overlay.hidden=false;closeButton.focus();await load();return !!doc&&!uncertain;
+ };
+ function releaseLinked(){
+  if(!linkedSource)return;const previous=legacyBefore;linkedSource=null;legacyBefore=null;clearPrivate();if(previous){doc=previous.doc;selected=previous.selected;practiceMode=previous.practiceMode;}render();
+ }
+ window.jamesClearLinkedCustomerActivity=()=>{if(linkedSource){++epoch;linkedSource=null;legacyBefore=null;clearPrivate();overlay.hidden=true;}};
+ window.addEventListener('james-conversation-ended',window.jamesClearLinkedCustomerActivity);
+ window.addEventListener('pagehide',window.jamesClearLinkedCustomerActivity);
  $('customerViewHistory').onclick=event=>{event.preventDefault();const history=$('customerHistoryDetails');history.open=!history.open;if(history.open){$('customerDemoHistory').setAttribute('tabindex','-1');$('customerDemoHistory').focus();}};
  function hasActivity(d){return d&&Object.values(d).some(v=>v.trim());}
  function hasChanges(){remember();return companyDirty.size>0||[...drafts.values()].some(hasActivity)||$('customerNewName').value.trim()||pending;}
@@ -1572,7 +1587,7 @@ function initCustomerActivity() {
   savingAll=true;save.disabled=true;closeButton.disabled=true;$('customerCloseSave').disabled=true;$('customerKeepEditing').disabled=true;
   try{
    for(const command of queue){if(!await commit(command))return;}
-   announce(queue.length?'Changes saved.':'No changes to save.');$('customerSaveNotice').textContent=queue.length?(practiceMode?'Practice changes saved in this tab only.':'Customer changes saved.'):'';close(false);
+   announce(queue.length?'Changes saved.':'No changes to save.');$('customerSaveNotice').textContent=queue.length?(practiceMode?'Practice changes saved in this tab only.':'Customer changes saved.'):'';close(false);if(linkedSource){const done=linkedSource.onSaved;releaseLinked();done?.();}
   }finally{savingAll=false;closeButton.disabled=false;$('customerCloseSave').disabled=uncertain;$('customerKeepEditing').disabled=false;controls();}
  }
  save.onclick=saveAll;

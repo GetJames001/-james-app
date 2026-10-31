@@ -1,0 +1,69 @@
+'use strict';
+const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
+const {chromium}=require('playwright'),{createStore}=require('../lib/customer-database/storage.cjs'),{createHandler}=require('../lib/routes/customer-database.js');
+const origin='https://database-fixture.example.test',base=path.join(__dirname,'..');
+async function fixture(browser,width,full=false){
+ const values=new Map();let lost=false,owner='fixture-account';
+ const store=createStore({command:async p=>{if(p[0]==='GET')return values.get(p[1])??null;const key=p[3],old=values.get(key);if(p[4]==='absent'?old!==undefined:old!==p[5])return 0;values.set(key,p[6]);return 1;}}),handler=createHandler({store,authorize:()=>true,identity:()=>owner,enabled:()=>true});
+ const context=await browser.newContext({viewport:{width,height:1000}});
+ await context.route('**/*',async route=>{const req=route.request(),url=new URL(req.url());if(url.origin!==origin)return route.abort();if(url.pathname==='/api/customer-database'){
+  const res={statusCode:200,status(n){this.statusCode=n;return this;},setHeader(){},json(body){this.body=body;return this;}};await handler({method:req.method(),headers:{'content-type':'application/json'},query:{},body:req.postData()||undefined},res);
+  if(lost&&JSON.parse(req.postData()||'{}').action==='confirm'){lost=false;return route.fulfill({status:503,json:{ok:false,error:'simulated lost confirmation'}});}return route.fulfill({status:res.statusCode,json:res.body});
+ }
+ if(url.pathname.startsWith('/api/')){
+  if(url.pathname==='/api/customer-activity'){assert.equal(req.method(),'GET','linked activity must not write to legacy storage');return route.fulfill({json:{ok:true,document:{schemaVersion:2,revision:0,customers:[],activities:[]}}});}
+  if(url.pathname==='/api/google/events')return route.fulfill({json:{connected:true,complete:true,partial:false,fetchedAt:new Date().toISOString(),calendars:[],completedCalendarIds:[],events:[]}});
+  return route.fulfill({json:{ok:true,authenticated:true,connected:false,tasks:[],messages:[],attentionItems:[],sourceHealth:[],coverage:[]}});
+ }
+ if(full&&url.pathname==='/'){
+  let html=fs.readFileSync(path.join(base,'index.html'),'utf8').replace(/<script src="conversation-(?:ui|runtime)\.js"><\/script>/g,'');
+  html=html.replace('<head>','<head><script>window.jamesConversationUI={snapshotWorkspaceIdentity:async()=>({accountId:"fixture-account",conversationId:"fixture-conversation",generation:1}),cancelReply(){},revoke(){}};</script>');
+  return route.fulfill({contentType:'text/html',body:html});
+ }
+ if(url.pathname.endsWith('.js')||url.pathname.endsWith('.css'))return route.fulfill({contentType:url.pathname.endsWith('.css')?'text/css':'text/javascript',body:fs.readFileSync(path.join(base,url.pathname.slice(1)),'utf8')});
+ return route.fulfill({contentType:'text/html',body:'<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="/customer-database.css"><style>.page{display:none}.page.active{display:block}</style></head><body><nav><button data-page="customer-database">Customer Information</button></nav><section id="briefing" class="page active">Briefing</section><section id="insights" class="page"><div class="james-workspace"><textarea id="question"></textarea><button id="ask">Ask James</button><div id="answer"></div></div></section><section id="customer-database" class="page"></section><script>window.jamesPageNow=id=>document.querySelectorAll(".page").forEach(p=>p.classList.toggle("active",p.id===id));window.jamesConversationUI={snapshotWorkspaceIdentity:async()=>({accountId:"fixture-account",conversationId:"fixture-conversation",generation:1}),cancelReply(){},revoke(){}};</script><script src="/customer-database-ui.js"></script><script>document.getElementById("ask").onclick=async()=>{const r=await window.jamesDatabaseQuestion(document.getElementById("question").value,new AbortController().signal);document.getElementById("answer").textContent=r.answer||"Context prepared";};</script></body></html>'});
+ });
+ const page=await context.newPage();await page.goto(origin);return {page,context,store,lose:()=>{lost=true;},account:value=>{owner=value;}};
+}
+async function createAndStage(page){
+ await page.getByRole('button',{name:'Customer Information',exact:true}).click();await page.getByText('Add a business',{exact:true}).click();await page.getByLabel('Business name').fill('Fictional studio');await page.getByRole('button',{name:'Add business',exact:true}).click();await page.locator('#jr-workspace option').filter({hasText:'Fictional studio'}).waitFor({state:'attached'});
+ await page.getByRole('button',{name:'Customer Vault',exact:true}).click();await page.getByText('Upload a file',{exact:true}).click();await page.getByLabel('Permitted use of this file').fill('Fictional QA only');await page.getByLabel('Source name',{exact:true}).fill('Fictional source');await page.getByLabel('Stable source identifier').fill('qa-csv');
+ await page.getByLabel('Choose CSV or Excel from Files').setInputFiles({name:'fictional.csv',mimeType:'text/csv',buffer:Buffer.from('company_name,company_source_id,contact_name,email,city,status\nCobalt Acorn Studio,cobalt-1,Ada Test,ada@example.test,Las Vegas,prospect\nCobalt Acorn Studio,cobalt-1,Ben Test,ben@example.test,Las Vegas,prospect')});await page.getByRole('button',{name:'Upload for review',exact:true}).click();await page.getByRole('button',{name:'Review mapped rows',exact:true}).waitFor();await page.getByRole('button',{name:'Review mapped rows',exact:true}).click();await page.getByRole('button',{name:'Confirm reviewed import',exact:true}).waitFor();
+}
+for(const width of [390,820])test('fictional import/map/review/save/reload/James search/export at '+width+'px',async()=>{const browser=await chromium.launch();try{const h=await fixture(browser,width),p=h.page;await createAndStage(p);await p.getByRole('button',{name:'Save and return to Briefing',exact:true}).click();await p.locator('#jr-status').filter({hasText:'This import is not confirmed'}).waitFor();assert.equal(await p.locator('#customer-database.active').count(),1);await p.getByRole('button',{name:'Confirm reviewed import',exact:true}).click();await p.locator('#jr-status').filter({hasText:'Import saved and read back'}).waitFor();await p.getByRole('button',{name:'View fictional.csv',exact:true}).click();await p.locator('#jr-file-preview').filter({hasText:'Ada Test'}).waitFor();assert.match(await p.locator('#jr-file-preview').innerText(),/first 2 of 2 source rows/);await p.getByLabel('Search files',{exact:true}).fill('missing-file');assert.equal(await p.getByRole('button',{name:'View fictional.csv',exact:true}).count(),0);await p.getByLabel('Search files',{exact:true}).fill('fictional');await p.getByRole('button',{name:'View fictional.csv',exact:true}).waitFor();await p.getByRole('button',{name:'Today’s Activity',exact:true}).click();await p.getByRole('button',{name:'Cobalt Acorn Studio',exact:true}).waitFor();assert.match(await p.locator('#jr-detail').innerText(),/Ada Test|Ben Test/);await p.reload();await p.getByRole('button',{name:'Customer Information',exact:true}).click();await p.getByRole('button',{name:'Cobalt Acorn Studio',exact:true}).waitFor();await p.locator('#question').fill('Find my Las Vegas prospects');await p.getByRole('button',{name:'Ask James',exact:true}).click();await p.locator('#answer').filter({hasText:'I found 1 matching companies'}).waitFor();assert.match(await p.locator('#answer').innerText(),/qa-csv/);await p.getByLabel('Select Cobalt Acorn Studio',{exact:true}).check();await p.getByRole('button',{name:'Add selected to daily list',exact:true}).click();await p.locator('#jr-daily').filter({hasText:'Cobalt Acorn Studio · Pending'}).waitFor();await p.reload();await p.getByRole('button',{name:'Customer Information',exact:true}).click();await p.locator('#jr-daily').filter({hasText:'Cobalt Acorn Studio · Pending'}).waitFor();await p.getByLabel('Select Cobalt Acorn Studio',{exact:true}).check();await p.getByText('Download records',{exact:true}).click();const download=p.waitForEvent('download');await p.getByRole('button',{name:'Export selected CSV',exact:true}).click();const file=await download;const contents=fs.readFileSync(await file.path(),'utf8');assert.match(contents,/Cobalt Acorn Studio/);assert.match(contents,/Ada Test/);assert.match(contents,/Ben Test/);assert.equal(await p.locator('body').evaluate(el=>el.scrollWidth<=innerWidth),true);await p.getByRole('button',{name:'Save and return to Briefing',exact:true}).click();await p.locator('#briefing.active').waitFor();assert.equal(await p.locator('#insights #question').count(),1);await h.context.close();}finally{await browser.close();}});
+test('lost confirmation reconciles original operation and does not duplicate companies',async()=>{const browser=await chromium.launch();try{const h=await fixture(browser,820),p=h.page;await createAndStage(p);h.lose();await p.getByRole('button',{name:'Confirm reviewed import',exact:true}).click();await p.getByRole('button',{name:'Check save outcome',exact:true}).waitFor();await p.reload();await p.getByRole('button',{name:'Customer Information',exact:true}).click();await p.getByRole('button',{name:'Check save outcome',exact:true}).click();await p.locator('#jr-status').filter({hasText:'Save outcome verified'}).waitFor();await p.getByRole('button',{name:'Today’s Activity',exact:true}).click();assert.equal(await p.getByRole('button',{name:'Cobalt Acorn Studio',exact:true}).count(),1);await h.context.close();}finally{await browser.close();}});
+
+
+test('existing Customer Activity form records a daily-list outcome on the same canonical Vault record',async()=>{const browser=await chromium.launch();try{const h=await fixture(browser,820,true),p=h.page;await createAndStage(p);await p.getByRole('button',{name:'Confirm reviewed import',exact:true}).click();await p.locator('#jr-status').filter({hasText:'Import saved and read back'}).waitFor();await p.getByRole('button',{name:'Today’s Activity',exact:true}).click();await p.getByLabel('Select Cobalt Acorn Studio',{exact:true}).check();await p.getByRole('button',{name:'Add selected to daily list',exact:true}).click();await p.locator('#jr-daily').filter({hasText:'Pending'}).waitFor();await p.getByRole('button',{name:'Open daily activity',exact:true}).click();await p.locator('#customerActivityOverlay').waitFor({state:'visible'});await p.locator('#customerDemoName').filter({hasText:'Cobalt Acorn Studio'}).waitFor();assert.equal(await p.locator('#companyName').isDisabled(),true);await p.locator('#customerOutcomeKind').selectOption('phone');const when=await p.evaluate(()=>{const d=new Date(Date.now()-60000);return new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,16);});await p.locator('#customerOccurredAt').fill(when);await p.locator('#customerDemoOutcome').fill('QA test—no real customer activity. Linked call readback.');await p.locator('#customerNextKind').selectOption('No follow-up needed');await p.locator('#customerDemoKeepDraft').click();await p.locator('#customerActivityOverlay').waitFor({state:'hidden'});await p.locator('#briefing.active').waitFor();await p.reload();await p.getByRole('button',{name:'Customer Information',exact:true}).click();await p.locator('#jr-daily').filter({hasText:'Activity recorded'}).waitFor();assert.match(await p.locator('#jr-detail').innerText(),/Linked call readback/);assert.equal(await p.getByRole('button',{name:'Cobalt Acorn Studio',exact:true}).count(),1);await h.context.close();}finally{await browser.close();}});
+
+test('a fresh sign-in can create and reopen a business without starting a conversation',async()=>{
+ const browser=await chromium.launch();try{
+  const h=await fixture(browser,820),p=h.page;
+  await p.evaluate(()=>{window.conversationReads=0;window.jamesConversationUI.snapshotWorkspaceIdentity=async()=>{window.conversationReads++;throw Error('Conversation identity unconfirmed');};});
+  await p.getByRole('button',{name:'Customer Information',exact:true}).click();
+  await p.getByText('Add a business',{exact:true}).click();
+  await p.getByRole('button',{name:'Add business',exact:true}).click();
+  await p.locator('#jr-status').filter({hasText:'Enter a business name first.'}).waitFor();
+  assert.equal(await p.getByRole('button',{name:'Check save outcome',exact:true}).count(),0);
+  await p.getByLabel('Business name').fill('Fresh sign-in QA');
+  await p.getByRole('button',{name:'Add business',exact:true}).click();
+  await p.locator('#jr-workspace option:checked').filter({hasText:'Fresh sign-in QA'}).waitFor({state:'attached'});
+  assert.equal(await p.evaluate(()=>window.conversationReads),0);
+  await p.reload();await p.getByRole('button',{name:'Customer Information',exact:true}).click();
+  await p.locator('#jr-workspace option:checked').filter({hasText:'Fresh sign-in QA'}).waitFor({state:'attached'});
+  assert.equal((await h.store.workspaces('fixture-account')).length,1);
+  await h.context.close();
+ }finally{await browser.close();}
+});
+
+test('an account change clears business data before another operation can be sent',async()=>{
+ const browser=await chromium.launch();try{
+  const h=await fixture(browser,390),p=h.page;await createAndStage(p);
+  h.account('different-account');
+  await p.getByRole('button',{name:'Confirm reviewed import',exact:true}).click();
+  await p.locator('#jr-status').filter({hasText:'Account changed.'}).waitFor();
+  assert.equal(await p.locator('#jr-workspace').inputValue(),'');
+  assert.equal((await h.store.workspaces('different-account')).length,0);
+  await h.context.close();
+ }finally{await browser.close();}
+});

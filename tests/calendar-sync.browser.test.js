@@ -7,8 +7,11 @@ const {chromium}=require('playwright');
 
 test('rendered calendar keeps cached failed-source events and names, shows stale status and treats provider titles as text',async()=>{
   let mode='failure',reads=0;
-  const date=new Date().toISOString().slice(0,10);
-  const tomorrow=new Date(Date.now()+86400000).toISOString().slice(0,10);
+  // This fixture asserts tomorrow is visible in the current month grid.
+  // Pin both clocks to avoid depending on the runner date or midnight.
+  const fixtureTime=new Date('2026-10-15T12:00:00Z');
+  const date=fixtureTime.toISOString().slice(0,10);
+  const tomorrow=new Date(fixtureTime.getTime()+86400000).toISOString().slice(0,10);
   const tomorrowEvent={id:'tomorrow',calendarId:'work',calendarName:'Synthetic work',title:'Synthetic tomorrow visit',location:'Synthetic location',start:tomorrow+'T13:00:00Z',end:tomorrow+'T14:00:00Z',allDay:false};
   const title='<img src=x onerror="window.calendarInjected=true">';
   const event={id:'synthetic',calendarId:'work',calendarName:'Synthetic work',title,location:'<script>unsafe</script>',start:date+'T00:00:00Z',end:date+'T23:59:59Z',allDay:false};
@@ -33,6 +36,7 @@ test('rendered calendar keeps cached failed-source events and names, shows stale
   try{
     browser=await chromium.launch({headless:true});const page=await browser.newPage({viewport:{width:1024,height:768},timezoneId:'UTC'});
     await page.route('https://**',route=>route.abort());
+    await page.clock.install({time:fixtureTime});
     await page.goto(`http://127.0.0.1:${server.address().port}`);
     await page.waitForFunction(()=>document.querySelector('#calendarSyncStatus').textContent.includes('unavailable'));
     assert.equal(await page.locator('#quickCalendarStatus').textContent(),'Calendar unavailable');
@@ -40,7 +44,7 @@ test('rendered calendar keeps cached failed-source events and names, shows stale
     assert.equal(await page.locator('body').textContent().then(t=>t.includes('DO_NOT_DISPLAY_PRIVATE_PROVIDER_ERROR')),false);
     assert.equal(await page.locator('#quickCalendarDays .appointment-dot').count(),0);
     assert.match(await page.locator('#quickCalendarDays button:not(:disabled)').first().getAttribute('aria-label'),/Schedule not verified/);
-    await page.clock.install();await page.clock.runFor(5001);mode='full';
+    await page.clock.runFor(5001);mode='full';
     await page.evaluate(()=>document.querySelector('#calendarRefreshButton').click());
     await page.waitForFunction(()=>document.querySelector('#calendarSyncStatus').textContent.includes('read successfully'));
     assert.match(await page.locator('#calendarSyncSources').textContent(),/Synthetic work.*Synthetic personal/);

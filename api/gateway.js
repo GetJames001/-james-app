@@ -37,7 +37,8 @@ const exactHandlers = new Map([
   ["api/microsoft/triage", microsoftTriage],
   ["api/tasks", tasks],
   ["api/attention", attention],
-  ["api/customer-activity", customerActivity]
+  ["api/customer-activity", customerActivity],
+  ["api/customer-database", require("../lib/routes/customer-database.js")]
 ]);
 
 function requestedPath(req) {
@@ -92,6 +93,7 @@ module.exports = async function handler(req, res) {
   if (
     route.startsWith("workbench/") ||
     route === "app.js" ||
+    route === "customer-database.css" || route === "customer-database-ui.js" ||
     ["conversation-ui.js","conversation-runtime.js","conversation-identity.mjs","conversation-bridge.mjs"].includes(route) ||
     route === "mail-refresh.js" ||
     route === "calendar-sync.js" ||
