@@ -10,6 +10,16 @@
   function playScene(){
     if(read('localStorage','jamesAnimation')==='off'||!document.createElement)return;
     const intro=document.getElementById('intro');if(!intro)return;
+    // Preserve the login video and its playback timeline after in-document authentication.
+    const retained=document.getElementById('loginScene');
+    if(retained && retained.isConnected && retained.currentSrc){
+      scene=retained;
+      retained.classList.add('living-scene','playing');
+      retained.style.opacity='1';
+      retained.style.filter='none';
+      retained.style.zIndex='0';
+      return;
+    }
     intro.classList.add('scene-awaiting');
     const video=document.createElement('video');scene=video;
     video.className='living-scene';video.muted=true;video.defaultMuted=true;video.playsInline=true;video.setAttribute('playsinline','');video.setAttribute('aria-hidden','true');video.tabIndex=-1;video.preload='auto';
