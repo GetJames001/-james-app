@@ -12,7 +12,13 @@
     const intro=document.getElementById('intro');if(!intro)return;
     const video=document.createElement('video');scene=video;
     video.className='living-scene';video.muted=true;video.defaultMuted=true;video.playsInline=true;video.setAttribute('playsinline','');video.setAttribute('aria-hidden','true');video.tabIndex=-1;video.preload='auto';
-    video.addEventListener('playing',()=>{if(!finished&&scene===video)video.classList.add('playing');});
+    const reveal=()=>{if(!finished&&scene===video)video.classList.add('playing');};
+    video.addEventListener('playing',()=>{
+      // Wait for the first decoded frame on supported browsers before blending
+      // over the still artwork. Older browsers blend after playback begins.
+      if(typeof video.requestVideoFrameCallback==='function')video.requestVideoFrameCallback(reveal);
+      else reveal();
+    });
     video.addEventListener('error',()=>{if(scene===video)stopScene();},{once:true});
     video.src='assets/scenes/'+sceneForHour(new Date().getHours())+'.mp4';intro.prepend(video);
     try{const pending=video.play();pending?.catch(()=>{if(scene===video)stopScene();});}catch{stopScene();}
