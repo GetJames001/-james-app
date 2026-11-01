@@ -2,6 +2,8 @@ name: Experimental login entrance acceptance
 on:
   push:
     branches: [fix/entrance-login-handoff-20261031]
+  pull_request:
+    branches: [feature/customer-database-20261030]
 permissions:
   contents: read
 jobs:
