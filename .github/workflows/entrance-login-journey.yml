@@ -18,4 +18,5 @@ jobs:
           cache: npm
       - run: npm ci --ignore-scripts
       - run: npx playwright install --with-deps chromium
+      - run: npm test
       - run: node --test tests/login-entrance-journey.test.js
