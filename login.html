@@ -7,7 +7,6 @@
   <meta name="referrer" content="no-referrer">
   <meta http-equiv="Content-Security-Policy" content="default-src 'none'; connect-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self'; media-src 'self'; base-uri 'none'">
   <title>James — Private Access</title>
-  <link rel="preload" as="image" href="/login-art-dark.png">
   <style id="loginOnlyStyle">
     :root{color-scheme:dark;--paper:#0b1c30;--ink:#f2eadb;--muted:#c5ced9;--gold:#d1b781;--line:rgba(214,185,131,.42);--card:rgba(12,29,48,.92);--input:#10243b;--art:url('/login-art-dark.png');--veil:rgba(3,14,29,.58)}
     html[data-theme="light"]{color-scheme:light;--paper:#f6f2e9;--ink:#172238;--muted:#5e6570;--gold:#855d24;--line:#aa9470;--card:rgba(255,252,245,.94);--input:#fffdf8;--art:url('/login-art-light.png');--veil:rgba(255,252,244,.5)}
@@ -51,11 +50,16 @@
     const sceneVideo=document.querySelector('#loginScene');
     const sceneHour=new Date().getHours();
     const sceneName=sceneHour<6||sceneHour>=21?'night':sceneHour<11?'morning':sceneHour<17?'noon':'evening';
-    sceneVideo.src='/login-scene-'+sceneName+'.mp4';
-    sceneVideo.addEventListener('playing',()=>sceneVideo.classList.add('playing'),{once:true});
+    let sceneEnabled=!matchMedia('(prefers-reduced-motion: reduce)').matches;
+    try{sceneEnabled=sceneEnabled&&localStorage.getItem('jamesAnimation')!=='off';}catch(_){}
+    if(sceneEnabled)sceneVideo.src='/login-scene-'+sceneName+'.mp4';
+    sceneVideo.addEventListener('playing',()=>{
+      const reveal=()=>sceneVideo.classList.add('playing');
+      if(sceneVideo.requestVideoFrameCallback)sceneVideo.requestVideoFrameCallback(reveal);else reveal();
+    },{once:true});
     sceneVideo.addEventListener('error',()=>{sceneVideo.classList.remove('playing');sceneVideo.removeAttribute('src');});
-    sceneVideo.play().catch(()=>sceneVideo.classList.remove('playing'));
-    // Do not loop/restart the approved five-second clip while awaiting sign-in.
+    if(sceneEnabled)sceneVideo.play().catch(()=>sceneVideo.classList.remove('playing'));
+    // Hold the final decoded frame until the user signs in; never visibly loop.
     sceneVideo.addEventListener('ended',()=>sceneVideo.pause(),{once:true});
     const form = document.querySelector('#loginForm');
     const button = document.querySelector('#submitButton');
@@ -78,6 +82,7 @@
         });
 
         if (!response.ok) throw new Error('Sign-in failed');
+        sceneVideo.loop=false;
         try { sessionStorage.removeItem('jamesIntroDate'); } catch (_) {}
         // Load the authenticated application into this document without discarding
         // the already playing decorative scene. No app request is made before login.
@@ -103,17 +108,15 @@
         for(const node of bodyNodes)document.body.append(document.importNode(node,true));
         const intro=document.querySelector('#intro');
         // Keep the existing video connected through authentication.
-        existingScene.classList.add('playing');
-        existingScene.style.opacity='1';existingScene.style.zIndex='11';existingScene.style.filter='none';
-        // Login-only CSS is removed below: retain full-viewport media geometry inline.
-        existingScene.style.position='fixed';existingScene.style.inset='0';
-        existingScene.style.width='100%';existingScene.style.height='100%';
-        existingScene.style.objectFit='cover';existingScene.style.pointerEvents='none';
-        intro.style.zIndex='12';intro.style.backgroundImage='var(--welcome-wash)';
-        document.getElementById('loginOnlyStyle')?.remove();
+        existingScene.style.cssText='position:fixed;inset:0;width:100%;height:100%;object-fit:cover;pointer-events:none;z-index:11;filter:none;transition:opacity .65s ease';
+        existingScene.style.opacity=existingScene.classList.contains('playing')?'1':'0';
+        intro.style.zIndex='12';
+        // Keep the sign-in overlay until all protected app scripts are loaded.
+        const loginPanel=document.querySelector('main[aria-label="Sign in to James"]');
+        loginPanel.style.cssText='position:fixed;z-index:20;left:50%;top:50%;transform:translate(-50%,-50%)';
+        intro.style.display='none';document.getElementById('app').style.display='none';
         for(const link of staged)link.media='all';
-        document.querySelector('.login-brand')?.remove();
-        document.querySelector('main[aria-label="Sign in to James"]')?.remove();
+
         document.documentElement.dataset.theme = document.documentElement.dataset.theme || 'dark';
         for (const script of scripts) {
           if (script.src) {
@@ -129,8 +132,14 @@
             document.body.append(node);
           }
         }
+        document.getElementById('loginOnlyStyle')?.remove();
+        document.querySelector('.login-brand')?.remove();
+        loginPanel.remove();
+        intro.style.removeProperty('display');document.getElementById('app').style.removeProperty('display');
+        document.title=parsed.title;
         document.dispatchEvent(new Event('DOMContentLoaded'));
         window.dispatchEvent(new Event('load'));
+        history.replaceState(null,'','/');
       } catch {
         message.textContent = 'James could not verify those credentials.';
         form.password.value = '';
