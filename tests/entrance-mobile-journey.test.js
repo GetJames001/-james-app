@@ -35,10 +35,16 @@ test('mobile iPad and phone login handoff remains usable',async()=>{
   assert.equal(await initialVideo.count(),1,'entrance video must already exist behind sign-in');
   await page.waitForFunction(()=>{const v=document.querySelector('#loginScene');return v&&v.currentTime>0&&!v.paused;},{timeout:10000});
   const initialTime=await initialVideo.evaluate(v=>v.currentTime);
+  await page.evaluate(()=>{window.__entranceOriginalDocument=document;window.__entranceOriginalVideo=document.getElementById('loginScene');});
   await page.locator('#email').fill('example@example.test');
   await page.locator('#password').fill('test-password');
   await page.locator('#submitButton').click();
-  await page.waitForTimeout(6500);
+  await page.waitForFunction(()=>location.pathname==='/'&&document.getElementById('intro')&&document.getElementById('app'));
+  assert.equal(await page.evaluate(()=>document===window.__entranceOriginalDocument),true,'the document must be retained through login');
+  assert.equal(await page.evaluate(()=>document.getElementById('loginScene')===window.__entranceOriginalVideo),true,'exact video node must survive authentication');
+  assert.ok(await page.evaluate(()=>document.getElementById('loginScene').currentTime)>=initialTime,'video must not reset through login');
+  await page.waitForFunction(()=>document.getElementById('intro')?.getAttribute('aria-hidden')==='true',{timeout:10000});
+  await page.waitForTimeout(900);
   assert.equal(appRequestsBeforeAuth,0,'private app must stay authenticated');
   assert.equal(await page.locator('#loginScene').count(),0,'video removed after completed transition');
   assert.equal(await page.evaluate(()=>performance.getEntriesByType('navigation').length),1,'login must not navigate document');
