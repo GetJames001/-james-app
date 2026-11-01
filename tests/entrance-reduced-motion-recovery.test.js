@@ -44,7 +44,7 @@ test('reduced motion and failed login recover to usable Briefing',async()=>{
   assert.equal(attempts,2,'one failed then one successful authentication');
   assert.equal(await page.locator('#app').evaluate(e=>e.inert),false,'app must be interactive');
   assert.equal(await page.locator('#briefing').isVisible(),true,'Briefing must be visible');
-  assert.equal(await page.locator('#loginScene').count(),0,'reduced-motion video removed');
+  assert.equal(await page.locator('#loginScene').evaluate(v=>!v.currentSrc&&!v.getAttribute('src')&&v.paused),true,'reduced-motion video must remain inert with no source or playback');
   assert.equal(errors.length,0,'browser errors: '+errors.join('; '));
   await context.close();
  }finally{await browser.close();}
