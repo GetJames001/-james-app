@@ -1,7 +1,7 @@
 name: Experimental login entrance acceptance
 on:
   push:
-    branches: [fix/entrance-login-handoff-20261031]
+    branches: [test/entrance-mobile-session-20261101]
   pull_request:
     branches: [feature/customer-database-20261030]
 permissions:
@@ -19,4 +19,4 @@ jobs:
       - run: npm ci --ignore-scripts
       - run: npx playwright install --with-deps chromium
       - run: npm test
-      - run: node --test tests/login-entrance-journey.test.js
+      - run: node --test tests/login-entrance-journey.test.js tests/entrance-mobile-journey.test.js
