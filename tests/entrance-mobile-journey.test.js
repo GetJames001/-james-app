@@ -40,7 +40,7 @@ test('mobile iPad and phone login handoff remains usable',async()=>{
   await page.locator('#submitButton').click();
   await page.waitForTimeout(6500);
   assert.equal(appRequestsBeforeAuth,0,'private app must stay authenticated');
-  assert.equal(await page.locator('#loginScene').count(),1,'same video element must survive authentication');
+  assert.equal(await page.locator('#loginScene').count(),0,'video removed after completed transition');
   assert.equal(await page.evaluate(()=>performance.getEntriesByType('navigation').length),1,'login must not navigate document');
   assert.ok(await page.locator('#loginScene').count()<=1,'video must not be duplicated');
   const mobileState=await page.evaluate(()=>({url:location.href,message:document.querySelector('#message')?.textContent,app:!!document.querySelector('#app'),intro:!!document.querySelector('#intro'),hidden:document.querySelector('#intro')?.getAttribute('aria-hidden'),scriptCount:document.scripts.length,errors:window.__jamesErrors||[]}));
