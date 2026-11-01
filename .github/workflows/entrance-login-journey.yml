@@ -19,4 +19,4 @@ jobs:
       - run: npm ci --ignore-scripts
       - run: npx playwright install --with-deps chromium
       - run: npm test
-      - run: node --test tests/login-entrance-journey.test.js tests/entrance-mobile-journey.test.js
+      - run: node --test tests/login-entrance-journey.test.js tests/entrance-mobile-journey.test.js tests/entrance-reduced-motion-recovery.test.js
