@@ -43,6 +43,8 @@ test('login handoff requires signed-in app, continuous entrance and Briefing',as
   assert.equal(await page.locator('#loginScene').count(),1,'same video element must survive authentication');
   assert.equal(await page.evaluate(()=>performance.getEntriesByType('navigation').length),1,'login must not navigate document');
   assert.ok(await page.locator('#loginScene').evaluate(v=>v.currentTime)>=initialTime,'video must not restart after login');
+  assert.equal(await page.locator('#loginScene').evaluate(v=>getComputedStyle(v).position),'fixed','video remains full-screen after login CSS is removed');
+  assert.equal(await page.locator('#loginScene').evaluate(v=>Math.round(v.getBoundingClientRect().width)),1100,'video still covers viewport');
   assert.equal(await page.locator('#app').count(),1,'authenticated app must initialize');
   assert.equal(await page.locator('#briefing').count(),1,'Briefing must exist');
   assert.equal(errors.length,0,'browser errors: '+errors.join('; '));
