@@ -3,7 +3,7 @@ on:
   push:
     branches: [test/entrance-mobile-session-20261101]
   pull_request:
-    branches: [feature/customer-database-20261030]
+    branches: [fix/entrance-login-handoff-20261031]
 permissions:
   contents: read
 jobs:
