@@ -23,7 +23,7 @@ test('failed sign-in keeps the intro checkpoint; successful sign-in shows five-s
   if(process.env.JAMES_QA_SCREENSHOTS) await page.screenshot({path:'/tmp/james-login-'+theme+'.png'});
   await page.locator('#email').fill('fictional@example.test');await page.locator('#password').fill('fictional-password');
   if(theme==='dark'){await page.locator('#submitButton').click();await page.waitForFunction(()=>document.getElementById('message').textContent.includes('could not verify'));assert.equal(await page.locator('#password').inputValue(),'');assert.equal(await page.evaluate(()=>sessionStorage.getItem('jamesIntroDate')),new Date().toDateString());f.allow();await page.locator('#password').fill('fictional-password');}
-  await page.locator('#submitButton').click();await page.waitForURL('**/');
+  await page.locator('#submitButton').click();await page.waitForFunction(()=>location.pathname==='/'&&document.querySelector('#intro')&&document.querySelector('#app'));
   assert.equal(await page.locator('#intro').isVisible(),true);assert.equal(await page.locator('#app').evaluate(el=>el.inert),true);
   assert.equal(await page.locator('html').getAttribute('data-theme'),theme);
   await page.clock.fastForward(6000);await page.locator('#intro').waitFor({state:'hidden'});assert.equal(await page.locator('#intro').isVisible(),false);assert.equal(await page.locator('#briefing').evaluate(el=>el.classList.contains('active')),true);
