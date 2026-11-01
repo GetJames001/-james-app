@@ -31,11 +31,18 @@ test('login handoff requires signed-in app, continuous entrance and Briefing',as
   });
   await page.goto('https://james.test/login');
   assert.equal(appRequestsBeforeAuth,0,'private app must not load before login');
+  const initialVideo=page.locator('#loginScene');
+  assert.equal(await initialVideo.count(),1,'entrance video must already exist behind sign-in');
+  await page.waitForFunction(()=>{const v=document.querySelector('#loginScene');return v&&v.currentTime>0&&!v.paused;},{timeout:10000});
+  const initialTime=await initialVideo.evaluate(v=>v.currentTime);
   await page.locator('#email').fill('example@example.test');
   await page.locator('#password').fill('test-password');
   await page.locator('#submitButton').click();
   await page.waitForTimeout(1500);
   assert.equal(appRequestsBeforeAuth,0,'private app must stay authenticated');
+  assert.equal(await page.locator('#loginScene').count(),1,'same video element must survive authentication');
+  assert.equal(await page.evaluate(()=>performance.getEntriesByType('navigation').length),1,'login must not navigate document');
+  assert.ok(await page.locator('#loginScene').evaluate(v=>v.currentTime)>=initialTime,'video must not restart after login');
   assert.equal(await page.locator('#app').count(),1,'authenticated app must initialize');
   assert.equal(await page.locator('#briefing').count(),1,'Briefing must exist');
   assert.equal(errors.length,0,'browser errors: '+errors.join('; '));
