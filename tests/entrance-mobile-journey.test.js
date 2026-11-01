@@ -26,7 +26,7 @@ test('mobile iPad and phone login handoff remains usable',async()=>{
    if(filename==='login-art-light.png')filename='assets/welcome-light.png';
    const full=path.resolve(root,filename);
    if(!full.startsWith(root+path.sep)||!fs.existsSync(full)||!fs.statSync(full).isFile())return route.fulfill({status:404});
-   const type=filename.endsWith('.mp4')?'video/mp4':filename.endsWith('.js')?'text/javascript':filename.endsWith('.css')?'text/css':filename.endsWith('.png')?'image/png':'text/plain';
+   const type=filename.endsWith('.mp4')?'video/mp4':(filename.endsWith('.js')||filename.endsWith('.mjs'))?'text/javascript':filename.endsWith('.css')?'text/css':filename.endsWith('.png')?'image/png':'text/plain';
    return route.fulfill({contentType:type,body:fs.readFileSync(full)});
   });
   await page.goto('https://james.test/login');
