@@ -43,7 +43,13 @@ test('WebKit iPad login reaches usable Briefing',async()=>{
   assert.equal(await page.evaluate(()=>document===window.__entranceOriginalDocument),true,'the document must be retained through login');
   assert.equal(await page.evaluate(()=>document.getElementById('loginScene')===window.__entranceOriginalVideo),true,'exact video node must survive authentication');
   assert.ok(await page.evaluate(()=>document.getElementById('loginScene').currentTime)>=initialTime,'video must not reset through login');
+  const introBegin=Date.now();
+  const transition=await page.locator('#intro').evaluate(el=>getComputedStyle(el).transitionDuration);
+  assert.match(transition,/0\\.65s|650ms/,'Perspective fade must be 650ms');
   await page.waitForFunction(()=>document.getElementById('intro')?.getAttribute('aria-hidden')==='true',{timeout:10000});
+  const introElapsed=Date.now()-introBegin;
+  assert.ok(introElapsed>=3000&&introElapsed<=6200,'Perspective duration after mounted app must be in bounded 3–6.2s range: '+introElapsed);
+
   await page.waitForTimeout(900);
   assert.equal(appRequestsBeforeAuth,0,'private app must stay authenticated');
   assert.equal(await page.locator('#loginScene').count(),0,'video removed after completed transition');
