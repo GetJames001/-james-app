@@ -102,6 +102,10 @@
         // Keep the existing video connected through authentication.
         existingScene.classList.add('playing');
         existingScene.style.opacity='1';existingScene.style.zIndex='11';existingScene.style.filter='none';
+        // Login-only CSS is removed below: retain full-viewport media geometry inline.
+        existingScene.style.position='fixed';existingScene.style.inset='0';
+        existingScene.style.width='100%';existingScene.style.height='100%';
+        existingScene.style.objectFit='cover';existingScene.style.pointerEvents='none';
         intro.style.zIndex='12';intro.style.backgroundImage='var(--welcome-wash)';
         document.getElementById('loginOnlyStyle')?.remove();
         for(const link of staged)link.media='all';
