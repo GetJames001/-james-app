@@ -43,7 +43,8 @@ test('mobile iPad and phone login handoff remains usable',async()=>{
   assert.equal(await page.locator('#loginScene').count(),1,'same video element must survive authentication');
   assert.equal(await page.evaluate(()=>performance.getEntriesByType('navigation').length),1,'login must not navigate document');
   assert.ok(await page.locator('#loginScene').count()<=1,'video must not be duplicated');
-  assert.equal(await page.locator('#intro').getAttribute('aria-hidden'),'true','Perspective must complete on phone');
+  const mobileState=await page.evaluate(()=>({url:location.href,message:document.querySelector('#message')?.textContent,app:!!document.querySelector('#app'),intro:!!document.querySelector('#intro'),hidden:document.querySelector('#intro')?.getAttribute('aria-hidden'),scriptCount:document.scripts.length,errors:window.__jamesErrors||[]}));
+  assert.equal(mobileState.hidden,'true','Perspective must complete on phone: '+JSON.stringify(mobileState));
   assert.equal(await page.locator('#app').evaluate(e=>e.inert),false,'Briefing must be interactive');
   assert.equal(await page.locator('#briefing').isVisible(),true,'Briefing visible on phone');
   assert.equal(await page.locator('#app').count(),1,'authenticated app must initialize');
