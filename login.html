@@ -7,6 +7,7 @@
   <meta name="referrer" content="no-referrer">
   <meta http-equiv="Content-Security-Policy" content="default-src 'none'; connect-src 'self'; script-src 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self'; media-src 'self'; base-uri 'none'">
   <title>James — Private Access</title>
+  <link rel="preload" as="image" href="/login-art-dark.png">
   <style id="loginOnlyStyle">
     :root{color-scheme:dark;--paper:#0b1c30;--ink:#f2eadb;--muted:#c5ced9;--gold:#d1b781;--line:rgba(214,185,131,.42);--card:rgba(12,29,48,.92);--input:#10243b;--art:url('/login-art-dark.png');--veil:rgba(3,14,29,.58)}
     html[data-theme="light"]{color-scheme:light;--paper:#f6f2e9;--ink:#172238;--muted:#5e6570;--gold:#855d24;--line:#aa9470;--card:rgba(255,252,245,.94);--input:#fffdf8;--art:url('/login-art-light.png');--veil:rgba(255,252,244,.5)}
@@ -31,7 +32,7 @@
 </head>
 <body>
   <script>try{document.documentElement.dataset.theme=localStorage.getItem('jamesTheme')==='light'?'light':'dark';}catch(_){}</script>
-  <video id="loginScene" muted playsinline autoplay loop aria-hidden="true" tabindex="-1"></video>
+  <video id="loginScene" muted playsinline autoplay preload="auto" aria-hidden="true" tabindex="-1"></video>
   <div class="login-brand" aria-hidden="true">JAMES</div>
   <main aria-label="Sign in to James">
     <small>PRIVATE ACCESS</small>
@@ -54,6 +55,8 @@
     sceneVideo.addEventListener('playing',()=>sceneVideo.classList.add('playing'),{once:true});
     sceneVideo.addEventListener('error',()=>{sceneVideo.classList.remove('playing');sceneVideo.removeAttribute('src');});
     sceneVideo.play().catch(()=>sceneVideo.classList.remove('playing'));
+    // Do not loop/restart the approved five-second clip while awaiting sign-in.
+    sceneVideo.addEventListener('ended',()=>sceneVideo.pause(),{once:true});
     const form = document.querySelector('#loginForm');
     const button = document.querySelector('#submitButton');
     const message = document.querySelector('#message');
