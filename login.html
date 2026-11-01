@@ -99,9 +99,20 @@
           if(link.sheet)return resolve();
           link.addEventListener('load',resolve,{once:true});link.addEventListener('error',reject,{once:true});
         })));
-        const scripts = [...parsed.body.querySelectorAll('script')].map(node=>({
-          src:node.getAttribute('src'),type:node.getAttribute('type'),text:node.textContent
-        }));
+        // Only the application's known bootstrap scripts participate in this handoff.
+        // Hosting instrumentation is optional and may be forbidden by the login CSP.
+        const appScriptPaths = new Set([
+          '/mail-refresh.js','/calendar-sync.js','/welcome.js',
+          '/conversation-runtime.js','/conversation-ui.js','/app.js',
+          '/customer-database-ui.js','/workbench/host.mjs'
+        ]);
+        const scripts = [...parsed.body.querySelectorAll('script')].flatMap(node=>{
+          const src=node.getAttribute('src');
+          if(!src)return [];
+          const url=new URL(src,location.origin+'/');
+          if(url.origin!==location.origin||!appScriptPaths.has(url.pathname)||url.search||url.hash)return [];
+          return [{src:url.pathname,type:node.getAttribute('type')}];
+        });
         const bodyNodes = [...parsed.body.childNodes].filter(node=>node.nodeName!=='SCRIPT');
         // Preserve the existing media node and first frame across authentication.
         const existingScene = sceneVideo;

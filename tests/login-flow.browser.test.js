@@ -9,7 +9,7 @@ function fixture(){let allow=false,loginCalls=0;const server=http.createServer((
  const aliases={'/':'index.html','/login':'login.html','/login-art-dark.png':'assets/welcome-dark.png','/login-art-light.png':'assets/welcome-light.png'};
  const filename=path.resolve(root,aliases[route]||route.slice(1));
  if(!filename.startsWith(root+path.sep)||!fs.existsSync(filename)){res.statusCode=404;return res.end();}
- res.setHeader('Content-Type',filename.endsWith('.js')?'text/javascript':filename.endsWith('.css')?'text/css':filename.endsWith('.png')?'image/png':'text/html');res.end(fs.readFileSync(filename));
+ res.setHeader('Content-Type',(filename.endsWith('.js')||filename.endsWith('.mjs'))?'text/javascript':filename.endsWith('.css')?'text/css':filename.endsWith('.png')?'image/png':'text/html');res.end(fs.readFileSync(filename));
  });return {server,allow:()=>allow=true,count:()=>loginCalls};}
 test('failed sign-in keeps the intro checkpoint; successful sign-in shows five-second intro then briefing in the saved theme',async()=>{
  const f=fixture();await new Promise(r=>f.server.listen(0,'127.0.0.1',r));let browser;
