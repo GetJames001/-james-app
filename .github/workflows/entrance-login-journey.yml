@@ -1,0 +1,19 @@
+name: Experimental login entrance acceptance
+on:
+  push:
+    branches: [fix/entrance-login-handoff-20261031]
+permissions:
+  contents: read
+jobs:
+  login-journey:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: npx playwright install --with-deps chromium
+      - run: node --test tests/login-entrance-journey.test.js
