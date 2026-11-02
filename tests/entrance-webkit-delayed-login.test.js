@@ -80,7 +80,7 @@ test('WebKit delayed login holds last frame and reaches Briefing',async()=>{
       const visible=style.display!=='none'&&style.visibility!=='hidden'&&opacity>0&&!el.classList.contains('hide');
       if(visible&&trace.visibleAt===null)trace.visibleAt=now;
       if(el.classList.contains('hide')&&trace.hideAt===null)trace.hideAt=now;
-      if(trace.hideAt!==null&&trace.samples.length<80)trace.samples.push({ms:Math.round(now-trace.hideAt),opacity});
+      if(trace.hideAt!==null&&trace.samples.length<80)trace.samples.push({ms:Math.round(now-trace.hideAt),opacity,videoOpacity:Number(getComputedStyle(document.getElementById('loginScene')||el).opacity)});
       if(trace.hideAt!==null&&opacity<0.02&&trace.fadeEndAt===null){trace.fadeEndAt=now;clearInterval(watch);}
     },25);
     window.__stopPerspectiveTrace=()=>clearInterval(watch);
@@ -103,7 +103,12 @@ test('WebKit delayed login holds last frame and reaches Briefing',async()=>{
   assert.ok(perspectiveTrace.visibleAt!==null&&perspectiveTrace.hideAt!==null,'Perspective visibility/hide timestamps required: '+JSON.stringify(perspectiveTrace));
   const visibleMs=perspectiveTrace.hideAt-perspectiveTrace.visibleAt;
   assert.ok(visibleMs>=3000&&visibleMs<=5500,'Visible Perspective must last 3–5s plus sampling allowance, measured '+visibleMs+' ms');
-  assert.ok(perspectiveTrace.samples.length>0,'Fade opacity sampling required');
+  const sampled=perspectiveTrace.samples.map(x=>x.opacity);
+  assert.ok(sampled.some(x=>x>0.05&&x<0.95),'Perspective fade must have intermediate rendered opacity: '+JSON.stringify(sampled));
+  assert.ok(sampled.at(-1)<0.03,'Perspective opacity must finish near zero: '+JSON.stringify(sampled));
+  assert.ok(perspectiveTrace.fadeEndAt!==null,'Perspective fade must reach completion');
+  const videoOpacity=perspectiveTrace.samples.map(x=>x.videoOpacity);
+  assert.ok(videoOpacity.some(x=>x<0.95),'Video opacity must decrease during cleanup: '+JSON.stringify(videoOpacity));
   console.log('WEBKIT_PERSPECTIVE_TRACE '+JSON.stringify({visibleMs:Math.round(visibleMs),fadeMs:perspectiveTrace.fadeEndAt===null?null:Math.round(perspectiveTrace.fadeEndAt-perspectiveTrace.hideAt),opacity:perspectiveTrace.samples}));
 
   assert.equal(appRequestsBeforeAuth,0,'private app must stay authenticated');
