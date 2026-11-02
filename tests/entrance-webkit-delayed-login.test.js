@@ -31,7 +31,7 @@ test('WebKit delayed login holds last frame and reaches Briefing',async()=>{
    if(filename.endsWith('.mp4')){
      const range=route.request().headers()['range'];
      if(range){
-       const m=/^bytes=(\\d*)-(\\d*)$/.exec(range);let start,end;
+       const m=/^bytes=(\d*)-(\d*)$/.exec(range);let start,end;
        if(m&&(m[1]||m[2])){start=m[1]?Number(m[1]):Math.max(0,bytes.length-Number(m[2]));end=m[1]?(m[2]?Number(m[2]):bytes.length-1):bytes.length-1;}
        if(!Number.isSafeInteger(start)||!Number.isSafeInteger(end)||start<0||start>=bytes.length||end<start)return route.fulfill({status:416,headers:{'content-range':'bytes */'+bytes.length},body:''});
        end=Math.min(end,bytes.length-1);
