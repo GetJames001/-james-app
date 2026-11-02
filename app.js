@@ -870,15 +870,23 @@ function loadLiveWeather() {
     return;
   }
 
-  navigator.geolocation.getCurrentPosition(
-    ({ coords }) => loadWeatherForCoordinates(coords, tempEl, detailEl),
-    showLocationUnavailable,
-    {
-      enableHighAccuracy: false,
-      timeout: 8000,
-      maximumAge: 15 * 60 * 1000
+  // The entrance must never interrupt sign-in with a location permission prompt.
+  // Use location automatically only if the browser reports prior permission.
+  if (!navigator.permissions?.query) {
+    detailEl.textContent = 'Location permission required';
+    return;
+  }
+  navigator.permissions.query({name:'geolocation'}).then(permission=>{
+    if(permission.state!=='granted'){
+      detailEl.textContent='Location permission required';
+      return;
     }
-  );
+    navigator.geolocation.getCurrentPosition(
+      ({coords})=>loadWeatherForCoordinates(coords,tempEl,detailEl),
+      showLocationUnavailable,
+      {enableHighAccuracy:false,timeout:8000,maximumAge:15*60*1000}
+    );
+  }).catch(showLocationUnavailable);
 }
 function renderPersonalMicrosoftMail(messages = [], { restoreDetail = true } = {}) {
   const list = $('#personalMailMessages');
