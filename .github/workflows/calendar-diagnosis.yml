@@ -1,12 +1,14 @@
 name: Calendar refresh diagnosis
 on:
+  push:
+    branches: [fix/calendar-refresh-diagnosis-20261031]
   pull_request:
     branches: [integration/recovered-entrance-20261031]
 permissions:
   contents: read
 jobs:
   calendar-regressions:
-    if: github.head_ref == 'fix/calendar-refresh-diagnosis-20261031'
+    if: github.event_name == 'push' || github.head_ref == 'fix/calendar-refresh-diagnosis-20261031'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
