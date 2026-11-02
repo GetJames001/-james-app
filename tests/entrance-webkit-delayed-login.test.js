@@ -47,6 +47,21 @@ test('WebKit delayed login holds last frame and reaches Briefing',async()=>{
   assert.equal(await page.locator('#loginScene').evaluate(v=>v.loop),false,'slow sign-in must not loop');
   await page.locator('#email').fill('example@example.test');
   await page.locator('#password').fill('test-password');
+  await page.evaluate(()=>{
+    window.__perspectiveTrace={visibleAt:null,hideAt:null,fadeEndAt:null,samples:[]};
+    const trace=window.__perspectiveTrace;
+    const watch=setInterval(()=>{
+      const el=document.querySelector('#intro');
+      if(!el)return;
+      const style=getComputedStyle(el),now=performance.now(),opacity=Number(style.opacity);
+      const visible=style.display!=='none'&&style.visibility!=='hidden'&&opacity>0&&!el.classList.contains('hide');
+      if(visible&&trace.visibleAt===null)trace.visibleAt=now;
+      if(el.classList.contains('hide')&&trace.hideAt===null)trace.hideAt=now;
+      if(trace.hideAt!==null&&trace.samples.length<80)trace.samples.push({ms:Math.round(now-trace.hideAt),opacity});
+      if(trace.hideAt!==null&&opacity<0.02&&trace.fadeEndAt===null){trace.fadeEndAt=now;clearInterval(watch);}
+    },25);
+    window.__stopPerspectiveTrace=()=>clearInterval(watch);
+  });
   await page.locator('#submitButton').click();
   await page.waitForFunction(()=>location.pathname==='/'&&document.getElementById('intro')&&document.getElementById('app'));
   assert.equal(await page.evaluate(()=>document===window.__entranceOriginalDocument),true,'the document must be retained through login');
@@ -60,6 +75,14 @@ test('WebKit delayed login holds last frame and reaches Briefing',async()=>{
   assert.ok(introElapsed>=3000&&introElapsed<=6200,'Perspective duration after mounted app must be in bounded 3–6.2s range: '+introElapsed);
 
   await page.waitForTimeout(900);
+  const perspectiveTrace=await page.evaluate(()=>window.__perspectiveTrace);
+  await page.evaluate(()=>window.__stopPerspectiveTrace?.());
+  assert.ok(perspectiveTrace.visibleAt!==null&&perspectiveTrace.hideAt!==null,'Perspective visibility/hide timestamps required: '+JSON.stringify(perspectiveTrace));
+  const visibleMs=perspectiveTrace.hideAt-perspectiveTrace.visibleAt;
+  assert.ok(visibleMs>=3000&&visibleMs<=5500,'Visible Perspective must last 3–5s plus sampling allowance, measured '+visibleMs+' ms');
+  assert.ok(perspectiveTrace.samples.length>0,'Fade opacity sampling required');
+  console.log('WEBKIT_PERSPECTIVE_TRACE '+JSON.stringify({visibleMs:Math.round(visibleMs),fadeMs:perspectiveTrace.fadeEndAt===null?null:Math.round(perspectiveTrace.fadeEndAt-perspectiveTrace.hideAt),opacity:perspectiveTrace.samples}));
+
   assert.equal(appRequestsBeforeAuth,0,'private app must stay authenticated');
   assert.equal(await page.locator('#loginScene').count(),0,'video removed after completed transition');
   assert.equal(await page.evaluate(()=>performance.getEntriesByType('navigation').length),1,'login must not navigate document');
