@@ -42,6 +42,7 @@ test('mobile slow-script login measures handoff timing and reaches Briefing',asy
   await page.waitForFunction(()=>location.pathname==='/'&&document.querySelector('#briefing'),null,{timeout:20000});
   await page.waitForFunction(()=>document.querySelector('#intro')?.getAttribute('aria-hidden')==='true',null,{timeout:12000});
   assert.equal(appRequestsBeforeAuth,0,'private app must stay authenticated');
+  await page.locator('#loginScene').waitFor({state:'detached',timeout:2500});
   assert.equal(await page.locator('#loginScene').count(),0,'video should clean up after entrance');
   assert.equal(await page.evaluate(()=>performance.getEntriesByType('navigation').length),1,'login must not navigate document');
   assert.ok(initialTime>0,'initial video played');
