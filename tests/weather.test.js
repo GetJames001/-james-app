@@ -6,7 +6,7 @@ const vm = require('node:vm');
 
 const appSource = fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
 
-function createHarness({ geolocation, response }) {
+function createHarness({ geolocation, response, permission = 'granted' }) {
   const elements = {
     '#weatherTemp': { textContent: '—' },
     '#weatherDetail': { textContent: '—' }
@@ -29,7 +29,7 @@ function createHarness({ geolocation, response }) {
       fetchCalls.push(url);
       return response;
     },
-    navigator: geolocation ? { geolocation } : {},
+    navigator: geolocation ? { geolocation, permissions: { query: async () => ({state:permission}) } } : {},
     window: {}
   });
 
@@ -126,4 +126,16 @@ test('reports API failures after obtaining a device location', async () => {
   assert.equal(harness.fetchCalls.length, 1);
   assert.equal(harness.elements['#weatherTemp'].textContent, '—');
   assert.equal(harness.elements['#weatherDetail'].textContent, 'Weather unavailable');
+});
+
+test('does not prompt for device location when permission is not previously granted', async () => {
+  let requests=0;
+  const harness=createHarness({
+    geolocation:{getCurrentPosition(){requests++;}},
+    permission:'prompt'
+  });
+  harness.loadWeather();
+  await flushPromises();
+  assert.equal(requests,0);
+  assert.equal(harness.elements['#weatherDetail'].textContent,'Location permission required');
 });
