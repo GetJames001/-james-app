@@ -27,7 +27,19 @@ test('WebKit delayed login holds last frame and reaches Briefing',async()=>{
    const full=path.resolve(root,filename);
    if(!full.startsWith(root+path.sep)||!fs.existsSync(full)||!fs.statSync(full).isFile())return route.fulfill({status:404});
    const type=filename.endsWith('.mp4')?'video/mp4':(filename.endsWith('.js')||filename.endsWith('.mjs'))?'text/javascript':filename.endsWith('.css')?'text/css':filename.endsWith('.png')?'image/png':'text/plain';
-   return route.fulfill({contentType:type,body:fs.readFileSync(full)});
+   const bytes=fs.readFileSync(full);
+   if(filename.endsWith('.mp4')){
+     const range=route.request().headers()['range'];
+     if(range){
+       const m=/^bytes=(\\d*)-(\\d*)$/.exec(range);let start,end;
+       if(m&&(m[1]||m[2])){start=m[1]?Number(m[1]):Math.max(0,bytes.length-Number(m[2]));end=m[1]?(m[2]?Number(m[2]):bytes.length-1):bytes.length-1;}
+       if(!Number.isSafeInteger(start)||!Number.isSafeInteger(end)||start<0||start>=bytes.length||end<start)return route.fulfill({status:416,headers:{'content-range':'bytes */'+bytes.length},body:''});
+       end=Math.min(end,bytes.length-1);
+       return route.fulfill({status:206,contentType:type,headers:{'accept-ranges':'bytes','content-range':'bytes '+start+'-'+end+'/'+bytes.length,'content-length':String(end-start+1)},body:bytes.subarray(start,end+1)});
+     }
+     return route.fulfill({status:200,contentType:type,headers:{'accept-ranges':'bytes','content-length':String(bytes.length)},body:bytes});
+   }
+   return route.fulfill({contentType:type,body:bytes});
   });
   await page.goto('https://james.test/login');
   assert.equal(appRequestsBeforeAuth,0,'private app must not load before login');
