@@ -46,6 +46,32 @@ test('concurrent changes force re-review rather than overwriting existing work',
 test('storage response loss can be reconciled by operation without resetting revisions',async()=>{const {m,workspace}=await setup(),f=await files.parseFile(file()),cmd={file:f,source:SOURCE,operationId:'upload-uncertain'};const first=await m.store.mutate('owner-a',workspace,0,d=>model.stage(d,cmd,now));const again=await m.store.mutate('owner-a',workspace,0,d=>model.stage(d,cmd,now));assert.equal(again.replayed,true);assert.equal(first.receipt.batchId,again.receipt.batchId);assert.equal((await m.store.load('owner-a',workspace)).batches.length,1);});
 test('route honors existing auth/CSRF boundary and ignores no client owner override',async()=>{const {m,workspace}=await setup();let csrf;const denied=service(m,'owner-a',(req,res,options)=>{csrf=options.csrf;res.status(401).json({ok:false,error:'UNAUTHORIZED'});return false;});assert.equal((await call(denied,{action:'load',workspaceId:workspace})).statusCode,401);assert.equal(csrf,true);assert.equal((await call(service(m),{action:'load',workspaceId:workspace,owner:'owner-b'})).statusCode,400);assert.equal((await call(service(m),{action:'load',workspaceId:workspace},{query:{owner:'owner-b'}})).statusCode,400);});
 test('feature is unavailable outside explicit Preview branch, no storage touched',async()=>{const m=memory(),res=await call(service(m,'owner-a',()=>{throw Error('Must not authenticate');},()=>false),{});assert.equal(res.statusCode,404);assert.equal(m.data.size,0);});
+test('combined diagnostic Preview enables customer access while other environments remain closed',async()=>{
+ const previous={env:process.env.VERCEL_ENV,ref:process.env.VERCEL_GIT_COMMIT_REF};
+ try{
+  for(const [env,ref,allowed] of [
+   ['preview','feature/customer-database-20261030',true],
+   ['preview','fix/calendar-refresh-diagnosis-20261031',true],
+   ['production','fix/calendar-refresh-diagnosis-20261031',false],
+   ['development','fix/calendar-refresh-diagnosis-20261031',false],
+   ['preview','unrelated-branch',false],['preview','',false]
+  ]){
+   process.env.VERCEL_ENV=env;process.env.VERCEL_GIT_COMMIT_REF=ref;
+   const m=memory();let authCalls=0;
+   const handler=createHandler({store:m.store,identity:()=> 'owner-a',authorize:()=>{authCalls++;return true;}});
+   const res=await call(handler,undefined,{method:'GET'});
+   assert.equal(res.statusCode,allowed?200:404,env+' / '+ref);
+   assert.equal(authCalls,allowed?1:0);assert.equal(m.data.size,0);
+   if(allowed){
+    assert.match(res.body.accountId,/^account-[a-f0-9]{64}$/);
+    const denied=createHandler({store:m.store,authorize:(req,res)=>{res.status(401).json({ok:false,error:'UNAUTHORIZED'});return false;}});
+    assert.equal((await call(denied,undefined,{method:'GET'})).statusCode,401);
+   }
+  }
+ }finally{
+  for(const [key,value] of [['VERCEL_ENV',previous.env],['VERCEL_GIT_COMMIT_REF',previous.ref]]){if(value===undefined)delete process.env[key];else process.env[key]=value;}
+ }
+});
 test('database uses separate keys; legacy Customer Activity records remain byte-identical',async()=>{const {m,handler,workspace}=await setup();const legacy='james:customer-activity:v1:existing';m.data.set(legacy,'existing notes and activities');await call(handler,{action:'stage',workspaceId:workspace,file:file(),source:SOURCE,operationId:'stage-1',expectedRevision:0});assert.equal(m.data.get(legacy),'existing notes and activities');});
 test('stable source row identity survives changed company name and address',async()=>{
  const map={company_name:0,source_record_id:1,address:2},first=await files.parseFile(file('Company,Row ID,Address\nFictional A,row-1,1 Test Way'));
