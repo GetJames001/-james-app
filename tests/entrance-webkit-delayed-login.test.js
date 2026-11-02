@@ -47,7 +47,7 @@ test('WebKit delayed login holds last frame and reaches Briefing',async()=>{
   assert.ok(await page.evaluate(()=>document.getElementById('loginScene').currentTime)>=initialTime,'video must not reset through login');
   const introBegin=Date.now();
   const transition=await page.locator('#intro').evaluate(el=>getComputedStyle(el).transitionDuration);
-  assert.match(transition,/0\\.65s|650ms/,'Perspective fade must be 650ms');
+  assert.ok(transition.split(',').map(x=>x.trim()).every(x=>x==='0.65s'||x==='650ms'),'Perspective fade must be 650ms; got '+transition);
   await page.waitForFunction(()=>document.getElementById('intro')?.getAttribute('aria-hidden')==='true',{timeout:10000});
   const introElapsed=Date.now()-introBegin;
   assert.ok(introElapsed>=3000&&introElapsed<=6200,'Perspective duration after mounted app must be in bounded 3–6.2s range: '+introElapsed);
