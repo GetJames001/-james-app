@@ -41,12 +41,16 @@ test('WebKit delayed login holds last frame and reaches Briefing',async()=>{
    }
    return route.fulfill({contentType:type,body:bytes});
   });
-  // Verify the fixture really serves byte ranges like the protected production handler.
-  const rangeResponse=await context.request.get('https://james.test/login-scene-night.mp4',{headers:{Range:'bytes=0-1'}});
-  assert.equal(rangeResponse.status(),206,'valid byte Range must get HTTP 206');
-  assert.equal((await rangeResponse.body()).length,2,'byte Range must return exactly two bytes');
-  assert.match(rangeResponse.headers()['content-range']||'',/^bytes 0-1\\/\\d+$/);
   await page.goto('https://james.test/login');
+  // Browser-origin fetch is intercepted by the same route fixture as the video.
+  const rangeProbe=await page.evaluate(async()=>{
+    const res=await fetch('/login-scene-night.mp4',{headers:{Range:'bytes=0-1'}});
+    return {status:res.status,length:(await res.arrayBuffer()).byteLength,range:res.headers.get('content-range')};
+  });
+  assert.equal(rangeProbe.status,206,'valid byte Range must get HTTP 206');
+  assert.equal(rangeProbe.length,2,'byte Range must return exactly two bytes');
+  assert.match(rangeProbe.range||'',/^bytes 0-1\/\d+$/);
+
   assert.equal(appRequestsBeforeAuth,0,'private app must not load before login');
   const initialVideo=page.locator('#loginScene');
   assert.equal(await initialVideo.count(),1,'entrance video must already exist behind sign-in');
