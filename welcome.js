@@ -12,7 +12,7 @@
     if(read('localStorage','jamesAnimation')==='off'||!document.createElement){scene=existing;return;}
     const intro=document.getElementById('intro');if(!intro)return;
     if(existing&&existing.isConnected&&existing.currentSrc){
-      scene=existing;existing.loop=false;
+      scene=existing;
       const reveal=()=>{if(finished||scene!==existing)return;existing.classList.add('playing');existing.style.opacity='1';intro.style.backgroundImage='var(--welcome-wash)';intro.style.backgroundColor='transparent';};
       if(existing.classList.contains('playing'))reveal();
       else existing.addEventListener('playing',()=>{if(existing.requestVideoFrameCallback)existing.requestVideoFrameCallback(reveal);else reveal();},{once:true});
