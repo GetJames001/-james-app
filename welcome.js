@@ -6,13 +6,29 @@
   let started = false;
   let scene = null;
   const sceneForHour = hour => hour < 6 || hour >= 21 ? 'night' : hour < 11 ? 'morning' : hour < 17 ? 'noon' : 'evening';
-  function stopScene(){if(scene){const video=scene;scene=null;video.pause();video.removeAttribute('src');video.load();video.remove();}}
+  function stopScene(){if(scene){const video=scene;scene=null;video.pause();video.removeAttribute('src');video.load();video.remove();}document.getElementById('intro')?.classList.remove('scene-awaiting');}
   function playScene(){
-    if(read('localStorage','jamesAnimation')==='off'||!document.createElement)return;
+    const existing=document.getElementById('loginScene');
+    if(read('localStorage','jamesAnimation')==='off'||!document.createElement){scene=existing;return;}
     const intro=document.getElementById('intro');if(!intro)return;
+    if(existing&&existing.isConnected&&existing.currentSrc){
+      scene=existing;
+      const reveal=()=>{if(finished||scene!==existing)return;existing.classList.add('playing');existing.style.opacity='1';intro.style.backgroundImage='var(--welcome-wash)';intro.style.backgroundColor='transparent';};
+      if(existing.classList.contains('playing'))reveal();
+      else existing.addEventListener('playing',()=>{if(existing.requestVideoFrameCallback)existing.requestVideoFrameCallback(reveal);else reveal();},{once:true});
+      return;
+    }
+    if(existing){scene=existing;return;} // Failed media stays on the matching still until cleanup.
+    intro.classList.add('scene-awaiting');
     const video=document.createElement('video');scene=video;
     video.className='living-scene';video.muted=true;video.defaultMuted=true;video.playsInline=true;video.setAttribute('playsinline','');video.setAttribute('aria-hidden','true');video.tabIndex=-1;video.preload='auto';
-    video.addEventListener('playing',()=>{if(!finished&&scene===video)video.classList.add('playing');});
+    const reveal=()=>{if(!finished&&scene===video)video.classList.add('playing');};
+    video.addEventListener('playing',()=>{
+      // Wait for the first decoded frame on supported browsers before blending
+      // over the still artwork. Older browsers blend after playback begins.
+      if(typeof video.requestVideoFrameCallback==='function')video.requestVideoFrameCallback(reveal);
+      else reveal();
+    });
     video.addEventListener('error',()=>{if(scene===video)stopScene();},{once:true});
     video.src='assets/scenes/'+sceneForHour(new Date().getHours())+'.mp4';intro.prepend(video);
     try{const pending=video.play();pending?.catch(()=>{if(scene===video)stopScene();});}catch{stopScene();}
@@ -35,7 +51,7 @@
     finished = true;
     // Retain the last rendered frame through the existing dissolve; removing
     // it immediately flashes the older still underneath the fading text.
-    if(scene){scene.pause();root.setTimeout(stopScene,700);}
+    if(scene){scene.pause();scene.style&&(scene.style.opacity='0');root.setTimeout(stopScene,700);}
     root.clearTimeout(timer);
     timer = null;
     write('sessionStorage', 'jamesIntroDate', new Date().toDateString());
@@ -56,6 +72,7 @@
     const seen = read('sessionStorage', 'jamesIntroDate') === new Date().toDateString();
     const reduced = root.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
     if (seen || reduced) {
+      scene=document.getElementById('loginScene');
       finish();
       if (seen && typeof options.onResume === 'function') options.onResume();
       return;
