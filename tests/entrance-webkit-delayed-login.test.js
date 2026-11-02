@@ -49,13 +49,24 @@ test('WebKit delayed login holds last frame and reaches Briefing',async()=>{
   const initialTime=await initialVideo.evaluate(v=>v.currentTime);
   await page.evaluate(()=>{window.__entranceOriginalDocument=document;window.__entranceOriginalVideo=document.getElementById('loginScene');});
   await page.evaluate(()=>{window.__mediaTrace=[];const v=document.getElementById('loginScene');for(const type of ['play','playing','pause','waiting','stalled','suspend','progress','timeupdate','error','ended'])v.addEventListener(type,()=>window.__mediaTrace.push({type,at:performance.now(),t:v.currentTime,ready:v.readyState}),{passive:true});});
-  await page.waitForFunction(()=>document.getElementById('loginScene')?.ended===true,null,{timeout:12000}).catch(async err=>{
-    const videoState=await page.evaluate(()=>{
-      const v=document.getElementById('loginScene');
-      return v?{duration:v.duration,currentTime:v.currentTime,paused:v.paused,ended:v.ended,readyState:v.readyState,networkState:v.networkState,errorCode:v.error?.code,src:v.currentSrc,visibility:document.visibilityState,buffered:Array.from({length:v.buffered.length},(_,i)=>[v.buffered.start(i),v.buffered.end(i)]),trace:window.__mediaTrace}:{missing:true};
-    });
-    throw new Error('WebKit delayed-login playback did not reach end: '+JSON.stringify(videoState)+'; '+err.message);
+  // An MP4 may stop a fraction of a frame before duration without firing ended.
+  // Require stable near-final playback, elapsed time >5s, and no backwards reset.
+  await page.evaluate(()=>{window.__videoWaitStart=performance.now();window.__nearFinalSamples=[];});
+  await page.waitForFunction(()=>{
+    const v=document.getElementById('loginScene'),arr=window.__nearFinalSamples;
+    if(!v||!Number.isFinite(v.duration)||v.duration<=0)return false;
+    arr.push({at:performance.now(),time:v.currentTime});
+    if(arr.length>80)arr.shift();
+    const close=v.duration-v.currentTime<=0.05;
+    const last=arr.slice(-3);
+    const stable=last.length===3&&last.every(x=>v.duration-x.time<=0.05)&&last.every((x,i)=>i===0||x.time>=last[i-1].time-0.001);
+    return close&&stable&&performance.now()-window.__videoWaitStart>=5000;
+  },null,{timeout:12000}).catch(async err=>{
+    const state=await page.evaluate(()=>{const v=document.getElementById('loginScene');return {duration:v?.duration,time:v?.currentTime,ended:v?.ended,paused:v?.paused,readyState:v?.readyState,networkState:v?.networkState,buffered:v?Array.from({length:v.buffered.length},(_,i)=>[v.buffered.start(i),v.buffered.end(i)]):[],trace:window.__mediaTrace,samples:window.__nearFinalSamples};});
+    throw new Error('WebKit near-final video stability failed: '+JSON.stringify(state)+'; '+err.message);
   });
+  const videoEndDiagnostic=await page.locator('#loginScene').evaluate(v=>({ended:v.ended,delta:v.duration-v.currentTime}));
+  console.log('WEBKIT_NATURAL_END_DIAGNOSTIC '+JSON.stringify(videoEndDiagnostic));
   assert.equal(await page.locator('#loginScene').evaluate(v=>v.loop),false,'slow sign-in must not loop');
   await page.locator('#email').fill('example@example.test');
   await page.locator('#password').fill('test-password');
