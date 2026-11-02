@@ -48,7 +48,7 @@ test('WebKit iPad login reaches usable Briefing',async()=>{
       const visible=style.display!=='none'&&style.visibility!=='hidden'&&opacity>0&&!el.classList.contains('hide');
       if(visible&&trace.visibleAt===null)trace.visibleAt=now;
       if(el.classList.contains('hide')&&trace.hideAt===null)trace.hideAt=now;
-      if(trace.hideAt!==null&&trace.samples.length<80)trace.samples.push({ms:Math.round(now-trace.hideAt),opacity,videoOpacity:Number(getComputedStyle(document.getElementById('loginScene')||el).opacity)});
+      if(trace.hideAt!==null&&trace.samples.length<80){const scene=document.getElementById('loginScene');trace.samples.push({ms:Math.round(now-trace.hideAt),opacity,videoOpacity:scene?Number(getComputedStyle(scene).opacity):null});}
       if(trace.hideAt!==null&&opacity<0.02&&trace.fadeEndAt===null){trace.fadeEndAt=now;clearInterval(watch);}
     },25);
     window.__stopPerspectiveTrace=()=>clearInterval(watch);
@@ -76,7 +76,8 @@ test('WebKit iPad login reaches usable Briefing',async()=>{
   assert.ok(sampled.at(-1)<0.03,'Perspective opacity must finish near zero: '+JSON.stringify(sampled));
   assert.ok(perspectiveTrace.fadeEndAt!==null,'Perspective fade must reach completion');
   const videoOpacity=perspectiveTrace.samples.map(x=>x.videoOpacity);
-  assert.ok(videoOpacity.some(x=>x<0.95),'Video opacity must decrease during cleanup: '+JSON.stringify(videoOpacity));
+  assert.ok(videoOpacity.some(x=>x!==null&&x>0.05&&x<0.95),'Retained video must show intermediate fade opacity: '+JSON.stringify(videoOpacity));
+  assert.ok(videoOpacity.some(x=>x!==null&&x<0.03),'Retained video must fade almost to zero before removal: '+JSON.stringify(videoOpacity));
   console.log('WEBKIT_PERSPECTIVE_TRACE '+JSON.stringify({visibleMs:Math.round(visibleMs),fadeMs:perspectiveTrace.fadeEndAt===null?null:Math.round(perspectiveTrace.fadeEndAt-perspectiveTrace.hideAt),opacity:perspectiveTrace.samples}));
 
   assert.equal(appRequestsBeforeAuth,0,'private app must stay authenticated');
