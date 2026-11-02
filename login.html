@@ -5,16 +5,19 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="robots" content="noindex,nofollow,noarchive">
   <meta name="referrer" content="no-referrer">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; connect-src 'self'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src 'self'; form-action 'self'; base-uri 'none'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; connect-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self'; media-src 'self'; base-uri 'none'">
   <title>James — Private Access</title>
-  <style>
+  <style id="loginOnlyStyle">
     :root{color-scheme:dark;--paper:#0b1c30;--ink:#f2eadb;--muted:#c5ced9;--gold:#d1b781;--line:rgba(214,185,131,.42);--card:rgba(12,29,48,.92);--input:#10243b;--art:url('/login-art-dark.png');--veil:rgba(3,14,29,.58)}
     html[data-theme="light"]{color-scheme:light;--paper:#f6f2e9;--ink:#172238;--muted:#5e6570;--gold:#855d24;--line:#aa9470;--card:rgba(255,252,245,.94);--input:#fffdf8;--art:url('/login-art-light.png');--veil:rgba(255,252,244,.5)}
     *{box-sizing:border-box}
     body{margin:0;min-height:100vh;display:grid;place-items:center;padding:24px;background:var(--paper);isolation:isolate;font-family:Inter,system-ui,-apple-system,sans-serif;color:var(--ink)}
-    body::before{content:"";position:fixed;inset:0;z-index:-2;background-image:linear-gradient(var(--veil),var(--veil)),var(--art);background-size:cover;background-position:center;filter:blur(3px)}
-    .login-brand{position:fixed;top:clamp(24px,5vw,64px);left:clamp(24px,6vw,88px);font:clamp(1.7rem,3.4vw,3rem) Georgia,serif;letter-spacing:.17em;color:var(--gold)}
-    main{width:min(100%,430px);padding:34px;border:1px solid var(--line);border-radius:20px;background:var(--card);box-shadow:0 18px 70px rgba(0,0,0,.3);backdrop-filter:blur(16px)}
+    body::before{content:"";position:fixed;inset:0;z-index:-2;background-image:var(--art);background-size:cover;background-position:center;filter:blur(3px)}
+    body::after{content:"";position:fixed;inset:0;z-index:1;pointer-events:none;background:var(--veil)}
+    #loginScene{position:fixed;inset:0;width:100%;height:100%;object-fit:cover;z-index:0;pointer-events:none;filter:blur(3px);opacity:0;transition:opacity .2s ease}
+    #loginScene.playing{opacity:1}
+    .login-brand{z-index:2;position:fixed;top:clamp(24px,5vw,64px);left:clamp(24px,6vw,88px);font:clamp(1.7rem,3.4vw,3rem) Georgia,serif;letter-spacing:.17em;color:var(--gold)}
+    main{position:relative;z-index:2;width:min(100%,430px);padding:34px;border:1px solid var(--line);border-radius:20px;background:var(--card);box-shadow:0 18px 70px rgba(0,0,0,.3);backdrop-filter:blur(16px)}
     small{display:block;color:var(--gold);font-weight:700;letter-spacing:.22em}
     h1{font:2.4rem Georgia,serif;font-weight:400;margin:8px 0 10px}
     p{color:var(--muted);line-height:1.5}
@@ -29,6 +32,7 @@
 </head>
 <body>
   <script>try{document.documentElement.dataset.theme=localStorage.getItem('jamesTheme')==='light'?'light':'dark';}catch(_){}</script>
+  <video id="loginScene" muted playsinline autoplay preload="auto" aria-hidden="true" tabindex="-1"></video>
   <div class="login-brand" aria-hidden="true">JAMES</div>
   <main aria-label="Sign in to James">
     <small>PRIVATE ACCESS</small>
@@ -44,6 +48,21 @@
     </form>
   </main>
   <script>
+    const sceneVideo=document.querySelector('#loginScene');
+    const sceneHour=new Date().getHours();
+    const sceneName=sceneHour<6||sceneHour>=21?'night':sceneHour<11?'morning':sceneHour<17?'noon':'evening';
+    let sceneEnabled=!matchMedia('(prefers-reduced-motion: reduce)').matches;
+    try{sceneEnabled=sceneEnabled&&localStorage.getItem('jamesAnimation')!=='off';}catch(_){}
+    if(sceneEnabled)sceneVideo.src='/login-scene-'+sceneName+'.mp4';
+    sceneVideo.addEventListener('playing',()=>{
+      const reveal=()=>sceneVideo.classList.add('playing');
+      if(sceneVideo.requestVideoFrameCallback)sceneVideo.requestVideoFrameCallback(reveal);else reveal();
+    },{once:true});
+    sceneVideo.addEventListener('error',()=>{sceneVideo.classList.remove('playing');sceneVideo.removeAttribute('src');});
+    sceneVideo.loop=sceneEnabled;
+    if(sceneEnabled)sceneVideo.play().catch(()=>sceneVideo.classList.remove('playing'));
+    // Replay the approved scene until the Perspective is complete.
+    // Reuse this media element during the authenticated handoff.
     const form = document.querySelector('#loginForm');
     const button = document.querySelector('#submitButton');
     const message = document.querySelector('#message');
@@ -52,6 +71,10 @@
       event.preventDefault();
       button.disabled = true;
       message.textContent = '';
+      const phaseStart=performance.now();
+      const phases={};
+      const mark=label=>{phases[label]=Math.round(performance.now()-phaseStart);};
+      mark('submit');
 
       try {
         const response = await fetch('/api/auth/login', {
@@ -64,9 +87,100 @@
           })
         });
 
+        mark('authResponse');
         if (!response.ok) throw new Error('Sign-in failed');
+        // Keep playback continuous across authentication; welcome owns cleanup.
         try { sessionStorage.removeItem('jamesIntroDate'); } catch (_) {}
-        window.location.replace('/');
+        // Load the authenticated application into this document without discarding
+        // the already playing decorative scene. No app request is made before login.
+        const appResponse = await fetch('/', { credentials: 'same-origin', cache: 'no-store' });
+        if (!appResponse.ok) throw new Error('Unable to open James');
+        const html = await appResponse.text();
+        mark('protectedHtml');
+        const parsed = new DOMParser().parseFromString(html, 'text/html');
+        if (!parsed.querySelector('#intro') || !parsed.querySelector('#app')) {
+          throw new Error('Invalid James application response');
+        }
+        const styles=[...parsed.head.querySelectorAll('link[rel="stylesheet"]')];
+        const staged=styles.map(link=>{const node=document.importNode(link,true);node.media='not all';document.head.append(node);return node;});
+        mark('stylesRequested');
+        // Only the application's known bootstrap scripts participate in this handoff.
+        // Hosting instrumentation is optional and may be forbidden by the login CSP.
+        const appScriptPaths = new Set([
+          '/mail-refresh.js','/calendar-sync.js','/welcome.js',
+          '/conversation-runtime.js','/conversation-ui.js','/app.js',
+          '/customer-database-ui.js','/workbench/host.mjs'
+        ]);
+        const scripts = [...parsed.body.querySelectorAll('script')].flatMap(node=>{
+          const src=node.getAttribute('src');
+          if(!src)return [];
+          const url=new URL(src,location.origin+'/');
+          if(url.origin!==location.origin||!appScriptPaths.has(url.pathname)||url.search||url.hash)return [];
+          return [{src:url.pathname,type:node.getAttribute('type')}];
+        });
+        // Fetch only authenticated, allowlisted assets concurrently. Execute scripts
+        // in their original sequential order after stylesheet readiness.
+        const preloadNodes=scripts.map(script=>{
+          const node=document.createElement('link');
+          node.rel=script.type==='module'?'modulepreload':'preload';
+          if(node.rel==='preload')node.as='script';
+          node.href=script.src;
+          document.head.append(node);
+          return node;
+        });
+        await Promise.all(staged.map(link=>new Promise((resolve,reject)=>{
+          if(link.sheet)return resolve();
+          link.addEventListener('load',resolve,{once:true});link.addEventListener('error',reject,{once:true});
+        })));
+        mark('stylesLoaded');
+        mark('scriptPreloadRequestsIssued');
+        const bodyNodes = [...parsed.body.childNodes].filter(node=>node.nodeName!=='SCRIPT');
+        // Preserve the existing media node and first frame across authentication.
+        const existingScene = sceneVideo;
+        for(const node of bodyNodes)document.body.append(document.importNode(node,true));
+        const intro=document.querySelector('#intro');
+        // Keep the existing video connected through authentication.
+        existingScene.style.cssText='position:fixed;inset:0;width:100%;height:100%;object-fit:cover;pointer-events:none;z-index:11;filter:none;transition:opacity .65s ease';
+        existingScene.style.opacity=existingScene.classList.contains('playing')?'1':'0';
+        intro.style.zIndex='12';
+        // Keep the sign-in overlay until all protected app scripts are loaded.
+        const loginPanel=document.querySelector('main[aria-label="Sign in to James"]');
+        loginPanel.style.cssText='position:fixed;z-index:20;left:50%;top:50%;transform:translate(-50%,-50%)';
+        intro.style.display='none';document.getElementById('app').style.display='none';
+        for(const link of staged)link.media='all';
+
+        document.documentElement.dataset.theme = document.documentElement.dataset.theme || 'dark';
+        for (const script of scripts) {
+          if (script.src) {
+            await new Promise((resolve,reject)=>{
+              const node=document.createElement('script');
+              if(script.type)node.type=script.type;
+              node.src=script.src;
+              node.onload=()=>{mark('loaded:'+script.src);resolve();};node.onerror=reject;
+              document.body.append(node);
+            });
+          } else if (script.text.trim()) {
+            const node=document.createElement('script');node.textContent=script.text;
+            document.body.append(node);
+          }
+        }
+        document.getElementById('loginOnlyStyle')?.remove();
+        document.querySelector('.login-brand')?.remove();
+        loginPanel.remove();
+        mark('overlayRemoved');
+        intro.style.removeProperty('display');document.getElementById('app').style.removeProperty('display');
+        document.title=parsed.title;
+        document.dispatchEvent(new Event('DOMContentLoaded'));
+        window.dispatchEvent(new Event('load'));
+        history.replaceState(null,'','/');
+        mark('handoff');
+        console.info('James entrance timing',JSON.stringify({phases,video:{time:Math.round(sceneVideo.currentTime*1000),duration:Math.round((sceneVideo.duration||0)*1000),ended:sceneVideo.ended}}));
+        // iOS Safari may omit synthetic lifecycle delivery for in-document app handoff.
+        window.JamesWelcome?.start();
+        window.setTimeout(()=>{
+          const intro=document.getElementById('intro');
+          if(intro&&!intro.classList.contains('hide'))window.JamesWelcome?.finish();
+        },5500);
       } catch {
         message.textContent = 'James could not verify those credentials.';
         form.password.value = '';

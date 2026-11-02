@@ -137,7 +137,7 @@ test('disconnected and unavailable stores/token/list use only fixed safe diagnos
     ]) {
       const res=await invoke(provider(config).handler);
       assert.equal(res.statusCode,503); assert.doesNotMatch(JSON.stringify(res.body),/provider secret/);
-      assert.deepEqual(res.body,{error:'Could not load Google Calendar events.',code:'GOOGLE_CALENDAR_READ_FAILED',stage});
+      assert.deepEqual(res.body,{error:'Could not load Google Calendar events.',code:'GOOGLE_CALENDAR_READ_FAILED',stage,...(stage==='TOKEN_REFRESH'?{refreshDiagnostic:{reason:'unavailable',clientIdPresent:Boolean(process.env.GOOGLE_CLIENT_ID?.trim()),clientSecretPresent:Boolean(process.env.GOOGLE_CLIENT_SECRET?.trim())}}:{})});
       assert.doesNotMatch(JSON.stringify(res.body),/synthetic-access-token|synthetic-refresh-token|synthetic-store-token/);
     }
     assert.deepEqual(logs,['CONNECTION_STORE','TOKEN_REFRESH','CALENDAR_LIST'].map(stage=>['GOOGLE_CALENDAR_READ_FAILED',{stage}]));
@@ -169,4 +169,17 @@ test('provider timeout is bounded and returns only fixed safe failure diagnostic
     assert.deepEqual(logs,[['GOOGLE_CALENDAR_READ_FAILED',{stage:'CONNECTION_STORE'}]]);
     assert.doesNotMatch(JSON.stringify([res.body,logs]),/provider secret|synthetic-access-token|synthetic-refresh-token|synthetic-store-token/);
   } finally {console.error=originalError;}
+});
+
+
+test('refresh diagnostics allow only fixed provider codes and configuration presence, never raw provider details', async () => {
+  for (const code of ['invalid_client','invalid_grant','unauthorized_client','invalid_request','temporarily_unavailable','server_error','private-error-with-secret']) {
+    const res=await invoke(provider({token:{ok:false,status:400,json:async()=>({error:code,error_description:'DO_NOT_EXPOSE_SECRET',access_token:'DO_NOT_EXPOSE_ACCESS'})}}).handler);
+    assert.equal(res.statusCode,503);
+    assert.equal(res.body.refreshDiagnostic.reason,code==='private-error-with-secret'?'unavailable':code);
+    assert.equal(res.body.refreshDiagnostic.providerStatus,400);
+    assert.equal(typeof res.body.refreshDiagnostic.clientIdPresent,'boolean');
+    assert.equal(typeof res.body.refreshDiagnostic.clientSecretPresent,'boolean');
+    assert.doesNotMatch(JSON.stringify(res.body),/DO_NOT_EXPOSE|private-error-with-secret|synthetic-access-token|synthetic-refresh-token/);
+  }
 });

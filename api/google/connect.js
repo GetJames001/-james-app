@@ -1,3 +1,4 @@
+const { googleRefreshTokenKey } = require("../../lib/google/token-store.js");
 const { googleRedirectUri } = require("../../lib/google/oauth-redirect.js");
 const crypto = require("node:crypto");
 const { requireAuth } = require("../../lib/auth.js");
@@ -12,7 +13,7 @@ module.exports = async function handler(req, res) {
   }
 
   let redirectUri;
-  try { redirectUri = googleRedirectUri(req); }
+  try { googleRefreshTokenKey(); redirectUri = googleRedirectUri(req); }
   catch { return res.status(503).send("Calendar connection is not configured for this preview address."); }
 
   const clientId = process.env.GOOGLE_CLIENT_ID;

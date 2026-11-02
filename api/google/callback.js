@@ -1,3 +1,4 @@
+const { googleRefreshTokenKey } = require("../../lib/google/token-store.js");
 const { googleRedirectUri } = require("../../lib/google/oauth-redirect.js");
 const { privateNoStore, requireAllowedHost } = require("../../lib/auth.js");
 
@@ -10,8 +11,8 @@ module.exports = async function handler(req, res) {
     return res.status(405).send("Method not allowed.");
   }
 
-  let redirectUri;
-  try { redirectUri = googleRedirectUri(req); }
+  let redirectUri, tokenKey;
+  try { tokenKey = googleRefreshTokenKey(); redirectUri = googleRedirectUri(req); }
   catch { return res.status(503).send("Calendar connection is not configured for this preview address."); }
 
   const { code, error } = req.query;
@@ -82,7 +83,7 @@ const redisResponse = await fetch(process.env.KV_REST_API_URL, {
   },
   body: JSON.stringify([
     "SET",
-    "google:refresh_token",
+    tokenKey,
     tokens.refresh_token,
   ]),
 });

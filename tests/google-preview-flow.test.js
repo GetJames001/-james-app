@@ -5,6 +5,7 @@ const connect=require('../api/google/connect.js');
 const callback=require('../api/google/callback.js');
 const host='james-app-git-review-customer-activity-save-20261021-james-cb7a.vercel.app';
 process.env.VERCEL_ENV='preview';
+process.env.VERCEL_GIT_COMMIT_REF='review/customer-activity-save-20261021';
 process.env.VERCEL_BRANCH_URL=host;
 process.env.JAMES_GOOGLE_PREVIEW_CALLBACK_URL=`https://${host}/api/google/callback`;
 process.env.JAMES_AUTH_EMAIL='synthetic@example.test';
