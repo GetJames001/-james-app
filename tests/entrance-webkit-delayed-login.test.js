@@ -36,10 +36,11 @@ test('WebKit delayed login holds last frame and reaches Briefing',async()=>{
   await page.waitForFunction(()=>{const v=document.querySelector('#loginScene');return v&&v.currentTime>0&&!v.paused;},{timeout:10000});
   const initialTime=await initialVideo.evaluate(v=>v.currentTime);
   await page.evaluate(()=>{window.__entranceOriginalDocument=document;window.__entranceOriginalVideo=document.getElementById('loginScene');});
+  await page.evaluate(()=>{window.__mediaTrace=[];const v=document.getElementById('loginScene');for(const type of ['play','playing','pause','waiting','stalled','suspend','progress','timeupdate','error','ended'])v.addEventListener(type,()=>window.__mediaTrace.push({type,at:performance.now(),t:v.currentTime,ready:v.readyState}),{passive:true});});
   await page.waitForFunction(()=>document.getElementById('loginScene')?.ended===true,null,{timeout:12000}).catch(async err=>{
     const videoState=await page.evaluate(()=>{
       const v=document.getElementById('loginScene');
-      return v?{duration:v.duration,currentTime:v.currentTime,paused:v.paused,ended:v.ended,readyState:v.readyState,networkState:v.networkState,errorCode:v.error?.code,src:v.currentSrc,visibility:document.visibilityState}:{missing:true};
+      return v?{duration:v.duration,currentTime:v.currentTime,paused:v.paused,ended:v.ended,readyState:v.readyState,networkState:v.networkState,errorCode:v.error?.code,src:v.currentSrc,visibility:document.visibilityState,buffered:Array.from({length:v.buffered.length},(_,i)=>[v.buffered.start(i),v.buffered.end(i)]),trace:window.__mediaTrace}:{missing:true};
     });
     throw new Error('WebKit delayed-login playback did not reach end: '+JSON.stringify(videoState)+'; '+err.message);
   });
