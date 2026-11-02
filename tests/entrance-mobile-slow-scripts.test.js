@@ -38,6 +38,13 @@ test('mobile slow-script login measures handoff timing and reaches Briefing',asy
   const initialTime=await initialVideo.evaluate(v=>v.currentTime);
   await page.locator('#email').fill('example@example.test');
   await page.locator('#password').fill('test-password');
+  const consoleTimings=[];
+  page.on('console',message=>{
+    if(message.type()==='info'&&message.text().startsWith('James entrance timing')){
+      const raw=message.text().slice('James entrance timing'.length).trim();
+      try{consoleTimings.push(JSON.parse(raw));}catch{}
+    }
+  });
   await page.locator('#submitButton').click();
   await page.waitForFunction(()=>location.pathname==='/'&&document.querySelector('#briefing'),null,{timeout:20000});
   await page.waitForFunction(()=>document.querySelector('#intro')?.getAttribute('aria-hidden')==='true',null,{timeout:12000});
@@ -51,6 +58,12 @@ test('mobile slow-script login measures handoff timing and reaches Briefing',asy
   assert.equal(await page.locator('#app').count(),1,'authenticated app must initialize');
   assert.equal(await page.locator('#briefing').count(),1,'Briefing must exist');
   assert.equal(await page.locator('#app').evaluate(e=>e.inert),false,'Briefing interactive after slow startup');
+  assert.equal(consoleTimings.length,1,'one sanitized hosted-equivalent phase trace required');
+  const phases=consoleTimings[0].phases;
+  for(const key of ['submit','authResponse','protectedHtml','stylesRequested','stylesLoaded','overlayRemoved','handoff'])
+    assert.ok(Number.isFinite(phases[key]),'missing phase '+key);
+  assert.ok(phases.submit<=phases.authResponse&&phases.authResponse<=phases.protectedHtml&&phases.protectedHtml<=phases.stylesLoaded&&phases.stylesLoaded<=phases.overlayRemoved);
+  console.log('MOBILE_SLOW_LOGIN_PHASES '+JSON.stringify(consoleTimings[0]));
   assert.equal(errors.length,0,'browser errors: '+errors.join('; '));
   await context.close();
  }finally{await browser.close();}
