@@ -4,7 +4,7 @@ const fs=require('node:fs');
 const vm=require('node:vm');
 const html=fs.readFileSync(require('node:path').join(__dirname,'..','login.html'),'utf8');
 const start=html.indexOf('        const appScriptPaths = new Set(');
-const end=html.indexOf('        const bodyNodes =',start);
+const end=html.indexOf('        // Fetch only authenticated, allowlisted assets concurrently.',start);
 assert.ok(start>=0&&end>start,'actual login loader policy must exist');
 const policy=html.slice(start,end)+'\nresult=scripts;';
 function select(entries){const context={URL,location:{origin:'https://james.test'},parsed:{body:{querySelectorAll:()=>entries.map(x=>({getAttribute:k=>x[k]??null,textContent:x.text??''}))}}};vm.runInNewContext(policy,context);return JSON.parse(JSON.stringify(context.result));}
