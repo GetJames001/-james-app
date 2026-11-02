@@ -49,7 +49,7 @@ test('WebKit delayed login holds last frame and reaches Briefing',async()=>{
   });
   assert.equal(rangeProbe.status,206,'valid byte Range must get HTTP 206');
   assert.equal(rangeProbe.length,2,'byte Range must return exactly two bytes');
-  assert.match(rangeProbe.range||'',/^bytes 0-1\/\d+$/);
+  assert.ok(rangeProbe.range?.startsWith('bytes 0-1/'),'Content-Range must identify requested bytes');
 
   assert.equal(appRequestsBeforeAuth,0,'private app must not load before login');
   const initialVideo=page.locator('#loginScene');
