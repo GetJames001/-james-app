@@ -102,7 +102,7 @@
         }
         const styles=[...parsed.head.querySelectorAll('link[rel="stylesheet"]')];
         const staged=styles.map(link=>{const node=document.importNode(link,true);node.media='not all';document.head.append(node);return node;});
-        mark('stylesLoaded');
+        mark('stylesRequested');
         // Only the application's known bootstrap scripts participate in this handoff.
         // Hosting instrumentation is optional and may be forbidden by the login CSP.
         const appScriptPaths = new Set([
@@ -131,7 +131,8 @@
           if(link.sheet)return resolve();
           link.addEventListener('load',resolve,{once:true});link.addEventListener('error',reject,{once:true});
         })));
-        mark('scriptsPreloaded');
+        mark('stylesLoaded');
+        mark('scriptPreloadRequestsIssued');
         const bodyNodes = [...parsed.body.childNodes].filter(node=>node.nodeName!=='SCRIPT');
         // Preserve the existing media node and first frame across authentication.
         const existingScene = sceneVideo;
