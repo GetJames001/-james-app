@@ -36,7 +36,13 @@ test('WebKit delayed login holds last frame and reaches Briefing',async()=>{
   await page.waitForFunction(()=>{const v=document.querySelector('#loginScene');return v&&v.currentTime>0&&!v.paused;},{timeout:10000});
   const initialTime=await initialVideo.evaluate(v=>v.currentTime);
   await page.evaluate(()=>{window.__entranceOriginalDocument=document;window.__entranceOriginalVideo=document.getElementById('loginScene');});
-  await page.waitForFunction(()=>document.getElementById('loginScene')?.ended===true,null,{timeout:12000});
+  await page.waitForFunction(()=>document.getElementById('loginScene')?.ended===true,null,{timeout:12000}).catch(async err=>{
+    const videoState=await page.evaluate(()=>{
+      const v=document.getElementById('loginScene');
+      return v?{duration:v.duration,currentTime:v.currentTime,paused:v.paused,ended:v.ended,readyState:v.readyState,networkState:v.networkState,errorCode:v.error?.code,src:v.currentSrc,visibility:document.visibilityState}:{missing:true};
+    });
+    throw new Error('WebKit delayed-login playback did not reach end: '+JSON.stringify(videoState)+'; '+err.message);
+  });
   assert.equal(await page.locator('#loginScene').evaluate(v=>v.loop),false,'slow sign-in must not loop');
   await page.locator('#email').fill('example@example.test');
   await page.locator('#password').fill('test-password');
