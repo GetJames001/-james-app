@@ -59,9 +59,10 @@
       if(sceneVideo.requestVideoFrameCallback)sceneVideo.requestVideoFrameCallback(reveal);else reveal();
     },{once:true});
     sceneVideo.addEventListener('error',()=>{sceneVideo.classList.remove('playing');sceneVideo.removeAttribute('src');});
+    sceneVideo.loop=sceneEnabled;
     if(sceneEnabled)sceneVideo.play().catch(()=>sceneVideo.classList.remove('playing'));
-    // Hold the final decoded frame until the user signs in; never visibly loop.
-    sceneVideo.addEventListener('ended',()=>sceneVideo.pause(),{once:true});
+    // Replay the approved scene until the Perspective is complete.
+    // Reuse this media element during the authenticated handoff.
     const form = document.querySelector('#loginForm');
     const button = document.querySelector('#submitButton');
     const message = document.querySelector('#message');
@@ -88,7 +89,7 @@
 
         mark('authResponse');
         if (!response.ok) throw new Error('Sign-in failed');
-        sceneVideo.loop=false;
+        // Keep playback continuous across authentication; welcome owns cleanup.
         try { sessionStorage.removeItem('jamesIntroDate'); } catch (_) {}
         // Load the authenticated application into this document without discarding
         // the already playing decorative scene. No app request is made before login.
