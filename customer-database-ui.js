@@ -158,9 +158,55 @@ function mount({container,fetcher=fetch,conversation=()=>root.jamesConversationU
  root.addEventListener('james-conversation-ended',()=>{clear();status('Conversation ended. Reopen Customer Database to verify access.');});root.addEventListener('pagehide',()=>{clear();});
  return {enter,leave,question,snapshot:()=>({workspace,revision,active,pending:!!pending})};
 }
+function mountPlanningFollowups(){
+ const anchors=[document.getElementById('taskList'),document.getElementById('customerReminders')].filter(Boolean);
+ const panels=anchors.map(anchor=>{
+  const panel=document.createElement('section');panel.className='customer-reminders';panel.hidden=true;
+  anchor.before(panel);return panel;
+ });
+ if(!panels.length)return;
+ let generation=0;
+ async function refresh(){
+  const request=++generation;
+  try{
+   const response=await fetch('/api/customer-database',{
+    method:'POST',credentials:'same-origin',cache:'no-store',
+    headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'planning_followups'})
+   });
+   if(request!==generation)return;
+   if(response.status===404||response.status===401||response.status===403){
+    for(const panel of panels){panel.hidden=true;panel.replaceChildren();}return;
+   }
+   if(!response.ok)throw Error('Follow-ups unavailable');
+   const {followups}=await response.json();
+   if(request!==generation)return;
+   for(const panel of panels){
+    panel.replaceChildren();panel.hidden=!followups.length;
+    if(panel.hidden)continue;
+    const heading=document.createElement('h4');heading.textContent='Saved customer follow-ups';panel.append(heading);
+    const list=document.createElement('ul');
+    for(const item of followups){
+     const row=document.createElement('li');
+     row.textContent=[item.company,item.business,item.action,item.details,new Date(item.due).toLocaleString()].filter(Boolean).join(' · ');
+     list.append(row);
+    }
+    panel.append(list);
+   }
+  }catch{
+   if(request!==generation)return;
+   for(const panel of panels){panel.hidden=false;panel.textContent='Could not load saved customer follow-ups.';}
+  }
+ }
+ const pages=new Set(anchors.map(anchor=>anchor.closest('.page')).filter(Boolean));
+ for(const page of pages)new MutationObserver(()=>{if(page.classList.contains('active'))refresh();})
+  .observe(page,{attributes:true,attributeFilter:['class']});
+ root.addEventListener('pageshow',refresh);
+ if([...pages].some(page=>page.classList.contains('active')))refresh();
+}
 root.JamesCustomerDatabase={mount};
 document.addEventListener('DOMContentLoaded',()=>{
  const container=document.getElementById('customer-database');if(!container)return;
+ mountPlanningFollowups();
  const api=mount({container}),nav=document.querySelector('nav button[data-page="customer-database"]');if(nav)nav.onclick=()=>{if(document.getElementById('workbench')?.classList.contains('active'))root.jamesWorkbenchNavigate('customer-database');else root.jamesPageNow('customer-database');};
  let active=false;new MutationObserver(()=>{const next=container.classList.contains('active');if(next===active)return;active=next;if(active)api.enter();else api.leave();}).observe(container,{attributes:true,attributeFilter:['class']});root.jamesDatabaseQuestion=(text,signal)=>api.question(text,signal);
  if(container.classList.contains('active')){active=true;api.enter();}
