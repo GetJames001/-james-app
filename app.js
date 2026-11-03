@@ -814,7 +814,7 @@ function googleEventsFailed(error) {
   if(calendarSyncState.hasData)renderCalendarDay();else{updateHero();renderAppointmentView();renderQuickCalendar();}
 }
 function loadLiveGoogleEvents() { return calendarRefreshController ? calendarRefreshController.refresh('manual') : Promise.resolve({skipped:'not-started'}); }
-async function loadWeatherForCoordinates({ latitude, longitude }, tempEl, detailEl) {
+async function loadWeatherForCoordinates({ latitude, longitude }, tempEl, detailEl, locationLabel = "") {
   try {
     const url =
       `https://api.open-meteo.com/v1/forecast?latitude=${latitude}` +
@@ -840,7 +840,7 @@ async function loadWeatherForCoordinates({ latitude, longitude }, tempEl, detail
       code >= 95 ? 'Thunderstorms' :
       'Current conditions';
 
-    detailEl.textContent = condition;
+    detailEl.textContent = locationLabel ? locationLabel + " · " + condition : condition;
   } catch (error) {
     tempEl.textContent = '—';
     detailEl.textContent = 'Weather unavailable';
@@ -852,17 +852,20 @@ function loadLiveWeather() {
   const tempEl = $('#weatherTemp');
   const detailEl = $('#weatherDetail');
   const enableLocation = $('#weatherEnableLocation');
+  const lasVegas = $('#weatherLasVegas');
   if (!tempEl || !detailEl) return;
 
   const showLocationUnavailable = error => {
     tempEl.textContent = '—';
     detailEl.textContent = error?.code === 1 ? 'Allow location in browser settings for weather.' : 'Location unavailable';
     if (enableLocation) enableLocation.hidden = !navigator.geolocation;
+    if (lasVegas) lasVegas.hidden = false;
   };
   const locate = () => {
     if (!navigator.geolocation) return showLocationUnavailable();
     detailEl.textContent = 'Locating…';
     if (enableLocation) enableLocation.hidden = true;
+    if (lasVegas) lasVegas.hidden = true;
     navigator.geolocation.getCurrentPosition(
       ({coords}) => loadWeatherForCoordinates(coords,tempEl,detailEl),
       showLocationUnavailable,
@@ -873,9 +876,19 @@ function loadLiveWeather() {
     if (!navigator.geolocation) return showLocationUnavailable();
     detailEl.textContent = 'Location permission required';
     if (enableLocation) enableLocation.hidden = false;
+    if (lasVegas) lasVegas.hidden = false;
   };
 
   if (enableLocation) enableLocation.onclick = locate;
+  if (lasVegas) lasVegas.onclick = async () => {
+    lasVegas.disabled = true;
+    detailEl.textContent = 'Loading Las Vegas weather…';
+    try {
+      await loadWeatherForCoordinates({latitude:36.17, longitude:-115.14},tempEl,detailEl,'Las Vegas');
+    } finally {
+      lasVegas.disabled = false;
+    }
+  };
   if (!navigator.permissions?.query) return offerLocation();
   navigator.permissions.query({name:'geolocation'}).then(permission=>{
     if (permission.state === 'granted') locate();

@@ -43,6 +43,8 @@ function mount({container,fetcher=fetch,conversation=()=>root.jamesConversationU
  const today=()=>{const d=new Date();return new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,10);};
  $('jr-day').value=today();$('jr-day').onchange=()=>run(loadDaily);
  const dailyStatus=node('p','',{role:'status',class:'jr-status'});
+ const pickActions=node('div',undefined,{class:'jr-actions'});
+ ui.companies.before(pickActions);
  button('Add selected to daily list',()=>run(async()=>{
   dailyStatus.textContent='Adding to daily list…';
   try{
@@ -54,8 +56,8 @@ function mount({container,fetcher=fetch,conversation=()=>root.jamesConversationU
   try{await loadDaily();}catch{dailyStatus.textContent+=' Refresh the daily list to see the saved entry.';}
   }catch(error){dailyStatus.textContent=error.message;throw error;}
   finally{dailyStatus.scrollIntoView({block:'nearest'});}
- }),$('jr-daily-actions'));
- $('jr-daily-actions').after(dailyStatus);
+ }),pickActions);
+ pickActions.after(dailyStatus);
  $('jr-day').addEventListener('change',()=>{dailyStatus.textContent='';});
  button('Open daily activity',()=>run(async()=>{
   if(!workspace||!dailyItems.length)throw Error('Add companies to this daily list first.');
@@ -178,18 +180,22 @@ function mountPlanningFollowups(){
  const anchors=[document.getElementById('taskList'),document.getElementById('customerReminders')].filter(Boolean);
  const touchesPanel=document.createElement('section');
  touchesPanel.className='customer-reminders';touchesPanel.hidden=true;
- document.getElementById('customerReminders')?.before(touchesPanel);
+ document.querySelector('#briefing .sheet-head')?.after(touchesPanel);
  const panels=anchors.map(anchor=>{
   const panel=document.createElement('section');panel.className='customer-reminders';panel.hidden=true;
   anchor.before(panel);return panel;
  });
  if(!panels.length)return;
  let generation=0;
+ const localDay=()=>{
+  const now=new Date();
+  return new Date(now-now.getTimezoneOffset()*60000).toISOString().slice(0,10);
+ };
+ let selectedDate='';
  async function refresh(){
   const request=++generation;
   try{
-   const now=new Date();
-   const date=new Date(now-now.getTimezoneOffset()*60000).toISOString().slice(0,10);
+   const date=selectedDate||localDay();
    const response=await fetch('/api/customer-database',{
     method:'POST',credentials:'same-origin',cache:'no-store',
     headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'planning_followups',date})
@@ -203,8 +209,25 @@ function mountPlanningFollowups(){
    if(request!==generation)return;
    touchesPanel.replaceChildren();
    touchesPanel.hidden=false;
-   const title=document.createElement('h4');title.textContent='Today’s customer touches';
-   touchesPanel.append(title);
+   const title=document.createElement('h4');
+   title.textContent=date===localDay()?'Today’s customer list':'Customer list';
+   const dateLabel=document.createElement('label');
+   dateLabel.textContent='List date ';
+   const dateInput=document.createElement('input');
+   dateInput.type='date';dateInput.value=date;
+   dateInput.addEventListener('change',()=>{selectedDate=dateInput.value;refresh();});
+   dateLabel.append(dateInput);
+   const pick=document.createElement('button');
+   pick.type='button';pick.textContent='Choose customers';
+   pick.onclick=()=>{
+    root.jamesPageNow('customer-database');
+    const activity=document.querySelector('#customer-database [data-view="companies"]');
+    activity?.click();
+    const day=document.getElementById('jr-day');
+    if(day&&day.value!==date){day.value=date;day.dispatchEvent(new Event('change'));}
+    document.getElementById('jr-companies')?.previousElementSibling?.scrollIntoView({block:'nearest'});
+   };
+   touchesPanel.append(title,dateLabel,pick);
    if(touches.length){
     const list=document.createElement('ul');
     for(const item of touches){
@@ -214,7 +237,7 @@ function mountPlanningFollowups(){
     }
     touchesPanel.append(list);
    }else{
-    const empty=document.createElement('p');empty.textContent='Add companies to today’s daily list in Customer Information.';
+    const empty=document.createElement('p');empty.textContent='No extra customer stops planned for this date. Choose up to 10 companies per business.';
     touchesPanel.append(empty);
    }
    for(const panel of panels){
