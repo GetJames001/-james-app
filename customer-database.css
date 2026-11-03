@@ -8,3 +8,19 @@
 #briefingCustomerPlan li button{font:inherit;text-align:left}
 .jr-dialog{max-width:min(34rem,90vw);max-height:85vh;overflow:auto;background:var(--panel,#15243a);color:var(--ink,#eee8dd);border:1px solid var(--gs,#40506a);border-radius:1rem;padding:1.25rem}
 .jr-dialog::backdrop{background:#0009}
+
+#briefingCustomerPlan .briefing-customer-row {
+  display: flex;
+  align-items: flex-start;
+  gap: .5rem;
+}
+#briefingCustomerPlan .briefing-customer-row small {
+  display: block;
+}
+#briefingCustomerPlan details button {
+  display: block;
+  margin-top: .35rem;
+}
+#customerActivityOpen[hidden] {
+  display: none;
+}

@@ -261,14 +261,21 @@ function mountPlanningFollowups(){
      row.append(detail);
     }
    };
+   const companyNames=new Map();
+   for(const item of touches)companyNames.set(item.company,(companyNames.get(item.company)||0)+1);
    for(const item of touches){
     const row=document.createElement('li');
     const open=document.createElement('button');open.type='button';open.textContent=item.company;
-    open.onclick=()=>openCompany(item,date);
-    row.append(open);
-    if(item.status==='recorded'){
-     const status=document.createElement('div');status.textContent='Activity recorded';row.append(status);
+    const check=document.createElement('input');
+    check.type='checkbox';check.disabled=true;check.checked=item.status==='recorded';
+    check.setAttribute('aria-label','Activity recorded for '+item.company);
+    const label=document.createElement('div');label.append(open);
+    if(companyNames.get(item.company)>1){
+     const business=document.createElement('small');business.textContent=item.business;label.append(business);
     }
+    const customer=document.createElement('div');customer.className='briefing-customer-row';
+    customer.append(check,label);row.append(customer);
+    open.onclick=()=>openCompany(item,date);
     renderFollowups(row,followupByCompany.get(key(item))||[]);
     followupByCompany.delete(key(item));list.append(row);
    }
@@ -280,14 +287,19 @@ function mountPlanningFollowups(){
    }
    if(list.childElementCount)touchesPanel.append(list);
    const businesses=new Map(touches.map(item=>[item.workspaceId,item.business]));
-   for(const [workspaceId,business] of businesses){
-    const open=document.createElement('button');open.type='button';
-    open.textContent=businesses.size===1?'Customer Activity':'Customer Activity · '+business;
-    open.onclick=()=>openCompany({workspaceId,business},date);
-    touchesPanel.append(open);
-   }
    const shortcut=document.getElementById('customerActivityOpen');
-   if(shortcut)shortcut.hidden=true;
+   if(shortcut)shortcut.hidden=businesses.size>0;
+   if(businesses.size){
+    const activity=document.createElement('details');
+    const title=document.createElement('summary');title.textContent='Customer Activity';
+    activity.append(title);
+    for(const [workspaceId,business] of businesses){
+     const open=document.createElement('button');open.type='button';open.textContent=business;
+     open.onclick=()=>openCompany({workspaceId,business},date);
+     activity.append(open);
+    }
+    touchesPanel.append(activity);
+   }
    if(!list.childElementCount){
     const empty=document.createElement('p');empty.textContent='No extra customer touches planned today.';
     touchesPanel.append(empty);
