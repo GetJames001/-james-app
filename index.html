@@ -157,13 +157,7 @@
 </div>
   </div>
 
-  <div class="intel-card">
-   <svg class="intel-icon" viewBox="0 0 24 24" aria-hidden="true">
-  <path d="M7 4h3l2 5-2 1.5a15 15 0 0 0 3.5 3.5L15 12l5 2v3c0 1.1-.9 2-2 2C10.8 19 5 13.2 5 6c0-1.1.9-2 2-2z"></path>
-</svg> <span>CALLBACKS</span>
-    <strong>—</strong>
-    <small>—</small>
-  </div>
+
 </div>
       <div class="briefing-outlook">
       <section class="next-card" aria-label="Next appointment">
@@ -197,13 +191,13 @@
         </div>
       </section>
 
-      <section class="quick-calendar" aria-label="Calendar quick access">
+      <div class="briefing-calendar-side"><section class="quick-calendar" aria-label="Calendar quick access">
         <div class="quick-calendar-heading"><button id="quickCalendarPrevious" type="button" aria-label="Previous month">‹</button><h4 id="quickCalendarMonth"></h4><button id="quickCalendarNext" type="button" aria-label="Next month">›</button></div>
         <div class="quick-calendar-weekdays" aria-hidden="true"><span>Sun</span><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span></div>
         <div id="quickCalendarDays" class="quick-calendar-days"></div>
         <p id="quickCalendarStatus" role="status"></p>
         <div class="quick-calendar-shortcuts"><button id="quickCalendarToday" type="button">Today</button><button id="quickCalendarTomorrow" type="button">Tomorrow</button><button id="quickCalendarWeek" type="button">7 days</button></div>
-      </section></div>
+      </section><div id="briefingCustomerPlan"></div></div></div>
       <div class="brief-grid">
         <div class="calendar-column">
           <small>TODAY’S CALENDAR · 7:00 AM–7:00 PM</small>
@@ -216,45 +210,6 @@
         </div>
 
         <aside>
-          <section>
-  <small>TODAY’S FOCUS</small>
-  <ol id="todayFocusList">
-    <li>
-      <i>—</i>
-      <div>
-        <b>No focus items loaded.</b>
-        <span>Tasks James is protecting will appear here.</span>
-      </div>
-    </li>
-  </ol>
-</section>
-
-<div class="quick">
-  <button data-panel="callbacks">
-    <svg class="quick-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
-      <path d="M7 4h3l2 5-2 1.5a15 15 0 0 0 3.5 3.5L15 12l5 2v3c0 1.1-.9 2-2 2C10.8 19 5 13.2 5 6c0-1.1.9-2 2-2z"></path>
-    </svg>
-    Callbacks <b>—</b>
-  </button>
-
-  <button data-panel="emails">
-    <svg class="quick-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
-      <rect x="4" y="6" width="16" height="12" rx="2"></rect>
-      <path d="M4 8l8 6 8-6"></path>
-    </svg>
-    Emails <b>—</b>
-  </button>
-
-  <button data-panel="proposals">
-    <svg class="quick-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
-      <path d="M6 3h9l3 3v15H6z"></path>
-      <path d="M15 3v4h4"></path>
-      <path d="M9 12h6"></path>
-      <path d="M9 16h6"></path>
-    </svg>
-    Proposals <b>—</b>
-  </button>
-</div>
 <p id="customerSaveNotice" role="status"></p>
 <p id="customerReminderAlert" role="status" aria-live="polite"></p><details id="customerReminders" hidden class="customer-reminders"><summary id="customerReminderSummary">Customer follow-ups</summary><p id="customerReminderStatus" role="status" aria-live="polite"></p><p class="customer-field-help">Follow-ups appear here. Notifications while James is closed are not connected.</p><div id="customerReminderList"></div><button id="customerReminderRetry" type="button" hidden>Check follow-ups again</button></details><div class="customer-shortcut"><button id="customerActivityOpen" type="button" aria-haspopup="dialog" aria-controls="customerActivityOverlay"><span>Customer Activity</span><span aria-hidden="true">↗</span></button></div>
 </aside>

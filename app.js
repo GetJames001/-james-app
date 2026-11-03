@@ -1219,20 +1219,6 @@ $$(".task-filter").forEach(button => {
       }
     };
   }
-  $$('[data-panel]').forEach(b => b.onclick = () => {
-    const type = b.dataset.panel;
-    const emptyStates = {
-      callbacks: ['No callbacks available', 'This view is not connected to a callback source.'],
-      emails: ['No email shortcuts available', 'Use Personal Mail for live messages.'],
-      proposals: ['No proposals available', 'This view is not connected to a proposal or file source.']
-    };
-    const [title, detail] = emptyStates[type];
-    panel(
-      type.toUpperCase(),
-      b.textContent.trim(),
-      `<div class="panel-item"><b>${title}</b><span>${detail}</span></div>`
-    );
-  });
   const personalMailRow = $('#personalMailRow');
 if (personalMailRow) {
   personalMailRow.onclick = () => page('personalMail');

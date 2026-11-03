@@ -353,16 +353,7 @@ test('responsive calendar and mail layout survive live viewport changes', async 
     assert.equal(await page.getByText('No files available', { exact: true }).count(), 1);
 
     await page.getByRole('button', { name: 'Briefing', exact: true }).click();
-    for (const [label, expected] of [
-      ['Callbacks', 'No callbacks available'],
-      ['Emails', 'No email shortcuts available'],
-      ['Proposals', 'No proposals available']
-    ]) {
-      await page.locator(`[data-panel="${label.toLowerCase()}"]`).click();
-      await page.locator('#backdrop.open').waitFor({ state: 'visible' });
-      assert.equal(await page.locator('#panelBody b').innerText(), expected);
-      await page.locator('#close').click();
-    }
+    assert.equal(await page.locator('[data-panel="callbacks"],[data-panel="emails"],[data-panel="proposals"]').count(), 0);
 
     console.log('BROWSER_EVIDENCE', JSON.stringify({
       portrait,

@@ -34,12 +34,9 @@ test('confirmed sample cards and drawer records are absent from the application 
   assert.doesNotMatch(deployedShell, />TJ</);
 });
 
-test('briefing drawers expose empty integration states instead of sample actions', () => {
-  assert.match(app, /No callbacks available/);
-  assert.match(app, /No email shortcuts available/);
-  assert.match(app, /Use Personal Mail for live messages/);
-  assert.match(app, /No proposals available/);
-  assert.doesNotMatch(app, /data\.map\(/);
+test('briefing omits unused integration shortcuts and focus placeholders', () => {
+  assert.doesNotMatch(index, /data-panel="(?:callbacks|emails|proposals)"/);
+  assert.doesNotMatch(index, /No focus items loaded/);
 });
 
 test('header and spoken briefing do not present fixed weather, traffic, or deadline claims', () => {

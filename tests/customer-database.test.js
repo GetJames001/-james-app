@@ -102,7 +102,10 @@ test('import reversal preserves a company referenced in the daily list',async()=
 test('daily list and activity survive new store readback and remain business/account scoped',async()=>{const {m,handler,workspace}=await setup(),original=accept(await staged());await m.store.mutate('owner-a',workspace,0,()=>original);const c=original.document.companies[0],select=await call(handler,{action:'select_daily',workspaceId:workspace,date:dailyDate,ids:[c.id],expectedRevision:original.document.revision,operationId:'select-api'});assert.equal(select.statusCode,200);
 const planning=await call(handler,{action:'planning_followups',date:dailyDate});
 assert.equal(planning.statusCode,200);
-assert.deepEqual(planning.body.touches,[{company:c.name,business:'Fictional studio',status:'pending'}]);
+assert.equal(planning.body.touches.length,1);
+assert.equal(planning.body.touches[0].companyId,c.id);
+assert.equal(planning.body.touches[0].status,'pending');
+assert.deepEqual(planning.body.touches[0].contacts,c.contacts.map(({name,phone,email})=>({name,phone,email})));
 assert.deepEqual((await call(service(m,'owner-b'),{action:'planning_followups',date:dailyDate})).body.touches,[]);
 assert.deepEqual((await call(handler,{action:'planning_followups',date:'2027-01-01'})).body.touches,[]);
 const record=await call(handler,{action:'record_activity',workspaceId:workspace,...activityCommand(c),expectedRevision:select.body.revision});assert.equal(record.statusCode,200);const fresh=createStore({command:m.command}),loaded=await fresh.load('owner-a',workspace);assert.equal(linked.projection(loaded,dailyDate).activities.length,1);const second=await m.store.createWorkspace('owner-a',{name:'Other business',operationId:'other-business'});assert.equal((await call(handler,{action:'daily_list',workspaceId:second.id,date:dailyDate})).body.items.length,0);assert.equal((await call(service(m,'owner-b'),{action:'daily_list',workspaceId:workspace,date:dailyDate})).statusCode,404);const replay=await call(handler,{action:'record_activity',workspaceId:workspace,...activityCommand(c),expectedRevision:0});assert.equal(replay.statusCode,200);assert.equal(replay.body.replayed,true);assert.equal(replay.body.document.activities.length,1);});
