@@ -1660,7 +1660,7 @@ document.addEventListener('DOMContentLoaded',()=>{
    reconnect.hidden=false;
    throw Error('Connect allproactive@hotmail.com with draft and send permissions.');
   }
-  if(result.missing?.length)throw Error('Draft saved in Outlook. Missing attachments: '+result.missing.join(', '));
+  if(result.missing?.length)throw Error('Draft saved in Outlook. Missing attachments: '+(result.issues || result.missing).join(', '));
   if(result.error==='DRAFT_REVIEW_REQUIRED')throw Error('The draft changed. Prepare it for review again.');
   throw Error('Outlook could not complete the request.');
  };
