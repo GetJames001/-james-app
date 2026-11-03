@@ -176,6 +176,9 @@ function mount({container,fetcher=fetch,conversation=()=>root.jamesConversationU
 }
 function mountPlanningFollowups(){
  const anchors=[document.getElementById('taskList'),document.getElementById('customerReminders')].filter(Boolean);
+ const touchesPanel=document.createElement('section');
+ touchesPanel.className='customer-reminders';touchesPanel.hidden=true;
+ document.getElementById('customerReminders')?.before(touchesPanel);
  const panels=anchors.map(anchor=>{
   const panel=document.createElement('section');panel.className='customer-reminders';panel.hidden=true;
   anchor.before(panel);return panel;
@@ -185,17 +188,35 @@ function mountPlanningFollowups(){
  async function refresh(){
   const request=++generation;
   try{
+   const now=new Date();
+   const date=new Date(now-now.getTimezoneOffset()*60000).toISOString().slice(0,10);
    const response=await fetch('/api/customer-database',{
     method:'POST',credentials:'same-origin',cache:'no-store',
-    headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'planning_followups'})
+    headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'planning_followups',date})
    });
    if(request!==generation)return;
    if(response.status===404||response.status===401||response.status===403){
-    for(const panel of panels){panel.hidden=true;panel.replaceChildren();}return;
+    for(const panel of [...panels,touchesPanel]){panel.hidden=true;panel.replaceChildren();}return;
    }
    if(!response.ok)throw Error('Follow-ups unavailable');
-   const {followups}=await response.json();
+   const {followups,touches=[]}=await response.json();
    if(request!==generation)return;
+   touchesPanel.replaceChildren();
+   touchesPanel.hidden=false;
+   const title=document.createElement('h4');title.textContent='Today’s customer touches';
+   touchesPanel.append(title);
+   if(touches.length){
+    const list=document.createElement('ul');
+    for(const item of touches){
+     const row=document.createElement('li');
+     row.textContent=[item.company,item.business,item.status==='recorded'?'Activity recorded':'Planned'].join(' · ');
+     list.append(row);
+    }
+    touchesPanel.append(list);
+   }else{
+    const empty=document.createElement('p');empty.textContent='Add companies to today’s daily list in Customer Information.';
+    touchesPanel.append(empty);
+   }
    for(const panel of panels){
     panel.replaceChildren();panel.hidden=!followups.length;
     if(panel.hidden)continue;
@@ -210,6 +231,7 @@ function mountPlanningFollowups(){
    }
   }catch{
    if(request!==generation)return;
+   touchesPanel.hidden=false;touchesPanel.textContent='Could not load today’s customer touches.';
    for(const panel of panels){panel.hidden=false;panel.textContent='Could not load saved customer follow-ups.';}
   }
  }
