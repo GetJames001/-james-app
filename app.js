@@ -817,9 +817,8 @@ function loadLiveGoogleEvents() { return calendarRefreshController ? calendarRef
 async function loadWeatherForCoordinates({ latitude, longitude }, tempEl, detailEl, locationLabel = "") {
   try {
     const url =
-      `https://api.open-meteo.com/v1/forecast?latitude=${latitude}` +
-      `&longitude=${longitude}` +
-      `&current=temperature_2m,weather_code&temperature_unit=fahrenheit`;
+      `/api/weather?latitude=${latitude}` +
+      `&longitude=${longitude}`;
 
     const response = await fetch(url);
     const data = await response.json();
@@ -1469,7 +1468,7 @@ function initCustomerActivity() {
   commit({type:'upsert_customer',customer});
  };
  function render(){
-  $('customerModeNotice').textContent=linkedSource?((linkedSource.singleCompany||linkedSource.allCompanies)?linkedSource.label:'Today’s customer list · '+linkedSource.label):practiceMode?'Practice template · Five fictional companies. Practice saves stay in this tab until reload; they do not change your saved customer records.':'Your saved companies · Record actual activity only.';
+  $('customerModeNotice').textContent=linkedSource?(linkedSource.singleCompany?linkedSource.label:'Today’s customer list · '+linkedSource.label):practiceMode?'Practice template · Five fictional companies. Practice saves stay in this tab until reload; they do not change your saved customer records.':'Your saved companies · Record actual activity only.';
   $('customerNewCompanyControls').hidden=!!linkedSource;
   $('customerRecordActivity').hidden=!!linkedSource?.readOnly;
   const directions=$('customerDirections');
@@ -1481,16 +1480,6 @@ function initCustomerActivity() {
   $('customerModeSwitch').textContent=practiceMode?'Show my saved companies':'Show five-company practice template';
   const list=$('customerDemoList');list.replaceChildren();
   for(const c of doc?.customers||[]){const b=document.createElement('button');b.type='button';b.textContent=c.name;b.setAttribute('aria-pressed',String(c.id===selected));b.disabled=busy;b.onclick=()=>{remember();selected=c.id;render();};list.append(b);}
-  if(linkedSource?.allCompanies){
-   const search=document.createElement('input');
-   search.type='search';search.placeholder='Find a company';
-   search.setAttribute('aria-label','Find a company');
-   search.oninput=()=>{
-    const query=search.value.trim().toLowerCase();
-    for(const button of list.querySelectorAll('button'))button.hidden=!button.textContent.toLowerCase().includes(query);
-   };
-   list.prepend(search);
-  }
   const c=doc?.customers.find(c=>c.id===selected);
   $('customerDemoName').textContent=c?.name||'Add or select a customer';
   const history=(doc?.activities||[]).filter(a=>a.customerId===selected).sort((a,b)=>b.occurredAt.localeCompare(a.occurredAt));
@@ -1564,7 +1553,7 @@ function initCustomerActivity() {
   try{sessionStorage.setItem('jamesCustomerMode',practiceMode?'practice':'saved');}catch{}
   load();
  };
- openButton.onclick=()=>{if(linkedSource&&!hasChanges())releaseLinked();$('customerSaveNotice').textContent='';returnFocus=document.activeElement;overlay.hidden=false;closeButton.focus();if(!busy)load();};
+ openButton.onclick=()=>page('customer-database');
  window.jamesOpenLinkedCustomerActivity=async source=>{
   if(busy||savingAll||uncertain||hasChanges()){announce('Save or reconcile the current activity before changing lists.');overlay.hidden=false;return false;}
   if(linkedSource&&linkedSource.key!==source.key)releaseLinked();
