@@ -1710,7 +1710,13 @@ document.addEventListener('DOMContentLoaded',()=>{
     try{
      const result=await request({action,id,revision:review.revision});
      status.textContent=result.status==='sent'?'Confirmed in Outlook Sent Items.':'Submitted to Outlook — confirmation pending';
-     if(result.status==='sent')return;
+     if(result.status==='sent'){
+      form.reset();
+      panel.replaceChildren();
+      panel.hidden=true;
+      form.hidden=false;
+      return;
+     }
      if(result.status==='not_submitted'){
       status.textContent='Outlook has no submission for this draft. Approve again to send.';
       action='send';send.textContent='Approve & Send';send.disabled=false;edit.disabled=false;
