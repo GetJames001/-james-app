@@ -98,13 +98,13 @@ if (req.method === "GET" && req.query.messageId !== undefined) {
   }
   const path = "messages/" + encodeURIComponent(messageId) + "/attachments";
   const result = await readStateRequest("https://graph.microsoft.com/v1.0/me/" + path +
-    (attachmentId ? "/" + encodeURIComponent(attachmentId) : "?$select=id,name,contentType,isInline,contentId,size&$top=100"), {
+    (attachmentId ? "/" + encodeURIComponent(attachmentId) : "?$top=100"), {
     headers: { Authorization: "Bearer " + tokens.access_token }
   }, Date.now() + 10000);
-  if (!result.ok) return res.status(502).json({ error: "ATTACHMENT_UNAVAILABLE" });
-  if (!attachmentId) return res.status(200).json({ attachments: result.data.value || [] });
+  if (!result.ok) return res.status(502).json({ error: "ATTACHMENT_UNAVAILABLE", providerStatus: result.status });
+  if (!attachmentId) return res.status(200).json({ attachments: (result.data.value || []).map(({id, name, contentType, isInline, contentId, size}) => ({id, name, contentType, isInline, contentId, size})) });
   const { name, contentType, contentBytes } = result.data;
-  if (typeof contentBytes !== "string") return res.status(404).json({ error: "ATTACHMENT_UNAVAILABLE" });
+  if (typeof contentBytes !== "string") return res.status(404).json({ error: "ATTACHMENT_UNAVAILABLE", providerStatus: result.status });
   return res.status(200).json({ name, contentType, contentBytes });
 }
 if (req.method === "POST") {
