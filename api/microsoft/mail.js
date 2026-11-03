@@ -90,6 +90,23 @@ module.exports = async function handler(req, res) {
         error: "Microsoft Mail token refresh failed.",
       });
     }
+if (req.method === "GET" && req.query.messageId !== undefined) {
+  const { messageId, attachmentId } = req.query;
+  const validId = id => typeof id === "string" && /^[A-Za-z0-9_+=/-]{1,2048}$/.test(id);
+  if (account !== "personal" || !validId(messageId) || (attachmentId !== undefined && !validId(attachmentId))) {
+    return res.status(400).json({ error: "INVALID_ATTACHMENT_REQUEST" });
+  }
+  const path = "messages/" + encodeURIComponent(messageId) + "/attachments";
+  const result = await readStateRequest("https://graph.microsoft.com/v1.0/me/" + path +
+    (attachmentId ? "/" + encodeURIComponent(attachmentId) : "?$select=id,name,contentType,isInline,contentId,size&$top=100"), {
+    headers: { Authorization: "Bearer " + tokens.access_token }
+  }, Date.now() + 10000);
+  if (!result.ok) return res.status(502).json({ error: "ATTACHMENT_UNAVAILABLE" });
+  if (!attachmentId) return res.status(200).json({ attachments: result.data.value || [] });
+  const { name, contentType, contentBytes } = result.data;
+  if (typeof contentBytes !== "string") return res.status(404).json({ error: "ATTACHMENT_UNAVAILABLE" });
+  return res.status(200).json({ name, contentType, contentBytes });
+}
 if (req.method === "POST") {
   const { messageId, replyText } = req.body || {};
 

@@ -972,15 +972,71 @@ emailFrame.style.border = "0";
 emailFrame.style.background = "#fff";
 emailFrame.style.borderRadius = "8px";
 
-emailFrame.srcdoc =
-  message.body ||
-  `<html><body><p>${message.preview || "No message content."}</p></body></html>`;
+const body = message.body || "";
+const attachmentList = document.createElement("div");
+const pictures = document.createElement("button");
+pictures.type = "button";
+pictures.textContent = "Load remote pictures";
+let remotePictures = false;
+const inlineImages = new Map();
+function renderEmailBody() {
+  const parsed = document.implementation.createHTMLDocument("");
+  const template = parsed.createElement("template");
+  template.innerHTML = body;
+  if (!body) template.content.append(document.createTextNode(message.preview || "No message content."));
+  for (const img of template.content.querySelectorAll("img")) {
+    const src = img.getAttribute("src") || "";
+    if (src.startsWith("cid:")) img.setAttribute("src", inlineImages.get(src.slice(4)) || "");
+  }
+  emailFrame.srcdoc = '<meta http-equiv="Content-Security-Policy" content="default-src \'none\'; style-src \'unsafe-inline\'; img-src data:' +
+    (remotePictures ? ' https:' : '') + '; base-uri \'none\'">' + template.innerHTML;
+  if (!body) emailFrame.title = message.preview || "No message content.";
+}
+pictures.onclick = () => { remotePictures = true; pictures.hidden = true; renderEmailBody(); };
+renderEmailBody();
 
 const mailActions = document.createElement("div");
 mailActions.className = "personal-mail-actions";
 mailActions.setAttribute("role", "group");
 mailActions.setAttribute("aria-label", "Message actions");
-detailBody.append(mailActions, emailFrame);
+detailBody.append(mailActions, pictures, attachmentList, emailFrame);
+const attachmentUrl = "/api/microsoft/mail?account=personal&messageId=" + encodeURIComponent(message.id);
+async function getAttachment(id) {
+  const response = await fetch(attachmentUrl + (id ? "&attachmentId=" + encodeURIComponent(id) : ""), {cache:"no-store"});
+  if (!response.ok) throw Error("Attachment unavailable");
+  return response.json();
+}
+getAttachment().then(({attachments}) => {
+  for (const file of attachments) {
+    if (file.isInline && file.contentId && /^image\/(png|jpeg|gif|webp)$/i.test(file.contentType || "")) {
+      getAttachment(file.id).then(saved => {
+        if (!emailFrame.isConnected) return;
+        inlineImages.set(file.contentId.replace(/^<|>$/g, ""), "data:" + file.contentType + ";base64," + saved.contentBytes);
+        renderEmailBody();
+      }).catch(()=>{});
+      continue;
+    }
+    if (file.isInline) continue;
+    const download = document.createElement("button");
+    download.type = "button";
+    download.textContent = file.name || "Attachment";
+    download.onclick = async () => {
+      download.disabled = true;
+      try {
+        const saved = await getAttachment(file.id);
+        const bytes = Uint8Array.from(atob(saved.contentBytes), character => character.charCodeAt(0));
+        const url = URL.createObjectURL(new Blob([bytes], {type:"application/octet-stream"}));
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = saved.name || "attachment";
+        link.click();
+        setTimeout(()=>URL.revokeObjectURL(url), 60000);
+      } catch { download.textContent = (file.name || "Attachment") + " (retry)"; }
+      finally { download.disabled = false; }
+    };
+    attachmentList.append(download);
+  }
+}).catch(()=>{ if(attachmentList.isConnected) attachmentList.textContent = "Attachments could not be checked."; });
 const replyButton = document.createElement("button");
 replyButton.id = "personalMailReplyButton";
 replyButton.type = "button";
