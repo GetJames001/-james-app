@@ -10,8 +10,8 @@ function mount({container,fetcher=fetch,conversation=()=>root.jamesConversationU
  const status=text=>{ui.status.textContent=text;};
  const button=(text,action,parent)=>{const b=node('button',text,{type:'button'});b.onclick=action;parent.append(b);return b;};
  const input=(text,parent,type='text')=>{const label=node('label',text),field=node('input',undefined,{type});label.append(field);parent.append(label);return field;};
- container.innerHTML='<div id="james-resource-concept"><header><strong>JAMES</strong><span>Customer Information</span></header><div class="jr-row"><h2>Your customer information</h2><label>Business<select id="jr-workspace"><option value="">Choose a business</option></select></label></div><details><summary>Add a business</summary><div id="jr-create" class="jr-row"></div></details><nav aria-label="Database views"><button type="button" data-view="companies" aria-pressed="true">Today’s Activity</button><button type="button" data-view="imports" aria-pressed="false">Customer Vault</button></nav><p id="jr-status" class="jr-status" role="status" aria-live="polite"></p><div id="jr-recovery" hidden></div><section data-panel="companies"><article><h3>Daily list</h3><label for="jr-day">Date</label><input id="jr-day" type="date"><div id="jr-daily"></div><div id="jr-daily-actions" class="jr-actions"></div></article><label for="jr-search">Find a company, person, or location</label><input id="jr-search" placeholder="Search your resources…" type="search"><details><summary>Filter results</summary><div id="jr-filters" class="jr-filters"></div></details><details><summary>Download records</summary><div id="jr-exports" class="jr-actions"></div></details><div class="jr-layout"><article><h3>Companies</h3><div id="jr-companies"></div></article><article id="jr-detail"><h3>Select a company</h3></article></div></section><section data-panel="imports" hidden><article><details id="jr-upload"><summary>Upload a file</summary><div id="jr-import-controls"></div></details><label for="jr-file-search">Search files</label><input id="jr-file-search" type="search" placeholder="File name or source"><div id="jr-file-preview"></div><div id="jr-mapping"></div><div id="jr-review"></div><div id="jr-batches"></div></article></section><footer><strong>Ask James</strong><div id="jr-conversation"></div><div id="jr-footer-actions" class="jr-actions"></div></footer></div>';
- const $=id=>container.querySelector('#'+id);for(const name of ['workspace','create','status','recovery','filters','exports','companies','detail','mapping','review','batches'])ui[name]=$( 'jr-'+name);
+ container.innerHTML='<div id="james-resource-concept"><header><strong>JAMES</strong><span>Customer Information</span></header><div class="jr-row"><h2>Your customer information</h2><label>Business<select id="jr-workspace"><option value="">Choose a business</option></select></label></div><nav aria-label="Database views"><button type="button" data-view="companies" aria-pressed="true">Today’s Activity</button><button type="button" data-view="imports" aria-pressed="false">Customer Vault</button></nav><p id="jr-status" class="jr-status" role="status" aria-live="polite"></p><div id="jr-recovery" hidden></div><section data-panel="companies"><article><h3>Daily list</h3><input id="jr-day" type="hidden"><div id="jr-daily"></div><div id="jr-daily-actions" class="jr-actions"></div></article><label for="jr-search">Find a company, person, or location</label><input id="jr-search" placeholder="Search your resources…" type="search"><details><summary>Download records</summary><div id="jr-exports" class="jr-actions"></div></details><div class="jr-layout"><article><h3>Companies</h3><div id="jr-companies"></div></article><article id="jr-detail"><h3>Select a company</h3></article></div></section><section data-panel="imports" hidden><details><summary>Add a business</summary><div id="jr-create" class="jr-row"></div></details><article><details id="jr-upload"><summary>Upload a file</summary><div id="jr-import-controls"></div></details><label for="jr-file-search">Search files</label><input id="jr-file-search" type="search" placeholder="File name or source"><div id="jr-file-preview"></div><div id="jr-mapping"></div><div id="jr-review"></div><div id="jr-batches"></div></article></section><footer><strong>Ask James</strong><div id="jr-conversation"></div><div id="jr-footer-actions" class="jr-actions"></div></footer></div>';
+ const $=id=>container.querySelector('#'+id);for(const name of ['workspace','create','status','recovery','exports','companies','detail','mapping','review','batches'])ui[name]=$( 'jr-'+name);
  const newName=input('Business name',ui.create);button('Add business',()=>run(async()=>{const name=newName.value.trim();if(!name)throw Error('Enter a business name first.');const result=await mutate({action:'create_workspace',name,operationId:crypto.randomUUID()},'create');workspace=result.workspace.id;await loadWorkspaces();ui.workspace.value=workspace;remember();await load();}),ui.create);
  const file=input('Choose CSV or Excel from Files',$( 'jr-import-controls'),'file');file.accept='.csv,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
  const uploadHint=node('p','Choose a spreadsheet, then upload it to review the rows before importing.');
@@ -39,7 +39,6 @@ function mount({container,fetcher=fetch,conversation=()=>root.jamesConversationU
   }catch(error){uploadStatus.textContent=error.message||'Upload failed. Try again.';throw error;}
  }),$( 'jr-import-controls'));
  $('jr-import-controls').append(uploadStatus);
- for(const key of ['company','person','location','industry','status','source','tags']){const field=input(key.charAt(0).toUpperCase()+key.slice(1),ui.filters);field.dataset.filter=key;field.oninput=()=>{filters[key]=field.value;search();};}
  const today=()=>{const d=new Date();return new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,10);};
  $('jr-day').value=today();$('jr-day').onchange=()=>run(loadDaily);
  const dailyStatus=node('p','',{role:'status',class:'jr-status'});
@@ -48,7 +47,7 @@ function mount({container,fetcher=fetch,conversation=()=>root.jamesConversationU
  button('Add selected to daily list',()=>run(async()=>{
   dailyStatus.textContent='Adding to daily list…';
   try{
-  if(!workspace||!selected.size)throw Error('Select companies first.');
+  if(!workspace||!selected.size)throw Error('Check a company below to add it to today’s list.');
   const result=await mutate({action:'select_daily',workspaceId:workspace,date:$('jr-day').value,ids:[...selected],operationId:crypto.randomUUID(),expectedRevision:revision},'select_daily');
   revision=result.revision;
   const added=result.receipt.added.length;
@@ -118,7 +117,7 @@ function mount({container,fetcher=fetch,conversation=()=>root.jamesConversationU
  let searchTicket=0;
  async function search(){const ticket=++searchTicket;if(!workspace||busy)return;try{const result=await request({action:'search',workspaceId:workspace,filters:{...filters}});if(ticket===searchTicket){companies=result.companies;renderCompanies();}}catch(error){if(ticket===searchTicket)status(error.message);}}
  function render(){$('jr-daily').replaceChildren();dailyItems=[];$('jr-file-preview').replaceChildren();renderCompanies();renderBatches();ui.mapping.replaceChildren();ui.review.replaceChildren();}
- function renderCompanies(){ui.companies.replaceChildren();for(const c of companies){const row=node('div',undefined,{class:'jr-company'}),label=node('label'),check=node('input',undefined,{type:'checkbox',class:'jr-check','aria-label':'Select '+c.name});check.checked=selected.has(c.id);check.onchange=()=>check.checked?selected.add(c.id):selected.delete(c.id);label.append(check,document.createTextNode(' Select for daily list or export'));row.append(label);const open=button(c.name,()=>{chosen=c.id;renderDetail();},row);open.setAttribute('aria-pressed',String(chosen===c.id));row.append(node('div',c.locations.map(l=>[l.city,l.state].filter(Boolean).join(', ')).join(' · ')+' · '+(c.status||'Status unknown'),{class:'jr-sub'}),node('span',c.contacts.length+' contacts',{class:'jr-pill'}),node('span','Imported',{class:'jr-pill'}));ui.companies.append(row);}if(!companies.length)ui.companies.append(node('p',workspace?'No companies found. Upload a file in Customer Vault.':'Choose a business to begin.'));if(!companies.some(c=>c.id===chosen))chosen=companies[0]?.id||'';renderDetail();}
+ function renderCompanies(){ui.companies.replaceChildren();for(const c of companies){const row=node('div',undefined,{class:'jr-company'}),label=node('label'),check=node('input',undefined,{type:'checkbox',class:'jr-check','aria-label':'Select '+c.name});check.checked=selected.has(c.id);check.onchange=()=>check.checked?selected.add(c.id):selected.delete(c.id);label.append(check,document.createTextNode(' Add to today’s list'));row.append(label);const open=button(c.name,()=>{chosen=c.id;renderDetail();},row);open.setAttribute('aria-pressed',String(chosen===c.id));row.append(node('div',c.locations.map(l=>[l.city,l.state].filter(Boolean).join(', ')).join(' · ')+' · '+(c.status||'Status unknown'),{class:'jr-sub'}),node('span',c.contacts.length+' contacts',{class:'jr-pill'}),node('span','Imported',{class:'jr-pill'}));ui.companies.append(row);}if(!companies.length)ui.companies.append(node('p',workspace?'No companies found. Upload a file in Customer Vault.':'Choose a business to begin.'));if(!companies.some(c=>c.id===chosen))chosen=companies[0]?.id||'';renderDetail();}
  function renderDetail(){const c=companies.find(c=>c.id===chosen);ui.detail.replaceChildren(node('h3',c?.name||'Select a company'));if(!c)return;for(const l of c.locations)ui.detail.append(node('p',[l.address,l.city,l.state,l.postal_code,l.country].filter(Boolean).join(', ')));for(const p of c.contacts)ui.detail.append(node('p',[p.name,p.phone,p.email].filter(Boolean).join(' · ')));const history=node('details');history.append(node('summary','Source & history'));history.append(node('p',c.sources.map(s=>s.namespace+' · Company ID: '+(s.companyId||'not supplied')+' · Row ID: '+(s.recordId||'not supplied')).join('\n')),node('p','Imported claims · not independently verified'),node('p',c.history.map(h=>h.at+' · '+h.kind+(h.row?' · source row '+h.row:'')).join('\n')));ui.detail.append(history);ui.detail.append(node('h3','Notes'),node('p',c.notes.map(n=>n.text).join('\n')||'No notes recorded.'),node('h3','Actual activity'),node('p',c.activities.map(a=>a.occurredAt+' · '+a.outcome+' · '+a.notes).join('\n')||'No actual activity reported.'),node('h3','Next actions'),node('p',[
   ...c.nextActions.map(action=>[action.text,action.due||'No due date',action.status].join(' · ')),
   ...c.activities.filter(activity=>activity.nextActionAt||activity.nextActionDue).map(activity=>[
@@ -191,11 +190,10 @@ function mountPlanningFollowups(){
   const now=new Date();
   return new Date(now-now.getTimezoneOffset()*60000).toISOString().slice(0,10);
  };
- let selectedDate='';
  async function refresh(){
   const request=++generation;
   try{
-   const date=selectedDate||localDay();
+   const date=localDay();
    const response=await fetch('/api/customer-database',{
     method:'POST',credentials:'same-origin',cache:'no-store',
     headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'planning_followups',date})
@@ -209,25 +207,8 @@ function mountPlanningFollowups(){
    if(request!==generation)return;
    touchesPanel.replaceChildren();
    touchesPanel.hidden=false;
-   const title=document.createElement('h4');
-   title.textContent=date===localDay()?'Today’s customer list':'Customer list';
-   const dateLabel=document.createElement('label');
-   dateLabel.textContent='List date ';
-   const dateInput=document.createElement('input');
-   dateInput.type='date';dateInput.value=date;
-   dateInput.addEventListener('change',()=>{selectedDate=dateInput.value;refresh();});
-   dateLabel.append(dateInput);
-   const pick=document.createElement('button');
-   pick.type='button';pick.textContent='Choose customers';
-   pick.onclick=()=>{
-    root.jamesPageNow('customer-database');
-    const activity=document.querySelector('#customer-database [data-view="companies"]');
-    activity?.click();
-    const day=document.getElementById('jr-day');
-    if(day&&day.value!==date){day.value=date;day.dispatchEvent(new Event('change'));}
-    document.getElementById('jr-companies')?.previousElementSibling?.scrollIntoView({block:'nearest'});
-   };
-   touchesPanel.append(title,dateLabel,pick);
+   const title=document.createElement('h4');title.textContent='Today’s customer list';
+   touchesPanel.append(title);
    if(touches.length){
     const list=document.createElement('ul');
     for(const item of touches){
@@ -237,7 +218,7 @@ function mountPlanningFollowups(){
     }
     touchesPanel.append(list);
    }else{
-    const empty=document.createElement('p');empty.textContent='No extra customer stops planned for this date. Choose up to 10 companies per business.';
+    const empty=document.createElement('p');empty.textContent='No extra customer touches planned today.';
     touchesPanel.append(empty);
    }
    for(const panel of panels){

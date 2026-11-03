@@ -26,7 +26,7 @@ async function fixture(browser,width,full=false){
  const page=await context.newPage();await page.goto(origin);return {page,context,store,lose:()=>{lost=true;},account:value=>{owner=value;}};
 }
 async function createAndStage(page){
- await page.getByRole('button',{name:'Customer Information',exact:true}).click();await page.getByText('Add a business',{exact:true}).click();await page.getByLabel('Business name').fill('Fictional studio');await page.getByRole('button',{name:'Add business',exact:true}).click();await page.locator('#jr-workspace option').filter({hasText:'Fictional studio'}).waitFor({state:'attached'});
+ await page.getByRole('button',{name:'Customer Information',exact:true}).click();await page.getByRole('button',{name:'Customer Vault',exact:true}).click();await page.getByText('Add a business',{exact:true}).click();await page.getByLabel('Business name').fill('Fictional studio');await page.getByRole('button',{name:'Add business',exact:true}).click();await page.locator('#jr-workspace option').filter({hasText:'Fictional studio'}).waitFor({state:'attached'});
  await page.getByRole('button',{name:'Customer Vault',exact:true}).click();await page.getByText('Upload a file',{exact:true}).click();await page.getByText('Source details (optional)',{exact:true}).click();await page.getByLabel('Permitted use of this file').fill('Fictional QA only');await page.getByLabel('Source name',{exact:true}).fill('Fictional source');await page.getByLabel('Stable source identifier').fill('qa-csv');
  await page.getByLabel('Choose CSV or Excel from Files').setInputFiles({name:'fictional.csv',mimeType:'text/csv',buffer:Buffer.from('company_name,company_source_id,contact_name,email,city,status\nCobalt Acorn Studio,cobalt-1,Ada Test,ada@example.test,Las Vegas,prospect\nCobalt Acorn Studio,cobalt-1,Ben Test,ben@example.test,Las Vegas,prospect')});await page.getByRole('button',{name:'Upload for review',exact:true}).click();await page.getByRole('button',{name:'Review mapped rows',exact:true}).waitFor();await page.getByRole('button',{name:'Review mapped rows',exact:true}).click();await page.getByRole('button',{name:'Confirm reviewed import',exact:true}).waitFor();
 }
@@ -41,6 +41,7 @@ test('a fresh sign-in can create and reopen a business without starting a conver
   const h=await fixture(browser,820),p=h.page;
   await p.evaluate(()=>{window.conversationReads=0;window.jamesConversationUI.snapshotWorkspaceIdentity=async()=>{window.conversationReads++;throw Error('Conversation identity unconfirmed');};});
   await p.getByRole('button',{name:'Customer Information',exact:true}).click();
+  await p.getByRole('button',{name:'Customer Vault',exact:true}).click();
   await p.getByText('Add a business',{exact:true}).click();
   await p.getByRole('button',{name:'Add business',exact:true}).click();
   await p.locator('#jr-status').filter({hasText:'Enter a business name first.'}).waitFor();
