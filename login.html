@@ -96,6 +96,7 @@
         const appResponse = await fetch('/', { credentials: 'same-origin', cache: 'no-store' });
         if (!appResponse.ok) throw new Error('Unable to open James');
         const html = await appResponse.text();
+        history.replaceState(null,'','/');
         mark('protectedHtml');
         const parsed = new DOMParser().parseFromString(html, 'text/html');
         if (!parsed.querySelector('#intro') || !parsed.querySelector('#app')) {
@@ -172,7 +173,6 @@
         document.title=parsed.title;
         document.dispatchEvent(new Event('DOMContentLoaded'));
         window.dispatchEvent(new Event('load'));
-        history.replaceState(null,'','/');
         mark('handoff');
         console.info('James entrance timing',JSON.stringify({phases,video:{time:Math.round(sceneVideo.currentTime*1000),duration:Math.round((sceneVideo.duration||0)*1000),ended:sceneVideo.ended}}));
         // iOS Safari may omit synthetic lifecycle delivery for in-document app handoff.
