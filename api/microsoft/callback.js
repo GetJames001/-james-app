@@ -59,7 +59,7 @@ module.exports = async function handler(req, res) {
             microsoftRedirectUri(req),
           grant_type: "authorization_code",
           scope: account === "personal"
-            ? "openid profile offline_access User.Read Mail.ReadWrite Mail.Send"
+            ? "openid profile offline_access User.Read Mail.ReadWrite Mail.Send Calendars.Read"
             : "openid profile offline_access User.Read Mail.Read",
         }),
       }

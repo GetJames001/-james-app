@@ -5,6 +5,38 @@ const $$ = (s) => [...document.querySelectorAll(s)];
 
 let events = [];
 let liveEvents = [];
+let googleEvents = [];
+let hotmailEvents = [];
+let hotmailRefresh;
+function combineCalendarEvents() {
+  const key = event => event.iCalUID && JSON.stringify([
+    event.iCalUID, event.allDay ? event.start : Date.parse(event.start)
+  ]);
+  const googleKeys = new Set(googleEvents.map(key).filter(Boolean));
+  liveEvents = [...googleEvents, ...hotmailEvents.filter(event => !googleKeys.has(key(event)))];
+}
+async function refreshHotmailCalendar() {
+  if (hotmailRefresh) return hotmailRefresh;
+  hotmailRefresh = (async () => {
+    const status = $('#hotmailCalendarStatus');
+    const connect = $('#hotmailCalendarConnect');
+    try {
+      const response = await fetch('/api/microsoft/mail?account=personal&calendar=1', {
+        cache:'no-store', signal:AbortSignal.timeout(20000)
+      });
+      const data = await response.json();
+      if (connect) connect.hidden = !['CALENDAR_PERMISSION_REQUIRED','PERSONAL_MAILBOX_REQUIRED'].includes(data.error) && data.connected !== false;
+      if (!response.ok || !Array.isArray(data.events)) throw Error('Hotmail calendar unavailable');
+      hotmailEvents = JamesCalendarSync.mergePartial(hotmailEvents, { ...data, partial:!data.complete });
+      combineCalendarEvents();
+      renderCalendarDay();
+      if (status) status.textContent = data.complete ? 'Hotmail calendar connected.' : 'Hotmail calendar coverage is incomplete.';
+    } catch {
+      if (status) status.textContent = hotmailEvents.length ? 'Hotmail refresh failed. Showing previously loaded appointments.' : 'Hotmail calendar unavailable.';
+    }
+  })().finally(()=>{hotmailRefresh=null;});
+  return hotmailRefresh;
+}
 let briefingEvents = [];
 let tasks = [];
 let taskSaving = false;
@@ -778,13 +810,15 @@ function renderCalendarDay() {
 function calendarStatus(text) { const element=$('#calendarSyncStatus');if(element)element.textContent=text;const warning=$('#calendarVisibleWarning');if(warning){const important=/Incomplete coverage|Refresh failed|unavailable|not been verified/i.test(text);warning.hidden=!important;warning.textContent=important?text:'';} }
 async function requestGoogleEvents() {
   calendarStatus(calendarSyncState.hasData?'Refreshing Google Calendar; showing last received events…':'Checking Google Calendar…');
+  void refreshHotmailCalendar();
   return JamesCalendarSync.readCalendar(fetch);
 }
 function applyGoogleEvents(data) {
   const diagnostic=$('#calendarFailureDetail');
   if(diagnostic){diagnostic.textContent='';diagnostic.hidden=true;}
   const reconnectLink=$('#googleCalendarConnectLink');if(reconnectLink)reconnectLink.hidden=true;
-  liveEvents=JamesCalendarSync.mergePartial(liveEvents,data);
+  googleEvents=JamesCalendarSync.mergePartial(googleEvents,data);
+  combineCalendarEvents();
   calendarSyncState={hasData:true,state:data.complete===false || data.partial===true?'partial':'fresh',complete:data.complete!==false && data.partial!==true,fetchedAt:data.fetchedAt || new Date().toISOString()};
   const sources=$('#calendarSyncSources');
   if(sources) {

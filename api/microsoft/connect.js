@@ -37,7 +37,7 @@ res.setHeader("Set-Cookie", [
     response_type: "code",
     response_mode: "query",
     scope: account === "personal"
-      ? "openid profile offline_access User.Read Mail.ReadWrite Mail.Send"
+      ? "openid profile offline_access User.Read Mail.ReadWrite Mail.Send Calendars.Read"
       : "openid profile offline_access User.Read Mail.Read Mail.Send",
     state,
   });

@@ -71,13 +71,22 @@ module.exports = async function handler(req, res) {
           client_secret: process.env.MICROSOFT_CLIENT_SECRET,
           refresh_token: refreshToken,
           grant_type: "refresh_token",
-          scope: "openid profile offline_access User.Read Mail.Read Mail.Send",
+          scope: req.query.calendar === "1" && account === "personal"
+            ? "User.Read Calendars.Read" : "openid profile offline_access User.Read Mail.Read Mail.Send",
         }),
       }
     );
 
     const tokens = await tokenResponse.json();
 
+    if (req.method === "GET" && req.query.calendar === "1") {
+      if (account !== "personal") return res.status(400).json({ error: "PERSONAL_CALENDAR_ONLY" });
+      if (!tokenResponse.ok || !tokens.access_token) {
+        const consent = ["invalid_grant", "interaction_required", "consent_required", "invalid_scope"].includes(tokens.error);
+        return res.status(consent ? 403 : 502).json({ error: consent ? "CALENDAR_PERMISSION_REQUIRED" : "OUTLOOK_CALENDAR_UNAVAILABLE" });
+      }
+      return require("../../lib/microsoft/calendar.js")(tokens.access_token, res);
+    }
     if (!tokenResponse.ok || !tokens.access_token) {
       console.error("Microsoft token refresh failed", {
         error: tokens.error,
