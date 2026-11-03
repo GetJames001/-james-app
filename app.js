@@ -25,7 +25,7 @@ async function refreshHotmailCalendar() {
         cache:'no-store', signal:AbortSignal.timeout(20000)
       });
       const data = await response.json();
-      if (connect) connect.hidden = !['CALENDAR_PERMISSION_REQUIRED','PERSONAL_MAILBOX_REQUIRED'].includes(data.error) && data.connected !== false;
+      if (connect) connect.hidden = response.ok && Array.isArray(data.events);
       if (!response.ok || !Array.isArray(data.events)) throw Error('Hotmail calendar unavailable');
       hotmailEvents = JamesCalendarSync.mergePartial(hotmailEvents, { ...data, partial:!data.complete });
       combineCalendarEvents();
