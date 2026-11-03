@@ -1471,7 +1471,7 @@ function initCustomerActivity() {
   commit({type:'upsert_customer',customer});
  };
  function render(){
-  $('customerModeNotice').textContent=linkedSource?(linkedSource.singleCompany?linkedSource.label:'Daily list · '+linkedSource.label):practiceMode?'Practice template · Five fictional companies. Practice saves stay in this tab until reload; they do not change your saved customer records.':'Your saved companies · Record actual activity only.';
+  $('customerModeNotice').textContent=linkedSource?(linkedSource.singleCompany?linkedSource.label:'Today’s customer list · '+linkedSource.label):practiceMode?'Practice template · Five fictional companies. Practice saves stay in this tab until reload; they do not change your saved customer records.':'Your saved companies · Record actual activity only.';
   $('customerNewCompanyControls').hidden=!!linkedSource;
   $('customerRecordActivity').hidden=!!linkedSource?.readOnly;
   const directions=$('customerDirections');

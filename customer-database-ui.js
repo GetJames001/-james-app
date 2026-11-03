@@ -10,7 +10,7 @@ function mount({container,fetcher=fetch,conversation=()=>root.jamesConversationU
  const status=text=>{ui.status.textContent=text;};
  const button=(text,action,parent)=>{const b=node('button',text,{type:'button'});b.onclick=action;parent.append(b);return b;};
  const input=(text,parent,type='text')=>{const label=node('label',text),field=node('input',undefined,{type});label.append(field);parent.append(label);return field;};
- container.innerHTML='<div id="james-resource-concept"><header><strong>JAMES</strong><span>Customer Information</span></header><div class="jr-row"><h2>Your customer information</h2><label>Business<select id="jr-workspace"><option value="">Choose a business</option></select></label></div><p id="jr-status" class="jr-status" role="status" aria-live="polite"></p><div id="jr-recovery" hidden></div><article class="jr-section" data-panel="companies"><h3>Today’s Activity</h3><section><h4>Daily list</h4><input id="jr-day" type="hidden"><div id="jr-daily"></div><div id="jr-daily-actions" class="jr-actions"></div></section><label for="jr-search">Find a company, person, or location</label><input id="jr-search" placeholder="Search your resources…" type="search"><div class="jr-layout"><article><h3>Companies</h3><div id="jr-companies"></div><div id="jr-exports" class="jr-actions"></div></article><article id="jr-detail"><h3>Select a company</h3></article></div></article><article class="jr-section" data-panel="imports"><h3>Customer Vault</h3><details><summary>Add a business</summary><div id="jr-create" class="jr-row"></div></details><article><details id="jr-upload"><summary>Upload a file</summary><div id="jr-import-controls"></div></details><label for="jr-file-search">Search files</label><input id="jr-file-search" type="search" placeholder="File name or source"><div id="jr-file-preview"></div><div id="jr-mapping"></div><div id="jr-review"></div><div id="jr-batches"></div></article></article><footer><strong>Ask James</strong><div id="jr-conversation"></div><div id="jr-footer-actions" class="jr-actions"></div></footer></div>';
+ container.innerHTML='<div id="james-resource-concept"><header><strong>JAMES</strong><span>Customer Information</span></header><div class="jr-row"><h2>Your customer information</h2><label>Business<select id="jr-workspace"><option value="">Choose a business</option></select></label></div><p id="jr-status" class="jr-status" role="status" aria-live="polite"></p><div id="jr-recovery" hidden></div><article class="jr-section" data-panel="companies"><h3>Today’s customer list</h3><section><input id="jr-day" type="hidden"><div id="jr-daily"></div><div id="jr-daily-actions" class="jr-actions"></div></section><label for="jr-search">Find a company, person, or location</label><input id="jr-search" placeholder="Search your resources…" type="search"><div class="jr-layout"><article><h3>Companies</h3><div id="jr-companies"></div><div id="jr-exports" class="jr-actions"></div></article><article id="jr-detail"><h3>Select a company</h3></article></div></article><article class="jr-section" data-panel="imports"><h3>Customer Vault</h3><details><summary>Add a business</summary><div id="jr-create" class="jr-row"></div></details><article><details id="jr-upload"><summary>Upload a file</summary><div id="jr-import-controls"></div></details><label for="jr-file-search">Search files</label><input id="jr-file-search" type="search" placeholder="File name or source"><div id="jr-file-preview"></div><div id="jr-mapping"></div><div id="jr-review"></div><div id="jr-batches"></div></article></article><footer><strong>Ask James</strong><div id="jr-conversation"></div><div id="jr-footer-actions" class="jr-actions"></div></footer></div>';
  const $=id=>container.querySelector('#'+id);for(const name of ['workspace','create','status','recovery','exports','companies','detail','mapping','review','batches'])ui[name]=$( 'jr-'+name);
  const newName=input('Business name',ui.create);button('Add business',()=>run(async()=>{const name=newName.value.trim();if(!name)throw Error('Enter a business name first.');const result=await mutate({action:'create_workspace',name,operationId:crypto.randomUUID()},'create');workspace=result.workspace.id;await loadWorkspaces();ui.workspace.value=workspace;remember();await load();}),ui.create);
  const file=input('Choose CSV or Excel from Files',$( 'jr-import-controls'),'file');file.accept='.csv,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
@@ -44,21 +44,21 @@ function mount({container,fetcher=fetch,conversation=()=>root.jamesConversationU
  const dailyStatus=node('p','',{role:'status',class:'jr-status'});
  const pickActions=node('div',undefined,{class:'jr-actions'});
  ui.companies.before(pickActions);
- button('Add selected to daily list',()=>run(async()=>{
+ button('Add to today’s customer list',()=>run(async()=>{
   dailyStatus.textContent='Adding to daily list…';
   try{
   if(!workspace||!selected.size)throw Error('Check a company below to add it to today’s list.');
   const result=await mutate({action:'select_daily',workspaceId:workspace,date:$('jr-day').value,ids:[...selected],operationId:crypto.randomUUID(),expectedRevision:revision},'select_daily');
   revision=result.revision;
   const added=result.receipt.added.length;
-  dailyStatus.textContent=added?added+' '+(added===1?'company':'companies')+' added to your daily list.':'Selected companies are already on your daily list.';
+  dailyStatus.textContent=added?added+' '+(added===1?'company':'companies')+' added to today’s customer list.':'Selected companies are already on today’s customer list.';
   try{await loadDaily();}catch{dailyStatus.textContent+=' Refresh the daily list to see the saved entry.';}
   }catch(error){dailyStatus.textContent=error.message;throw error;}
   finally{dailyStatus.scrollIntoView({block:'nearest'});}
  }),pickActions);
  pickActions.after(dailyStatus);
  $('jr-day').addEventListener('change',()=>{dailyStatus.textContent='';});
- button('Open Customer Activity',()=>run(async()=>{
+ button('Customer Activity',()=>run(async()=>{
   if(!workspace||!dailyItems.length)throw Error('Add companies to this daily list first.');
   if(typeof root.jamesOpenLinkedCustomerActivity!=='function')throw Error('Activity form is not available. Reload James.');
   const business=workspace,date=$('jr-day').value,key=session.accountId+':'+business+':'+date;
@@ -178,7 +178,7 @@ function mount({container,fetcher=fetch,conversation=()=>root.jamesConversationU
  function restoreDraft(){if(composer){composer.querySelector('textarea').value=drafts.get(workspace)||'';composer.querySelector('#jamesAnswer,#answer').textContent='';}}
  async function enter(){active=true;epoch++;if(composer){homeDraft=composer.querySelector('textarea').value;composer.querySelector('textarea').value='';}if(composer)$('jr-conversation').append(composer);await run(async()=>{session=await verify();try{const saved=JSON.parse(storage?.getItem('james:customer-database:selection:v1')||'null');if(saved?.accountId===session.accountId)workspace=saved.workspace||'';}catch{}await loadWorkspaces();try{const saved=JSON.parse(storage?.getItem(PENDING_KEY)||'null');if(saved&&saved.accountId===session.accountId&&saved.body?.operationId&&(['stage','confirm','reverse','create_workspace','select_daily','record_activity'].includes(saved.body.action))){const allowed=[...ui.workspace.options].some(o=>o.value&&o.value===saved.workspace)||saved.kind==='create'&&saved.workspace==='';if(allowed){pending={body:saved.body,kind:saved.kind,workspace:saved.workspace};workspace=saved.workspace;ui.workspace.value=workspace;}}else if(saved)storage?.removeItem(PENDING_KEY);}catch{}await load();restoreDraft();recovery();status(pending?'Check the previous save before continuing.':'');});}
  function leave(){saveDraft();active=false;++epoch;for(const c of controllers)c.abort();conversation()?.cancelReply();if(composer&&home){composer.querySelector('textarea').value=homeDraft;composer.querySelector('#jamesAnswer,#answer').textContent='';home.append(composer);}}
- root.addEventListener('james-conversation-ended',()=>{clear();status('Conversation ended. Reopen Customer Database to verify access.');});root.addEventListener('pagehide',()=>{clear();});
+ root.addEventListener('james-conversation-ended',()=>{clear();status('Conversation ended. Reopen Customer Information to verify access.');});root.addEventListener('pagehide',()=>{clear();});
  return {enter,leave,question,snapshot:()=>({workspace,revision,active,pending:!!pending})};
 }
 function mountPlanningFollowups(){
@@ -194,12 +194,13 @@ function mountPlanningFollowups(){
   openStatus.textContent='';
   const source={
    key:[item.workspaceId,date,item.companyId].join(':'),
-   label:item.business,singleCompany:true,readOnly:!item.status,
+   label:item.business,singleCompany:!!item.companyId,readOnly:!!item.companyId&&!item.status,
    directionsAddress:(item.locations||[]).filter(location=>location.address)
     .map(location=>[location.address,location.city,location.state,location.postal_code,location.country].filter(Boolean).join(', '))[0],
    async request(method,command){
     if(method!=='GET'&&(source.readOnly||command?.type!=='record_activity'))throw Error('This customer is available for viewing only.');
-    const body={action:method==='GET'?'activity_view':'record_activity',workspaceId:item.workspaceId,date,companyId:item.companyId};
+    const body={action:method==='GET'?'activity_view':'record_activity',workspaceId:item.workspaceId,date};
+    if(item.companyId)body.companyId=item.companyId;
     if(method!=='GET')Object.assign(body,{activity:command.activity,operationId:command.activity.id,expectedRevision:command.expectedRevision});
     const response=await fetch('/api/customer-database',{
      method:'POST',credentials:'same-origin',cache:'no-store',
@@ -235,6 +236,7 @@ function mountPlanningFollowups(){
    });
    if(request!==generation)return;
    if(response.status===404||response.status===401||response.status===403){
+    const shortcut=document.getElementById('customerActivityOpen');if(shortcut)shortcut.hidden=false;
     for(const panel of [...panels,touchesPanel]){panel.hidden=true;panel.replaceChildren();}return;
    }
    if(!response.ok)throw Error('Follow-ups unavailable');
@@ -277,7 +279,16 @@ function mountPlanningFollowups(){
     renderFollowups(row,items);list.append(row);
    }
    if(list.childElementCount)touchesPanel.append(list);
-   else{
+   const businesses=new Map(touches.map(item=>[item.workspaceId,item.business]));
+   for(const [workspaceId,business] of businesses){
+    const open=document.createElement('button');open.type='button';
+    open.textContent=businesses.size===1?'Customer Activity':'Customer Activity · '+business;
+    open.onclick=()=>openCompany({workspaceId,business},date);
+    touchesPanel.append(open);
+   }
+   const shortcut=document.getElementById('customerActivityOpen');
+   if(shortcut)shortcut.hidden=true;
+   if(!list.childElementCount){
     const empty=document.createElement('p');empty.textContent='No extra customer touches planned today.';
     touchesPanel.append(empty);
    }
