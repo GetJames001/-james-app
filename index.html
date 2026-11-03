@@ -226,6 +226,20 @@
       <button id="personalMailBack" type="button">Back</button>
     </div>
     <p class="mail-state-notice" role="status" aria-live="polite"></p>
+<details id="outlookCompose" class="customer-reminders">
+  <summary>Compose personal email</summary>
+  <form id="outlookComposeForm">
+    <p>From allproactive@hotmail.com</p>
+    <label>To <input name="to" placeholder="Separate addresses with commas" required></label>
+    <label>Subject <input name="subject" maxlength="250"></label>
+    <label>Message <textarea name="message" maxlength="30000"></textarea></label>
+    <label>Attachments <input name="files" type="file" multiple></label>
+    <button type="submit">Prepare for review</button>
+  </form>
+  <div id="outlookComposeReview" hidden></div>
+  <p id="outlookComposeStatus" role="status"></p>
+  <a id="outlookComposeReconnect" href="/api/microsoft/connect?account=personal" hidden>Reconnect personal Outlook</a>
+</details>
 <div id="personalMailMessages" class="list"></div>
   </div>
 </section>

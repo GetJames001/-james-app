@@ -1642,3 +1642,86 @@ function initCustomerActivity() {
  document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&overlay.hidden&&!$('customerReminders').contains(document.activeElement)&&!busy&&!savingAll&&!uncertain&&!hasChanges())load();});
 }
 document.addEventListener('DOMContentLoaded',initCustomerActivity,{once:true});
+
+document.addEventListener('DOMContentLoaded',()=>{
+ const form=document.getElementById('outlookComposeForm');
+ if(!form)return;
+ const panel=document.getElementById('outlookComposeReview');
+ const status=document.getElementById('outlookComposeStatus');
+ const reconnect=document.getElementById('outlookComposeReconnect');
+ const request=async payload=>{
+  reconnect.hidden=true;
+  const response=await fetch('/api/microsoft/compose',{
+   method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)
+  });
+  const result=await response.json();
+  if(response.ok)return result;
+  if(result.error==='MAIL_PERMISSION_REQUIRED'||result.error==='PERSONAL_MAILBOX_REQUIRED'){
+   reconnect.hidden=false;
+   throw Error('Connect allproactive@hotmail.com with draft and send permissions.');
+  }
+  if(result.missing?.length)throw Error('Draft saved in Outlook. Missing attachments: '+result.missing.join(', '));
+  if(result.error==='DRAFT_REVIEW_REQUIRED')throw Error('The draft changed. Prepare it for review again.');
+  throw Error('Outlook could not complete the request.');
+ };
+ const fileData=file=>new Promise((resolve,reject)=>{
+  const reader=new FileReader();
+  reader.onerror=()=>reject(Error('Could not read '+file.name));
+  reader.onload=()=>resolve({name:file.name,contentType:file.type||'application/octet-stream',contentBytes:reader.result.split(',')[1]});
+  reader.readAsDataURL(file);
+ });
+ form.onsubmit=async event=>{
+  event.preventDefault();
+  const submit=form.querySelector('button[type=submit]');
+  if(submit.disabled)return;
+  submit.disabled=true;
+  status.textContent='Preparing Outlook draft…';
+  try{
+   const fields=new FormData(form);
+   const files=[...form.elements.files.files];
+   if(files.length>10||files.reduce((total,file)=>total+file.size,0)>2200000)throw Error('Choose up to 10 files totaling 2.2 MB or less.');
+   const {id,review}=await request({
+    action:'prepare',to:fields.get('to').split(',').map(value=>value.trim()),
+    subject:fields.get('subject'),message:fields.get('message'),files:await Promise.all(files.map(fileData))
+   });
+   const details=document.createElement('pre');
+   details.style.whiteSpace='pre-wrap';
+   details.textContent=[
+    'From: '+review.from,'To: '+review.to.join(', '),
+    'Cc: '+review.cc.join(', '),'Bcc: '+review.bcc.join(', '),
+    'Subject: '+review.subject,'',review.message,'',
+    'Attachments: '+(review.attachments.map(file=>file.name).join(', ')||'None')
+   ].join('\n');
+   const edit=document.createElement('button');
+   edit.type='button';edit.textContent='Edit';
+   edit.onclick=async()=>{
+    edit.disabled=true;send.disabled=true;
+    try{
+     await request({action:'edit',id,revision:review.revision});
+     panel.replaceChildren();panel.hidden=true;form.hidden=false;
+     status.textContent='Edit and prepare for review again.';
+    }catch(error){status.textContent=error.message;edit.disabled=false;send.disabled=false;}
+   };
+   const send=document.createElement('button');
+   send.type='button';send.textContent='Approve & Send';
+   let action='send';
+   send.onclick=async()=>{
+    send.disabled=true;edit.disabled=true;
+    try{
+     const result=await request({action,id,revision:review.revision});
+     status.textContent=result.status==='sent'?'Confirmed in Outlook Sent Items.':'Submitted to Outlook — confirmation pending';
+     if(result.status==='sent')return;
+     if(result.status==='not_submitted'){
+      status.textContent='Outlook has no submission for this draft. Approve again to send.';
+      action='send';send.textContent='Approve & Send';send.disabled=false;edit.disabled=false;
+      return;
+     }
+    }catch(error){status.textContent=error.message;}
+    action='status';send.textContent='Check Outlook status';send.disabled=false;
+   };
+   panel.replaceChildren(details,edit,send);
+   form.hidden=true;panel.hidden=false;status.textContent='Ready to review';
+  }catch(error){status.textContent=error.message;}
+  finally{submit.disabled=false;}
+ };
+});

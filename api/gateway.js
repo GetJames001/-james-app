@@ -35,6 +35,7 @@ const exactHandlers = new Map([
   ["api/microsoft/callback", microsoftCallback],
   ["api/microsoft/connect", microsoftConnect],
   ["api/microsoft/mail", microsoftMail],
+  ["api/microsoft/compose", require("../lib/routes/outlook-compose.js")],
   ["api/microsoft/triage", microsoftTriage],
   ["api/tasks", tasks],
   ["api/attention", attention],
