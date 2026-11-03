@@ -1149,12 +1149,42 @@ async function requestPersonalMicrosoftMail() {
   return data;
 }
 
+let olderMailCursor = null;
+let olderMailLoaded = false;
+let olderMailLoading = false;
+function updateOlderMailButton() {
+  const button = $('#personalMailOlder');
+  if (!button) return;
+  button.hidden = !olderMailCursor;
+  button.disabled = olderMailLoading;
+  button.onclick = async () => {
+    if (!olderMailCursor || olderMailLoading) return;
+    olderMailLoading = true;
+    updateOlderMailButton();
+    try {
+      const response = await fetch('/api/microsoft/mail?account=personal&cursor=' + encodeURIComponent(olderMailCursor), {cache:'no-store'});
+      const data = await response.json();
+      if (!response.ok || !data.connected || !Array.isArray(data.messages)) throw Error('Older mail unavailable');
+      if (!olderMailCursor) return;
+      const messages = new Map((window.personalMicrosoftMessages || []).map(message => [message.id, message]));
+      for (const message of data.messages) if (!messages.has(message.id)) messages.set(message.id, message);
+      window.personalMicrosoftMessages = [...messages.values()];
+      olderMailLoaded = true;
+      olderMailCursor = data.nextCursor;
+      renderPersonalMicrosoftMail(window.personalMicrosoftMessages);
+    } catch { mailStateNotice('Older emails could not be loaded. Try again.'); }
+    finally { olderMailLoading = false; updateOlderMailButton(); }
+  };
+}
 function applyPersonalMicrosoftMail(data) {
   const personalMailCount = $('#personalEmailCount');
   if (!personalMailCount) return;
 
   if (!data.connected) {
     personalMailCount.textContent = 'Not connected';
+    olderMailCursor = null;
+    olderMailLoaded = false;
+    updateOlderMailButton();
     window.personalMicrosoftMessages = [];
     renderPersonalMicrosoftMail([]);
     const empty = $('#personalMailMessages .panel-item');
@@ -1168,7 +1198,14 @@ function applyPersonalMicrosoftMail(data) {
     if (notice.textContent === 'Personal Mail is not connected in this workspace.') notice.textContent = '';
   }
   personalMailCount.textContent = `${data.unreadCount} unread`;
-  window.personalMicrosoftMessages = Array.isArray(data.messages) ? data.messages : [];
+  const latest = Array.isArray(data.messages) ? data.messages : [];
+  if (!olderMailLoaded) olderMailCursor = data.nextCursor;
+  const messages = new Map(latest.map(message => [message.id, message]));
+  if (olderMailLoaded) for (const message of window.personalMicrosoftMessages || []) {
+    if (!messages.has(message.id)) messages.set(message.id, message);
+  }
+  window.personalMicrosoftMessages = [...messages.values()];
+  updateOlderMailButton();
   renderPersonalMicrosoftMail(window.personalMicrosoftMessages);
   hasSuccessfulPersonalMailLoad = true;
 }

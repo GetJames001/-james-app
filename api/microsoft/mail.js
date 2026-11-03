@@ -46,7 +46,7 @@ module.exports = async function handler(req, res) {
         error: "Microsoft Mail connection status could not be checked. Please retry.",
         code: "MAIL_CONNECTION_STATUS_UNAVAILABLE",
         messagesStatus: "unavailable",
-        coverage: { scope: "latest_inbox_page", complete: false, mailboxScanComplete: false, limit: 10 },
+        coverage: { scope: "latest_inbox_page", complete: false, mailboxScanComplete: false, limit: 25 },
       });
     }
     const refreshToken = redisData.result;
@@ -168,8 +168,16 @@ if (req.method === "POST") {
         error: "Microsoft Mail could not be read.",
       });
     }
+const inboxMessages = new URL("https://graph.microsoft.com/v1.0/me/mailFolders/inbox/messages?$top=25&$select=id,subject,from,receivedDateTime,isRead,bodyPreview,body&$orderby=receivedDateTime%20desc");
+const cursor = req.query.cursor;
+if (cursor !== undefined) {
+  if (account !== "personal" || typeof cursor !== "string" || !/^\d{1,12}$/.test(cursor)) {
+    return res.status(400).json({ error: "INVALID_MAIL_CURSOR" });
+  }
+  inboxMessages.searchParams.set("$skip", cursor);
+}
 const messagesResponse = await fetch(
-  "https://graph.microsoft.com/v1.0/me/mailFolders/inbox/messages?$top=10&$select=id,subject,from,receivedDateTime,isRead,bodyPreview,body&$orderby=receivedDateTime%20desc",
+  inboxMessages.toString(),
   {
     headers: {
       Authorization: `Bearer ${tokens.access_token}`,
@@ -184,7 +192,7 @@ const messageFailure = reason => res.status(502).json({
   error: "Microsoft Mail messages could not be refreshed. Please retry.",
   code: "MAIL_MESSAGES_UNAVAILABLE",
   messagesStatus: "unavailable",
-  coverage: { scope: "latest_inbox_page", complete: false, mailboxScanComplete: false, limit: 10 },
+  coverage: { scope: "latest_inbox_page", complete: false, mailboxScanComplete: false, limit: 25 },
   upstreamStatus: messagesResponse.status,
   reason,
 });
@@ -194,6 +202,8 @@ catch (_) { return messageFailure("invalid_json"); }
 if (!messagesResponse.ok) return messageFailure("provider_error");
 if (!messagesData || !Array.isArray(messagesData.value)) return messageFailure("invalid_message_list");
 
+const nextLink = messagesData["@odata.nextLink"];
+const nextCursor = typeof nextLink === "string" ? new URL(nextLink, inboxMessages).searchParams.get("$skip") : null;
 const messages = messagesData.value.map(message => ({
       id: message.id,
       subject: message.subject || "(No subject)",
@@ -212,10 +222,11 @@ const messages = messagesData.value.map(message => ({
       unreadCount: inbox.unreadItemCount ?? 0,
       totalCount: inbox.totalItemCount ?? 0,
       messages,
+      nextCursor,
       messagesStatus: "available",
       coverage: {
         scope: "latest_inbox_page", complete: true, mailboxScanComplete: false,
-        limit: 10, returned: messages.length,
+        limit: 25, returned: messages.length,
         hasMore: typeof messagesData["@odata.nextLink"] === "string" && !!messagesData["@odata.nextLink"],
       },
     });
