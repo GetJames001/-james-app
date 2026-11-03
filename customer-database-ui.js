@@ -194,13 +194,14 @@ function mountPlanningFollowups(){
   openStatus.textContent='';
   const source={
    key:[item.workspaceId,date,item.companyId].join(':'),
-   label:item.business,singleCompany:!!item.companyId,readOnly:!!item.companyId&&!item.status,
+   label:item.business,allCompanies:!item.companyId,singleCompany:!!item.companyId,readOnly:!!item.companyId&&!item.status,
    directionsAddress:(item.locations||[]).filter(location=>location.address)
     .map(location=>[location.address,location.city,location.state,location.postal_code,location.country].filter(Boolean).join(', '))[0],
    async request(method,command){
     if(method!=='GET'&&(source.readOnly||command?.type!=='record_activity'))throw Error('This customer is available for viewing only.');
     const body={action:method==='GET'?'activity_view':'record_activity',workspaceId:item.workspaceId,date};
     if(item.companyId)body.companyId=item.companyId;
+    else body.allCompanies=true;
     if(method!=='GET')Object.assign(body,{activity:command.activity,operationId:command.activity.id,expectedRevision:command.expectedRevision});
     const response=await fetch('/api/customer-database',{
      method:'POST',credentials:'same-origin',cache:'no-store',
@@ -240,7 +241,7 @@ function mountPlanningFollowups(){
     for(const panel of [...panels,touchesPanel]){panel.hidden=true;panel.replaceChildren();}return;
    }
    if(!response.ok)throw Error('Follow-ups unavailable');
-   const {followups,touches=[]}=await response.json();
+   const {followups,touches=[],workspaces=[]}=await response.json();
    if(request!==generation)return;
    touchesPanel.replaceChildren();
    touchesPanel.hidden=false;
@@ -286,7 +287,7 @@ function mountPlanningFollowups(){
     renderFollowups(row,items);list.append(row);
    }
    if(list.childElementCount)touchesPanel.append(list);
-   const businesses=new Map(touches.map(item=>[item.workspaceId,item.business]));
+   const businesses=new Map(workspaces.map(workspace=>[workspace.id,workspace.name]));
    const shortcut=document.getElementById('customerActivityOpen');
    if(shortcut)shortcut.hidden=businesses.size>0;
    if(businesses.size){
