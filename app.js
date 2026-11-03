@@ -859,7 +859,16 @@ function loadLiveWeather(requestPermission=false) {
     weatherRefreshInProgress=false;
     if (refresh) refresh.disabled=false;
   };
+  const restoreWeather = () => {
+    let saved;
+    try { saved=JSON.parse(sessionStorage.getItem('jamesWeatherLocation')); } catch {}
+    if (!saved || Date.now()-saved.savedAt>8*60*60*1000) return false;
+    weatherRefreshInProgress=true;
+    loadWeatherForCoordinates(saved,tempEl,detailEl,'Last known location').finally(finish);
+    return true;
+  };
   const showLocationUnavailable = error => {
+    if (!requestPermission && restoreWeather()) return;
     tempEl.textContent = '—';
     detailEl.textContent = error?.code === 1 ? 'Allow location in browser settings for weather.' : 'Location unavailable';
     finish();
@@ -869,12 +878,21 @@ function loadLiveWeather(requestPermission=false) {
     if (refresh) refresh.disabled=true;
     detailEl.textContent = 'Locating…';
     navigator.geolocation.getCurrentPosition(
-      ({coords}) => loadWeatherForCoordinates(coords,tempEl,detailEl).finally(finish),
+      ({coords}) => {
+        try {
+          sessionStorage.setItem('jamesWeatherLocation',JSON.stringify({
+            latitude:Number(coords.latitude.toFixed(2)),
+            longitude:Number(coords.longitude.toFixed(2)),
+            savedAt:Date.now()
+          }));
+        } catch {}
+        loadWeatherForCoordinates(coords,tempEl,detailEl).finally(finish);
+      },
       showLocationUnavailable,
       {enableHighAccuracy:false,timeout:8000,maximumAge:0}
     );
   };
-  const needsPermission = () => {detailEl.textContent = 'Location permission required';};
+  const needsPermission = () => {if(!restoreWeather())detailEl.textContent = 'Location permission required';};
   if (!navigator.geolocation) return showLocationUnavailable();
   if (requestPermission) return locate();
   if (!navigator.permissions?.query) return needsPermission();
