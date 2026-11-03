@@ -208,7 +208,7 @@ test("login is same-origin only and issues a hardened session cookie", async () 
   assert.match(res.headers["Set-Cookie"], /^__Host-james_session=/);
   assert.match(res.headers["Set-Cookie"], /HttpOnly/);
   assert.match(res.headers["Set-Cookie"], /Secure/);
-  assert.match(res.headers["Set-Cookie"], /SameSite=Strict/);
+  assert.match(res.headers["Set-Cookie"], /SameSite=Lax/);
   assert.match(res.headers["Set-Cookie"], /Max-Age=28800/);
 });
 

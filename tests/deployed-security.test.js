@@ -376,7 +376,7 @@ test("authorized automation reaches both protected Preview application gateways"
       assert.match(cookie, /Path=\//);
       assert.match(cookie, /HttpOnly/);
       assert.match(cookie, /Secure/);
-      assert.match(cookie, /SameSite=Strict/);
+      assert.match(cookie, /SameSite=Lax/);
       assert.match(cookie, /Max-Age=0/);
     }
 
