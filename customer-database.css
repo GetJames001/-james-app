@@ -8,7 +8,3 @@
 #briefingCustomerPlan li button{font:inherit;text-align:left}
 .jr-dialog{max-width:min(34rem,90vw);max-height:85vh;overflow:auto;background:var(--panel,#15243a);color:var(--ink,#eee8dd);border:1px solid var(--gs,#40506a);border-radius:1rem;padding:1.25rem}
 .jr-dialog::backdrop{background:#0009}
-.jr-customer-card{width:100%;max-width:none;height:100%;max-height:none;margin:0;border:0;border-radius:0;box-sizing:border-box;padding:clamp(1rem,4vw,3rem)}
-.jr-customer-card header,.jr-customer-card section{max-width:52rem;margin:0 auto 1rem}
-.jr-customer-card section{border:1px solid var(--gs,#40506a);border-radius:.75rem;padding:1rem;overflow-wrap:anywhere}
-.jr-customer-card a{color:inherit;text-decoration:underline}

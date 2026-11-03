@@ -102,6 +102,10 @@ test('import reversal preserves a company referenced in the daily list',async()=
 test('daily list and activity survive new store readback and remain business/account scoped',async()=>{const {m,handler,workspace}=await setup(),original=accept(await staged());await m.store.mutate('owner-a',workspace,0,()=>original);const c=original.document.companies[0],select=await call(handler,{action:'select_daily',workspaceId:workspace,date:dailyDate,ids:[c.id],expectedRevision:original.document.revision,operationId:'select-api'});assert.equal(select.statusCode,200);
 const planning=await call(handler,{action:'planning_followups',date:dailyDate});
 assert.equal(planning.statusCode,200);
+const focused=await call(handler,{action:'activity_view',workspaceId:workspace,date:dailyDate,companyId:c.id});
+assert.equal(focused.statusCode,200);
+assert.deepEqual(focused.body.document.customers.map(customer=>customer.id),[c.id]);
+assert.equal((await call(service(m,'owner-b'),{action:'activity_view',workspaceId:workspace,date:dailyDate,companyId:c.id})).statusCode,404);
 assert.equal(planning.body.touches.length,1);
 assert.equal(planning.body.touches[0].companyId,c.id);
 assert.equal(planning.body.touches[0].status,'pending');

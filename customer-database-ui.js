@@ -188,61 +188,32 @@ function mountPlanningFollowups(){
  const plan=document.getElementById('briefingCustomerPlan');
  if(!plan)return;
  plan.append(touchesPanel);
- const dialog=document.createElement('dialog');dialog.className='jr-dialog jr-customer-card';
- dialog.setAttribute('aria-label','Customer Activity');
- touchesPanel.after(dialog);
- function openCompany(item){
-  const header=document.createElement('header');
-  const title=document.createElement('p');title.textContent='Customer Activity';
-  const heading=document.createElement('h2');heading.textContent=item.company;
-  const close=document.createElement('button');close.type='button';close.textContent='Back to Briefing';
-  close.onclick=()=>dialog.close();
-  header.append(title,heading,close);dialog.replaceChildren(header);
-  const section=(label)=>{
-   const group=document.createElement('section');
-   const heading=document.createElement('h3');heading.textContent=label;group.append(heading);dialog.append(group);
-   return group;
+ const openStatus=document.createElement('p');openStatus.setAttribute('role','status');
+ plan.append(openStatus);
+ async function openCompany(item,date){
+  openStatus.textContent='';
+  const source={
+   key:[item.workspaceId,date,item.companyId].join(':'),
+   label:item.business,singleCompany:true,readOnly:!item.status,
+   directionsAddress:(item.locations||[]).filter(location=>location.address)
+    .map(location=>[location.address,location.city,location.state,location.postal_code,location.country].filter(Boolean).join(', '))[0],
+   async request(method,command){
+    if(method!=='GET'&&(source.readOnly||command?.type!=='record_activity'))throw Error('This customer is available for viewing only.');
+    const body={action:method==='GET'?'activity_view':'record_activity',workspaceId:item.workspaceId,date,companyId:item.companyId};
+    if(method!=='GET')Object.assign(body,{activity:command.activity,operationId:command.activity.id,expectedRevision:command.expectedRevision});
+    const response=await fetch('/api/customer-database',{
+     method:'POST',credentials:'same-origin',cache:'no-store',
+     headers:{'Content-Type':'application/json'},body:JSON.stringify(body)
+    });
+    const result=await response.json();
+    if(!response.ok||!result.ok)throw Error(result.error||'Customer Activity unavailable');
+    return result.document;
+   },
+   onSaved:refresh
   };
-  const line=(parent,text)=>{
-   if(!text)return;
-   const p=document.createElement('p');p.textContent=text;parent.append(p);
-  };
-  const link=(parent,text,href)=>{
-   if(!text)return;
-   const p=document.createElement('p'),a=document.createElement('a');
-   a.textContent=text;a.href=href;p.append(a);parent.append(p);
-   return a;
-  };
-  const company=section('Company details');
-  line(company,item.business);
-  if(item.phone)link(company,item.phone,'tel:'+encodeURIComponent(item.phone));
-  for(const location of item.locations||[]){
-   const address=[location.address,location.city,location.state,location.postal_code,location.country].filter(Boolean).join(', ');
-   line(company,address);
-   if(location.address){
-    const directions=link(company,'Get directions','https://www.google.com/maps/dir/?api=1&destination='+encodeURIComponent(address));
-    directions.target='_blank';directions.rel='noopener noreferrer';
-   }
+  if(!await root.jamesOpenLinkedCustomerActivity?.(source)){
+   openStatus.textContent='Could not open Customer Activity. Finish any activity already in progress or sign in again.';
   }
-  if(!item.locations?.some(location=>location.address))line(company,'No street address saved.');
-  const contacts=section('Contacts');
-  for(const contact of item.contacts||[]){
-   line(contacts,contact.name);
-   if(contact.phone)link(contacts,contact.phone,'tel:'+encodeURIComponent(contact.phone));
-   if(contact.email)link(contacts,contact.email,'mailto:'+encodeURIComponent(contact.email));
-  }
-  if(!item.contacts?.length)line(contacts,'No contacts saved.');
-  const activity=section('Last contact');
-  const recent=item.lastActivity;
-  if(recent){
-   line(activity,new Date(recent.occurredAt).toLocaleString()+' · '+recent.outcome);
-   line(activity,recent.notes);
-  }else line(activity,'No activity recorded.');
-  if(item.notes?.length){
-   const notes=section('Company notes');
-   for(const note of item.notes)line(notes,note);
-  }
-  dialog.showModal();
  }
  const panels=anchors.map(anchor=>{
   const panel=document.createElement('section');panel.className='customer-reminders';panel.hidden=true;
@@ -291,7 +262,7 @@ function mountPlanningFollowups(){
    for(const item of touches){
     const row=document.createElement('li');
     const open=document.createElement('button');open.type='button';open.textContent=item.company;
-    open.onclick=()=>openCompany(item);
+    open.onclick=()=>openCompany(item,date);
     row.append(open);
     if(item.status==='recorded'){
      const status=document.createElement('div');status.textContent='Activity recorded';row.append(status);
@@ -302,7 +273,7 @@ function mountPlanningFollowups(){
    for(const items of followupByCompany.values()){
     const row=document.createElement('li');
     const open=document.createElement('button');open.type='button';open.textContent=items[0].company;
-    open.onclick=()=>openCompany(items[0]);row.append(open);
+    open.onclick=()=>openCompany(items[0],date);row.append(open);
     renderFollowups(row,items);list.append(row);
    }
    if(list.childElementCount)touchesPanel.append(list);

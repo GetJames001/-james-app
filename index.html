@@ -407,11 +407,12 @@
       <div class="customer-workspace-grid">
         <section class="customer-workspace-list" aria-label="Customer records">
           <div class="customer-section-head"><h3>Companies</h3></div>
-          <div id="customerDemoList"></div><label for="customerNewName">New company name</label><input id="customerNewName" maxlength="180"><button id="customerAdd" type="button">Add company</button>
+          <div id="customerDemoList"></div><div id="customerNewCompanyControls"><label for="customerNewName">New company name</label><input id="customerNewName" maxlength="180"><button id="customerAdd" type="button">Add company</button></div>
 
         </section>
         <section class="customer-workspace-detail" aria-label="Customer details">
           <div class="customer-section-head"><h3 id="customerDemoName">Select a customer</h3><span id="customerDemoVisited" class="customer-visit-pill"></span></div>
+          <a id="customerDirections" target="_blank" rel="noopener noreferrer" hidden>Get directions</a>
           <details id="companyEditor"><summary>Company and contact details</summary>
             <label for="companyName">Company name</label><input id="companyName" maxlength="180">
             <label for="companyPhone">Company phone</label><input id="companyPhone" type="tel" maxlength="80">
@@ -426,7 +427,7 @@
             <details id="customerHistoryDetails"><summary id="customerViewHistory">All contact notes</summary><p id="customerDemoHistory" class="customer-demo-history">No recorded contact.</p></details>
           </aside>
           <section id="customerClosePrompt" hidden aria-labelledby="customerCloseTitle"><h3 id="customerCloseTitle">Save changes before closing?</h3><p>Keep draft retains your edits in this tab until reload.</p><div class="customer-actions"><button id="customerCloseSave" type="button">Save changes</button><button id="customerExitDraft" type="button">Keep draft and exit</button><button id="customerKeepEditing" type="button">Keep editing</button></div></section>
-          <h3>Record an activity</h3><label for="activityContact">Contact</label><select id="activityContact"><option value="">No specific contact</option></select><label for="customerOutcomeKind">What happened?</label>
+          <div id="customerRecordActivity"><h3>Record an activity</h3><label for="activityContact">Contact</label><select id="activityContact"><option value="">No specific contact</option></select><label for="customerOutcomeKind">What happened?</label>
           <select id="customerOutcomeKind"><option value="">Choose an outcome</option><option value="attempted">Attempted visit</option><option value="not_available">Contact unavailable</option><option value="met">Met in person</option><option value="phone">Phone contact</option><option value="email">Email contact</option><option value="other">Other — explain in notes</option></select>
           <label for="customerOccurredAt">When did it happen?</label><input id="customerOccurredAt" type="datetime-local">
           <label for="customerDemoOutcome">Activity notes</label>
@@ -442,7 +443,7 @@
           <div class="customer-actions">
             <button id="customerDemoKeepDraft" type="button">Save and return to briefing</button><button id="customerReload" type="button" hidden>Check save status</button>
 
-          </div>
+          </div></div>
         </section>
       </div>
     </section>

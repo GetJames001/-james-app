@@ -1471,7 +1471,13 @@ function initCustomerActivity() {
   commit({type:'upsert_customer',customer});
  };
  function render(){
-  $('customerModeNotice').textContent=linkedSource?'Daily list · '+linkedSource.label:practiceMode?'Practice template · Five fictional companies. Practice saves stay in this tab until reload; they do not change your saved customer records.':'Your saved companies · Record actual activity only.';
+  $('customerModeNotice').textContent=linkedSource?(linkedSource.singleCompany?linkedSource.label:'Daily list · '+linkedSource.label):practiceMode?'Practice template · Five fictional companies. Practice saves stay in this tab until reload; they do not change your saved customer records.':'Your saved companies · Record actual activity only.';
+  $('customerNewCompanyControls').hidden=!!linkedSource;
+  $('customerRecordActivity').hidden=!!linkedSource?.readOnly;
+  const directions=$('customerDirections');
+  directions.hidden=!linkedSource?.directionsAddress;
+  if(directions.hidden)directions.removeAttribute('href');
+  else directions.href='https://www.google.com/maps/dir/?api=1&destination='+encodeURIComponent(linkedSource.directionsAddress);
   $('customerModeSwitch').textContent=practiceMode?'Show my saved companies':'Show five-company practice template';
   const list=$('customerDemoList');list.replaceChildren();
   for(const c of doc?.customers||[]){const b=document.createElement('button');b.type='button';b.textContent=c.name;b.setAttribute('aria-pressed',String(c.id===selected));b.disabled=busy;b.onclick=()=>{remember();selected=c.id;render();};list.append(b);}
@@ -1551,9 +1557,11 @@ function initCustomerActivity() {
  openButton.onclick=()=>{if(linkedSource&&!hasChanges())releaseLinked();$('customerSaveNotice').textContent='';returnFocus=document.activeElement;overlay.hidden=false;closeButton.focus();if(!busy)load();};
  window.jamesOpenLinkedCustomerActivity=async source=>{
   if(busy||savingAll||uncertain||hasChanges()){announce('Save or reconcile the current activity before changing lists.');overlay.hidden=false;return false;}
-  if(linkedSource&&linkedSource.key!==source.key){announce('Finish the current daily activity first.');overlay.hidden=false;return false;}
+  if(linkedSource&&linkedSource.key!==source.key)releaseLinked();
   if(!linkedSource){legacyBefore={doc,selected,practiceMode};clearPrivate();linkedSource=source;practiceMode=false;}
-  returnFocus=document.activeElement;overlay.hidden=false;closeButton.focus();await load();return !!doc&&!uncertain;
+  returnFocus=document.activeElement;overlay.hidden=false;closeButton.focus();await load();
+  if(source.singleCompany)$('companyEditor').open=true;
+  return !!doc&&!uncertain;
  };
  function releaseLinked(){
   if(!linkedSource)return;const previous=legacyBefore;linkedSource=null;legacyBefore=null;clearPrivate();if(previous){doc=previous.doc;selected=previous.selected;practiceMode=previous.practiceMode;}render();
