@@ -1178,6 +1178,23 @@ $$(".task-filter").forEach(button => {
   updateHero();
   setInterval(() => { setGreeting(); if(calendarSyncState.hasData && displayedCalendarDate!==`${new Date().getFullYear()}-${String(new Date().getMonth()+1).padStart(2,'0')}-${String(new Date().getDate()).padStart(2,'0')}`)renderCalendarDay();else updateHero(); }, 60000);
   $$('nav button[data-page]').forEach(b => b.onclick = () => page(b.dataset.page));
+  for (const navButton of $$('nav button[data-page]')) {
+    const id = navButton.dataset.page;
+    const section = document.getElementById(id);
+    if (!section || id === 'insights' || id === 'customer-database') continue;
+    const help = document.createElement('button');
+    help.type = 'button';
+    help.textContent = 'Have questions? Ask James';
+    help.addEventListener('click', () => {
+      page('insights');
+      const question = $('#jamesQuestion');
+      if (!question || !$('#insights').classList.contains('active')) return;
+      if (!question.value.trim()) question.value = 'How do I use ' + navButton.textContent.trim() + ' in James?';
+      question.focus();
+    });
+    section.append(help);
+  }
+
   const logoutButton = $('#logoutButton');
   if (logoutButton) {
     logoutButton.onclick = async () => {
@@ -1362,8 +1379,7 @@ function initCustomerActivity() {
  const drafts=new Map(),companyDrafts=new Map(),companyDirty=new Set();
  let pending=null,savingAll=false,remindersStale=false,reminderSignature='',reminderSessionExpired=false;
  let linkedSource=null,legacyBefore=null;
- let practiceMode=true;
- try{practiceMode=sessionStorage.getItem('jamesCustomerMode')!=='saved';}catch{}
+ let practiceMode=false;
  let practiceDoc={schemaVersion:2,revision:0,activities:[],customers:[
   ['Silver Mesa Facilities','Alex Example','Jordan Example'],
   ['Desert Willow Hospitality','Taylor Example','Morgan Example'],
@@ -1394,6 +1410,7 @@ function initCustomerActivity() {
   if(linkedSource)return;
   const items=(doc?.activities||[]).filter(a=>a.nextActionAt&&!a.followUpCompletedAt&&a.nextAction!=='No follow-up needed').sort((a,b)=>(a.remindAt||a.nextActionAt).localeCompare(b.remindAt||b.nextActionAt));
   const due=items.filter(a=>Date.parse(a.remindAt||a.nextActionAt)<=Date.now());
+  $('customerReminders').hidden=practiceMode||(!items.length&&!remindersStale&&!uncertain);
   const signature=JSON.stringify([practiceMode,remindersStale,uncertain,busy,savingAll,items,doc?.customers,due.map(a=>a.id)]);
   if(signature===reminderSignature)return;reminderSignature=signature;
   const list=$('customerReminderList'),focused=document.activeElement?.dataset?.reminderControl;
