@@ -44,14 +44,16 @@ function mount({container,fetcher=fetch,conversation=()=>root.jamesConversationU
  $('jr-day').value=today();$('jr-day').onchange=()=>run(loadDaily);
  const dailyStatus=node('p','',{role:'status',class:'jr-status'});
  button('Add selected to daily list',()=>run(async()=>{
-  dailyStatus.textContent='';
+  dailyStatus.textContent='Adding to daily list…';
   try{
   if(!workspace||!selected.size)throw Error('Select companies first.');
   const result=await mutate({action:'select_daily',workspaceId:workspace,date:$('jr-day').value,ids:[...selected],operationId:crypto.randomUUID(),expectedRevision:revision},'select_daily');
-  await load();
+  revision=result.revision;
   const added=result.receipt.added.length;
   dailyStatus.textContent=added?added+' '+(added===1?'company':'companies')+' added to your daily list.':'Selected companies are already on your daily list.';
+  try{await loadDaily();}catch{dailyStatus.textContent+=' Refresh the daily list to see the saved entry.';}
   }catch(error){dailyStatus.textContent=error.message;throw error;}
+  finally{dailyStatus.scrollIntoView({block:'nearest'});}
  }),$('jr-daily-actions'));
  $('jr-daily-actions').after(dailyStatus);
  $('jr-day').addEventListener('change',()=>{dailyStatus.textContent='';});
@@ -68,7 +70,7 @@ function mount({container,fetcher=fetch,conversation=()=>root.jamesConversationU
    },onSaved:()=>run(async()=>{await load();navigate('briefing');})
   });
  }),$('jr-daily-actions'));
- async function loadDaily(){dailyItems=[];$('jr-daily').replaceChildren();if(!workspace)return;
+ async function loadDaily(){if(!workspace){dailyItems=[];$('jr-daily').replaceChildren();return;}
   const r=await request({action:'daily_list',workspaceId:workspace,date:$('jr-day').value});revision=r.revision;dailyItems=r.items;
   $('jr-daily').replaceChildren(...dailyItems.map(i=>node('p',i.company.name+' · '+(i.status==='pending'?'Pending':'Activity recorded'))));
   if(!dailyItems.length)$('jr-daily').append(node('p',companies.length?'Select companies below to build your daily list.':'This business has no customer companies yet. Upload a customer file to begin.'));

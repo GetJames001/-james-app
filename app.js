@@ -851,42 +851,36 @@ async function loadWeatherForCoordinates({ latitude, longitude }, tempEl, detail
 function loadLiveWeather() {
   const tempEl = $('#weatherTemp');
   const detailEl = $('#weatherDetail');
-
+  const enableLocation = $('#weatherEnableLocation');
   if (!tempEl || !detailEl) return;
 
-  detailEl.textContent = 'Locating…';
-
-  const showLocationUnavailable = (error) => {
+  const showLocationUnavailable = error => {
     tempEl.textContent = '—';
-    detailEl.textContent = 'Location unavailable';
-
-    if (error) {
-      console.warn('Could not determine device location:', error);
-    }
+    detailEl.textContent = error?.code === 1 ? 'Allow location in browser settings for weather.' : 'Location unavailable';
+    if (enableLocation) enableLocation.hidden = !navigator.geolocation;
   };
-
-  if (!navigator.geolocation) {
-    showLocationUnavailable();
-    return;
-  }
-
-  // The entrance must never interrupt sign-in with a location permission prompt.
-  // Use location automatically only if the browser reports prior permission.
-  if (!navigator.permissions?.query) {
-    detailEl.textContent = 'Location permission required';
-    return;
-  }
-  navigator.permissions.query({name:'geolocation'}).then(permission=>{
-    if(permission.state!=='granted'){
-      detailEl.textContent='Location permission required';
-      return;
-    }
+  const locate = () => {
+    if (!navigator.geolocation) return showLocationUnavailable();
+    detailEl.textContent = 'Locating…';
+    if (enableLocation) enableLocation.hidden = true;
     navigator.geolocation.getCurrentPosition(
-      ({coords})=>loadWeatherForCoordinates(coords,tempEl,detailEl),
+      ({coords}) => loadWeatherForCoordinates(coords,tempEl,detailEl),
       showLocationUnavailable,
       {enableHighAccuracy:false,timeout:8000,maximumAge:15*60*1000}
     );
-  }).catch(showLocationUnavailable);
+  };
+  const offerLocation = () => {
+    if (!navigator.geolocation) return showLocationUnavailable();
+    detailEl.textContent = 'Location permission required';
+    if (enableLocation) enableLocation.hidden = false;
+  };
+
+  if (enableLocation) enableLocation.onclick = locate;
+  if (!navigator.permissions?.query) return offerLocation();
+  navigator.permissions.query({name:'geolocation'}).then(permission=>{
+    if (permission.state === 'granted') locate();
+    else offerLocation();
+  }).catch(offerLocation);
 }
 function renderPersonalMicrosoftMail(messages = [], { restoreDetail = true } = {}) {
   const list = $('#personalMailMessages');
