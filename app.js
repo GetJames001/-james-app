@@ -974,10 +974,6 @@ emailFrame.style.borderRadius = "8px";
 
 const body = message.body || "";
 const attachmentList = document.createElement("div");
-const pictures = document.createElement("button");
-pictures.type = "button";
-pictures.textContent = "Load remote pictures";
-let remotePictures = false;
 const inlineImages = new Map();
 function renderEmailBody() {
   const parsed = document.implementation.createHTMLDocument("");
@@ -988,18 +984,17 @@ function renderEmailBody() {
     const src = img.getAttribute("src") || "";
     if (src.startsWith("cid:")) img.setAttribute("src", inlineImages.get(src.slice(4)) || "");
   }
-  emailFrame.srcdoc = '<meta http-equiv="Content-Security-Policy" content="default-src \'none\'; style-src \'unsafe-inline\'; img-src data:' +
-    (remotePictures ? ' https:' : '') + '; base-uri \'none\'">' + template.innerHTML;
+  emailFrame.srcdoc = '<meta http-equiv="Content-Security-Policy" content="default-src \'none\'; style-src \'unsafe-inline\'; img-src data: https:' +
+    '; base-uri \'none\'">' + template.innerHTML;
   if (!body) emailFrame.title = message.preview || "No message content.";
 }
-pictures.onclick = () => { remotePictures = true; pictures.hidden = true; renderEmailBody(); };
 renderEmailBody();
 
 const mailActions = document.createElement("div");
 mailActions.className = "personal-mail-actions";
 mailActions.setAttribute("role", "group");
 mailActions.setAttribute("aria-label", "Message actions");
-detailBody.append(mailActions, pictures, attachmentList, emailFrame);
+detailBody.append(mailActions, attachmentList, emailFrame);
 const attachmentUrl = "/api/microsoft/mail?account=personal&messageId=" + encodeURIComponent(message.id);
 async function getAttachment(id) {
   const response = await fetch(attachmentUrl + (id ? "&attachmentId=" + encodeURIComponent(id) : ""), {cache:"no-store"});
