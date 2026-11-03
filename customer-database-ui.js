@@ -24,13 +24,21 @@ function mount({container,fetcher=fetch,conversation=()=>root.jamesConversationU
  const sourceLabel=input('Source name',sourceDetails);sourceLabel.placeholder='For example: permitted spreadsheet export';
  const namespace=input('Stable source identifier',sourceDetails);namespace.placeholder='Use the same identifier for repeat exports';
  const restrictions=input('Source restrictions',sourceDetails);restrictions.placeholder='Any limits on retention or use';
+ const uploadStatus=node('p','',{role:'status',class:'jr-status'});
  button('Upload for review',()=>run(async()=>{
+  uploadStatus.textContent='Uploading file…';
+  try{
   if(!workspace)throw Error('Choose a business first.');if(!file.files?.[0])throw Error('Choose a file first.');if(file.files[0].size>1024*1024)throw Error('This pilot accepts files up to 1 MiB and 500 rows.');
   if(!consent.checked&&!permission.value.trim())throw Error('Confirm you have permission to use this file here.');
   const bytes=new Uint8Array(await file.files[0].arrayBuffer());let binary='';for(const b of bytes)binary+=String.fromCharCode(b);
   const result=await mutate({action:'stage',workspaceId:workspace,expectedRevision:revision,operationId:crypto.randomUUID(),file:{name:file.files[0].name,base64:btoa(binary)},source:{namespace:namespace.value.trim()||'file-'+file.files[0].name.toLowerCase().replace(/[^a-z0-9]+/g,'-').slice(0,64),label:sourceLabel.value.trim()||file.files[0].name.slice(0,100),permittedUse:permission.value.trim()||'Uploader confirmed permission to use this file here',restrictions:restrictions.value.trim()}},'stage');
-  batchId=result.receipt.batchId;await load();showBatch(batchId);status('Original file saved for review. No company records imported yet.');
+  batchId=result.receipt.batchId;await load();showBatch(batchId);
+  uploadStatus.textContent='File uploaded. Check the column mapping below, then tap Review mapped rows.';
+  status('Original file saved for review. No company records imported yet.');
+  ui.mapping.scrollIntoView({block:'start'});
+  }catch(error){uploadStatus.textContent=error.message||'Upload failed. Try again.';throw error;}
  }),$( 'jr-import-controls'));
+ $('jr-import-controls').append(uploadStatus);
  for(const key of ['company','person','location','industry','status','source','tags']){const field=input(key.charAt(0).toUpperCase()+key.slice(1),ui.filters);field.dataset.filter=key;field.oninput=()=>{filters[key]=field.value;search();};}
  const today=()=>{const d=new Date();return new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,10);};
  $('jr-day').value=today();$('jr-day').onchange=()=>run(loadDaily);
