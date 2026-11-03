@@ -58,7 +58,7 @@ function mount({container,fetcher=fetch,conversation=()=>root.jamesConversationU
  }),pickActions);
  pickActions.after(dailyStatus);
  $('jr-day').addEventListener('change',()=>{dailyStatus.textContent='';});
- button('Open daily activity',()=>run(async()=>{
+ button('Open Customer Activity',()=>run(async()=>{
   if(!workspace||!dailyItems.length)throw Error('Add companies to this daily list first.');
   if(typeof root.jamesOpenLinkedCustomerActivity!=='function')throw Error('Activity form is not available. Reload James.');
   const business=workspace,date=$('jr-day').value,key=session.accountId+':'+business+':'+date;
@@ -188,22 +188,60 @@ function mountPlanningFollowups(){
  const plan=document.getElementById('briefingCustomerPlan');
  if(!plan)return;
  plan.append(touchesPanel);
- const dialog=document.createElement('dialog');dialog.className='jr-dialog';
- dialog.setAttribute('aria-label','Customer details');
+ const dialog=document.createElement('dialog');dialog.className='jr-dialog jr-customer-card';
+ dialog.setAttribute('aria-label','Customer Activity');
  touchesPanel.after(dialog);
  function openCompany(item){
-  const heading=document.createElement('h3');heading.textContent=item.company;
-  const close=document.createElement('button');close.type='button';close.textContent='Close';
+  const header=document.createElement('header');
+  const title=document.createElement('p');title.textContent='Customer Activity';
+  const heading=document.createElement('h2');heading.textContent=item.company;
+  const close=document.createElement('button');close.type='button';close.textContent='Back to Briefing';
   close.onclick=()=>dialog.close();
-  dialog.replaceChildren(heading,close);
-  const appendLine=parts=>{
-   const line=document.createElement('p');line.textContent=parts.filter(Boolean).join(' · ');
-   if(line.textContent)dialog.append(line);
+  header.append(title,heading,close);dialog.replaceChildren(header);
+  const section=(label)=>{
+   const group=document.createElement('section');
+   const heading=document.createElement('h3');heading.textContent=label;group.append(heading);dialog.append(group);
+   return group;
   };
-  for(const location of item.locations||[])appendLine([location.address,location.city,location.state,location.postal_code]);
-  for(const contact of item.contacts||[])appendLine([contact.name,contact.phone,contact.email]);
+  const line=(parent,text)=>{
+   if(!text)return;
+   const p=document.createElement('p');p.textContent=text;parent.append(p);
+  };
+  const link=(parent,text,href)=>{
+   if(!text)return;
+   const p=document.createElement('p'),a=document.createElement('a');
+   a.textContent=text;a.href=href;p.append(a);parent.append(p);
+   return a;
+  };
+  const company=section('Company details');
+  line(company,item.business);
+  if(item.phone)link(company,item.phone,'tel:'+encodeURIComponent(item.phone));
+  for(const location of item.locations||[]){
+   const address=[location.address,location.city,location.state,location.postal_code,location.country].filter(Boolean).join(', ');
+   line(company,address);
+   if(location.address){
+    const directions=link(company,'Get directions','https://www.google.com/maps/dir/?api=1&destination='+encodeURIComponent(address));
+    directions.target='_blank';directions.rel='noopener noreferrer';
+   }
+  }
+  if(!item.locations?.some(location=>location.address))line(company,'No street address saved.');
+  const contacts=section('Contacts');
+  for(const contact of item.contacts||[]){
+   line(contacts,contact.name);
+   if(contact.phone)link(contacts,contact.phone,'tel:'+encodeURIComponent(contact.phone));
+   if(contact.email)link(contacts,contact.email,'mailto:'+encodeURIComponent(contact.email));
+  }
+  if(!item.contacts?.length)line(contacts,'No contacts saved.');
+  const activity=section('Last contact');
   const recent=item.lastActivity;
-  if(recent)appendLine(['Latest activity',new Date(recent.occurredAt).toLocaleString(),recent.outcome,recent.notes]);
+  if(recent){
+   line(activity,new Date(recent.occurredAt).toLocaleString()+' · '+recent.outcome);
+   line(activity,recent.notes);
+  }else line(activity,'No activity recorded.');
+  if(item.notes?.length){
+   const notes=section('Company notes');
+   for(const note of item.notes)line(notes,note);
+  }
   dialog.showModal();
  }
  const panels=anchors.map(anchor=>{
@@ -254,9 +292,10 @@ function mountPlanningFollowups(){
     const row=document.createElement('li');
     const open=document.createElement('button');open.type='button';open.textContent=item.company;
     open.onclick=()=>openCompany(item);
-    const status=document.createElement('div');
-    status.textContent=item.status==='recorded'?'Activity recorded':'Planned';
-    row.append(open,status);
+    row.append(open);
+    if(item.status==='recorded'){
+     const status=document.createElement('div');status.textContent='Activity recorded';row.append(status);
+    }
     renderFollowups(row,followupByCompany.get(key(item))||[]);
     followupByCompany.delete(key(item));list.append(row);
    }

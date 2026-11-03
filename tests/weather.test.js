@@ -70,7 +70,7 @@ test('loads live weather from the device location with a bounded lookup', async 
   await flushPromises();
 
   assert.equal(receivedOptions.timeout, 8000);
-  assert.equal(receivedOptions.maximumAge, 15 * 60 * 1000);
+  assert.equal(receivedOptions.maximumAge, 0);
   assert.equal(receivedOptions.enableHighAccuracy, false);
   assert.match(harness.fetchCalls[0], /latitude=35\.9/);
   assert.equal(harness.elements['#weatherTemp'].textContent, '88°');

@@ -848,52 +848,42 @@ async function loadWeatherForCoordinates({ latitude, longitude }, tempEl, detail
   }
 }
 
-function loadLiveWeather() {
+let weatherRefreshInProgress=false;
+function loadLiveWeather(requestPermission=false) {
   const tempEl = $('#weatherTemp');
   const detailEl = $('#weatherDetail');
-  const enableLocation = $('#weatherEnableLocation');
-  const lasVegas = $('#weatherLasVegas');
-  if (!tempEl || !detailEl) return;
+  const refresh = $('#weatherEnableLocation');
+  if (!tempEl || !detailEl || weatherRefreshInProgress) return;
 
+  if (refresh) refresh.onclick = () => loadLiveWeather(true);
+  const finish = () => {
+    weatherRefreshInProgress=false;
+    if (refresh) refresh.disabled=false;
+  };
   const showLocationUnavailable = error => {
     tempEl.textContent = '—';
     detailEl.textContent = error?.code === 1 ? 'Allow location in browser settings for weather.' : 'Location unavailable';
-    if (enableLocation) enableLocation.hidden = !navigator.geolocation;
-    if (lasVegas) lasVegas.hidden = false;
+    finish();
   };
   const locate = () => {
-    if (!navigator.geolocation) return showLocationUnavailable();
+    weatherRefreshInProgress=true;
+    if (refresh) refresh.disabled=true;
     detailEl.textContent = 'Locating…';
-    if (enableLocation) enableLocation.hidden = true;
-    if (lasVegas) lasVegas.hidden = true;
     navigator.geolocation.getCurrentPosition(
-      ({coords}) => loadWeatherForCoordinates(coords,tempEl,detailEl),
+      ({coords}) => loadWeatherForCoordinates(coords,tempEl,detailEl).finally(finish),
       showLocationUnavailable,
-      {enableHighAccuracy:false,timeout:8000,maximumAge:15*60*1000}
+      {enableHighAccuracy:false,timeout:8000,maximumAge:0}
     );
   };
-  const offerLocation = () => {
-    if (!navigator.geolocation) return showLocationUnavailable();
-    detailEl.textContent = 'Location permission required';
-    if (enableLocation) enableLocation.hidden = false;
-    if (lasVegas) lasVegas.hidden = false;
-  };
-
-  if (enableLocation) enableLocation.onclick = locate;
-  if (lasVegas) lasVegas.onclick = async () => {
-    lasVegas.disabled = true;
-    detailEl.textContent = 'Loading Las Vegas weather…';
-    try {
-      await loadWeatherForCoordinates({latitude:36.17, longitude:-115.14},tempEl,detailEl,'Las Vegas');
-    } finally {
-      lasVegas.disabled = false;
-    }
-  };
-  if (!navigator.permissions?.query) return offerLocation();
+  const needsPermission = () => {detailEl.textContent = 'Location permission required';};
+  if (!navigator.geolocation) return showLocationUnavailable();
+  if (requestPermission) return locate();
+  if (!navigator.permissions?.query) return needsPermission();
   navigator.permissions.query({name:'geolocation'}).then(permission=>{
-    if (permission.state === 'granted') locate();
-    else offerLocation();
-  }).catch(offerLocation);
+    if(weatherRefreshInProgress)return;
+    if(permission.state==='granted')locate();
+    else needsPermission();
+  }).catch(needsPermission);
 }
 function renderPersonalMicrosoftMail(messages = [], { restoreDetail = true } = {}) {
   const list = $('#personalMailMessages');
@@ -1155,6 +1145,12 @@ document.addEventListener('DOMContentLoaded', () => {
   window.addEventListener('pagehide',()=>calendarRefreshController.stop());
   window.addEventListener('pageshow',event=>{if(event.persisted)window.location.reload();});
   loadLiveWeather();
+  document.addEventListener('visibilitychange',()=>{
+    if(document.visibilityState==='visible')loadLiveWeather();
+  });
+  setInterval(()=>{
+    if(document.visibilityState==='visible')loadLiveWeather();
+  },5*60*1000);
   personalMailRefreshController = PersonalMailRefresh.createPersonalMailRefreshController({
     fetchMail: requestPersonalMicrosoftMail,
     onSuccess: applyPersonalMicrosoftMail,
