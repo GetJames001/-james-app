@@ -10,7 +10,7 @@ function mount({container,fetcher=fetch,conversation=()=>root.jamesConversationU
  const status=text=>{ui.status.textContent=text;};
  const button=(text,action,parent)=>{const b=node('button',text,{type:'button'});b.onclick=action;parent.append(b);return b;};
  const input=(text,parent,type='text')=>{const label=node('label',text),field=node('input',undefined,{type});label.append(field);parent.append(label);return field;};
- container.innerHTML='<div id="james-resource-concept"><header><strong>JAMES</strong><span>Customer Information</span></header><div class="jr-row"><h2>Your customer information</h2><label>Business<select id="jr-workspace"><option value="">Choose a business</option></select></label></div><p id="jr-status" class="jr-status" role="status" aria-live="polite"></p><div id="jr-recovery" hidden></div><article class="jr-section" data-panel="companies"><h3>Today’s customer list</h3><section><input id="jr-day" type="hidden"><div id="jr-daily"></div><div id="jr-daily-actions" class="jr-actions"></div></section><label for="jr-search">Find a company, person, or location</label><input id="jr-search" placeholder="Search your resources…" type="search"><div class="jr-layout"><article><h3>Companies</h3><div id="jr-companies"></div><div id="jr-exports" class="jr-actions"></div></article><article id="jr-detail"><h3>Select a company</h3></article></div></article><article class="jr-section" data-panel="imports"><h3>Customer Vault</h3><details><summary>Add a business</summary><div id="jr-create" class="jr-row"></div></details><article><details id="jr-upload"><summary>Upload a file</summary><div id="jr-import-controls"></div></details><label for="jr-file-search">Search files</label><input id="jr-file-search" type="search" placeholder="File name or source"><div id="jr-file-preview"></div><div id="jr-mapping"></div><div id="jr-review"></div><div id="jr-batches"></div></article></article><footer><strong>Ask James</strong><div id="jr-conversation"></div><div id="jr-footer-actions" class="jr-actions"></div></footer></div>';
+ container.innerHTML='<div id="james-resource-concept"><header><strong>JAMES</strong><span>Customer Information</span></header><div class="jr-row"><h2>Your customer information</h2><label>Business<select id="jr-workspace"><option value="">Choose a business</option></select></label></div><p id="jr-status" class="jr-status" role="status" aria-live="polite"></p><div id="jr-recovery" hidden></div><article class="jr-section" data-panel="companies"><h3>Today’s customer list</h3><section><input id="jr-day" type="hidden"><div id="jr-daily"></div><div id="jr-daily-actions" class="jr-actions"></div></section><label for="jr-search">Find a company, person, or location</label><input id="jr-search" placeholder="Search across all businesses" maxlength="200" type="search"><button id="jr-search-submit" type="button">Search</button><p id="jr-search-status" role="status"></p><div id="jr-search-results"></div><div class="jr-layout"><article><h3>Companies</h3><div id="jr-companies"></div><div id="jr-exports" class="jr-actions"></div></article><article id="jr-detail"><h3>Select a company</h3></article></div></article><article class="jr-section" data-panel="imports"><h3>Customer Vault</h3><details><summary>Add a business</summary><div id="jr-create" class="jr-row"></div></details><article><details id="jr-upload"><summary>Upload a file</summary><div id="jr-import-controls"></div></details><label for="jr-file-search">Search files</label><input id="jr-file-search" type="search" placeholder="File name or source"><div id="jr-file-preview"></div><div id="jr-mapping"></div><div id="jr-review"></div><div id="jr-batches"></div></article></article><footer><strong>Ask James</strong><div id="jr-conversation"></div><div id="jr-footer-actions" class="jr-actions"></div></footer></div>';
  const $=id=>container.querySelector('#'+id);for(const name of ['workspace','create','status','recovery','exports','companies','detail','mapping','review','batches'])ui[name]=$( 'jr-'+name);
  const newName=input('Business name',ui.create);button('Add business',()=>run(async()=>{const name=newName.value.trim();if(!name)throw Error('Enter a business name first.');const result=await mutate({action:'create_workspace',name,operationId:crypto.randomUUID()},'create');workspace=result.workspace.id;await loadWorkspaces();ui.workspace.value=workspace;remember();await load();}),ui.create);
  const file=input('Choose CSV or Excel from Files',$( 'jr-import-controls'),'file');file.accept='.csv,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
@@ -78,7 +78,11 @@ function mount({container,fetcher=fetch,conversation=()=>root.jamesConversationU
   if(!companies.length&&!batches.length)button('Upload a customer file',()=>{$('jr-upload').open=true;file.focus();},$('jr-daily'));
  }
  const fileSearch=$('jr-file-search');fileSearch.oninput=()=>renderBatches();
- const searchField=$('jr-search');searchField.oninput=()=>{filters.query=searchField.value;search();};
+ const searchField=$('jr-search');
+ $('jr-search-submit').onclick=()=>search();
+ searchField.onkeydown=event=>{if(event.key==='Enter'){event.preventDefault();search();}};
+ searchField.oninput=()=>{++searchTicket;$('jr-search-status').textContent='';$('jr-search-results').replaceChildren();};
+
  const formatDialog=node('dialog',undefined,{'aria-label':'Download records',class:'jr-dialog'});
  formatDialog.append(node('h3','Download records'),node('p','Choose a format for the companies shown.'));
  for(const [label,format] of [['CSV','csv'],['Excel','xlsx']])button(label,()=>{
@@ -88,7 +92,7 @@ function mount({container,fetcher=fetch,conversation=()=>root.jamesConversationU
  ui.exports.append(formatDialog);
  button('Download records',()=>formatDialog.showModal(),ui.exports);
  button('Save and return to Briefing',()=>run(async()=>{if(pending)throw Error('Check the save outcome before returning.');if(batches.some(b=>b.id===batchId&&b.status==='staged'))throw Error('This import is not confirmed. Review and confirm it, or return with the import held.');await load();status('Saved records verified.');navigate('briefing');}),$( 'jr-footer-actions'));
- ui.workspace.onchange=()=>{conversation()?.cancelReply();saveDraft();++epoch;for(const c of controllers)c.abort();workspace=ui.workspace.value;restoreDraft();selected.clear();chosen='';review=null;batchId='';companies=[];batches=[];pending=null;ui.recovery.hidden=true;remember();render();run(load);};
+ ui.workspace.onchange=async()=>{if(busy)return;conversation()?.cancelReply();saveDraft();++epoch;for(const c of controllers)c.abort();workspace=ui.workspace.value;restoreDraft();selected.clear();chosen='';review=null;batchId='';companies=[];batches=[];pending=null;ui.recovery.hidden=true;remember();render();await run(load);};
  button('Return with import held',()=>{if(pending){status('Check the save outcome before returning.');return;}navigate('briefing');},$('jr-footer-actions'));
  function remember(){try{storage?.setItem('james:customer-database:selection:v1',JSON.stringify({accountId:session?.accountId,workspace}));}catch{}}
  function clear(){root.jamesClearLinkedCustomerActivity?.();drafts.clear();homeDraft='';session=null;if(composer){composer.querySelector('textarea').value='';composer.querySelector('#jamesAnswer,#answer').textContent='';}++epoch;for(const c of controllers)c.abort();workspace='';ui.workspace.replaceChildren(node('option','Choose a business',{value:''}));companies=[];batches=[];chosen='';selected.clear();review=null;batchId='';pending=null;ui.recovery.hidden=true;render();}
@@ -121,7 +125,36 @@ function mount({container,fetcher=fetch,conversation=()=>root.jamesConversationU
  async function loadWorkspaces(){const data=await request();ui.workspace.replaceChildren(node('option','Choose a business',{value:''}),...data.workspaces.map(w=>node('option',w.name,{value:w.id})));if(!data.workspaces.some(w=>w.id===workspace))workspace='';ui.workspace.value=workspace;}
  async function load(){if(!workspace){companies=[];batches=[];render();return;}const data=await request({action:'load',workspaceId:workspace});revision=data.revision;companies=data.companies;batches=data.batches;render();await loadDaily();}
  let searchTicket=0;
- async function search(){const ticket=++searchTicket;if(!workspace||busy)return;try{const result=await request({action:'search',workspaceId:workspace,filters:{...filters}});if(ticket===searchTicket){companies=result.companies;renderCompanies();}}catch(error){if(ticket===searchTicket)status(error.message);}}
+ async function search(){
+  const ticket=++searchTicket, query=searchField.value.trim();
+  const feedback=$('jr-search-status'), results=$('jr-search-results');
+  results.replaceChildren();
+  feedback.textContent=query?'Searching all businesses…':'Enter a company, person, or location.';
+  if(!query)return;
+  try{
+   const {matches}=await request({action:'search_all',query});
+   if(ticket!==searchTicket)return;
+   const open=async(group,id)=>{
+    if(busy)return;
+    if(workspace!==group.workspace.id){
+     ui.workspace.value=group.workspace.id;
+     await ui.workspace.onchange();
+    }
+    if(id&&companies.some(company=>company.id===id)){chosen=id;renderCompanies();}
+   };
+   for(const group of matches){
+    const section=node('section');
+    if(group.businessMatch)button(group.workspace.name,()=>open(group),section);
+    else section.append(node('strong',group.workspace.name));
+    for(const company of group.companies){
+     button([company.name,...company.contacts].join(' · '),()=>open(group,company.id),section);
+    }
+    results.append(section);
+   }
+   feedback.textContent=matches.length?'Matches in '+matches.length+' '+(matches.length===1?'business':'businesses')+'.':'No matching companies, people, or locations.';
+  }catch(error){if(ticket===searchTicket)feedback.textContent=error.message||'Search unavailable. Try again.';}
+ }
+
  function render(){$('jr-daily').replaceChildren();dailyItems=[];$('jr-file-preview').replaceChildren();renderCompanies();renderBatches();ui.mapping.replaceChildren();ui.review.replaceChildren();}
  function renderCompanies(){ui.companies.replaceChildren();for(const c of companies){const row=node('div',undefined,{class:'jr-company'}),label=node('label'),check=node('input',undefined,{type:'checkbox',class:'jr-check','aria-label':'Select '+c.name});check.checked=selected.has(c.id);check.onchange=()=>check.checked?selected.add(c.id):selected.delete(c.id);label.append(check,document.createTextNode(' Add to today’s list'));row.append(label);const open=button(c.name,()=>{chosen=c.id;renderDetail();},row);open.setAttribute('aria-pressed',String(chosen===c.id));row.append(node('div',c.locations.map(l=>[l.city,l.state].filter(Boolean).join(', ')).join(' · ')+' · '+(c.status||'Status unknown'),{class:'jr-sub'}),node('span',c.contacts.length+' contacts',{class:'jr-pill'}),node('span','Imported',{class:'jr-pill'}));ui.companies.append(row);}if(!companies.length)ui.companies.append(node('p',workspace?'No companies found. Upload a file in Customer Vault.':'Choose a business to begin.'));if(!companies.some(c=>c.id===chosen))chosen=companies[0]?.id||'';renderDetail();}
  function renderDetail(){const c=companies.find(c=>c.id===chosen);ui.detail.replaceChildren(node('h3',c?.name||'Select a company'));if(!c)return;for(const l of c.locations)ui.detail.append(node('p',[l.address,l.city,l.state,l.postal_code,l.country].filter(Boolean).join(', ')));for(const p of c.contacts)ui.detail.append(node('p',[p.name,p.phone,p.email].filter(Boolean).join(' · ')));const history=node('details');history.append(node('summary','Source & history'));history.append(node('p',c.sources.map(s=>s.namespace+' · Company ID: '+(s.companyId||'not supplied')+' · Row ID: '+(s.recordId||'not supplied')).join('\n')),node('p','Imported claims · not independently verified'),node('p',c.history.map(h=>h.at+' · '+h.kind+(h.row?' · source row '+h.row:'')).join('\n')));ui.detail.append(history);ui.detail.append(node('h3','Notes'),node('p',c.notes.map(n=>n.text).join('\n')||'No notes recorded.'),node('h3','Actual activity'),node('p',c.activities.map(a=>a.occurredAt+' · '+a.outcome+' · '+a.notes).join('\n')||'No actual activity reported.'),node('h3','Next actions'),node('p',[
