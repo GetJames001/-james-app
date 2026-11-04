@@ -1813,12 +1813,12 @@ document.addEventListener('DOMContentLoaded',()=>{
    form.elements.message.value=body.replace(/^\s*(?:\*\*)?(?:To|From)(?:\*\*)?\s*:(?:\*\*)?[^\r\n]*/gim,'').trim();
    form.elements.files.value='';
    const attachmentRequest=text.match(/\battach(?:ing)?\s+(.+)/i)?.[1]||'';
-   const normalized=value=>value.toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
+   const normalized=value=>value.toLowerCase().replace(/[^a-z0-9]+/g,' ').replace(/\bdot\s+/g,'').replace(/\bp\s+d\s+f\b/g,'pdf').trim();
    const requested=' '+normalized(attachmentRequest)+' ';
    voiceFiles=Array.from(library.files).filter(file=>requested.includes(' '+normalized(file.name)+' '));
    showVoiceFiles();
    status.textContent=attachmentRequest
-    ? 'Check the recipient and requested files before preparing for review. Use Choose Files for anything missing.'
+    ? (voiceFiles.length ? 'Matched '+voiceFiles.map(file=>file.name).join(', ')+'. Check the files before preparing for review.' : 'No attachment matched your request. Select the file in Files first, or use Choose Files here.')
     : 'Check the recipient before preparing for review.';
   }
   page('personalMail');
