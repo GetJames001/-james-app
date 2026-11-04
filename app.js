@@ -1796,11 +1796,72 @@ document.addEventListener('DOMContentLoaded',()=>{
    selection.append(remove);
   }
  }
+ const filesStatus=document.getElementById('voiceAttachmentLibraryStatus');
+ const savedList=document.getElementById('savedJamesFiles');
+ const searchFiles=document.getElementById('searchJamesFiles');
+ const saveFiles=document.getElementById('saveJamesFiles');
+ let savedFiles=[];
+ const cabinet=new Promise((resolve,reject)=>{
+  const open=indexedDB.open('james-files',1);
+  open.onupgradeneeded=()=>open.result.createObjectStore('documents',{keyPath:'id'});
+  open.onsuccess=()=>resolve(open.result);
+  open.onerror=()=>reject(open.error);
+ });
+ async function cabinetTransaction(mode,operation){
+  const db=await cabinet;
+  return new Promise((resolve,reject)=>{
+   const transaction=db.transaction('documents',mode);
+   const result=operation(transaction.objectStore('documents'));
+   transaction.oncomplete=()=>resolve(result?.result);
+   transaction.onabort=()=>reject(transaction.error);
+  });
+ }
+ function renderSavedFiles(){
+  savedList.replaceChildren();
+  const query=searchFiles.value.trim().toLowerCase();
+  for(const {id,file} of savedFiles.filter(entry=>entry.file.name.toLowerCase().includes(query))){
+   const row=document.createElement('p');
+   const name=document.createElement('span');
+   name.textContent=file.name+' · '+Math.ceil(file.size/1024)+' KB ';
+   const remove=document.createElement('button');
+   remove.type='button';remove.textContent='Remove';
+   remove.setAttribute('aria-label','Remove saved file '+file.name);
+   remove.onclick=async()=>{
+    if(!window.confirm('Remove '+file.name+' from James Files?'))return;
+    try{
+     await cabinetTransaction('readwrite',store=>store.delete(id));
+     await refreshSavedFiles();
+    }catch{filesStatus.textContent='Could not remove the saved file.';}
+   };
+   row.append(name,remove);savedList.append(row);
+  }
+ }
+ async function refreshSavedFiles(){
+  savedFiles=await cabinetTransaction('readonly',store=>store.getAll());
+  renderSavedFiles();
+ }
+ const filesReady=refreshSavedFiles().catch(()=>{filesStatus.textContent='Saved Files storage is unavailable in this browser.';});
+ searchFiles.oninput=renderSavedFiles;
+ saveFiles.onclick=async()=>{
+  const selected=Array.from(library.files);
+  if(!selected.length){filesStatus.textContent='Choose files first.';return;}
+  saveFiles.disabled=true;
+  try{
+   await cabinetTransaction('readwrite',store=>{
+    for(const file of selected)store.put({id:JSON.stringify([file.name,file.size,file.lastModified]),file});
+   });
+   await refreshSavedFiles();
+   library.value='';
+   filesStatus.textContent='Saved '+selected.map(file=>file.name).join(', ')+'.';
+  }catch{filesStatus.textContent='Could not save the selected files in this browser.';}
+  finally{saveFiles.disabled=false;}
+ };
  library.onchange=()=>{
   document.getElementById('voiceAttachmentLibraryStatus').textContent=
    Array.from(library.files,file=>file.name).join(', ')||'No files selected.';
  };
- document.addEventListener('james:review-outlook-draft',event=>{
+ document.addEventListener('james:review-outlook-draft',async event=>{
+  await filesReady;
   if(draftId||form.hidden||form.querySelector('button[type=submit]').disabled){
    status.textContent='Finish reviewing the current draft before starting another.';
   }else{
@@ -1821,7 +1882,8 @@ document.addEventListener('DOMContentLoaded',()=>{
     .replace(/([a-z])(?=\d)/g,'$1 ').replace(/(\d)(?=[a-z])/g,'$1 ')
     .replace(/\b(zero|one|two|three|four|five|six|seven|eight|nine)\b/g,word=>String(digits.indexOf(word))).trim();
    const requested=' '+normalized(attachmentRequest)+' ';
-   const available=Array.from(library.files);
+   const available=[...new Map([...savedFiles.map(entry=>entry.file),...library.files]
+    .map(file=>[JSON.stringify([file.name,file.size,file.lastModified]),file])).values()];
    const stem=file=>normalized(file.name.replace(/\.[a-z0-9]+$/i,''));
    voiceFiles=available.filter(file=>{
     const full=normalized(file.name), short=stem(file);
