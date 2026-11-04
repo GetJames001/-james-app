@@ -1813,9 +1813,18 @@ document.addEventListener('DOMContentLoaded',()=>{
    form.elements.message.value=body.replace(/^\s*(?:\*\*)?(?:To|From)(?:\*\*)?\s*:(?:\*\*)?[^\r\n]*/gim,'').trim();
    form.elements.files.value='';
    const attachmentRequest=text.match(/\battach(?:ing)?\s+(.+)/i)?.[1]||'';
-   const normalized=value=>value.toLowerCase().replace(/[^a-z0-9]+/g,' ').replace(/\bdot\s+/g,'').replace(/\bp\s+d\s+f\b/g,'pdf').trim();
+   const digits=['zero','one','two','three','four','five','six','seven','eight','nine'];
+   const normalized=value=>value.toLowerCase().replace(/[^a-z0-9]+/g,' ')
+    .replace(/\bdot\s+/g,'').replace(/\bp\s+d\s+f\b/g,'pdf')
+    .replace(/\b(zero|one|two|three|four|five|six|seven|eight|nine)\b/g,word=>String(digits.indexOf(word))).trim();
    const requested=' '+normalized(attachmentRequest)+' ';
-   voiceFiles=Array.from(library.files).filter(file=>requested.includes(' '+normalized(file.name)+' '));
+   const available=Array.from(library.files);
+   const stem=file=>normalized(file.name.replace(/\.[a-z0-9]+$/i,''));
+   voiceFiles=available.filter(file=>{
+    const full=normalized(file.name), short=stem(file);
+    if(requested.includes(' '+full+' '))return available.filter(item=>normalized(item.name)===full).length===1;
+    return short && requested.includes(' '+short+' ') && available.filter(item=>stem(item)===short).length===1;
+   });
    showVoiceFiles();
    status.textContent=attachmentRequest
     ? (voiceFiles.length ? 'Matched '+voiceFiles.map(file=>file.name).join(', ')+'. Check the files before preparing for review.' : 'No attachment matched your request. Select the file in Files first, or use Choose Files here.')
