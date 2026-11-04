@@ -882,7 +882,7 @@ async function loadWeatherForCoordinates({ latitude, longitude }, tempEl, detail
 }
 
 let weatherRefreshInProgress=false;
-function loadLiveWeather(requestPermission=false) {
+function loadLiveWeather(requestPermission=false, opening=false) {
   const tempEl = $('#weatherTemp');
   const detailEl = $('#weatherDetail');
   const refresh = $('#weatherEnableLocation');
@@ -913,13 +913,13 @@ function loadLiveWeather(requestPermission=false) {
     detailEl.textContent = 'Locating…';
     navigator.geolocation.getCurrentPosition(
       ({coords}) => {
-        try {
-          localStorage.setItem('jamesWeatherLocation',JSON.stringify({
-            latitude:Number(coords.latitude.toFixed(2)),
-            longitude:Number(coords.longitude.toFixed(2)),
-            savedAt:Date.now()
-          }));
-        } catch {}
+        const saved = JSON.stringify({
+          latitude:Number(coords.latitude.toFixed(2)),
+          longitude:Number(coords.longitude.toFixed(2)),
+          savedAt:Date.now()
+        });
+        try { localStorage.setItem('jamesWeatherLocation',saved); }
+        catch { try { sessionStorage.setItem('jamesWeatherLocation',saved); } catch {} }
         loadWeatherForCoordinates(coords,tempEl,detailEl).finally(finish);
       },
       showLocationUnavailable,
@@ -934,12 +934,18 @@ function loadLiveWeather(requestPermission=false) {
   };
   if (!navigator.geolocation) return showLocationUnavailable();
   if (requestPermission) return locate();
-  if (!navigator.permissions?.query) return needsPermission();
+  const handleUnknownPermission = () => {
+    if (weatherRefreshInProgress) return;
+    if (opening) locate();
+    else needsPermission();
+  };
+  if (!navigator.permissions?.query) return handleUnknownPermission();
   navigator.permissions.query({name:'geolocation'}).then(permission=>{
     if(weatherRefreshInProgress)return;
     if(permission.state==='granted')locate();
-    else needsPermission();
-  }).catch(needsPermission);
+    else if(permission.state==='denied') showLocationUnavailable({code:1});
+    else handleUnknownPermission();
+  }).catch(handleUnknownPermission);
 }
 function renderPersonalMicrosoftMail(messages = [], { restoreDetail = true } = {}) {
   const list = $('#personalMailMessages');
@@ -1323,7 +1329,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }));
   window.addEventListener('pagehide',()=>calendarRefreshController.stop());
   window.addEventListener('pageshow',event=>{if(event.persisted)window.location.reload();});
-  loadLiveWeather();
+  loadLiveWeather(false, true);
   document.addEventListener('visibilitychange',()=>{
     if(document.visibilityState==='visible')loadLiveWeather();
   });

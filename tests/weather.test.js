@@ -29,7 +29,7 @@ function createHarness({ geolocation, response, permission = 'granted' }) {
       fetchCalls.push(url);
       return response;
     },
-    navigator: geolocation ? { geolocation, permissions: { query: async () => ({state:permission}) } } : {},
+    navigator: geolocation ? { geolocation, ...(permission === null ? {} : { permissions: { query: async () => ({state:permission}) } }) } : {},
     window: {}
   });
 
@@ -38,8 +38,8 @@ function createHarness({ geolocation, response, permission = 'granted' }) {
   return {
     elements,
     fetchCalls,
-    loadWeather() {
-      vm.runInContext('loadLiveWeather()', context);
+    loadWeather(opening = false) {
+      vm.runInContext(opening ? 'loadLiveWeather(false, true)' : 'loadLiveWeather()', context);
     }
   };
 }
@@ -139,3 +139,21 @@ test('does not prompt for device location when permission is not previously gran
   assert.equal(requests,0);
   assert.equal(harness.elements['#weatherDetail'].textContent,'Location permission required');
 });
+
+for (const permission of ['prompt', null]) {
+  test(`loads weather on opening with location permission status ${permission}`, async () => {
+    const harness = createHarness({
+      permission,
+      geolocation: {
+        getCurrentPosition(success) {
+          success({coords:{latitude:35.9,longitude:-115.2}});
+        }
+      },
+      response: {ok:true,async json(){return {current:{temperature_2m:88,weather_code:0}};}}
+    });
+    harness.loadWeather(true);
+    await flushPromises();
+    assert.equal(harness.fetchCalls.length, 1);
+    assert.equal(harness.elements['#weatherTemp'].textContent, '88°');
+  });
+}
