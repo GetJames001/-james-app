@@ -637,6 +637,7 @@ function pageNow(id){
   $$('.page').forEach(p => p.classList.toggle('active', p.id === id));
   if(id === 'briefing') scheduleCalendarRelayout(true);
   if(id === 'appointments')renderAppointmentView();
+  if(id === 'files')document.dispatchEvent(new Event('james:files-opened'));
   if(personalMailRefreshController) personalMailRefreshController.pageChanged();
   if(calendarRefreshController) calendarRefreshController.pageChanged();
   if(id === 'insights'){
@@ -1801,25 +1802,35 @@ document.addEventListener('DOMContentLoaded',()=>{
  const searchFiles=document.getElementById('searchJamesFiles');
  const saveFiles=document.getElementById('saveJamesFiles');
  let savedFiles=[];
- const cabinet=new Promise((resolve,reject)=>{
-  const open=indexedDB.open('james-files',1);
-  open.onupgradeneeded=()=>open.result.createObjectStore('documents',{keyPath:'id'});
-  open.onsuccess=()=>resolve(open.result);
-  open.onerror=()=>reject(open.error);
- });
- async function cabinetTransaction(mode,operation){
-  const db=await cabinet;
-  return new Promise((resolve,reject)=>{
-   const transaction=db.transaction('documents',mode);
-   const result=operation(transaction.objectStore('documents'));
-   transaction.oncomplete=()=>resolve(result?.result);
-   transaction.onabort=()=>reject(transaction.error);
+ async function filesRequest({id, method='GET', payload}={}){
+  const response=await fetch('/api/james/files'+(id?'?id='+encodeURIComponent(id):''),{
+   method,cache:'no-store',
+   ...(payload?{headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)}:{})
   });
+  if(response.status===204)return;
+  const result=await response.json();
+  if(!response.ok)throw Error(result.error);
+  return result;
+ }
+ async function saveAccountFile(file){
+  const content=await new Promise((resolve,reject)=>{
+   const reader=new FileReader();
+   reader.onload=()=>resolve(reader.result.split(',')[1]);
+   reader.onerror=()=>reject(reader.error);
+   reader.readAsDataURL(file);
+  });
+  await filesRequest({method:'POST',payload:{name:file.name,type:file.type,lastModified:file.lastModified,content}});
+ }
+ async function readAccountFile(id){
+  const {file}=await filesRequest({id});
+  const bytes=Uint8Array.from(atob(file.content), character=>character.charCodeAt(0));
+  return new File([bytes],file.name,{type:file.type,lastModified:file.lastModified});
  }
  function renderSavedFiles(){
   savedList.replaceChildren();
   const query=searchFiles.value.trim().toLowerCase();
-  for(const {id,file} of savedFiles.filter(entry=>entry.file.name.toLowerCase().includes(query))){
+  for(const file of savedFiles.filter(entry=>entry.name.toLowerCase().includes(query))){
+   const {id}=file;
    const row=document.createElement('p');
    const name=document.createElement('span');
    name.textContent=file.name+' · '+Math.ceil(file.size/1024)+' KB ';
@@ -1829,7 +1840,7 @@ document.addEventListener('DOMContentLoaded',()=>{
    remove.onclick=async()=>{
     if(!window.confirm('Remove '+file.name+' from James Files?'))return;
     try{
-     await cabinetTransaction('readwrite',store=>store.delete(id));
+     await filesRequest({id,method:'DELETE'});
      await refreshSavedFiles();
     }catch{filesStatus.textContent='Could not remove the saved file.';}
    };
@@ -1837,23 +1848,36 @@ document.addEventListener('DOMContentLoaded',()=>{
   }
  }
  async function refreshSavedFiles(){
-  savedFiles=await cabinetTransaction('readonly',store=>store.getAll());
+  ({files:savedFiles}=await filesRequest());
   renderSavedFiles();
  }
- const filesReady=refreshSavedFiles().catch(()=>{filesStatus.textContent='Saved Files storage is unavailable in this browser.';});
+ function loadSavedFiles(){
+  return refreshSavedFiles().then(()=>true).catch(()=>{
+   filesStatus.textContent='James Files is unavailable. Open Files again to retry.';
+   return false;
+  });
+ }
+ document.addEventListener('james:files-opened',loadSavedFiles);
+ if(document.getElementById('files')?.classList.contains('active'))loadSavedFiles();
  searchFiles.oninput=renderSavedFiles;
  saveFiles.onclick=async()=>{
   const selected=Array.from(library.files);
   if(!selected.length){filesStatus.textContent='Choose files first.';return;}
+  if(selected.some(file=>file.size>2*1024*1024)){filesStatus.textContent='Each saved file must be 2 MB or smaller.';return;}
   saveFiles.disabled=true;
+  const saved=[];
   try{
-   await cabinetTransaction('readwrite',store=>{
-    for(const file of selected)store.put({id:JSON.stringify([file.name,file.size,file.lastModified]),file});
-   });
-   await refreshSavedFiles();
+   for(const file of selected){
+    await saveAccountFile(file);
+    saved.push(file.name);
+   }
    library.value='';
-   filesStatus.textContent='Saved '+selected.map(file=>file.name).join(', ')+'.';
-  }catch{filesStatus.textContent='Could not save the selected files in this browser.';}
+   if(await loadSavedFiles())filesStatus.textContent='Saved to your James account: '+saved.join(', ')+'.';
+  }catch(error){
+   await loadSavedFiles();
+   const prefix=saved.length?'Saved '+saved.join(', ')+'. ':'';
+   filesStatus.textContent=prefix+(error.message==='FILES_LIMIT_REACHED'?'Files is full (20 files). Remove a file before saving more.':'Could not save '+selected[saved.length].name+'. Try again.');
+  }
   finally{saveFiles.disabled=false;}
  };
  library.onchange=()=>{
@@ -1861,7 +1885,8 @@ document.addEventListener('DOMContentLoaded',()=>{
    Array.from(library.files,file=>file.name).join(', ')||'No files selected.';
  };
  document.addEventListener('james:review-outlook-draft',async event=>{
-  await filesReady;
+  const attachmentRequest=event.detail.text.match(/\b(?:attach(?:ing)?|include|add)\b[\s:,-]+([\s\S]+)/i)?.[1]||'';
+  const filesAvailable=!attachmentRequest||await loadSavedFiles();
   if(draftId||form.hidden||form.querySelector('button[type=submit]').disabled){
    status.textContent='Finish reviewing the current draft before starting another.';
   }else{
@@ -1874,7 +1899,6 @@ document.addEventListener('DOMContentLoaded',()=>{
    form.elements.subject.value=subject?.[1].trim()||'';
    form.elements.message.value=body.replace(/^\s*(?:\*\*)?(?:To|From)(?:\*\*)?\s*:(?:\*\*)?[^\r\n]*/gim,'').trim();
    form.elements.files.value='';
-   const attachmentRequest=text.match(/\b(?:attach(?:ing)?|include|add)\b[\s:,-]+([\s\S]+)/i)?.[1]||'';
    attachmentRequested=Boolean(attachmentRequest);
    const digits=['zero','one','two','three','four','five','six','seven','eight','nine'];
    const normalized=value=>value.toLowerCase().replace(/[^a-z0-9]+/g,' ')
@@ -1882,17 +1906,29 @@ document.addEventListener('DOMContentLoaded',()=>{
     .replace(/([a-z])(?=\d)/g,'$1 ').replace(/(\d)(?=[a-z])/g,'$1 ')
     .replace(/\b(zero|one|two|three|four|five|six|seven|eight|nine)\b/g,word=>String(digits.indexOf(word))).trim();
    const requested=' '+normalized(attachmentRequest)+' ';
-   const available=[...new Map([...savedFiles.map(entry=>entry.file),...library.files]
+   const available=[...new Map([...(filesAvailable?savedFiles:[]),...library.files]
     .map(file=>[JSON.stringify([file.name,file.size,file.lastModified]),file])).values()];
    const stem=file=>normalized(file.name.replace(/\.[a-z0-9]+$/i,''));
-   voiceFiles=available.filter(file=>{
+   const matches=available.filter(file=>{
     const full=normalized(file.name), short=stem(file);
     if(requested.includes(' '+full+' '))return available.filter(item=>normalized(item.name)===full).length===1;
     return short && requested.includes(' '+short+' ') && available.filter(item=>stem(item)===short).length===1;
    });
+   const prepare=form.querySelector('button[type=submit]');
+   prepare.disabled=true;
+   let failedFile;
+   try{
+    voiceFiles=[];
+    for(const file of matches){
+     failedFile=file.name;
+     voiceFiles.push(file.id?await readAccountFile(file.id):file);
+     failedFile=undefined;
+    }
+   }catch{voiceFiles=[];}
+   finally{prepare.disabled=false;}
    showVoiceFiles();
    const heard=' James heard: “'+text+'”. Files available: '+(available.map(file=>file.name).join(', ')||'none')+'.';
-   status.textContent=attachmentRequest
+   status.textContent=!filesAvailable&&!matches.length ? 'Could not check James Files. Choose the file here or try again.' : failedFile ? 'Could not load ' + failedFile + '. Choose the file here or try again.' : attachmentRequest
     ? (voiceFiles.length ? 'Matched '+voiceFiles.map(file=>file.name).join(', ')+'. Check the files before preparing for review.' : 'No attachment matched your request. Select the file in Files first, or use Choose Files here.'+heard)
     : 'Check the recipient before preparing for review.';
   }
