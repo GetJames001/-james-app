@@ -891,7 +891,7 @@ function loadLiveWeather(requestPermission=false) {
   if (refresh) refresh.onclick = () => loadLiveWeather(true);
   const finish = () => {
     weatherRefreshInProgress=false;
-    if (refresh) refresh.disabled=false;
+    if (refresh) {refresh.disabled=false;refresh.hidden=tempEl.textContent!=='—';}
   };
   const restoreWeather = () => {
     let saved;
@@ -926,7 +926,12 @@ function loadLiveWeather(requestPermission=false) {
       {enableHighAccuracy:false,timeout:8000,maximumAge:0}
     );
   };
-  const needsPermission = () => {if(!restoreWeather())detailEl.textContent = 'Location permission required';};
+  const needsPermission = () => {
+    if (!restoreWeather()) {
+      detailEl.textContent = 'Location permission required';
+      if (refresh) refresh.hidden=false;
+    }
+  };
   if (!navigator.geolocation) return showLocationUnavailable();
   if (requestPermission) return locate();
   if (!navigator.permissions?.query) return needsPermission();
