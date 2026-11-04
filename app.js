@@ -1280,7 +1280,13 @@ document.addEventListener('DOMContentLoaded', () => {
   $('#appointmentsNext').addEventListener('click',()=>{appointmentDate=shiftAppointmentDate(appointmentDate||localAppointmentDate(),1);renderAppointmentView();});
   $('#appointmentsDate').addEventListener('change',event=>{try{JamesCalendarSync.appointmentDays(event.target.value);appointmentDate=event.target.value;renderAppointmentView();}catch{event.target.value=appointmentDate||localAppointmentDate();}});
   renderAppointmentView();
-  ['calendarRefreshButton','appointmentsRefreshButton'].forEach(id=>$('#'+id)?.addEventListener('click',()=>loadLiveGoogleEvents()));
+  ['calendarRefreshButton','appointmentsRefreshButton'].forEach(id=>$('#'+id)?.addEventListener('click',async event=>{
+    const button=event.currentTarget, label=button.textContent;
+    button.disabled=true;
+    button.textContent='Refreshing…';
+    try { await Promise.allSettled([refreshHotmailCalendar(),loadLiveGoogleEvents()]); }
+    finally { button.textContent=label;button.disabled=false; }
+  }));
   window.addEventListener('pagehide',()=>calendarRefreshController.stop());
   window.addEventListener('pageshow',event=>{if(event.persisted)window.location.reload();});
   loadLiveWeather();
