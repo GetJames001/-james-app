@@ -73,6 +73,13 @@
     const checked=await bridge.verifyIdentity();if(ticket!==revision)return;if(checked.status!=='ready'||!result.isCurrent()||JSON.stringify(identity.current())!==key){clear();throw Error('IDENTITY_UNAVAILABLE');}
     const data=result.result;if(data?.error==='FAST_MODEL_UNAVAILABLE')throw Error('MODEL_UNAVAILABLE');const reply=data.answer||data.final_recommendation?.recommendation;if(!reply)throw Error('EMPTY_ANSWER');
     answer.textContent=reply;
+    if (!external && /\b(?:draft|write|compose)\b.{0,45}\b(?:e-?mail|message)\b/i.test(text)) {
+     const open=doc.createElement('button');
+     open.type='button';
+     open.textContent='Review in Outlook composer';
+     open.onclick=()=>doc.dispatchEvent(new CustomEvent('james:review-outlook-draft',{detail:{text,reply}}));
+     answer.append(open);
+    }
     if(data.final_recommendation?.confidence){const confidence=doc.createElement('p'),value=data.final_recommendation.confidence;confidence.textContent=`Confidence: ${Number.isFinite(value.score)?Math.round(value.score*100)+'%':''} ${value.label||''}`;answer.append(confidence);}
     if(data.final_recommendation){for(const [key,label] of [['reasons','Why'],['key_facts','Key facts'],['risks','Risks'],['what_would_change_the_answer','What would change the answer']]){
      const values=data.final_recommendation[key];if(!Array.isArray(values)||!values.length)continue;

@@ -1782,6 +1782,22 @@ document.addEventListener('DOMContentLoaded',()=>{
  const panel=document.getElementById('outlookComposeReview');
  const status=document.getElementById('outlookComposeStatus');
  const reconnect=document.getElementById('outlookComposeReconnect');
+ document.addEventListener('james:review-outlook-draft',event=>{
+  if(form.hidden||form.querySelector('button[type=submit]').disabled){
+   status.textContent='Finish reviewing the current draft before starting another.';
+  }else{
+   const {text,reply}=event.detail;
+   const recipient=text.match(/\bto\s+([^\s,;<>]+@[^\s,;<>]+\.[a-z]{2,})/i)?.[1];
+   const subject=reply.match(/^Subject:\s*(.+)$/im);
+   form.elements.to.value=recipient?recipient.replace(/[.!?]+$/,''):'';
+   form.elements.subject.value=subject?.[1]||'';
+   form.elements.message.value=subject?reply.slice(subject.index+subject[0].length).trim():reply;
+   status.textContent='Check the recipient and add any attachments before preparing for review.';
+  }
+  page('personalMail');
+  document.getElementById('outlookCompose').open=true;
+ });
+
  const request=async payload=>{
   reconnect.hidden=true;
   const response=await fetch('/api/microsoft/compose',{
