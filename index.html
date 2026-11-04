@@ -226,6 +226,7 @@
       <button id="personalMailBack" type="button">Back</button>
     </div>
     <p class="mail-state-notice" role="status" aria-live="polite"></p>
+<details id="outlookDrafts"><summary>Saved drafts</summary><div id="outlookDraftList"></div></details>
 <details id="outlookCompose" class="customer-reminders">
   <summary>Compose personal email</summary>
   <form id="outlookComposeForm">
@@ -235,6 +236,9 @@
     <label>Message <textarea name="message" maxlength="30000"></textarea></label>
     <label>Attachments <input name="files" type="file" multiple></label>
     <button type="submit">Prepare for review</button>
+    <button type="submit" value="save" formnovalidate>Save</button>
+    <button type="submit" value="close" formnovalidate>Save and close</button>
+    <button type="button" id="outlookDiscard">Discard draft</button>
   </form>
   <div id="voiceAttachmentSelection"></div>
   <div id="outlookComposeReview" hidden></div>

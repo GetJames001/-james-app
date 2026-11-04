@@ -1801,7 +1801,7 @@ document.addEventListener('DOMContentLoaded',()=>{
    Array.from(library.files,file=>file.name).join(', ')||'No files selected.';
  };
  document.addEventListener('james:review-outlook-draft',event=>{
-  if(form.hidden||form.querySelector('button[type=submit]').disabled){
+  if(draftId||form.hidden||form.querySelector('button[type=submit]').disabled){
    status.textContent='Finish reviewing the current draft before starting another.';
   }else{
    const {text,reply}=event.detail;
@@ -1859,10 +1859,58 @@ document.addEventListener('DOMContentLoaded',()=>{
   reader.onload=()=>resolve({name:file.name,contentType:file.type||'application/octet-stream',contentBytes:reader.result.split(',')[1]});
   reader.readAsDataURL(file);
  });
+ let draftId;
+ const composer=document.getElementById('outlookCompose');
+ const drafts=document.getElementById('outlookDrafts');
+ const draftList=document.getElementById('outlookDraftList');
+ function resetComposer(){
+  draftId=undefined;
+  form.reset();form.hidden=false;
+  attachmentRequested=false;voiceFiles=[];showVoiceFiles();
+  panel.replaceChildren();panel.hidden=true;composer.open=false;
+ }
+ async function loadDrafts(){
+  draftList.textContent='Loading Outlook drafts…';
+  try{
+   const {drafts:items}=await request({action:'drafts'});
+   draftList.replaceChildren();
+   for(const item of items){
+    const button=document.createElement('button');
+    button.type='button';button.textContent=item.subject||'(No subject)';
+    button.onclick=async()=>{
+     if(draftId||form.elements.to.value||form.elements.subject.value||form.elements.message.value||form.elements.files.files.length||voiceFiles.length){
+      composer.open=true;status.textContent='Save and close or discard the current draft first.';return;
+     }
+     try{
+      const {id,review}=await request({action:'open',id:item.id});
+      draftId=id;
+      form.elements.to.value=review.to.join(', ');
+      form.elements.subject.value=review.subject;
+      form.elements.message.value=review.message;
+      status.textContent='Saved attachments: '+(review.attachments.map(file=>file.name).join(', ')||'None');
+      composer.open=true;
+     }catch(error){draftList.textContent=error.message;}
+    };
+    draftList.append(button,document.createElement('br'));
+   }
+   if(!items.length)draftList.textContent='No saved drafts.';
+  }catch(error){draftList.textContent=error.message;}
+ }
+ drafts.ontoggle=()=>{if(drafts.open)void loadDrafts();};
+ async function discardDraft(){
+  if(!window.confirm('Discard this email draft?'))return;
+  try{
+   if(draftId)await request({action:'discard',id:draftId});
+   resetComposer();status.textContent='Draft discarded.';
+   if(drafts.open)void loadDrafts();
+  }catch(error){status.textContent=error.message;}
+ }
+ document.getElementById('outlookDiscard').onclick=discardDraft;
  form.onsubmit=async event=>{
   event.preventDefault();
   const submit=form.querySelector('button[type=submit]');
   if(submit.disabled)return;
+  const mode=event.submitter?.value;
   submit.disabled=true;
   status.textContent='Preparing Outlook draft…';
   try{
@@ -1871,9 +1919,18 @@ document.addEventListener('DOMContentLoaded',()=>{
    if(attachmentRequested&&!files.length)throw Error('Add the requested attachment before preparing for review.');
    if(files.length>10||files.reduce((total,file)=>total+file.size,0)>2200000)throw Error('Choose up to 10 files totaling 2.2 MB or less.');
    const {id,review}=await request({
-    action:'prepare',to:fields.get('to').split(',').map(value=>value.trim()),
+    action:mode?'save':'prepare',id:draftId,to:fields.get('to').split(',').map(value=>value.trim()).filter(Boolean),
     subject:fields.get('subject'),message:fields.get('message'),files:await Promise.all(files.map(fileData))
    });
+   draftId=id;
+   form.elements.files.value='';
+   attachmentRequested=false;voiceFiles=[];showVoiceFiles();
+   if(mode){
+    status.textContent='Saved in Outlook Drafts.';
+    if(mode==='close')resetComposer();
+    if(drafts.open)void loadDrafts();
+    return;
+   }
    const details=document.createElement('pre');
    details.style.whiteSpace='pre-wrap';
    details.textContent=[
@@ -1901,11 +1958,7 @@ document.addEventListener('DOMContentLoaded',()=>{
      const result=await request({action,id,revision:review.revision});
      status.textContent=result.status==='sent'?'Confirmed in Outlook Sent Items.':'Submitted to Outlook — confirmation pending';
      if(result.status==='sent'){
-      form.reset();
-      attachmentRequested=false;voiceFiles=[];showVoiceFiles();
-      panel.replaceChildren();
-      panel.hidden=true;
-      form.hidden=false;
+      resetComposer();
       return;
      }
      if(result.status==='not_submitted'){
@@ -1916,7 +1969,12 @@ document.addEventListener('DOMContentLoaded',()=>{
     }catch(error){status.textContent=error.message;}
     action='status';send.textContent='Check Outlook status';send.disabled=false;
    };
-   panel.replaceChildren(details,edit,send);
+   const close=document.createElement('button');
+   close.type='button';close.textContent='Save and close';
+   close.onclick=()=>{resetComposer();status.textContent='Saved in Outlook Drafts.';if(drafts.open)void loadDrafts();};
+   const discard=document.createElement('button');
+   discard.type='button';discard.textContent='Discard draft';discard.onclick=discardDraft;
+   panel.replaceChildren(details,edit,send,close,discard);
    form.hidden=true;panel.hidden=false;status.textContent='Ready to review';
   }catch(error){status.textContent=error.message;}
   finally{submit.disabled=false;}
