@@ -1782,6 +1782,23 @@ document.addEventListener('DOMContentLoaded',()=>{
  const panel=document.getElementById('outlookComposeReview');
  const status=document.getElementById('outlookComposeStatus');
  const reconnect=document.getElementById('outlookComposeReconnect');
+ const library=document.getElementById('voiceAttachmentLibrary');
+ const selection=document.getElementById('voiceAttachmentSelection');
+ let voiceFiles=[];
+ function showVoiceFiles(){
+  selection.replaceChildren();
+  for(const file of voiceFiles){
+   const remove=document.createElement('button');
+   remove.type='button';
+   remove.textContent='Remove '+file.name;
+   remove.onclick=()=>{voiceFiles=voiceFiles.filter(item=>item!==file);showVoiceFiles();};
+   selection.append(remove);
+  }
+ }
+ library.onchange=()=>{
+  document.getElementById('voiceAttachmentLibraryStatus').textContent=
+   Array.from(library.files,file=>file.name).join(', ')||'No files selected.';
+ };
  document.addEventListener('james:review-outlook-draft',event=>{
   if(form.hidden||form.querySelector('button[type=submit]').disabled){
    status.textContent='Finish reviewing the current draft before starting another.';
@@ -1794,7 +1811,15 @@ document.addEventListener('DOMContentLoaded',()=>{
    form.elements.to.value=self?'allproactive@hotmail.com':recipient||'';
    form.elements.subject.value=subject?.[1].trim()||'';
    form.elements.message.value=body.replace(/^\s*(?:\*\*)?(?:To|From)(?:\*\*)?\s*:(?:\*\*)?[^\r\n]*/gim,'').trim();
-   status.textContent='Check the recipient and add any attachments before preparing for review.';
+   form.elements.files.value='';
+   const attachmentRequest=text.match(/\battach(?:ing)?\s+(.+)/i)?.[1]||'';
+   const normalized=value=>value.toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
+   const requested=' '+normalized(attachmentRequest)+' ';
+   voiceFiles=Array.from(library.files).filter(file=>requested.includes(' '+normalized(file.name)+' '));
+   showVoiceFiles();
+   status.textContent=attachmentRequest
+    ? 'Check the recipient and requested files before preparing for review. Use Choose Files for anything missing.'
+    : 'Check the recipient before preparing for review.';
   }
   page('personalMail');
   document.getElementById('outlookCompose').open=true;
@@ -1829,7 +1854,7 @@ document.addEventListener('DOMContentLoaded',()=>{
   status.textContent='Preparing Outlook draft…';
   try{
    const fields=new FormData(form);
-   const files=[...form.elements.files.files];
+   const files=[...voiceFiles,...form.elements.files.files];
    if(files.length>10||files.reduce((total,file)=>total+file.size,0)>2200000)throw Error('Choose up to 10 files totaling 2.2 MB or less.');
    const {id,review}=await request({
     action:'prepare',to:fields.get('to').split(',').map(value=>value.trim()),
@@ -1863,6 +1888,7 @@ document.addEventListener('DOMContentLoaded',()=>{
      status.textContent=result.status==='sent'?'Confirmed in Outlook Sent Items.':'Submitted to Outlook — confirmation pending';
      if(result.status==='sent'){
       form.reset();
+      voiceFiles=[];showVoiceFiles();
       panel.replaceChildren();
       panel.hidden=true;
       form.hidden=false;

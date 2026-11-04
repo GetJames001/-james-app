@@ -236,6 +236,7 @@
     <label>Attachments <input name="files" type="file" multiple></label>
     <button type="submit">Prepare for review</button>
   </form>
+  <div id="voiceAttachmentSelection"></div>
   <div id="outlookComposeReview" hidden></div>
   <p id="outlookComposeStatus" role="status"></p>
   <a id="outlookComposeReconnect" href="/api/microsoft/connect?account=personal" hidden>Reconnect personal Outlook</a>
@@ -367,12 +368,10 @@
         </div>
       </div>
 
-      <div class="cards one compact-cards">
-        <article class="empty-state">
-          <h4>No files available</h4>
-          <p>This view is not connected to a file source.</p>
-        </article>
-      </div>
+      <label>Make files available to James for this session
+        <input id="voiceAttachmentLibrary" type="file" multiple>
+      </label>
+      <p id="voiceAttachmentLibraryStatus" role="status">No files selected.</p>
     </div>
   </section>
 
