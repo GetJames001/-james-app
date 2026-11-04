@@ -895,8 +895,8 @@ function loadLiveWeather(requestPermission=false) {
   };
   const restoreWeather = () => {
     let saved;
-    try { saved=JSON.parse(sessionStorage.getItem('jamesWeatherLocation')); } catch {}
-    if (!saved || Date.now()-saved.savedAt>8*60*60*1000) return false;
+    try { saved=JSON.parse(localStorage.getItem('jamesWeatherLocation') || sessionStorage.getItem('jamesWeatherLocation')); } catch {}
+    if (!saved || Date.now()-saved.savedAt>7*24*60*60*1000) return false;
     weatherRefreshInProgress=true;
     loadWeatherForCoordinates(saved,tempEl,detailEl,'Last known location').finally(finish);
     return true;
@@ -914,7 +914,7 @@ function loadLiveWeather(requestPermission=false) {
     navigator.geolocation.getCurrentPosition(
       ({coords}) => {
         try {
-          sessionStorage.setItem('jamesWeatherLocation',JSON.stringify({
+          localStorage.setItem('jamesWeatherLocation',JSON.stringify({
             latitude:Number(coords.latitude.toFixed(2)),
             longitude:Number(coords.longitude.toFixed(2)),
             savedAt:Date.now()
