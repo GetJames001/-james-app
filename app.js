@@ -1832,7 +1832,7 @@ document.addEventListener('DOMContentLoaded',()=>{
    const heard=' James heard: “'+text+'”. Files available: '+(available.map(file=>file.name).join(', ')||'none')+'.';
    status.textContent=attachmentRequest
     ? (voiceFiles.length ? 'Matched '+voiceFiles.map(file=>file.name).join(', ')+'. Check the files before preparing for review.' : 'No attachment matched your request. Select the file in Files first, or use Choose Files here.'+heard)
-    : 'Check the recipient before preparing for review.'+heard;
+    : 'Check the recipient before preparing for review.';
   }
   page('personalMail');
   document.getElementById('outlookCompose').open=true;
