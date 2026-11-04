@@ -1787,11 +1787,13 @@ document.addEventListener('DOMContentLoaded',()=>{
    status.textContent='Finish reviewing the current draft before starting another.';
   }else{
    const {text,reply}=event.detail;
-   const recipient=text.match(/\bto\s+([^\s,;<>]+@[^\s,;<>]+\.[a-z]{2,})/i)?.[1];
-   const subject=reply.match(/^Subject:\s*(.+)$/im);
-   form.elements.to.value=recipient?recipient.replace(/[.!?]+$/,''):'';
-   form.elements.subject.value=subject?.[1]||'';
-   form.elements.message.value=subject?reply.slice(subject.index+subject[0].length).trim():reply;
+   const self=/\bto\s+(?:myself|me)\b/i.test(text);
+   const recipient=text.match(/\bto\s+([^\s,;<>]+@[^\s,;<>]+\.[a-z]{2,})(?=[\s,;.!?]|$)/i)?.[1];
+   const subject=reply.match(/^\s*(?:\*\*)?Subject(?:\*\*)?\s*:(?:\*\*)?[ \t]*([^\r\n]+)/im);
+   const body=subject?reply.slice(subject.index+subject[0].length):reply;
+   form.elements.to.value=self?'allproactive@hotmail.com':recipient||'';
+   form.elements.subject.value=subject?.[1].trim()||'';
+   form.elements.message.value=body.replace(/^\s*(?:\*\*)?(?:To|From)(?:\*\*)?\s*:(?:\*\*)?[^\r\n]*/gim,'').trim();
    status.textContent='Check the recipient and add any attachments before preparing for review.';
   }
   page('personalMail');
