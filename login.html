@@ -50,7 +50,17 @@
   <script>
     const sceneVideo=document.querySelector('#loginScene');
     const sceneHour=new Date().getHours();
-    const sceneName=sceneHour<6||sceneHour>=21?'night':sceneHour<11?'morning':sceneHour<17?'noon':'evening';
+    const defaultScene=sceneHour<6||sceneHour>=21?'night':sceneHour<11?'morning':sceneHour<17?'noon':'evening';
+    const playableScenes=['morning','noon','evening','night'];
+    let sceneName=defaultScene;
+    try {
+      const prefs=JSON.parse(localStorage.getItem('jamesIntroScreen'));
+      if(prefs?.mode==='fixed'&&playableScenes.includes(prefs.scene))sceneName=prefs.scene;
+      if(prefs?.mode==='rotate'&&Array.isArray(prefs.favorites)){
+        const favorites=playableScenes.filter(name=>prefs.favorites.includes(name));
+        if(favorites.length)sceneName=favorites[Math.floor(Math.random()*favorites.length)];
+      }
+    } catch (_) {}
     let sceneEnabled=!matchMedia('(prefers-reduced-motion: reduce)').matches;
     try{sceneEnabled=sceneEnabled&&localStorage.getItem('jamesAnimation')!=='off';}catch(_){}
     if(sceneEnabled)sceneVideo.src='/login-scene-'+sceneName+'.mp4';

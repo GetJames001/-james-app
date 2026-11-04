@@ -84,5 +84,85 @@
     // Do not leave a stale transition attached to a page restored from history.
     root.addEventListener('pagehide', () => { finish(); stopScene(); }, { once: true });
   }
+  function mountIntroPicker() {
+    const picker=document.getElementById('introScreenPicker');
+    if(!picker)return;
+    const byId=id=>document.getElementById(id);
+    const mode=byId('introMode'), list=byId('introSceneList');
+    const status=byId('introSceneStatus'), video=byId('introSceneVideo'), still=byId('introSceneStill');
+    const previewLabel=byId('introScenePreviewLabel');
+    const scenes=[
+      ['morning','Waterfront Morning'],['noon','Waterfront Afternoon'],
+      ['evening','Waterfront Evening'],['night','Waterfront Night'],
+      ['oceanfront','Oceanfront Twilight · Summer',true],
+      ['forest','Moonlit Forest Retreat · Fall',true],
+      ['penthouse','Las Vegas Penthouse',true],
+      ['winter','Winter Lodge · Winter',true]
+    ];
+    const defaults={mode:'automatic',scene:'morning',favorites:[]};
+    let prefs=defaults;
+    try {
+      const saved=JSON.parse(read('localStorage','jamesIntroScreen'));
+      if(saved&&['automatic','fixed','rotate'].includes(saved.mode)){
+        const playable=scenes.filter(([, ,concept])=>!concept).map(([id])=>id);
+        prefs={mode:saved.mode,scene:playable.includes(saved.scene)?saved.scene:'morning',
+          favorites:Array.isArray(saved.favorites)?playable.filter(id=>saved.favorites.includes(id)):[]};
+      }
+    } catch (_) {}
+    mode.value=prefs.mode;
+    function save(message){
+      try {
+        root.localStorage.setItem('jamesIntroScreen',JSON.stringify(prefs));
+        status.textContent=message;
+      } catch (_) {status.textContent='This browser could not save the intro preference.';}
+    }
+    function stopPreview(){
+      video.pause();video.removeAttribute('src');video.load();video.hidden=true;
+      still.removeAttribute('src');still.hidden=true;previewLabel.hidden=true;
+    }
+    mode.addEventListener('change',()=>{
+      prefs={...prefs,mode:mode.value};
+      save(prefs.mode==='rotate'&&!prefs.favorites.length?'Add a favorite to start rotating scenes.':'Saved on this device.');
+    });
+    byId('introScreenOpen').addEventListener('click',()=>picker.showModal());
+    picker.addEventListener('close',stopPreview);
+    for(const [id,name,concept] of scenes){
+      const row=document.createElement('li');
+      const title=document.createElement('span');
+      title.textContent=name;
+      const preview=document.createElement('button');
+      preview.type='button';preview.textContent=concept?'Preview still':'Preview';
+      preview.setAttribute('aria-label','Preview '+name);
+      preview.onclick=()=>{
+        stopPreview();
+        previewLabel.hidden=false;
+        if(concept){still.src='/assets/scenes/'+id+'.png';still.alt=name;still.hidden=false;}
+        else {
+          video.src='/assets/scenes/'+id+'.mp4';video.hidden=false;
+          if(!root.matchMedia('(prefers-reduced-motion: reduce)').matches)video.play().catch(()=>{});
+        }
+        status.textContent=concept?'Concept still. Motion footage pending.':name+' preview.';
+      };
+      row.append(title,preview);
+      if(!concept){
+        const choose=document.createElement('button');
+        choose.type='button';choose.textContent='Use';
+        choose.setAttribute('aria-label','Use '+name);
+        choose.onclick=()=>{mode.value='fixed';prefs={...prefs,mode:'fixed',scene:id};save(name+' saved on this device.');};
+        const label=document.createElement('label'),favorite=document.createElement('input');
+        favorite.type='checkbox';favorite.checked=prefs.favorites.includes(id);
+        favorite.setAttribute('aria-label','Favorite '+name);
+        favorite.onchange=()=>{
+          const favorites=prefs.favorites.filter(value=>value!==id);
+          if(favorite.checked)favorites.push(id);
+          prefs={...prefs,favorites};save('Favorites saved on this device.');
+        };
+        label.append(favorite,' Favorite');row.append(choose,label);
+      }
+      list.append(row);
+    }
+  }
+  if(document.readyState==='loading')document.addEventListener?.('DOMContentLoaded',mountIntroPicker,{once:true});
+  else mountIntroPicker();
   root.JamesWelcome = Object.freeze({ start, finish, applyTheme, sceneForHour });
 })(window);

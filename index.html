@@ -53,6 +53,7 @@
     </div>
 
     <div class="status-cluster">
+      <button id="introScreenOpen" class="james-theme-toggle" type="button">Intro Screen</button>
       <button id="jamesThemeToggle" class="james-theme-toggle" type="button" aria-label="Use light theme">Light</button>
       <button id="jamesOrb" class="orb mini persistent-orb" aria-label="Talk to James" title="Talk to James">
         <span>J</span>
@@ -498,6 +499,22 @@
 
 <script src="mail-refresh.js"></script>
 <script src="calendar-sync.js"></script>
+<dialog id="introScreenPicker" aria-labelledby="introScreenTitle">
+  <form method="dialog"><button aria-label="Close intro settings">Close</button></form>
+  <h2 id="introScreenTitle">Intro Screen</h2>
+  <label for="introMode">Playback</label>
+  <select id="introMode">
+    <option value="automatic">Automatic</option><option value="fixed">Choose a scene</option><option value="rotate">Rotate favorites</option>
+  </select>
+  <p id="introModeNote">Automatic follows the time of day until seasonal videos are available.</p>
+  <ul id="introSceneList"></ul>
+  <div class="intro-scene-stage">
+    <video id="introSceneVideo" muted playsinline loop controls hidden></video>
+    <img id="introSceneStill" alt="" hidden>
+    <span id="introScenePreviewLabel" hidden>JAMES · SIGN-IN PREVIEW</span>
+  </div>
+  <p id="introSceneStatus" role="status"></p>
+</dialog>
 <script src="welcome.js"></script>
 <script src="conversation-runtime.js"></script>
 <script src="conversation-ui.js"></script>
