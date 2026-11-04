@@ -1785,6 +1785,7 @@ document.addEventListener('DOMContentLoaded',()=>{
  const library=document.getElementById('voiceAttachmentLibrary');
  const selection=document.getElementById('voiceAttachmentSelection');
  let voiceFiles=[];
+ let attachmentRequested=false;
  function showVoiceFiles(){
   selection.replaceChildren();
   for(const file of voiceFiles){
@@ -1812,7 +1813,8 @@ document.addEventListener('DOMContentLoaded',()=>{
    form.elements.subject.value=subject?.[1].trim()||'';
    form.elements.message.value=body.replace(/^\s*(?:\*\*)?(?:To|From)(?:\*\*)?\s*:(?:\*\*)?[^\r\n]*/gim,'').trim();
    form.elements.files.value='';
-   const attachmentRequest=text.match(/\battach(?:ing)?\s+(.+)/i)?.[1]||'';
+   const attachmentRequest=text.match(/\b(?:attach(?:ing)?|include|add)\b[\s:,-]+([\s\S]+)/i)?.[1]||'';
+   attachmentRequested=Boolean(attachmentRequest);
    const digits=['zero','one','two','three','four','five','six','seven','eight','nine'];
    const normalized=value=>value.toLowerCase().replace(/[^a-z0-9]+/g,' ')
     .replace(/\bdot\s+/g,'').replace(/\bp\s+d\s+f\b/g,'pdf')
@@ -1827,9 +1829,10 @@ document.addEventListener('DOMContentLoaded',()=>{
     return short && requested.includes(' '+short+' ') && available.filter(item=>stem(item)===short).length===1;
    });
    showVoiceFiles();
+   const heard=' James heard: “'+text+'”. Files available: '+(available.map(file=>file.name).join(', ')||'none')+'.';
    status.textContent=attachmentRequest
-    ? (voiceFiles.length ? 'Matched '+voiceFiles.map(file=>file.name).join(', ')+'. Check the files before preparing for review.' : 'No attachment matched your request. Select the file in Files first, or use Choose Files here.')
-    : 'Check the recipient before preparing for review.';
+    ? (voiceFiles.length ? 'Matched '+voiceFiles.map(file=>file.name).join(', ')+'. Check the files before preparing for review.' : 'No attachment matched your request. Select the file in Files first, or use Choose Files here.'+heard)
+    : 'Check the recipient before preparing for review.'+heard;
   }
   page('personalMail');
   document.getElementById('outlookCompose').open=true;
@@ -1865,6 +1868,7 @@ document.addEventListener('DOMContentLoaded',()=>{
   try{
    const fields=new FormData(form);
    const files=[...voiceFiles,...form.elements.files.files];
+   if(attachmentRequested&&!files.length)throw Error('Add the requested attachment before preparing for review.');
    if(files.length>10||files.reduce((total,file)=>total+file.size,0)>2200000)throw Error('Choose up to 10 files totaling 2.2 MB or less.');
    const {id,review}=await request({
     action:'prepare',to:fields.get('to').split(',').map(value=>value.trim()),
@@ -1898,7 +1902,7 @@ document.addEventListener('DOMContentLoaded',()=>{
      status.textContent=result.status==='sent'?'Confirmed in Outlook Sent Items.':'Submitted to Outlook — confirmation pending';
      if(result.status==='sent'){
       form.reset();
-      voiceFiles=[];showVoiceFiles();
+      attachmentRequested=false;voiceFiles=[];showVoiceFiles();
       panel.replaceChildren();
       panel.hidden=true;
       form.hidden=false;
