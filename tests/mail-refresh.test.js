@@ -187,3 +187,16 @@ test('reports transient failures without replacing the last successful state', a
   assert.equal(h.failures.length, 1);
   assert.equal(h.failures[0].reason, 'poll');
 });
+
+test('Refresh inbox can fetch immediately after an automatic refresh', async () => {
+  const h = harness();
+  h.controller.start();
+  h.requests[0].resolve({ messages: [{ id: 'old-message' }] });
+  await flushPromises();
+
+  const refresh = h.controller.refresh('inbox-button');
+  assert.equal(h.requests.length, 2);
+  assert.equal(h.controller.refresh('inbox-button'), refresh);
+  h.requests[1].resolve({ messages: [] });
+  assert.deepEqual(await refresh, { messages: [] });
+});

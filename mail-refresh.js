@@ -28,7 +28,7 @@
 
     function refresh(reason = "manual") {
       if (inFlight) return inFlight;
-      if (now() - lastStartedAt < minimumRefreshMs) {
+      if (reason !== "inbox-button" && now() - lastStartedAt < minimumRefreshMs) {
         return Promise.resolve({ skipped: "minimum-interval" });
       }
 

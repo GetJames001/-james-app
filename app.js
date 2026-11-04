@@ -1181,7 +1181,7 @@ if (restoreDetail && savedPage === 'personalMailDetail' && savedMailId) {
 async function requestPersonalMicrosoftMail() {
   if (personalMailMutationPending) throw new Error('Mail status update pending.');
   const version = personalMailStateVersion;
-  const response = await fetch('/api/microsoft/mail?account=personal');
+  const response = await fetch('/api/microsoft/mail?account=personal', { cache: 'no-store' });
   const data = await response.json();
   if (!response.ok) throw new Error(data.error || 'Personal Mail refresh failed.');
   if (version !== personalMailStateVersion || personalMailMutationPending) throw new Error('Discarding an older Mail refresh.');
@@ -1191,6 +1191,7 @@ async function requestPersonalMicrosoftMail() {
 let olderMailCursor = null;
 let olderMailLoaded = false;
 let olderMailLoading = false;
+let olderMailGeneration = 0;
 function updateOlderMailButton() {
   const button = $('#personalMailOlder');
   if (!button) return;
@@ -1198,20 +1199,23 @@ function updateOlderMailButton() {
   button.disabled = olderMailLoading;
   button.onclick = async () => {
     if (!olderMailCursor || olderMailLoading) return;
+    const generation = olderMailGeneration;
     olderMailLoading = true;
     updateOlderMailButton();
     try {
       const response = await fetch('/api/microsoft/mail?account=personal&cursor=' + encodeURIComponent(olderMailCursor), {cache:'no-store'});
       const data = await response.json();
       if (!response.ok || !data.connected || !Array.isArray(data.messages)) throw Error('Older mail unavailable');
-      if (!olderMailCursor) return;
+      if (generation !== olderMailGeneration) return;
       const messages = new Map((window.personalMicrosoftMessages || []).map(message => [message.id, message]));
       for (const message of data.messages) if (!messages.has(message.id)) messages.set(message.id, message);
       window.personalMicrosoftMessages = [...messages.values()];
       olderMailLoaded = true;
       olderMailCursor = data.nextCursor;
       renderPersonalMicrosoftMail(window.personalMicrosoftMessages);
-    } catch { mailStateNotice('Older emails could not be loaded. Try again.'); }
+    } catch {
+      if (generation === olderMailGeneration) mailStateNotice('Older emails could not be loaded. Try again.');
+    }
     finally { olderMailLoading = false; updateOlderMailButton(); }
   };
 }
@@ -1221,6 +1225,7 @@ function applyPersonalMicrosoftMail(data) {
 
   if (!data.connected) {
     personalMailCount.textContent = 'Not connected';
+    olderMailGeneration++;
     olderMailCursor = null;
     olderMailLoaded = false;
     updateOlderMailButton();
@@ -1256,9 +1261,9 @@ function handlePersonalMicrosoftMailError(error) {
   if (personalMailCount) personalMailCount.textContent = '—';
 }
 
-function loadPersonalMicrosoftMail() {
+function loadPersonalMicrosoftMail(reason = 'manual') {
   if (personalMailRefreshController) {
-    return personalMailRefreshController.refresh('manual');
+    return personalMailRefreshController.refresh(reason);
   }
   return requestPersonalMicrosoftMail()
     .then(data => {
@@ -1269,6 +1274,30 @@ function loadPersonalMicrosoftMail() {
       handlePersonalMicrosoftMailError(error);
       return { error };
     });
+}
+async function refreshPersonalInbox(event) {
+  const button = event.currentTarget;
+  const status = $('#personalMailRefreshStatus');
+  button.disabled = true;
+  status.textContent = 'Refreshing inbox…';
+  try {
+    const data = await loadPersonalMicrosoftMail('inbox-button');
+    if (data.error) {
+      status.textContent = 'Could not refresh the inbox. Try again.';
+      return;
+    }
+    if (data.connected) {
+      // Rebuild pagination so deleted or moved messages cannot linger in older pages.
+      olderMailGeneration++;
+      olderMailLoaded = false;
+      applyPersonalMicrosoftMail(data);
+      status.textContent = 'Inbox refreshed.';
+    } else {
+      status.textContent = '';
+    }
+  } finally {
+    button.disabled = false;
+  }
 }
 document.addEventListener('DOMContentLoaded', () => {
   calendarRefreshController=JamesCalendarSync.createCalendarRefreshController({
@@ -1313,6 +1342,7 @@ document.addEventListener('DOMContentLoaded', () => {
     windowTarget: window
   });
   personalMailRefreshController.start();
+  $('#personalMailRefresh').addEventListener('click', refreshPersonalInbox);
   renderTaskPad();
 
 $$(".task-filter").forEach(button => {
