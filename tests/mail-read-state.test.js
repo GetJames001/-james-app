@@ -145,18 +145,18 @@ test('GET stays read-only and existing GET/POST refresh scopes remain unchanged'
   assert.deepEqual(JSON.parse(post.calls[2].options.body),{comment:'synthetic reply'});
 });
 
-test('Personal connect and callback request Mail.ReadWrite while Work scopes are preserved', async () => {
+test('Personal OAuth requests mail and read-only calendar access while Work scopes are preserved', async () => {
   for(const account of ['personal','work']) {
     const connected=await run(request('GET',{}, {query:{path:'api/microsoft/connect',account}}));
     assert.equal(connected.res.statusCode,302);
     const scope=new URL(connected.res.headers.Location).searchParams.get('scope');
-    assert.equal(scope,`openid profile offline_access User.Read ${account==='personal'?'Mail.ReadWrite':'Mail.Read'} Mail.Send`);
+    assert.equal(scope,`openid profile offline_access User.Read ${account==='personal'?'Mail.ReadWrite Mail.Send Calendars.Read':'Mail.Read Mail.Send'}`);
     const callback=await run(request('GET',{}, {query:{path:'api/microsoft/callback',code:'synthetic',state:'state'},
       headers:{cookie:`microsoft_oauth_state=state; microsoft_oauth_account=${account}`}}),
       [reply({refresh_token:'synthetic-refresh'}),reply({result:'OK'})]);
     assert.equal(callback.res.statusCode,200);
     assert.equal(callback.calls[0].options.body.get('scope'), account==='personal'
-      ?'openid profile offline_access User.Read Mail.ReadWrite Mail.Send'
+      ?'openid profile offline_access User.Read Mail.ReadWrite Mail.Send Calendars.Read'
       :'openid profile offline_access User.Read Mail.Read');
   }
 });

@@ -25,6 +25,7 @@ const exactHandlers = new Map([
   ["api/weather", require("../lib/routes/weather.js")],
   ["api/james/workbench", workbench],
   ["api/james/conversation", conversation],
+  ["api/james/files", require("../lib/routes/files.js")],
   ["api/auth/login", login],
   ["api/auth/logout", logout],
   ["api/auth/session", session],
