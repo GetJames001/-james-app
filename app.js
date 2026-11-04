@@ -1816,6 +1816,7 @@ document.addEventListener('DOMContentLoaded',()=>{
    const digits=['zero','one','two','three','four','five','six','seven','eight','nine'];
    const normalized=value=>value.toLowerCase().replace(/[^a-z0-9]+/g,' ')
     .replace(/\bdot\s+/g,'').replace(/\bp\s+d\s+f\b/g,'pdf')
+    .replace(/([a-z])(?=\d)/g,'$1 ').replace(/(\d)(?=[a-z])/g,'$1 ')
     .replace(/\b(zero|one|two|three|four|five|six|seven|eight|nine)\b/g,word=>String(digits.indexOf(word))).trim();
    const requested=' '+normalized(attachmentRequest)+' ';
    const available=Array.from(library.files);

@@ -38,6 +38,7 @@
     })(),new Promise((_,reject)=>{timer=setTimeout(()=>{controller.abort();reject(Error('REQUEST_TIMEOUT'));},limit)})]);
    }catch(error){throw error;}finally{clearTimeout(timer);upstream?.removeEventListener('abort',abort);}
   }
+  const isEmailDraft=text=>/\b(?:draft|write|compose)\b.{0,45}\b(?:e-?mail|message)\b/i.test(text);
   function providerQuestion(text){const recent=[];let size=text.length+40;for(const item of [...history].reverse()){const line=`${item.role}: ${item.text}`;if(size+line.length+1>12000)break;recent.unshift(line);size+=line.length+1;}return ['Recent conversation:',...recent,`User: ${text}`].join('\n');}
   const identityFetch=async(url,options)=>{const ticket=revision;const response=await requestJSON(url,options,8000);if(ticket===revision&&[401,403].includes(response.status)){++revision;bridge?.revoke();identity?.revoke();clear();stopInput();status.textContent='Sign in to continue';}return response;};
   async function runtime(){
@@ -45,7 +46,7 @@
     identity=ownerModule.createConversationIdentityOwner({fetch:identityFetch,newOperationId:()=>crypto.randomUUID()});
     bridge=bridgeModule.createConversationBridge({identityOwner:identity,newId:()=>crypto.randomUUID(),navigate,capabilities:{ask:async({text,signal})=>{
      const database=await root.jamesDatabaseQuestion?.(text,signal);if(database?.answer)return database;if(signal.aborted)throw Error('REQUEST_CANCELLED');const question=database?.question||text;if(question.length>8192)throw Error('CONTEXT_LIMIT');
-     const response=await requestJSON(chooseEndpoint(text),{method:'POST',credentials:'same-origin',cache:'no-store',signal,headers:{'Content-Type':'application/json'},body:JSON.stringify({question:providerQuestion(question),timezone:Intl.DateTimeFormat().resolvedOptions().timeZone})});
+     const response=await requestJSON(chooseEndpoint(text),{method:'POST',credentials:'same-origin',cache:'no-store',signal,headers:{'Content-Type':'application/json'},body:JSON.stringify({question:isEmailDraft(text)?question+'\nReturn a draft only, with Subject: on its own line followed by the email body. Omit recipient headers. James handles recipient and attachments separately in its Outlook composer after this step. Do not ask for the recipient or files, or claim the draft was sent.':providerQuestion(question),timezone:Intl.DateTimeFormat().resolvedOptions().timeZone})});
      const data=await bounded(response.json());
      if(!response.ok){if([502,503].includes(response.status)&&['FAST_MODEL_UNAVAILABLE','FAST_MODEL_NOT_CONFIGURED'].includes(data?.error))return {ok:false,error:data.error};if([401,403].includes(response.status)){++revision;bridge.revoke();identity.revoke();clear();stopInput();status.textContent='Sign in to continue';}throw Error(data?.error==='FAST_MODEL_UNAVAILABLE'?'MODEL_UNAVAILABLE':'REQUEST_FAILED');}if(!data.ok)throw Error('REQUEST_FAILED');
      return database?.databaseWorkspace?{...data,databaseWorkspace:database.databaseWorkspace}:data;
@@ -73,7 +74,7 @@
     const checked=await bridge.verifyIdentity();if(ticket!==revision)return;if(checked.status!=='ready'||!result.isCurrent()||JSON.stringify(identity.current())!==key){clear();throw Error('IDENTITY_UNAVAILABLE');}
     const data=result.result;if(data?.error==='FAST_MODEL_NOT_CONFIGURED')throw Error('MODEL_NOT_CONFIGURED');if(data?.error==='FAST_MODEL_UNAVAILABLE')throw Error('MODEL_UNAVAILABLE');const reply=data.answer||data.final_recommendation?.recommendation;if(!reply)throw Error('EMPTY_ANSWER');
     answer.textContent=reply;
-    if (!external && /\b(?:draft|write|compose)\b.{0,45}\b(?:e-?mail|message)\b/i.test(text)) {
+    if (!external && isEmailDraft(text)) {
      const open=doc.createElement('button');
      open.type='button';
      open.textContent='Review in Outlook composer';
