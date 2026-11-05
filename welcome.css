@@ -69,7 +69,7 @@ html[data-theme="light"] .customer-workspace :is(button,input,textarea,select,su
 @media(prefers-reduced-motion:reduce){#intro .living-scene{display:none;}}
 
 /* Do not flash the former still while the approved movie buffers. Keep it as an error fallback. */
-#intro.intro.scene-awaiting { background-image:var(--welcome-wash); }
+#intro.intro.scene-awaiting { background-image:var(--welcome-wash),var(--welcome-art); }
 
 #introScreenPicker {
   width:min(680px,calc(100% - 24px));
@@ -86,5 +86,8 @@ html[data-theme="light"] .customer-workspace :is(button,input,textarea,select,su
 #introSceneList { padding:0; list-style:none; }
 #introSceneList li { display:flex; flex-wrap:wrap; align-items:center; gap:8px; padding:8px 0; border-bottom:1px solid #ffffff24; }
 #introSceneList li span { flex:1 0 160px; }
+.intro-picker-help {font-size:.9rem;line-height:1.5;color:#e4d9c6;}
+.intro-picker-help summary {cursor:pointer;}
+.intro-picker-help p {margin:8px 0;}
 .intro-scene-stage { position:relative; }
 .intro-scene-stage :is(video,img) { width:100%; border-radius:12px; }

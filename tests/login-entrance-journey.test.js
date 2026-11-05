@@ -22,11 +22,12 @@ test('login handoff requires signed-in app, continuous entrance and Briefing',as
    if(relative==='/login'||relative==='/login.html')return route.fulfill({contentType:'text/html',body:fs.readFileSync(path.join(root,'login.html'),'utf8')});
    let filename=relative.replace(/^\//,'');
    if(filename.startsWith('login-scene-'))filename='assets/scenes/'+filename.replace('login-scene-','');
+   if(filename.startsWith('login-poster-'))filename='assets/scenes/'+filename.replace('login-poster-','');
    if(filename==='login-art-dark.png')filename='assets/welcome-dark.png';
    if(filename==='login-art-light.png')filename='assets/welcome-light.png';
    const full=path.resolve(root,filename);
    if(!full.startsWith(root+path.sep)||!fs.existsSync(full)||!fs.statSync(full).isFile())return route.fulfill({status:404});
-   const type=filename.endsWith('.mp4')?'video/mp4':filename.endsWith('.js')?'text/javascript':filename.endsWith('.css')?'text/css':filename.endsWith('.png')?'image/png':'text/plain';
+   const type=filename.endsWith('.mp4')?'video/mp4':filename.endsWith('.jpg')?'image/jpeg':filename.endsWith('.js')?'text/javascript':filename.endsWith('.css')?'text/css':filename.endsWith('.png')?'image/png':'text/plain';
    return route.fulfill({contentType:type,body:fs.readFileSync(full)});
   });
   await page.goto('https://james.test/login');

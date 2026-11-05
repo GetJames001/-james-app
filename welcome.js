@@ -11,7 +11,7 @@
     const existing=document.getElementById('loginScene');
     if(read('localStorage','jamesAnimation')==='off'||!document.createElement){scene=existing;return;}
     const intro=document.getElementById('intro');if(!intro)return;
-    if(existing&&existing.isConnected&&existing.currentSrc){
+    if(existing&&existing.isConnected&&(existing.currentSrc||existing.getAttribute?.('src'))){
       scene=existing;
       const reveal=()=>{if(finished||scene!==existing)return;existing.classList.add('playing');existing.style.opacity='1';intro.style.backgroundImage='var(--welcome-wash)';intro.style.backgroundColor='transparent';};
       if(existing.classList.contains('playing'))reveal();
@@ -30,7 +30,9 @@
       else reveal();
     });
     video.addEventListener('error',()=>{if(scene===video)stopScene();},{once:true});
-    video.src='assets/scenes/'+sceneForHour(new Date().getHours())+'.mp4';intro.prepend(video);
+    const selected=root.JamesEntrance?.current;
+    if(selected)video.poster=selected.poster;
+    video.src='assets/scenes/'+(selected?.name||sceneForHour(new Date().getHours()))+'.mp4';intro.prepend(video);
     try{const pending=video.play();pending?.catch(()=>{if(scene===video)stopScene();});}catch{stopScene();}
   }
   const read = (store, key) => { try { return root[store].getItem(key); } catch (_) { return null; } };
@@ -115,7 +117,20 @@
       }
     } catch (_) {}
     mode.value=prefs.mode;
+    function explainMode(){
+      const note=byId('introModeNote');
+      if(!note)return;
+      note.textContent=prefs.mode==='automatic'
+        ?'Waterfront follows your local time: morning, midday, evening or night.'
+        :prefs.mode==='fixed'
+          ?'Use a scene below to keep it for each sign-in.'
+          :prefs.favorites.length
+            ?'Each new sign-in picks from your favorites. With two or more, it will not repeat the previous favorite.'
+            :'Mark Favorite on the scenes you want to rotate. With none selected, Waterfront follows the day.';
+    }
+    explainMode();
     function save(message){
+      explainMode();
       try {
         root.localStorage.setItem('jamesIntroScreen',JSON.stringify(prefs));
         status.textContent=message;

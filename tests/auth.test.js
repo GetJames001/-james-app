@@ -611,7 +611,7 @@ test("public login content is generic, no-store, and contains no configured iden
   assert.equal(res.statusCode, 200);
   assert.match(String(res.headers["Cache-Control"]), /no-store/);
   assert.doesNotMatch(res.body, /Michael|michael@example\.com|configured identity/i);
-  assert.match(res.body, /private James workspace/i);
+  assert.match(res.body, /aria-label="Sign in to James"/i);
 });
 
 
