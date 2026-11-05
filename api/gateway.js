@@ -86,7 +86,7 @@ module.exports = async function handler(req, res) {
     res.setHeader("Location", "/customer-demo");
     return res.status(302).end();
   }
-  if (route === 'login-art-dark.png' || route === 'login-art-light.png' || /^login-scene-(morning|noon|evening|night|oceanfront)\.mp4$/.test(route)) return loginPage.artwork(req,res,route);
+  if (route === 'login-art-dark.png' || route === 'login-art-light.png' || loginPage.matchLoginScene(route)) return loginPage.artwork(req,res,route);
   if (route === "login" || route === "login.html") return loginPage(req, res);
   if (route === "" || route === "index.html") return app(req, res);
   if (route === "calendar-test.html" || route === "council-test.html") {

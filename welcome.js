@@ -89,22 +89,24 @@
     if(!picker)return;
     const byId=id=>document.getElementById(id);
     const mode=byId('introMode'), list=byId('introSceneList');
-    const status=byId('introSceneStatus'), video=byId('introSceneVideo'), still=byId('introSceneStill');
-    const previewLabel=byId('introScenePreviewLabel');
+    const status=byId('introSceneStatus'), video=byId('introSceneVideo');
     const scenes=[
       ['waterfront','Waterfront · Follows the day'],
       ['oceanfront','Oceanfront Twilight'],
-      ['strip-terrace','Strip Terrace',false,true],
-      ['forest','Moonlit Forest Retreat',true],
-      ['penthouse','Las Vegas Penthouse',true],
-      ['winter','Winter Lodge',true]
+      ['strip-terrace','Strip Terrace'],
+      ['red-rock-terrace','Red Rock Terrace'],
+      ['corner-penthouse','Corner Penthouse'],
+      ['fontainebleau-penthouse','Fontainebleau Penthouse'],
+      ['moonlit-forest','Moonlit Forest Retreat'],
+      ['winter-lodge','Winter Lodge'],
+      ['beach','Beach']
     ];
     const defaults={mode:'automatic',scene:'waterfront',favorites:[]};
     let prefs=defaults;
     try {
       const saved=JSON.parse(read('localStorage','jamesIntroScreen'));
       if(saved&&['automatic','fixed','rotate'].includes(saved.mode)){
-        const playable=scenes.filter(([, ,concept,privatePreview])=>!concept&&!privatePreview).map(([id])=>id);
+        const playable=scenes.map(([id])=>id);
         prefs={mode:saved.mode,scene:playable.includes(saved.scene)?saved.scene:'waterfront',
           favorites:Array.isArray(saved.favorites)?playable.filter(id=>saved.favorites.includes(id)):[]};
       }
@@ -118,7 +120,6 @@
     }
     function stopPreview(){
       video.pause();video.removeAttribute('src');video.load();video.hidden=true;
-      still.removeAttribute('src');still.hidden=true;previewLabel.hidden=true;
     }
     mode.addEventListener('change',()=>{
       prefs={...prefs,mode:mode.value};
@@ -126,40 +127,36 @@
     });
     byId('introScreenOpen').addEventListener('click',()=>picker.showModal());
     picker.addEventListener('close',stopPreview);
-    for(const [id,name,concept,privatePreview] of scenes){
+    for(const [id,name] of scenes){
       const row=document.createElement('li');
       const title=document.createElement('span');
       title.textContent=name;
       const preview=document.createElement('button');
-      preview.type='button';preview.textContent=concept?'Preview still':'Preview';
+      preview.type='button';preview.textContent='Preview';
       preview.setAttribute('aria-label','Preview '+name);
       preview.onclick=()=>{
         stopPreview();
-        previewLabel.hidden=false;
-        if(concept){still.src='/assets/scenes/'+id+'.png';still.alt=name;still.hidden=false;}
-        else {
-          const clip=id==='waterfront'?sceneForHour(new Date().getHours()):id;
-          video.src='/assets/scenes/'+clip+'.mp4';video.hidden=false;
-          if(!root.matchMedia('(prefers-reduced-motion: reduce)').matches)video.play().catch(()=>{});
-        }
-        status.textContent=concept?'Still preview':name;
+        const clip=id==='waterfront'?sceneForHour(new Date().getHours()):id;
+        video.src='/assets/scenes/'+clip+'.mp4';video.hidden=false;
+        if(!root.matchMedia('(prefers-reduced-motion: reduce)').matches)video.play().catch(()=>{});
+        status.textContent=name;
       };
       row.append(title,preview);
-      if(!concept&&!privatePreview){
-        const choose=document.createElement('button');
-        choose.type='button';choose.textContent='Use';
-        choose.setAttribute('aria-label','Use '+name);
-        choose.onclick=()=>{mode.value='fixed';prefs={...prefs,mode:'fixed',scene:id};save(name+' saved on this device.');};
-        const label=document.createElement('label'),favorite=document.createElement('input');
-        favorite.type='checkbox';favorite.checked=prefs.favorites.includes(id);
-        favorite.setAttribute('aria-label','Favorite '+name);
-        favorite.onchange=()=>{
-          const favorites=prefs.favorites.filter(value=>value!==id);
-          if(favorite.checked)favorites.push(id);
-          prefs={...prefs,favorites};save('Favorites saved on this device.');
-        };
-        label.append(favorite,' Favorite');row.append(choose,label);
-      }
+      const choose=document.createElement('button');
+      choose.type='button';choose.textContent='Use';
+      choose.setAttribute('aria-label','Use '+name);
+      choose.onclick=()=>{
+        mode.value='fixed';prefs={...prefs,mode:'fixed',scene:id};save(name+' saved on this device.');
+      };
+      const label=document.createElement('label'),favorite=document.createElement('input');
+      favorite.type='checkbox';favorite.checked=prefs.favorites.includes(id);
+      favorite.setAttribute('aria-label','Favorite '+name);
+      favorite.onchange=()=>{
+        const favorites=prefs.favorites.filter(value=>value!==id);
+        if(favorite.checked)favorites.push(id);
+        prefs={...prefs,favorites};save('Favorites saved on this device.');
+      };
+      label.append(favorite,' Favorite');row.append(choose,label);
       list.append(row);
     }
   }

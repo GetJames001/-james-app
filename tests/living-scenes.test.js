@@ -22,3 +22,22 @@ function res(){return {statusCode:200,headers:{},setHeader(k,v){this.headers[k]=
 test('all four actual media files are protected and served byte-exactly',async()=>{for(const n of ['morning','noon','evening','night']){const denied=res();await gateway(req(n,'GET','bytes=0-1',false),denied);assert.equal(denied.statusCode,401);assert.equal(denied.headers['Content-Range'],undefined);const r=res();await gateway(req(n),r);assert.equal(r.statusCode,200);assert.equal(r.headers['Content-Type'],'video/mp4');assert.deepEqual(r.body,fs.readFileSync('assets/scenes/'+n+'.mp4'));assert.match(r.headers['Cache-Control'],/private/);}});
 test('Safari byte probes, suffixes, open ranges and HEAD return correct bounds',async()=>{const b=fs.readFileSync('assets/scenes/noon.mp4');for(const [range,start,end] of [['bytes=0-1',0,1],['bytes=-10',b.length-10,b.length-1],['bytes=10-',10,b.length-1],['bytes=0-999999999',0,b.length-1]]){const r=res();await gateway(req('noon','GET',range),r);assert.equal(r.statusCode,206);assert.deepEqual(r.body,b.subarray(start,end+1));assert.equal(r.headers['Content-Range'],`bytes ${start}-${end}/${b.length}`);}const head=res();await gateway(req('noon','HEAD','bytes=0-1'),head);assert.equal(head.statusCode,206);assert.equal(head.body,undefined);assert.equal(head.headers['Content-Length'],2);});
 test('invalid/multipart/outside ranges and unknown scene names fail closed',async()=>{for(const range of ['bytes=2-1','bytes=999999999-','bytes=-0','bytes=0-1,3-4','bytes=-','bytes=x-y']){const r=res();await gateway(req('noon','GET',range),r);assert.equal(r.statusCode,416,range);}const r=res();await gateway(req('other'),r);assert.equal(r.statusCode,404);});
+test('all newly selectable entrances have matching Preview and sign-in media',async()=>{
+  const clips=['strip-terrace','red-rock-terrace','corner-penthouse','fontainebleau-penthouse','moonlit-forest','winter-lodge','beach'];
+  for(const name of clips){
+    const request=req(name,'GET','bytes=0-15',false);
+    request.query.path='login-scene-'+name+'.mp4';
+    const login=res();
+    await gateway(request,login);
+    assert.equal(login.statusCode,206,name);
+    assert.equal(login.headers['Content-Type'],'video/mp4');
+    assert.deepEqual(login.body,fs.readFileSync('assets/scenes/'+name+'.mp4').subarray(0,16));
+    const preview=res();
+    await gateway(req(name,'GET','bytes=0-15'),preview);
+    assert.equal(preview.statusCode,206,name);
+    assert.deepEqual(preview.body,login.body);
+  }
+  const denied=res();
+  await gateway(req('strip-terrace','GET','bytes=0-15',false),denied);
+  assert.equal(denied.statusCode,401);
+});

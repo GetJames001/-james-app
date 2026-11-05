@@ -88,4 +88,3 @@ html[data-theme="light"] .customer-workspace :is(button,input,textarea,select,su
 #introSceneList li span { flex:1 0 160px; }
 .intro-scene-stage { position:relative; }
 .intro-scene-stage :is(video,img) { width:100%; border-radius:12px; }
-#introScenePreviewLabel { position:absolute; pointer-events:none; top:50%; left:50%; transform:translate(-50%,-50%); padding:12px; border-radius:8px; background:#101c2baa; font-size:.8rem; letter-spacing:.12em; text-align:center; }

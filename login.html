@@ -13,20 +13,23 @@
     *{box-sizing:border-box}
     body{margin:0;min-height:100vh;display:grid;align-items:center;justify-items:end;padding:24px clamp(24px,6vw,88px);background:var(--paper);isolation:isolate;font-family:Inter,system-ui,-apple-system,sans-serif;color:var(--ink)}
     body::before{content:"";position:fixed;inset:0;z-index:-2;background-image:var(--art);background-size:cover;background-position:center;filter:blur(3px)}
-    #loginScene{position:fixed;inset:0;width:100%;height:100%;object-fit:cover;z-index:0;pointer-events:none;opacity:0;transition:opacity .2s ease}
+    #loginScene{position:fixed;inset:0;width:100%;height:100%;object-fit:cover;object-position:var(--scene-crop,center);z-index:0;pointer-events:none;opacity:0;transition:opacity .2s ease}
     #loginScene.playing{opacity:1}
     .login-brand{z-index:2;position:fixed;top:clamp(24px,5vw,64px);left:clamp(24px,6vw,88px);font:clamp(1.7rem,3.4vw,3rem) Georgia,serif;letter-spacing:.17em;color:var(--gold)}
     main{position:relative;z-index:2;width:min(100%,310px);padding:20px;border:1px solid var(--line);border-radius:20px;background:var(--card);box-shadow:0 18px 70px rgba(0,0,0,.3);backdrop-filter:blur(5px)}
-    body[data-scene-panel="left"]{justify-items:start}
+    body[data-scene-panel$="left"]{justify-items:start}
+    body[data-scene-panel^="lower"]{align-items:end}
+    body[data-scene-panel="upper-right"]{align-items:start;padding-top:clamp(70px,12vh,130px)}
     h1{font:2rem Georgia,serif;font-weight:400;margin:8px 0 10px}
     p{color:var(--muted);line-height:1.5}
     label{display:block;margin-top:18px;font-size:.82rem;font-weight:700;letter-spacing:.08em}
     input{width:100%;margin-top:7px;padding:13px 14px;border:1px solid var(--line);border-radius:10px;background:var(--input);color:var(--ink);font:inherit}
     button{width:100%;margin-top:22px;padding:13px;border:0;border-radius:999px;background:linear-gradient(180deg,#9a752d,#80601f);color:white;font:inherit;font-weight:700;cursor:pointer}
+    #loginSceneAudio{position:fixed;z-index:2;top:24px;right:24px;width:auto;margin:0;padding:8px 12px;background:var(--card);border:1px solid var(--line);color:var(--ink);font-size:.82rem}
     button:disabled{opacity:.55;cursor:wait}
     #message{min-height:24px;margin:14px 0 0;color:var(--ink);font-size:.9rem}
     :is(input,button):focus-visible{outline:3px solid var(--gold);outline-offset:3px}
-    @media(max-width:600px){body{min-height:100svh;align-items:end;padding:80px 16px max(16px,env(safe-area-inset-bottom))}main{width:min(100%,275px);padding:16px}}
+    @media(max-width:600px){body{min-height:100svh;align-items:end;padding:80px 16px max(16px,env(safe-area-inset-bottom))}main{width:min(100%,245px);padding:14px}body[data-scene-panel="upper-right"]{padding-top:80px}}
     @media(max-height:540px){body{padding-top:60px}.login-brand{position:absolute;top:16px}main{padding:16px}}
   </style>
 </head>
@@ -34,6 +37,7 @@
   <script>try{document.documentElement.dataset.theme=localStorage.getItem('jamesTheme')==='light'?'light':'dark';}catch(_){}</script>
   <video id="loginScene" muted playsinline autoplay preload="auto" aria-hidden="true" tabindex="-1"></video>
   <div class="login-brand" aria-hidden="true">JAMES</div>
+  <button id="loginSceneAudio" type="button" aria-pressed="false" hidden>Sound</button>
   <main aria-label="Sign in to James">
     <h1>Welcome back.</h1>
     <form id="loginForm">
@@ -47,9 +51,21 @@
   </main>
   <script>
     const sceneVideo=document.querySelector('#loginScene');
+    const sceneAudio=document.querySelector('#loginSceneAudio');
+    sceneAudio.addEventListener('click',()=>{
+      sceneVideo.muted=!sceneVideo.muted;
+      sceneAudio.setAttribute('aria-pressed',String(!sceneVideo.muted));
+    });
     const sceneHour=new Date().getHours();
     const defaultScene=sceneHour<6||sceneHour>=21?'night':sceneHour<11?'morning':sceneHour<17?'noon':'evening';
-    const playableScenes=['waterfront','oceanfront'];
+    const sceneLayouts={
+      morning:['left','68%'], noon:['left','72%'], evening:['left','70%'], night:['left','74%'],
+      oceanfront:['left','75%'], 'strip-terrace':['upper-right','50%'],
+      'red-rock-terrace':['lower-right','35%'], 'corner-penthouse':['left','81%'],
+      'fontainebleau-penthouse':['lower-left','57%'], 'moonlit-forest':['left','64%'],
+      'winter-lodge':['lower-left','69%'], beach:['lower-right','62%']
+    };
+    const playableScenes=['waterfront',...Object.keys(sceneLayouts).filter(name=>!['morning','noon','evening','night'].includes(name))];
     let sceneName=defaultScene;
     try {
       const prefs=JSON.parse(localStorage.getItem('jamesIntroScreen'));
@@ -60,20 +76,24 @@
       }
     } catch (_) {}
     if(sceneName==='waterfront')sceneName=defaultScene;
-    const panelSideByScene = {
-      morning: 'left', noon: 'left', evening: 'left', night: 'left', oceanfront: 'left'
-    };
-    document.body.dataset.scenePanel = panelSideByScene[sceneName] || 'right';
+    function applySceneLayout(name) {
+      const [panel,crop]=sceneLayouts[name];
+      document.body.dataset.scenePanel=panel;
+      document.body.style.setProperty('--scene-crop',crop+' center');
+    }
+    applySceneLayout(sceneName);
     let sceneEnabled=!matchMedia('(prefers-reduced-motion: reduce)').matches;
     try{sceneEnabled=sceneEnabled&&localStorage.getItem('jamesAnimation')!=='off';}catch(_){}
-    if(sceneEnabled)sceneVideo.src='/login-scene-'+sceneName+'.mp4';
     sceneVideo.addEventListener('playing',()=>{
-      const reveal=()=>sceneVideo.classList.add('playing');
+      const reveal=()=>{sceneVideo.classList.add('playing');sceneAudio.hidden=false;};
       if(sceneVideo.requestVideoFrameCallback)sceneVideo.requestVideoFrameCallback(reveal);else reveal();
     },{once:true});
-    sceneVideo.addEventListener('error',()=>{sceneVideo.classList.remove('playing');sceneVideo.removeAttribute('src');});
+    sceneVideo.addEventListener('error',()=>{sceneVideo.classList.remove('playing');sceneAudio.hidden=true;sceneVideo.removeAttribute('src');});
     sceneVideo.loop=sceneEnabled;
-    if(sceneEnabled)sceneVideo.play().catch(()=>sceneVideo.classList.remove('playing'));
+    if(sceneEnabled){
+      sceneVideo.src='/login-scene-'+sceneName+'.mp4';
+      sceneVideo.play().catch(()=>sceneVideo.classList.remove('playing'));
+    }
     // Replay the approved scene until the Perspective is complete.
     // Reuse this media element during the authenticated handoff.
     const form = document.querySelector('#loginForm');
@@ -154,7 +174,7 @@
         for(const node of bodyNodes)document.body.append(document.importNode(node,true));
         const intro=document.querySelector('#intro');
         // Keep the existing video connected through authentication.
-        existingScene.style.cssText='position:fixed;inset:0;width:100%;height:100%;object-fit:cover;pointer-events:none;z-index:11;filter:none;transition:opacity .65s ease';
+        existingScene.style.cssText='position:fixed;inset:0;width:100%;height:100%;object-fit:cover;object-position:var(--scene-crop,center);pointer-events:none;z-index:11;filter:none;transition:opacity .65s ease';
         existingScene.style.opacity=existingScene.classList.contains('playing')?'1':'0';
         intro.style.zIndex='12';
         // Keep the sign-in overlay until all protected app scripts are loaded.
@@ -185,6 +205,7 @@
         document.getElementById('loginOnlyStyle')?.remove();
         document.querySelector('.login-brand')?.remove();
         loginPanel.remove();
+        sceneAudio.remove();
         mark('overlayRemoved');
         intro.style.removeProperty('display');document.getElementById('app').style.removeProperty('display');
         document.title=parsed.title;
