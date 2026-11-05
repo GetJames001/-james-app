@@ -2,7 +2,7 @@
 // authenticates a client-supplied owner or creates a conversation identity.
 const plain = v => v && Object.getPrototypeOf(v) === Object.prototype;
 const id = v => typeof v === 'string' && /^[a-zA-Z0-9_-]{1,160}$/.test(v);
-const doors = new Set(['briefing', 'calendar', 'wardrobe', 'finance', 'health', 'growth', 'tasks', 'files', 'workbench']);
+const doors = new Set(['briefing', 'calendar', 'wardrobe', 'finance', 'health', 'growth', 'tasks', 'files', 'workbench', 'customer-database', 'personalMail', 'attention', 'conversations', 'travel', 'insights']);
 const keys = (v, allowed) => plain(v) && Object.keys(v).every(k => allowed.includes(k));
 function context(value = {}) {
   if (!keys(value, ['projectId','outfitId','versionId','garmentId']) || !Object.values(value).every(id)) throw Error('Invalid selection');
@@ -116,7 +116,7 @@ export function createConversationBridge({identityOwner, navigate, capabilities,
   }
   function end() {const active=!!identity;invalidate('ended');return {status:active?'ended':'closed'};}
   return {
-    verifyIdentity,submitTurn,attachVoice,navigate:navigateTo,interruptReply,end,
+    verifyIdentity,submitTurn,attachVoice,detachVoice:adapter=>{if(voice===adapter)detachVoice(false)},navigate:navigateTo,interruptReply,end,
     revoke:()=>invalidate('revoked'),
     snapshot:()=>({identity:identity?{...identity}:null,workspace:door,selection:{...selection},workspaceSelections:Object.fromEntries([...selections].map(([key,value])=>[key,{...value}])),pending:pending.size,voiceAttached:!!voice}),
     subscribeEvents(fn){if(typeof fn!=='function')throw Error('Observer required');listeners.add(fn);return ()=>listeners.delete(fn)}

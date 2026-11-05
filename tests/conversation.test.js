@@ -176,3 +176,13 @@ test('superseded identity authentication rejection cannot erase a newer confirme
  f.input.value='First';let task=f.ui.ask();await f.flush();f.pending[0].resolve('First reply');await task;delay=true;const stale=f.ui.snapshotWorkspaceIdentity().catch(()=>null);await f.flush();
  f.input.value='Replacement';task=f.ui.ask();await f.flush();f.pending[1].resolve('New confirmed reply');await task;release();await stale;assert.equal(f.answer.textContent,'New confirmed reply');assert.equal(f.status.textContent,'Ready');assert.match([...cache.data.values()][0],/New confirmed reply/);
 });
+
+test('voice shares the verified typed history and detaches without ending the conversation',async()=>{
+ const f=await fixture();const adapter={subscribeTurn:()=>()=>{},end(){},interruptReply(){}};
+ const prepared=await f.ui.prepareVoice(adapter);assert.equal(prepared.scope.accountId,prepared.identityOwner.current().accountId);
+ assert.equal(await f.ui.rememberVoice(prepared.scope,'Spoken fixture question','Spoken fixture answer'),true);
+ await f.ui.navigate('files');f.input.value='Continue that conversation';const pending=f.ui.ask();await f.flush();
+ assert.match(JSON.parse(f.pending[0].options.body).question,/Spoken fixture question[\s\S]*Spoken fixture answer/);f.pending[0].resolve('Continued');await pending;
+ f.ui.detachVoice(adapter);const again=await f.ui.prepareVoice(adapter);assert.deepEqual(again.scope,prepared.scope);
+ await f.ui.end();assert.equal(await f.ui.rememberVoice(prepared.scope,'Late speech','Late answer'),false);
+});

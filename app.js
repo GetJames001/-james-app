@@ -39,6 +39,7 @@ async function refreshHotmailCalendar() {
 }
 let briefingEvents = [];
 let tasks = [];
+let taskReadState = "loading";
 let taskSaving = false;
 let removedTask = null;
 function taskNotice(message) {
@@ -392,10 +393,12 @@ async function loadTasks() {
 
     const data = await response.json();
     tasks = Array.isArray(data.tasks) ? data.tasks : [];
+    taskReadState = Array.isArray(data.tasks) ? "available" : "unavailable";
     renderTaskPad();
   } catch (error) {
     console.error("Task load failed:", error);
     tasks = [];
+    taskReadState = "unavailable";
     renderTaskPad();
   }
 }
@@ -635,6 +638,7 @@ function pageNow(id){
   sessionStorage.setItem('jamesCurrentPage', id);
   $$('nav button').forEach(b => b.classList.toggle('active', b.dataset.page === id));
   $$('.page').forEach(p => p.classList.toggle('active', p.id === id));
+  window.dispatchEvent(new Event('james:page-changed'));
   if(id === 'briefing') scheduleCalendarRelayout(true);
   if(id === 'appointments')renderAppointmentView();
   if(id === 'files')document.dispatchEvent(new Event('james:files-opened'));
@@ -648,17 +652,10 @@ function pageNow(id){
 }
 function panel(k,t,html){ $('#panelKicker').textContent = k; $('#panelTitle').textContent = t; $('#panelBody').innerHTML = html; $('#backdrop').classList.add('open'); }
 function closePanel(){ $('#backdrop').classList.remove('open'); }
-function speak(text){
-  const start = localStorage.getItem('jamesStart') || 'home';
-    const script = text || `Good morning, Michael. I have your route starting from ${start}. Your next appointment is ${$('#nextTitle').textContent}. Leave by ${$('#leaveBy').textContent}. Otherwise, your day looks manageable.`;
-  if('speechSynthesis' in window){ speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(script); u.rate=.96; u.pitch=.9; speechSynthesis.speak(u); }
-  else panel('JAMES','Daily Briefing',`<p>${script}</p>`);
-}
-
 function setOrbState(state='idle'){
   const orb = $('#jamesOrb');
   if(!orb) return;
-  orb.classList.remove('listening','speaking','attention');
+  orb.classList.remove('listening','speaking','thinking','connecting','muted','attention');
   if(state !== 'idle') orb.classList.add(state);
 }
 
@@ -1416,7 +1413,6 @@ if (personalMailDetailBack) {
 }
   $('#close').onclick = closePanel;
   $('#backdrop').onclick = e => { if(e.target === $('#backdrop')) closePanel(); };
-  $('#jamesOrb').onclick = () => { setOrbState('listening'); speak(); setTimeout(() => setOrbState('idle'), 3200); };
   
   setGreeting();
   renderJamesPerspective();
@@ -1426,48 +1422,26 @@ if (personalMailDetailBack) {
     if(document.visibilityState==='visible')renderJamesPerspective();
   });
   setInterval(renderJamesPerspective,60000);
-  intro();const SpeechRecognition =
-  window.SpeechRecognition || window.webkitSpeechRecognition;
-
-const voiceJamesButton = $("#voiceJamesButton");
-let stopJamesDictation=()=>{},dictationTimer,dictationActive=false;
-
-if (SpeechRecognition && voiceJamesButton) {
-  const recognition = new SpeechRecognition();
-  stopJamesDictation=()=>{dictationActive=false;clearTimeout(dictationTimer);recognition.abort();voiceJamesButton.textContent='🎤 Speak';};
-
-  recognition.lang = "en-US";
-  recognition.interimResults = false;
-  recognition.maxAlternatives = 1;
-
-  voiceJamesButton.onclick = () => {
-    dictationActive=true;
-    voiceJamesButton.textContent = "🎤 Listening...";
-    recognition.start();
+  intro();
+  const jamesLocalDay=date=>`${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,"0")}-${String(date.getDate()).padStart(2,"0")}`;
+  const readJamesCalendar=date=>{
+    try{JamesCalendarSync.appointmentDays(date);}catch{return {status:'invalid_date'};}
+    const day=new Date(date+'T12:00:00'),now=new Date(),lower=new Date(now.getFullYear(),now.getMonth(),now.getDate()-1),upper=new Date(now.getFullYear(),now.getMonth(),now.getDate()+89);
+    if(day<lower||day>upper)return {status:'outside_loaded_range',date,message:'This date has not been read. The current connected calendar reader covers approximately today through the next 89 days.'};
+    const selected=JamesCalendarSync.eventsForDay(liveEvents,day),rows=[...selected.timed.map(row=>row[5]),...selected.allDay];
+    return {date,timezone:Intl.DateTimeFormat().resolvedOptions().timeZone,google:{...calendarSyncState},hotmail:$('#hotmailCalendarStatus')?.textContent||'Not checked',events:rows.slice(0,50).map(e=>({title:String(e.title||'').slice(0,200),start:e.start,end:e.end,location:String(e.location||'').slice(0,300),allDay:e.allDay})),truncated:rows.length>50,totalAvailable:rows.length};
   };
-
-  recognition.onresult = (event) => {
-  if(!dictationActive)return;
-  const transcript = event.results[0][0].transcript;
-  $("#jamesQuestion").value = transcript;
-  voiceJamesButton.textContent = "🎤 Speak";
-
-  dictationTimer=setTimeout(() => {
-    if(!dictationActive)return;
-    $("#askJamesButton").click();
-  }, 700);
-};
-
-  recognition.onerror = () => {
-    voiceJamesButton.textContent = "🎤 Speak";
-  };
-
-  recognition.onend = () => {
-    voiceJamesButton.textContent = "🎤 Speak";
-  };
-}
-
-  window.jamesConversationUI=window.JamesConversationUI.mount({input:$('#jamesQuestion'),answer:$('#jamesAnswer'),askButton:$('#askJamesButton'),stopInput:()=>{stopJamesDictation();window.speechSynthesis?.cancel();},navigate:async door=>{const id=door==='calendar'?'appointments':door;if(id==='workbench'||document.getElementById('workbench')?.classList.contains('active'))return await window.jamesWorkbenchNavigate?.(id);page(id);return true;},chooseEndpoint:question=>!detectUtility(question)&&shouldUseCouncil(question)?'/api/council':'/api/fast'});
+  const readJamesBriefing=()=>({
+    localTime:new Date().toLocaleString(),calendar:readJamesCalendar(jamesLocalDay(new Date())),
+    perspective:jamesPerspectiveForDate(),tasks:{status:taskReadState,items:tasks.slice(0,60).map(task=>({title:String(task.text||task.title||'').slice(0,300),completed:task.status==='completed'})),truncated:tasks.length>60},
+    weather:{temperature:$('#weatherTemp')?.textContent,detail:$('#weatherDetail')?.textContent},
+    mail:{personalUnread:$('#personalEmailCount')?.textContent||'Unavailable',workUnread:$('#workEmailCount')?.textContent||'Unavailable'},
+    travel:{connected:false,calendarWrites:false,departureAddressVerified:false},
+    attention:'Not scanned for this briefing; do not infer no urgent messages.'
+  });
+  const getJamesContext=()=>({page:document.querySelector('.page.active')?.id||'briefing',localTime:new Date().toLocaleString(),timezone:Intl.DateTimeFormat().resolvedOptions().timeZone,calendar:readJamesCalendar(jamesLocalDay(new Date())),travel:{connected:false,calendarWrites:false}});
+  window.jamesConversationUI=window.JamesConversationUI.mount({input:$('#jamesQuestion'),answer:$('#jamesAnswer'),askButton:$('#askJamesButton'),stopInput:()=>{window.jamesVoice?.close();window.speechSynthesis?.cancel();},getContext:getJamesContext,navigate:async door=>{const id=door==='calendar'?'appointments':door;if(id==='workbench'||document.getElementById('workbench')?.classList.contains('active'))return await window.jamesWorkbenchNavigate?.(id);page(id);return true;},chooseEndpoint:question=>!detectUtility(question)&&shouldUseCouncil(question)?'/api/council':'/api/fast'});
+  window.jamesVoice=window.JamesVoiceSession.mount({ui:window.jamesConversationUI,orb:$('#jamesOrb'),button:$('#voiceJamesButton'),setState:setOrbState,readBriefing:readJamesBriefing,readCalendar:async date=>{try{applyGoogleEvents(await JamesCalendarSync.readCalendar(fetch));await refreshHotmailCalendar();}catch{calendarSyncState.state=calendarSyncState.hasData?'stale':'unavailable';}return readJamesCalendar(date);}});
   window.addEventListener('pagehide',()=>window.jamesConversationUI?.suspend());
 });
 
