@@ -121,7 +121,7 @@
         // Hosting instrumentation is optional and may be forbidden by the login CSP.
         const appScriptPaths = new Set([
           '/mail-refresh.js','/calendar-sync.js','/welcome.js',
-          '/conversation-runtime.js','/conversation-ui.js','/app.js',
+          '/conversation-runtime.js','/conversation-ui.js','/voice-session.js','/mail-attention.js','/app.js',
           '/customer-database-ui.js','/workbench/host.mjs'
         ]);
         const scripts = [...parsed.body.querySelectorAll('script')].flatMap(node=>{
