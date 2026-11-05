@@ -99,7 +99,10 @@
       ['fontainebleau-penthouse','Fontainebleau Penthouse'],
       ['moonlit-forest','Moonlit Forest Retreat'],
       ['winter-lodge','Winter Lodge'],
-      ['beach','Beach']
+      ['beach','Beach'],
+      ['red-rock-snow','Red Rock Snow'],
+      ['winter-storm-penthouse','Winter Storm Penthouse'],
+      ['aurora-from-orbit','Aurora from Orbit']
     ];
     const defaults={mode:'automatic',scene:'waterfront',favorites:[]};
     let prefs=defaults;

@@ -61,10 +61,12 @@
     const defaultScene=sceneHour<6||sceneHour>=21?'night':sceneHour<11?'morning':sceneHour<17?'noon':'evening';
     const sceneLayouts={
       morning:['left','68%'], noon:['left','72%'], evening:['left','70%'], night:['left','74%'],
-      oceanfront:['left','75%'], 'strip-terrace':['upper-right','50%'],
+      oceanfront:['right','75%'], 'strip-terrace':['upper-right','50%'],
       'red-rock-terrace':['lower-right','35%'], 'corner-penthouse':['lower-center','58%'],
       'fontainebleau-penthouse':['lower-left','57%'], 'moonlit-forest':['left','64%'],
-      'winter-lodge':['lower-left','69%'], beach:['lower-right','62%']
+      'winter-lodge':['lower-left','69%'], beach:['lower-right','62%'],
+      'red-rock-snow':['lower-right','28%'], 'winter-storm-penthouse':['lower-right','51%'],
+      'aurora-from-orbit':['upper-right','42%']
     };
     const playableScenes=['waterfront',...Object.keys(sceneLayouts).filter(name=>!['morning','noon','evening','night'].includes(name))];
     let sceneName=defaultScene;

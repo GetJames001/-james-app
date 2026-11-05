@@ -23,7 +23,7 @@ test('all four actual media files are protected and served byte-exactly',async()
 test('Safari byte probes, suffixes, open ranges and HEAD return correct bounds',async()=>{const b=fs.readFileSync('assets/scenes/noon.mp4');for(const [range,start,end] of [['bytes=0-1',0,1],['bytes=-10',b.length-10,b.length-1],['bytes=10-',10,b.length-1],['bytes=0-999999999',0,b.length-1]]){const r=res();await gateway(req('noon','GET',range),r);assert.equal(r.statusCode,206);assert.deepEqual(r.body,b.subarray(start,end+1));assert.equal(r.headers['Content-Range'],`bytes ${start}-${end}/${b.length}`);}const head=res();await gateway(req('noon','HEAD','bytes=0-1'),head);assert.equal(head.statusCode,206);assert.equal(head.body,undefined);assert.equal(head.headers['Content-Length'],2);});
 test('invalid/multipart/outside ranges and unknown scene names fail closed',async()=>{for(const range of ['bytes=2-1','bytes=999999999-','bytes=-0','bytes=0-1,3-4','bytes=-','bytes=x-y']){const r=res();await gateway(req('noon','GET',range),r);assert.equal(r.statusCode,416,range);}const r=res();await gateway(req('other'),r);assert.equal(r.statusCode,404);});
 test('all newly selectable entrances have matching Preview and sign-in media',async()=>{
-  const clips=['strip-terrace','red-rock-terrace','corner-penthouse','fontainebleau-penthouse','moonlit-forest','winter-lodge','beach'];
+  const clips=['strip-terrace','red-rock-terrace','corner-penthouse','fontainebleau-penthouse','moonlit-forest','winter-lodge','beach','red-rock-snow','winter-storm-penthouse','aurora-from-orbit'];
   for(const name of clips){
     const request=req(name,'GET','bytes=0-15',false);
     request.query.path='login-scene-'+name+'.mp4';
