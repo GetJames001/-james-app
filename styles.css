@@ -74,6 +74,17 @@ html.james-session-active #intro {
 .james-voice-panel button,.james-voice-panel select{margin:6px 6px 0 0;padding:8px}
 .james-voice-panel a{display:block;margin:8px 0;color:inherit}
 .james-voice-transcript{max-height:24vh;overflow:auto;white-space:pre-wrap}
+.action-sheet{max-width:1100px;margin:auto}
+.action-tabs{display:flex;gap:12px;flex-wrap:wrap;margin:18px 0 28px;border-bottom:1px solid var(--gs);padding-bottom:12px}
+.action-tabs button,.action-sheet button,#workbenchFiles,#filesWorkbenchBack{border:1px solid var(--gs);border-radius:999px;background:transparent;color:inherit;padding:9px 16px}
+.action-tabs [aria-current=page]{background:var(--gs);border-color:var(--gold)}
+.action-help{font-size:.85rem;color:var(--muted);line-height:1.5;max-width:70ch}
+.mail-review-list{display:grid;gap:18px;margin-top:24px}
+.mail-review-list article{border-top:1px solid var(--gs);padding:20px 0}
+.mail-review-list article h3{font:1.2rem Georgia,serif;margin:0 0 8px}
+.mail-review-list article p{max-width:75ch;line-height:1.5;overflow-wrap:anywhere}
+.mail-review-list article button{margin:6px 10px 0 0}
+.saved-attention{margin-top:28px;border-top:1px solid var(--gs);padding-top:18px}
 @media(prefers-reduced-motion:reduce){.persistent-orb,.persistent-orb::before,.persistent-orb::after{animation:none!important;transition:none!important}}
 .persistent-orb.attention{animation:jamesOrbAttention 4.8s ease-in-out infinite}
 @keyframes jamesOrbAttention{0%,72%,100%{transform:scale(1);filter:brightness(1)}82%{transform:scale(1.055);filter:brightness(1.1)}90%{transform:scale(1);filter:brightness(1)}}

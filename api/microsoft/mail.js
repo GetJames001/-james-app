@@ -177,7 +177,7 @@ if (req.method === "POST") {
         error: "Microsoft Mail could not be read.",
       });
     }
-const inboxMessages = new URL("https://graph.microsoft.com/v1.0/me/mailFolders/inbox/messages?$top=25&$select=id,subject,from,receivedDateTime,isRead,bodyPreview,body&$orderby=receivedDateTime%20desc");
+const inboxMessages = new URL("https://graph.microsoft.com/v1.0/me/mailFolders/inbox/messages?$top=25&$select=id,subject,from,receivedDateTime,isRead,bodyPreview,body,importance,flag&$orderby=receivedDateTime%20desc");
 const cursor = req.query.cursor;
 if (cursor !== undefined) {
   if (account !== "personal" || typeof cursor !== "string" || !/^\d{1,12}$/.test(cursor)) {
@@ -222,6 +222,8 @@ const messages = messagesData.value.map(message => ({
         "Unknown sender",
       receivedDateTime: message.receivedDateTime,
       isRead: message.isRead,
+      importance: message.importance || "normal",
+      flagStatus: message.flag?.flagStatus || "notFlagged",
       preview: message.bodyPreview || "",
     body: message.body?.content || ''
     }));

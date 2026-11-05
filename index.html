@@ -74,11 +74,9 @@
   <nav id="nav">
     <button class="active" data-page="briefing">Briefing</button>
     <button data-page="appointments">Appointments</button>
-    <button data-page="conversations">Conversations</button>
-    <button data-page="attention">Attention</button>
-    <button data-page="tasks">Tasks</button>
+    <button data-page="personalMail">Mail</button>
+    <button data-page="attention">To Do</button>
     <button data-page="travel">Travel</button>
-    <button data-page="files">Files</button>
     <button data-page="workbench">Workbench</button>
     <button data-page="customer-database">Customer Information</button>
     <button id="jamesNav" class="james-nav" data-page="insights">
@@ -310,16 +308,23 @@
     </div>
   </section>
 
-  <section id="attention" class="page"><div id="attentionView" aria-label="Attention List"></div></section>
+  <section id="attention" class="page">
+    <div class="sheet action-sheet"><h1>To Do</h1><p>What needs a decision, and what you have committed to doing.</p>
+    <div class="action-tabs" aria-label="To Do sections"><button type="button" data-action-page="attention" aria-current="page">Needs attention</button><button type="button" data-action-page="tasks">My tasks</button></div>
+    <div id="mailAttentionView"></div>
+    <details class="saved-attention"><summary>Previously saved attention review</summary><div id="attentionView" aria-label="Attention List"></div></details>
+    </div>
+  </section>
 
   <section id="tasks" class="page">
     <div class="sheet content-narrow">
       <div class="sheet-head">
         <div>
-          <small>TASKS</small>
-          <h3>Commitments James is protecting.</h3>
+          <small>TO DO</small>
+          <h3>My tasks</h3>
         </div>
       </div>
+<div class="action-tabs" aria-label="To Do sections"><button type="button" data-action-page="attention">Needs attention</button><button type="button" data-action-page="tasks" aria-current="page">My tasks</button></div>
 <div class="task-create">
   <input
     id="taskTitleInput"
@@ -371,7 +376,8 @@
     <div class="sheet content-wide">
       <div class="sheet-head">
         <div>
-          <small>FILES</small>
+          <button id="filesWorkbenchBack" type="button">Back to Workbench</button>
+          <small>WORKBENCH · ALL FILES</small>
           <h3>The documents your day depends on.</h3>
         </div>
       </div>
@@ -495,7 +501,7 @@
     <span>GETJAMES.AI</span>
   </footer>
 
-<section id="workbench" class="page"><div class="sheet"><button id="workbenchExit" type="button">Save and return to Briefing</button><button id="workbenchCancelReply" type="button" hidden>Cancel reply</button><p id="workbenchStatus" role="status"></p><div id="workbenchRoot" hidden></div></div></section>
+<section id="workbench" class="page"><div class="sheet"><button id="workbenchFiles" type="button">All Files</button><button id="workbenchExit" type="button">Save and return to Briefing</button><button id="workbenchCancelReply" type="button" hidden>Cancel reply</button><p id="workbenchStatus" role="status"></p><div id="workbenchRoot" hidden></div></div></section>
 </main>
 
 <script src="mail-refresh.js"></script>
@@ -519,6 +525,7 @@
 <script src="conversation-runtime.js"></script>
 <script src="conversation-ui.js"></script>
 <script src="voice-session.js"></script>
+<script src="mail-attention.js"></script>
 <script src="app.js"></script>
 <link rel="stylesheet" href="/customer-database.css">
 <script src="/customer-database-ui.js"></script>
