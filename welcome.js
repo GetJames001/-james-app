@@ -93,11 +93,11 @@
     const previewLabel=byId('introScenePreviewLabel');
     const scenes=[
       ['waterfront','Waterfront · Follows the day'],
-      ['oceanfront','Oceanfront Twilight · Summer'],
-      ['strip-terrace','Strip Terrace · Private preview',false,true],
-      ['forest','Moonlit Forest Retreat · Fall',true],
+      ['oceanfront','Oceanfront Twilight'],
+      ['strip-terrace','Strip Terrace',false,true],
+      ['forest','Moonlit Forest Retreat',true],
       ['penthouse','Las Vegas Penthouse',true],
-      ['winter','Winter Lodge · Winter',true]
+      ['winter','Winter Lodge',true]
     ];
     const defaults={mode:'automatic',scene:'waterfront',favorites:[]};
     let prefs=defaults;
@@ -142,7 +142,7 @@
           video.src='/assets/scenes/'+clip+'.mp4';video.hidden=false;
           if(!root.matchMedia('(prefers-reduced-motion: reduce)').matches)video.play().catch(()=>{});
         }
-        status.textContent=concept?'Concept still. Motion footage pending.':name+' preview.';
+        status.textContent=concept?'Still preview':name;
       };
       row.append(title,preview);
       if(!concept&&!privatePreview){
