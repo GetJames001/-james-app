@@ -1,6 +1,6 @@
 (function(root){
  'use strict';
- function mount({ui,orb,button,settingsButton,setState,readWeather=()=>({status:"unavailable"}),readBriefing=()=>({status:"unavailable"}),readCalendar=async()=>({status:"unavailable"}),fetcher=fetch,media=root.navigator.mediaDevices,Peer=root.RTCPeerConnection}){
+ function mount({ui,orb,button,settingsButton,setState,prepareAppointment=async()=>({status:"unavailable"}),readAppointmentReview=()=>({status:"none"}),readRoute=()=>({status:"unavailable"}),readWeather=()=>({status:"unavailable"}),readBriefing=()=>({status:"unavailable"}),readCalendar=async()=>({status:"unavailable"}),fetcher=fetch,media=root.navigator.mediaDevices,Peer=root.RTCPeerConnection}){
   const doc=orb.ownerDocument,panel=doc.createElement('aside'),status=doc.createElement('p'),transcript=doc.createElement('p'),mute=doc.createElement('button'),stop=doc.createElement('button'),interrupt=doc.createElement('button');
   panel.className='james-voice-panel';panel.hidden=true;panel.setAttribute('aria-label','James conversation');
   status.setAttribute('role','status');transcript.className='james-voice-transcript';
@@ -41,6 +41,9 @@
     if(!args||typeof args!=='object'||Array.isArray(args))throw Error();
     if(!await ui.verifyVoice(s.scope)||!current(s))return close('Conversation changed. Tap James to reconnect.');
     if(item.name==='read_weather'&&Object.keys(args).length===0)output=readWeather();
+    else if(item.name==='read_route'&&Object.keys(args).length===0)output=readRoute();
+    else if(item.name==='read_appointment_review'&&Object.keys(args).length===0)output=readAppointmentReview();
+    else if(item.name==='prepare_appointment'&&Object.keys(args).sort().join('|')==='end|location|start|timeZone|title')output=await prepareAppointment(args);
     else if(item.name==='read_briefing'&&Object.keys(args).length===0)output=readBriefing();
     else if(item.name==='read_calendar'&&Object.keys(args).join('|')==='date'&&/^\d{4}-\d{2}-\d{2}$/.test(args.date))output=await readCalendar(args.date);
     else if(item.name==='open_page'&&Object.keys(args).join('|')==='page'&&typeof args.page==='string')output=await ui.navigate(args.page);
