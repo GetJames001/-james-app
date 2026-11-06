@@ -893,3 +893,8 @@ nav [data-page="attention"].has-attention{border-color:var(--gold);box-shadow:0 
 .routing-controls button{margin:4px 6px 4px 0;padding:8px 12px;border:1px solid #6b7280;border-radius:8px;background:transparent;color:inherit;cursor:pointer}
 .routing-controls button:disabled{opacity:.6;cursor:wait}
 .routing-controls small{display:block;opacity:.8}
+
+.appointment-review{width:min(38rem,calc(100vw - 48px));max-height:85vh;overflow:auto;border:1px solid #b99a65;border-radius:16px;background:#0b1724;color:#f6efe3;padding:24px}
+.appointment-review::backdrop{background:#0009}
+.appointment-review h2{margin-top:0}.appointment-review dt{color:#d9bb86;margin-top:12px}.appointment-review dd{margin:4px 0;overflow-wrap:anywhere}
+.appointment-review button{padding:10px 14px;margin:6px 8px 0 0;border:1px solid #b99a65;border-radius:8px;background:transparent;color:inherit;cursor:pointer}.appointment-review button:disabled{opacity:.5;cursor:wait}

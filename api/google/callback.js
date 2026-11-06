@@ -12,6 +12,7 @@ module.exports = async function handler(req, res) {
   }
 
   if(typeof req.query?.state==='string'&&req.query.state.startsWith('gmail-'))return require('../../lib/google/gmail-connect.js').callback(req,res);
+  if(typeof req.query?.state==='string'&&req.query.state.startsWith('appointment-'))return require('../../lib/appointments/connect.js').callback(req,res);
 
   let redirectUri, tokenKey;
   try { tokenKey = googleRefreshTokenKey(); redirectUri = googleRedirectUri(req); }

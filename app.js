@@ -1472,15 +1472,21 @@ if (personalMailDetailBack) {
     const selected=JamesCalendarSync.eventsForDay(liveEvents,day),rows=[...selected.timed.map(row=>row[5]),...selected.allDay];
     return {date,timezone:Intl.DateTimeFormat().resolvedOptions().timeZone,google:{...calendarSyncState},hotmail:$('#hotmailCalendarStatus')?.textContent||'Not checked',events:rows.slice(0,50).map(e=>({title:String(e.title||'').slice(0,200),start:e.start,end:e.end,location:String(e.location||'').slice(0,300),allDay:e.allDay})),truncated:rows.length>50,totalAvailable:rows.length};
   };
+  window.jamesAppointments=window.JamesAppointments.mount({onCreated:async()=>{try{applyGoogleEvents(await JamesCalendarSync.readCalendar(fetch));await refreshHotmailCalendar();}catch{calendarSyncState.state=calendarSyncState.hasData?'stale':'unavailable';}}});
+  $('#appointmentSavingSetup').onclick=()=>window.jamesAppointments.setup();
+  const readJamesRoute=()=>{
+    if(!nextDriveResult||nextDriveResult.key!==nextDriveKey()||Date.parse(nextDriveResult.expiresAt)<=Date.now())return {status:'unavailable',startingPointSelected:Boolean(nextDriveOrigin),nextStep:'Choose a starting point and Estimate next drive inside Next Appointment.'};
+    return {status:'ready',appointmentTitle:nextAppointment()?.[2],driveSeconds:nextDriveResult.driveSeconds,trafficDelaySeconds:nextDriveResult.trafficDelaySeconds,estimatedLeaveBy:nextDriveResult.estimatedLeaveBy,trafficBasis:nextDriveResult.trafficBasis,bufferMinutes:nextDriveResult.bufferMinutes,observedAt:nextDriveResult.observedAt,expiresAt:nextDriveResult.expiresAt,calendarChanged:false};
+  };
   const readJamesBriefing=()=>({
     localTime:new Date().toLocaleString(),calendar:readJamesCalendar(jamesLocalDay(new Date())),
     perspective:jamesPerspectiveForDate(),tasks:{status:taskReadState,items:tasks.slice(0,60).map(task=>({title:String(task.text||task.title||'').slice(0,300),completed:task.status==='completed'})),truncated:tasks.length>60},
     weather:{...readJamesWeather(),temperature:$('#weatherTemp')?.textContent,detail:$('#weatherDetail')?.textContent},
     mail:{personalUnread:$('#personalEmailCount')?.textContent||'Unavailable',workUnread:$('#workEmailCount')?.textContent||'Unavailable'},
-    travel:{connected:false,calendarWrites:false,departureAddressVerified:false},
+    travel:{route:readJamesRoute(),calendarCreate:'review_and_permission_required'},
     attention:'Not scanned for this briefing; do not infer no urgent messages.'
   });
-  const getJamesContext=()=>({page:document.querySelector('.page.active')?.id||'briefing',localTime:new Date().toLocaleString(),timezone:Intl.DateTimeFormat().resolvedOptions().timeZone,weather:readJamesWeather(),calendar:readJamesCalendar(jamesLocalDay(new Date())),travel:{connected:false,calendarWrites:false}});
+  const getJamesContext=()=>({page:document.querySelector('.page.active')?.id||'briefing',localTime:new Date().toLocaleString(),timezone:Intl.DateTimeFormat().resolvedOptions().timeZone,weather:readJamesWeather(),calendar:readJamesCalendar(jamesLocalDay(new Date())),travel:{route:readJamesRoute(),calendarCreate:'review_and_permission_required'},appointmentReview:window.jamesAppointments.read()});
   window.jamesConversationUI=window.JamesConversationUI.mount({input:$('#jamesQuestion'),answer:$('#jamesAnswer'),askButton:$('#askJamesButton'),stopInput:()=>{window.jamesVoice?.close();window.speechSynthesis?.cancel();},getContext:getJamesContext,navigate:async door=>{const id=door==='calendar'?'appointments':door;if(id==='workbench'||document.getElementById('workbench')?.classList.contains('active'))return await window.jamesWorkbenchNavigate?.(id);page(id);return true;},chooseEndpoint:question=>!detectUtility(question)&&shouldUseCouncil(question)?'/api/council':'/api/fast'});
   mailAttentionView=window.JamesMailAttention.mount($('#mailAttentionView'),{
     refresh:async()=>{},
@@ -1510,7 +1516,7 @@ if (personalMailDetailBack) {
   for(const button of document.querySelectorAll('[data-action-page]'))button.onclick=()=>page(button.dataset.actionPage);
   $('#workbenchFiles').onclick=()=>page('files');
   $('#filesWorkbenchBack').onclick=()=>page('workbench');
-  window.jamesVoice=window.JamesVoiceSession.mount({ui:window.jamesConversationUI,orb:$('#jamesOrb'),button:$('#voiceJamesButton'),settingsButton:$('#voiceSettingsOpen'),setState:setOrbState,readWeather:readJamesWeather,readBriefing:readJamesBriefing,readCalendar:async date=>{try{applyGoogleEvents(await JamesCalendarSync.readCalendar(fetch));await refreshHotmailCalendar();}catch{calendarSyncState.state=calendarSyncState.hasData?'stale':'unavailable';}return readJamesCalendar(date);}});
+  window.jamesVoice=window.JamesVoiceSession.mount({ui:window.jamesConversationUI,orb:$('#jamesOrb'),button:$('#voiceJamesButton'),settingsButton:$('#voiceSettingsOpen'),setState:setOrbState,prepareAppointment:details=>window.jamesAppointments.prepare(details),readAppointmentReview:()=>window.jamesAppointments.read(),readRoute:readJamesRoute,readWeather:readJamesWeather,readBriefing:readJamesBriefing,readCalendar:async date=>{try{applyGoogleEvents(await JamesCalendarSync.readCalendar(fetch));await refreshHotmailCalendar();}catch{calendarSyncState.state=calendarSyncState.hasData?'stale':'unavailable';}return readJamesCalendar(date);}});
   window.addEventListener('pagehide',()=>window.jamesConversationUI?.suspend());
 });
 
