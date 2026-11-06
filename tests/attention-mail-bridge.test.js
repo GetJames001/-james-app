@@ -35,7 +35,7 @@ function fixture(){
 }
 test('scan is authorized, account-scoped, bounded and saved with existing optimistic-concurrency store',async()=>{
  const f=fixture();assert.equal((await f.request({origin:'https://foreign.test'})).code,403);assert.equal((await f.request({query:{accountId:'other'}})).code,400);assert.equal((await f.request({body:{messages:[bill]}})).code,400);assert.equal((await f.request({method:'GET'})).code,405);assert.deepEqual(f.counts(),{mailReads:0,writes:0});
- assert.equal((await f.request()).code,200);assert.deepEqual(f.counts(),{mailReads:1,writes:1});const raw=f.raw();assert.doesNotMatch(raw,/owner@example.test/);f.fail();assert.equal((await f.request()).code,503);const view=projectReview(JSON.parse(f.raw()));assert.equal(view.items[0].id,bill.id,'provider failures do not erase the saved review');assert.equal(view.stale,true);
+ assert.equal((await f.request({body:'{}'})).code,200);assert.deepEqual(f.counts(),{mailReads:1,writes:1});const raw=f.raw();assert.doesNotMatch(raw,/owner@example.test/);f.fail();assert.equal((await f.request()).code,503);const view=projectReview(JSON.parse(f.raw()));assert.equal(view.items[0].id,bill.id,'provider failures do not erase the saved review');assert.equal(view.stale,true);
 });
 test('capacity refuses growth without deleting earlier inventory',()=>{
  const many=Array.from({length:25},(_,i)=>({...bill,id:'m'+i}));let saved=null;
@@ -50,5 +50,28 @@ test('live gateway rejects unsigned and foreign-origin scan requests before mail
    const res={setHeader(){},status(n){this.code=n;return this;},json(data){this.body=data;return this;}};
    await gateway({method:'POST',headers:{...headers,'content-type':'application/json'},query:{path:'api/attention/scan'},body:{}},res);assert.ok([401,403].includes(res.code));
   }assert.equal(calls,0);
+ }finally{global.fetch=original;}
+});
+test('real route preserves inherited Node request headers in saved reads and nested mailbox reads',async()=>{
+ const auth=require('../lib/auth.js'),gateway=require('../api/gateway.js');
+ process.env.JAMES_AUTH_EMAIL='bridge-fixture@example.test';process.env.JAMES_SESSION_SECRET='synthetic-bridge-session-secret-0123456789';process.env.KV_REST_API_URL='https://bridge-kv.invalid';process.env.KV_REST_API_TOKEN='synthetic-only';
+ const headers={host:'www.getjames.ai',origin:'https://www.getjames.ai','content-type':'application/json',cookie:auth.SESSION_COOKIE+'='+auth.createSessionToken(process.env.JAMES_AUTH_EMAIL)};
+ const original=global.fetch;let writes=0;
+ global.fetch=async(url,options)=>{
+  if(url==='https://bridge-kv.invalid'){
+   const parts=JSON.parse(options.body);
+   if(parts[0]==='GET')return Response.json({result:parts[1].startsWith('microsoft:')?'synthetic-refresh':null});
+   assert.equal(parts[0],'EVAL');writes++;return Response.json({result:1});
+  }
+  if(String(url).startsWith('https://login.microsoftonline.com/'))return Response.json({access_token:'synthetic-access'});
+  if(String(url).includes('unreadItemCount'))return Response.json({unreadItemCount:1});
+  assert.match(String(url),/graph.microsoft.com.*inbox\/messages/);return Response.json({value:[{id:'fixture-mail',subject:'Payment due',bodyPreview:'Verify statement',from:{emailAddress:{name:'Fixture'}}}]});
+ };
+ const response=()=>({setHeader(){},status(n){this.code=n;return this;},json(data){this.body=data;return this;}});
+ try{
+  for(const method of ['GET','POST']){
+   const req=Object.create({get headers(){return headers;},get method(){return method;}});req.query={path:method==='GET'?'api/attention':'api/attention/scan'};req.body=method==='POST'?'{}':undefined;
+   const res=response();await gateway(req,res);assert.equal(res.code,200);if(method==='GET')assert.equal(res.body.status,'not_checked');else assert.equal(res.body.saved,true);
+  }assert.equal(writes,1);
  }finally{global.fetch=original;}
 });
