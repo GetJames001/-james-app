@@ -1,0 +1,31 @@
+# Existing mail-monitoring audit — November 5, 2026
+
+Michael asked to reuse Dot / Job Assistant's existing email monitoring before building another scanner. No mailbox, task, trip, calendar, credential or automation changes were made during this audit.
+
+## Verified reusable work
+
+1. Recovered Career_Monitor_Verification_2026-10-23(4).zip, Library libfile_02df055312188191afe78a5d8d6c04c7. Inspected monitor_core.py, test_monitor_core.py, live_audit.py and README; reran 31 synthetic regressions plus 6 selected saved-email replay tests: 37 passed. This Python module explicitly has no mailbox connection or sending behavior. It contains classification, job-alert extraction, grouping with source preservation, obligation reconciliation, paging checks, coverage/staleness checks, version guards, overlap windows and pure monitor-health logic. It is a processing reference, not a deployed backend or installed watchdog. The job-alert parser is career-specific; do not misrepresent it as a travel itinerary parser.
+2. Verification report, Library libfile_c825529885fc81918bbaa630ed1f4ec2, read in full. It explicitly requires live adapters, durable storage, folder/window checkpoints, recovery and actual schedule/delivery acceptance before calling the monitor complete. Direct Gmail had a message missing from Outlook in a documented test; forwarding cannot substitute for direct Gmail coverage.
+3. Read current Michael_Warren_Application_Tracker.txt, Library libfile_37b7905a11608191908cda3764123647, version 118, opening operational checkpoints. It records actual dual-provider connector reviews: Outlook folder enumeration and paged Inbox/Junk/Deleted/Archive/Sent windows, direct Gmail in:anywhere paging, evidence and completion reconciliation, unresolved coverage/backlog and notification limitations. This establishes an operational ChatGPT review workflow, not a James-hosted API. Do not import its private career inventory wholesale into James, alter its schedule, or reopen previously completed items.
+4. Recovered context links Dot's important-message/bill alerts to the approved Attention concept. No standalone Dot scanner API or deployable source was identified. This does not prove no other artifact exists; retain that distinction.
+5. James already contains lib/attention/evaluator.cjs and snapshot-store.cjs: source/account validation, freshness and incomplete extraction, evidence/deadline/reminder policy, optimistic concurrency and durable snapshot support. lib/routes/attention.js currently reads saved snapshots only. It does not call mailbox adapters or the triage endpoint. Reuse these boundaries rather than creating another competing Attention store.
+
+## Current James host, independently inspected
+
+- Existing Microsoft personal-mail route reads recent Inbox messages, initially 25 with explicit older-page loading. Loaded messages feed conservative client-side mail-attention.js suggestions and draft-only task conversion. This is not a complete mailbox or background scan.
+- api/microsoft/triage.js already implements bounded model classification of client-supplied messages, but current app does not invoke it. Do not treat its presence as an operating monitor. Any future use needs validated output, evidence and safe treatment of email content as untrusted data.
+- api/google/connect.js currently requests calendar.readonly only. No Gmail mail adapter is present in this host. ChatGPT's Gmail/Outlook connector access is separate from James's OAuth grants; never copy connector credentials into the app or assume Calendar grants permit Gmail reading.
+- Travel is a placeholder. Trip records, itinerary parsing, approved calendar writes and trip/event links are not implemented. Calendar presently remains read-only. The existing Next Appointment fields retain their place for destination routing; do not add a competing driving tile.
+
+## Implementation sequence using the existing pieces
+
+1. Reconcile adapter contracts against the recovered processing rules: inventory before classification, direct-provider identity, per-folder/date coverage, bounded overlap, persisted completed windows/cursors, no full-mailbox claims on partial failure. Read/unread or deleted state does not resolve an obligation.
+2. Feed bounded live source results into the existing Attention evaluator and snapshot store with explicit provenance, evidence and retained unresolved state. Reuse the prototype's behaviors and replay cases; do not blindly transplant career-specific extraction into general important-mail classification.
+3. Present one Needs attention review queue with source message, reason, last check and proposed destination. Preserve unknown/unparsed items for review. Confirm extraction of dates/time zones and booking status before Calendar proposals. Reconcile matching Sent replies and later updates to avoid stale obligations.
+4. Add shared trip records and reviewed flight/hotel/reservation items with source provenance and duplicate/update rules. Calendar events should link to the trip; Travel owns the full itinerary and documents. Next Appointment owns drive/traffic/leave-by. Import suggestions are not confirmed bookings.
+5. Only after existing configuration inspection, obtain provider consent needed for Gmail reading and approved calendar writes. Keep the existing working Calendar grant intact; no new OAuth client or credential rotation by default.
+6. Verify the foreground pipeline before installing scheduled monitoring. Reuse existing Job Assistant/Dot review rules without duplicating their scheduled tasks. Independently observe scheduled execution, failure recovery and actual alert delivery before promising background coverage. Sending controlled test mail, spending money, replying/paying/booking and Production release remain outside this audit.
+
+## Current checkpoint
+
+Combined James Preview is fix/calendar-refresh-diagnosis-20261031 at 5682a32231771ba1195ea9dde1aa67dafabb29a2. Calendar has been verified live; Michael user-tested Marin conversation, page navigation and reading the full briefing. Preserve these accepted paths, Customer Information, Workbench, entrance media and existing credentials. This audit branch contains documentation only and does not change the live app.
