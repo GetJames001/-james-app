@@ -1,6 +1,12 @@
 let gmailReviewGeneration = 0;
 let attentionScreen = null;
 let mailAttentionView = null;
+const todoCounts={mail:0,tasks:0,other:0};
+function setToDoCount(source,count){
+ todoCounts[source]=Math.max(0,Number(count)||0);
+ const total=Object.values(todoCounts).reduce((sum,value)=>sum+value,0);
+ for(const button of document.querySelectorAll('nav [data-page="attention"]')){button.classList.toggle('has-attention',total>0);button.setAttribute('aria-label',total?'To Do — '+total+' items need attention':'To Do');button.title=total?total+' items need attention':'To Do';}
+}
 let attentionReader = null;
 const $ = (s) => document.querySelector(s);
 const $$ = (s) => [...document.querySelectorAll(s)];
@@ -310,6 +316,7 @@ function toBriefingEvent(event) {
   ];
 }
 function renderTaskPad() {
+  setToDoCount('tasks',tasks.filter(task=>task.status!=='completed').length);
   const list = $("#taskList");
   if (!list) return;
 
@@ -1396,6 +1403,7 @@ $$(".task-filter").forEach(button => {
       logoutButton.disabled = true;
       clearAttentionSavedView();
       mailAttentionView?.clear();
+      for(const source of Object.keys(todoCounts))setToDoCount(source,0);
       calendarRefreshController.stop();
       try {
         await fetch('/api/auth/logout', {
@@ -1451,7 +1459,9 @@ if (personalMailDetailBack) {
   window.jamesConversationUI=window.JamesConversationUI.mount({input:$('#jamesQuestion'),answer:$('#jamesAnswer'),askButton:$('#askJamesButton'),stopInput:()=>{window.jamesVoice?.close();window.speechSynthesis?.cancel();},getContext:getJamesContext,navigate:async door=>{const id=door==='calendar'?'appointments':door;if(id==='workbench'||document.getElementById('workbench')?.classList.contains('active'))return await window.jamesWorkbenchNavigate?.(id);page(id);return true;},chooseEndpoint:question=>!detectUtility(question)&&shouldUseCouncil(question)?'/api/council':'/api/fast'});
   mailAttentionView=window.JamesMailAttention.mount($('#mailAttentionView'),{
     refresh:async()=>{},
-    readSaved:async()=>{const response=await fetch('/api/attention',{credentials:'same-origin',cache:'no-store'});if(!response.ok)throw Error('Saved review unavailable');return (await response.json()).mailReview;},
+    onCount:count=>setToDoCount('mail',count),
+    decide:async(reviewKey,action)=>{const response=await fetch('/api/attention/decision',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify({reviewKey,action})});if(!response.ok)throw Error('Review change could not be saved');},
+    readSaved:async()=>{const response=await fetch('/api/attention',{credentials:'same-origin',cache:'no-store'});if(!response.ok)throw Error('Saved review unavailable');const data=await response.json();setToDoCount('other',data.attentionItems?.length||0);return data.mailReview;},
     saveReview:async()=>{const response=await fetch('/api/attention/scan',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:'{}'});if(!response.ok)throw Error('Mail review could not be saved');},
     review:async id=>{if(id.startsWith('gmail:')){
       const version=personalMailStateVersion,generation=++gmailReviewGeneration;sessionStorage.removeItem('jamesOpenPersonalMailId');
@@ -1489,7 +1499,8 @@ if (personalMailDetailBack) {
   const contentRoot=node('div');
   container.replaceChildren(contentRoot);
   function render(failed){
-   contentRoot.replaceChildren();contentRoot.append(node('h2','Saved attention review'));
+   contentRoot.replaceChildren();contentRoot.append(node('h2','Saved review details'));
+   if(last)setToDoCount('other',last.attentionItems?.length||0);
    const status=node('p',failed?(last?'Could not refresh. Showing previously loaded items.':'Attention unavailable. Try again.'):((!last||last.status==='not_checked')?'Not checked yet.':'Known items needing your attention.'));
    status.setAttribute('role','status');contentRoot.append(status);
    if(last){
@@ -1500,12 +1511,12 @@ if (personalMailDetailBack) {
     if(!last.attentionItems.length&&last.status!=='not_checked')contentRoot.append(node('p','No known items in this saved view. Other mail may not have been checked.'));
     const list=node('ul');
     for(const item of last.attentionItems){
-     const li=node('li');li.append(node('h2',item.title));
+     const li=node('li');li.append(node('h3',item.title));
      li.append(node('p',item.deadlineStatus==='exact'?'Due: '+item.deadline:item.deadlineStatus==='none'?'No deadline stated':'Deadline needs review'));
      for(const url of item.evidenceLinks){try{const u=new URL(url);if(u.protocol!=='https:'||u.username||u.password)continue;const a=node('a','View source email');a.href=u.href;a.target='_blank';a.rel='noopener noreferrer';li.append(a);}catch{}}
      list.append(li);
     }contentRoot.append(list);
-    if(last.needsReview.length)contentRoot.append(node('p',last.needsReview.length+' evidence items need review.'));
+    if(last.needsReview.length)contentRoot.append(node('p',last.needsReview.length+' saved evidence records. This inventory is not a count of unfinished tasks.'));
    }
    if(!refreshButton){
     refreshButton=node('button','Refresh saved view');
@@ -1514,8 +1525,8 @@ if (personalMailDetailBack) {
     container.append(refreshButton);
    }
   }
-  async function refreshView(){const current=++epoch;try{const data=await read();if(current!==epoch)return;if(data?.schemaVersion!==1||!['available','not_checked'].includes(data.status)||!Number.isSafeInteger(data.revision)||!['attentionItems','sourceHealth','needsReview','coverage'].every(k=>Array.isArray(data[k])))throw Error('INVALID_RESPONSE');if(!data.attentionItems.every(i=>typeof i?.title==='string'&&['exact','none','unknown'].includes(i.deadlineStatus)&&Array.isArray(i.evidenceLinks))||!data.coverage.every(c=>typeof c?.label==='string'&&c.mailboxWide===false)||!data.sourceHealth.every(s=>typeof s?.status==='string'))throw Error('INVALID_ITEMS');if(data.status==='not_checked'&&(data.revision!==0||['attentionItems','sourceHealth','needsReview','coverage'].some(k=>data[k].length)))throw Error('INVALID_NOT_CHECKED');if(data.status==='available'&&data.revision<1)throw Error('INVALID_REVISION');if(last&&data.revision<last.revision)throw Error('OLD_REVISION');last=data;render(false);}catch{if(current===epoch)render(true);}}
-  function clear(){++epoch;last=null;render(false);}
+  async function refreshView(){if(!refreshButton)render(false);const current=++epoch;try{const data=await read();if(current!==epoch)return;if(data?.schemaVersion!==1||!['available','not_checked'].includes(data.status)||!Number.isSafeInteger(data.revision)||!['attentionItems','sourceHealth','needsReview','coverage'].every(k=>Array.isArray(data[k])))throw Error('INVALID_RESPONSE');if(!data.attentionItems.every(i=>typeof i?.title==='string'&&['exact','none','unknown'].includes(i.deadlineStatus)&&Array.isArray(i.evidenceLinks))||!data.coverage.every(c=>typeof c?.label==='string'&&c.mailboxWide===false)||!data.sourceHealth.every(s=>typeof s?.status==='string'))throw Error('INVALID_ITEMS');if(data.status==='not_checked'&&(data.revision!==0||['attentionItems','sourceHealth','needsReview','coverage'].some(k=>data[k].length)))throw Error('INVALID_NOT_CHECKED');if(data.status==='available'&&data.revision<1)throw Error('INVALID_REVISION');if(last&&data.revision<last.revision)throw Error('OLD_REVISION');last=data;render(false);}catch{if(current===epoch)render(true);}}
+  function clear(){++epoch;last=null;contentRoot.replaceChildren();if(refreshButton){refreshButton.remove();refreshButton=null;}}
   render(false);return {refresh:refreshView,clear};
  }
  if(typeof module!=='undefined')module.exports={createAttentionScreen};else root.createAttentionScreen=createAttentionScreen;
