@@ -31,5 +31,17 @@ test('voice stays across page changes, rejects stale playback events, and closes
   await page.waitForFunction(()=>window.opened.includes('calendar'));assert.equal(await page.evaluate(()=>window.peers),1);assert.equal(await page.evaluate(()=>window.trackStops),0);
   await page.evaluate(()=>window.dispatchEvent(new Event('james-conversation-ended')));assert.equal(await page.evaluate(()=>window.controller.active()),false);assert.equal(await page.evaluate(()=>window.trackStops),1);
   await page.evaluate(()=>window.emit({type:'output_audio_buffer.started',response_id:'reply-1'}));assert.equal(await page.evaluate(()=>window.state),'idle');
+  await page.locator('#orb').click();await page.waitForFunction(()=>window.peers===2);
+  await page.evaluate(()=>window.emit({type:'error',error:{code:'insufficient_quota'}}));
+  assert.equal(await page.evaluate(()=>window.controller.active()),false);
+  assert.match(await page.locator('.james-voice-panel').textContent(),/credit or spending limit/);
+  for(const [name,expected] of [['NotFoundError','No microphone is available'],['NotReadableError','The microphone could not start'],['NotAllowedError','Allow microphone access']]){
+   await page.evaluate(name=>{const orb=document.createElement('button');orb.id='failure-orb';document.body.append(orb);window.failure=JamesVoiceSession.mount({ui:{},orb,setState:()=>{},Peer:class{},media:{getUserMedia:async()=>{throw new DOMException('Synthetic',name);}}});},name);
+   await page.locator('#failure-orb').click();
+   await page.waitForFunction(()=>document.querySelectorAll('.james-voice-panel')[document.querySelectorAll('.james-voice-panel').length-1].textContent.includes('microphone'));
+   assert.match(await page.locator('.james-voice-panel').last().textContent(),new RegExp(expected));
+   assert.equal(await page.evaluate(()=>window.failure.active()),false);
+   await page.evaluate(()=>document.querySelector('#failure-orb').remove());
+  }
  }finally{await browser.close();await new Promise(resolve=>server.close(resolve));}
 });

@@ -15,8 +15,10 @@ test('hosting feedback and injected inline scripts cannot block app bootstrap',(
 test('only known same-origin clean script paths are accepted',()=>{
  assert.deepEqual(select([{src:'https://evil.test/app.js'},{src:'//evil.test/app.js'},{src:'/api/private'},{src:'/app.js?instrument=1'},{src:'/app.js#optional'},{src:'data:text/javascript,alert(1)'},{src:'https://james.test/calendar-sync.js'}]),[{src:'/calendar-sync.js',type:null}]);
 });
-test('all eight existing application scripts retain source order and module type',()=>{
- const paths=['mail-refresh.js','calendar-sync.js','welcome.js','conversation-runtime.js','conversation-ui.js','app.js','customer-database-ui.js','workbench/host.mjs'];
+test('every application script participates in the login handoff in actual document order',()=>{
+ const index=fs.readFileSync(require('node:path').join(__dirname,'..','index.html'),'utf8');
+ const body=index.slice(index.indexOf('<body'));
+ const paths=[...body.matchAll(/<script\b[^>]*\bsrc="([^"]+)"[^>]*>/g)].map(match=>match[1].replace(/^\//,''));
  const chosen=select(paths.map(src=>({src,type:src.endsWith('.mjs')?'module':null})));
  assert.deepEqual(chosen.map(x=>x.src),paths.map(x=>'/'+x));
  assert.equal(chosen.at(-1).type,'module');

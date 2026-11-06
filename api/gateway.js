@@ -99,7 +99,7 @@ module.exports = async function handler(req, res) {
     route === "app.js" ||
     route === "customer-database.css" || route === "customer-database-ui.js" ||
     ["realtime-coordinator.mjs","turn-timing.mjs","voice-session.js","conversation-ui.js","conversation-runtime.js","conversation-identity.mjs","conversation-bridge.mjs"].includes(route) ||
-    route === "mail-refresh.js" ||
+    route === "mail-refresh.js" || route === "mail-attention.js" ||
     route === "calendar-sync.js" ||
     route === "styles.css" ||
     route === "welcome.css" ||

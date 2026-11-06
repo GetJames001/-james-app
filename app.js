@@ -1,4 +1,5 @@
 let attentionScreen = null;
+let mailAttentionView = null;
 let attentionReader = null;
 const $ = (s) => document.querySelector(s);
 const $$ = (s) => [...document.querySelectorAll(s)];
@@ -636,7 +637,7 @@ function pageNow(id){
   if(id === "attention") openAttentionSavedView();
   else clearAttentionSavedView();
   sessionStorage.setItem('jamesCurrentPage', id);
-  $$('nav button').forEach(b => b.classList.toggle('active', b.dataset.page === id));
+  $$('nav button').forEach(b => b.classList.toggle('active', b.dataset.page === (id==='tasks'?'attention':id==='files'?'workbench':id==='personalMailDetail'?'personalMail':id)));
   $$('.page').forEach(p => p.classList.toggle('active', p.id === id));
   window.dispatchEvent(new Event('james:page-changed'));
   if(id === 'briefing') scheduleCalendarRelayout(true);
@@ -1217,6 +1218,7 @@ function updateOlderMailButton() {
       olderMailLoaded = true;
       olderMailCursor = data.nextCursor;
       renderPersonalMicrosoftMail(window.personalMicrosoftMessages);
+      mailAttentionView?.update(window.personalMicrosoftMessages);
     } catch {
       if (generation === olderMailGeneration) mailStateNotice('Older emails could not be loaded. Try again.');
     }
@@ -1234,6 +1236,7 @@ function applyPersonalMicrosoftMail(data) {
     olderMailLoaded = false;
     updateOlderMailButton();
     window.personalMicrosoftMessages = [];
+    mailAttentionView?.clear();
     renderPersonalMicrosoftMail([]);
     const empty = $('#personalMailMessages .panel-item');
     if (empty) empty.textContent = 'Personal Mail is not connected in this workspace.';
@@ -1253,12 +1256,14 @@ function applyPersonalMicrosoftMail(data) {
     if (!messages.has(message.id)) messages.set(message.id, message);
   }
   window.personalMicrosoftMessages = [...messages.values()];
+  mailAttentionView?.update(window.personalMicrosoftMessages);
   updateOlderMailButton();
   renderPersonalMicrosoftMail(window.personalMicrosoftMessages);
   hasSuccessfulPersonalMailLoad = true;
 }
 
 function handlePersonalMicrosoftMailError(error) {
+  mailAttentionView?.fail();
   console.error('Could not refresh Personal Microsoft Mail:', error);
   if (hasSuccessfulPersonalMailLoad) return;
   const personalMailCount = $('#personalEmailCount');
@@ -1341,7 +1346,8 @@ document.addEventListener('DOMContentLoaded', () => {
     isVisible: () => document.visibilityState === 'visible',
     isMailOpen: () =>
       $('#personalMail')?.classList.contains('active') ||
-      $('#personalMailDetail')?.classList.contains('active'),
+      $('#personalMailDetail')?.classList.contains('active') ||
+      $('#attention')?.classList.contains('active'),
     documentTarget: document,
     windowTarget: window
   });
@@ -1388,6 +1394,7 @@ $$(".task-filter").forEach(button => {
       window.jamesConversationUI?.revoke();
       logoutButton.disabled = true;
       clearAttentionSavedView();
+      mailAttentionView?.clear();
       calendarRefreshController.stop();
       try {
         await fetch('/api/auth/logout', {
@@ -1441,6 +1448,15 @@ if (personalMailDetailBack) {
   });
   const getJamesContext=()=>({page:document.querySelector('.page.active')?.id||'briefing',localTime:new Date().toLocaleString(),timezone:Intl.DateTimeFormat().resolvedOptions().timeZone,calendar:readJamesCalendar(jamesLocalDay(new Date())),travel:{connected:false,calendarWrites:false}});
   window.jamesConversationUI=window.JamesConversationUI.mount({input:$('#jamesQuestion'),answer:$('#jamesAnswer'),askButton:$('#askJamesButton'),stopInput:()=>{window.jamesVoice?.close();window.speechSynthesis?.cancel();},getContext:getJamesContext,navigate:async door=>{const id=door==='calendar'?'appointments':door;if(id==='workbench'||document.getElementById('workbench')?.classList.contains('active'))return await window.jamesWorkbenchNavigate?.(id);page(id);return true;},chooseEndpoint:question=>!detectUtility(question)&&shouldUseCouncil(question)?'/api/council':'/api/fast'});
+  mailAttentionView=window.JamesMailAttention.mount($('#mailAttentionView'),{
+    refresh:()=>loadPersonalMicrosoftMail('attention-review'),
+    review:id=>{page('personalMail');const row=[...document.querySelectorAll('#personalMailMessages [data-message-id]')].find(node=>node.dataset.messageId===id);if(row)row.click();},
+    draft:item=>{page('tasks');const field=$('#taskTitleInput');if(field.value.trim()){taskNotice('Your unsaved task is retained. Finish it before drafting another.');field.focus();return;}field.value='Review email: '+item.subject;$('#taskDomainInput').value='personal';taskNotice('Task draft only. Review the original email, then choose Add task to save.');field.focus();}
+  });
+  if(window.personalMicrosoftMessages?.length)mailAttentionView.update(window.personalMicrosoftMessages);
+  for(const button of document.querySelectorAll('[data-action-page]'))button.onclick=()=>page(button.dataset.actionPage);
+  $('#workbenchFiles').onclick=()=>page('files');
+  $('#filesWorkbenchBack').onclick=()=>page('workbench');
   window.jamesVoice=window.JamesVoiceSession.mount({ui:window.jamesConversationUI,orb:$('#jamesOrb'),button:$('#voiceJamesButton'),setState:setOrbState,readBriefing:readJamesBriefing,readCalendar:async date=>{try{applyGoogleEvents(await JamesCalendarSync.readCalendar(fetch));await refreshHotmailCalendar();}catch{calendarSyncState.state=calendarSyncState.hasData?'stale':'unavailable';}return readJamesCalendar(date);}});
   window.addEventListener('pagehide',()=>window.jamesConversationUI?.suspend());
 });
@@ -1456,7 +1472,7 @@ if (personalMailDetailBack) {
   const contentRoot=node('div');
   container.replaceChildren(contentRoot);
   function render(failed){
-   contentRoot.replaceChildren();contentRoot.append(node('h1','Attention'));
+   contentRoot.replaceChildren();contentRoot.append(node('h2','Saved attention review'));
    const status=node('p',failed?(last?'Could not refresh. Showing previously loaded items.':'Attention unavailable. Try again.'):((!last||last.status==='not_checked')?'Not checked yet.':'Known items needing your attention.'));
    status.setAttribute('role','status');contentRoot.append(status);
    if(last){
