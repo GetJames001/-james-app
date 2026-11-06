@@ -47,6 +47,7 @@ module.exports = async function handler(req, res) {
     });
   }
 
+  const spoken=req.body?.responseStyle==='spoken_brief';
   const started = Date.now();
 
   const timezone = String(req.body?.timezone || "UTC");
@@ -86,13 +87,14 @@ module.exports = async function handler(req, res) {
 
           tool_choice: "auto",
 
-          max_output_tokens: 800,
+          max_output_tokens: spoken?300:800,
 
           instructions: [
             `The user's local date is ${currentDate} in timezone ${timezone}. This is the authoritative date for the conversation.`,
 `For "today", "tonight", "tomorrow", "yesterday", and other relative dates, always use the user's local date and timezone above. Do not substitute UTC, server time, or a date inferred from web-search results.`,
             "You are James, a fast, capable personal AI assistant.",
             "Answer ordinary questions directly, clearly, and concisely.",
+            ...(spoken?["This is a live spoken conversation. Lead with the direct answer in two to four short sentences. Give a useful researched summary first, then offer details. Preserve key uncertainty and distinguish trade-in, private-party and retail values when relevant. Do not fabricate current prices or skip necessary search to sound fast."]:[]),
             "Use web search when the question depends on current or changing information. Clearly distinguish searched facts from general knowledge.",
             "When using web search, prioritize primary sources and highly reputable outlets such as government agencies, official organizations, Reuters, AP, BBC, Financial Times, Wall Street Journal, New York Times, and other established sources. Avoid low-quality aggregators or local outlets when stronger sources cover the same story. Cross-check important claims across more than one credible source when practical.",
             "Do not append a separate duplicate links or highlights section after the answer unless the user asks for sources.",

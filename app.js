@@ -855,17 +855,30 @@ function googleEventsFailed(error) {
   if(calendarSyncState.hasData)renderCalendarDay();else{updateHero();renderAppointmentView();renderQuickCalendar();}
 }
 function loadLiveGoogleEvents() { return calendarRefreshController ? calendarRefreshController.refresh('manual') : Promise.resolve({skipped:'not-started'}); }
-async function loadWeatherForCoordinates({ latitude, longitude }, tempEl, detailEl, locationLabel = "") {
+let jamesWeatherState={status:'not_checked',location:{status:'unknown',departureAddressVerified:false}};
+function readJamesWeather(){
+ const copy=JSON.parse(JSON.stringify(jamesWeatherState));
+ if(copy.checkedAt&&Date.now()-Date.parse(copy.checkedAt)>15*60*1000)copy.status='stale';
+ if(copy.daylight?.status==='ready'){try{const parts=new Intl.DateTimeFormat('en-US',{timeZone:copy.daylight.timezone,year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date());const get=type=>parts.find(part=>part.type===type)?.value;const localDate=get('year')+'-'+get('month')+'-'+get('day');if(localDate!==copy.daylight.date)copy.daylight.status='stale';}catch{copy.daylight={status:'unavailable'};}}
+ if(copy.location?.observedAt&&Date.now()-copy.location.observedAt>5*60*1000)copy.location.status='last_known';
+ if(copy.location?.status==='unknown'||copy.location?.status==='denied')copy.nextStep='Use the Use my location button in the Daily Briefing weather area. Browser permission is required; no current location is inferred from home, timezone or profile.';
+ return copy;
+}
+async function loadWeatherForCoordinates({ latitude, longitude, savedAt }, tempEl, detailEl, locationLabel = "") {
+  const approximate={latitude:Number(Number(latitude).toFixed(2)),longitude:Number(Number(longitude).toFixed(2))};
+  const location={status:locationLabel?'last_known':'current_approximate',observedAt:savedAt||Date.now(),approximateCoordinates:approximate,departureAddressVerified:false,precision:'Rounded for weather; not a verified routing origin'};
+  jamesWeatherState={status:'loading',location};
   try {
     const url =
-      `/api/weather?latitude=${latitude}` +
-      `&longitude=${longitude}`;
+      `/api/weather?latitude=${approximate.latitude}` +
+      `&longitude=${approximate.longitude}`;
 
     const response = await fetch(url);
     const data = await response.json();
 
     if (!response.ok || !data.current) throw new Error('Weather unavailable');
 
+    jamesWeatherState={status:'ready',checkedAt:new Date().toISOString(),location,temperatureF:data.current.temperature_2m,daylight:data.daylight||{status:'unavailable'}};
     tempEl.textContent = `${Math.round(data.current.temperature_2m)}°`;
     const code = data.current.weather_code;
 
@@ -882,6 +895,7 @@ async function loadWeatherForCoordinates({ latitude, longitude }, tempEl, detail
 
     detailEl.textContent = locationLabel ? locationLabel + " · " + condition : condition;
   } catch (error) {
+    jamesWeatherState={status:'unavailable',location};
     tempEl.textContent = '—';
     detailEl.textContent = 'Weather unavailable';
     console.error('Could not load live weather:', error);
@@ -898,7 +912,7 @@ function loadLiveWeather(requestPermission=false, opening=false) {
   if (refresh) refresh.onclick = () => loadLiveWeather(true);
   const finish = () => {
     weatherRefreshInProgress=false;
-    if (refresh) {refresh.disabled=false;refresh.hidden=tempEl.textContent!=='—';}
+    if (refresh) {refresh.disabled=false;refresh.hidden=false;refresh.textContent=tempEl.textContent==='—'?'Use my location':'Update location';}
   };
   const restoreWeather = () => {
     let saved;
@@ -910,6 +924,7 @@ function loadLiveWeather(requestPermission=false, opening=false) {
   };
   const showLocationUnavailable = error => {
     if (!requestPermission && restoreWeather()) return;
+    jamesWeatherState={status:'unavailable',location:{status:error?.code===1?'denied':'unknown',departureAddressVerified:false}};
     tempEl.textContent = '—';
     detailEl.textContent = error?.code === 1 ? 'Allow location in browser settings for weather.' : 'Location unavailable';
     finish();
@@ -935,6 +950,7 @@ function loadLiveWeather(requestPermission=false, opening=false) {
   };
   const needsPermission = () => {
     if (!restoreWeather()) {
+      jamesWeatherState={status:'unavailable',location:{status:'unknown',departureAddressVerified:false}};
       detailEl.textContent = 'Location permission required';
       if (refresh) refresh.hidden=false;
     }
@@ -1449,12 +1465,12 @@ if (personalMailDetailBack) {
   const readJamesBriefing=()=>({
     localTime:new Date().toLocaleString(),calendar:readJamesCalendar(jamesLocalDay(new Date())),
     perspective:jamesPerspectiveForDate(),tasks:{status:taskReadState,items:tasks.slice(0,60).map(task=>({title:String(task.text||task.title||'').slice(0,300),completed:task.status==='completed'})),truncated:tasks.length>60},
-    weather:{temperature:$('#weatherTemp')?.textContent,detail:$('#weatherDetail')?.textContent},
+    weather:{...readJamesWeather(),temperature:$('#weatherTemp')?.textContent,detail:$('#weatherDetail')?.textContent},
     mail:{personalUnread:$('#personalEmailCount')?.textContent||'Unavailable',workUnread:$('#workEmailCount')?.textContent||'Unavailable'},
     travel:{connected:false,calendarWrites:false,departureAddressVerified:false},
     attention:'Not scanned for this briefing; do not infer no urgent messages.'
   });
-  const getJamesContext=()=>({page:document.querySelector('.page.active')?.id||'briefing',localTime:new Date().toLocaleString(),timezone:Intl.DateTimeFormat().resolvedOptions().timeZone,calendar:readJamesCalendar(jamesLocalDay(new Date())),travel:{connected:false,calendarWrites:false}});
+  const getJamesContext=()=>({page:document.querySelector('.page.active')?.id||'briefing',localTime:new Date().toLocaleString(),timezone:Intl.DateTimeFormat().resolvedOptions().timeZone,weather:readJamesWeather(),calendar:readJamesCalendar(jamesLocalDay(new Date())),travel:{connected:false,calendarWrites:false}});
   window.jamesConversationUI=window.JamesConversationUI.mount({input:$('#jamesQuestion'),answer:$('#jamesAnswer'),askButton:$('#askJamesButton'),stopInput:()=>{window.jamesVoice?.close();window.speechSynthesis?.cancel();},getContext:getJamesContext,navigate:async door=>{const id=door==='calendar'?'appointments':door;if(id==='workbench'||document.getElementById('workbench')?.classList.contains('active'))return await window.jamesWorkbenchNavigate?.(id);page(id);return true;},chooseEndpoint:question=>!detectUtility(question)&&shouldUseCouncil(question)?'/api/council':'/api/fast'});
   mailAttentionView=window.JamesMailAttention.mount($('#mailAttentionView'),{
     refresh:async()=>{},
@@ -1484,7 +1500,7 @@ if (personalMailDetailBack) {
   for(const button of document.querySelectorAll('[data-action-page]'))button.onclick=()=>page(button.dataset.actionPage);
   $('#workbenchFiles').onclick=()=>page('files');
   $('#filesWorkbenchBack').onclick=()=>page('workbench');
-  window.jamesVoice=window.JamesVoiceSession.mount({ui:window.jamesConversationUI,orb:$('#jamesOrb'),button:$('#voiceJamesButton'),setState:setOrbState,readBriefing:readJamesBriefing,readCalendar:async date=>{try{applyGoogleEvents(await JamesCalendarSync.readCalendar(fetch));await refreshHotmailCalendar();}catch{calendarSyncState.state=calendarSyncState.hasData?'stale':'unavailable';}return readJamesCalendar(date);}});
+  window.jamesVoice=window.JamesVoiceSession.mount({ui:window.jamesConversationUI,orb:$('#jamesOrb'),button:$('#voiceJamesButton'),settingsButton:$('#voiceSettingsOpen'),setState:setOrbState,readWeather:readJamesWeather,readBriefing:readJamesBriefing,readCalendar:async date=>{try{applyGoogleEvents(await JamesCalendarSync.readCalendar(fetch));await refreshHotmailCalendar();}catch{calendarSyncState.state=calendarSyncState.hasData?'stale':'unavailable';}return readJamesCalendar(date);}});
   window.addEventListener('pagehide',()=>window.jamesConversationUI?.suspend());
 });
 
