@@ -30,7 +30,7 @@ test('task deletion persists, undo preserves records, failures roll back and con
   try{
     browser=await chromium.launch({headless:true});const page=await browser.newPage({viewport:{width:390,height:844}});
     await page.route('https://**',r=>r.abort());const address=`http://127.0.0.1:${server.address().port}`;
-    async function open(){await page.goto(address);await page.waitForFunction(()=>document.querySelectorAll('.task-row').length===2);await page.evaluate(()=>{document.querySelectorAll('.intro,.intro-overlay').forEach(el=>el.remove());document.querySelector('[data-page=tasks]').click();document.body.classList.remove('frosted');});}
+    async function open(){await page.goto(address);await page.waitForFunction(()=>document.querySelectorAll('.task-row').length===2);await page.evaluate(()=>{document.querySelectorAll('.intro,.intro-overlay').forEach(el=>el.remove());document.querySelector('nav [data-page=attention]').click();document.querySelector('[data-action-page=tasks]').click();document.body.classList.remove('frosted');});}
     await open();
     const row=id=>page.locator(`[data-task-id="${id}"]`);
     await row('test').locator('summary').click();await row('test').getByRole('button',{name:'Delete task'}).click();

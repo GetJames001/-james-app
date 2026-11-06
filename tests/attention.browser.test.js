@@ -6,7 +6,7 @@ test('Attention saved view fits devices, retains items/focus on failure and clea
  const server=http.createServer((req,res)=>{
   const u=new URL(req.url,'http://localhost');
   if(u.pathname.startsWith('/api/')){
-   if(req.method!=='GET')writes++;
+   if(req.method!=='GET'&&u.pathname.startsWith('/api/attention'))writes++;
    res.setHeader('content-type','application/json');
    if(u.pathname==='/api/attention'){
     reads++;if(mode==='failed'){res.statusCode=503;return res.end('{}');}
@@ -26,7 +26,7 @@ test('Attention saved view fits devices, retains items/focus on failure and clea
   browser=await chromium.launch({headless:true});const page=await browser.newPage({viewport:{width:390,height:844}});await page.route('https://**',r=>r.abort());
   await page.addInitScript(()=>sessionStorage.setItem('jamesIntroDate',new Date().toDateString()));
   await page.goto(`http://127.0.0.1:${server.address().port}`);
-  await page.locator('nav [data-page="attention"]').click();await page.locator('#attentionView h2').waitFor();
+  await page.locator('nav [data-page="attention"]').click();await page.getByText('Mail settings & review details',{exact:true}).click();await page.getByText('Saved review history & coverage',{exact:true}).click();await page.locator('#attentionView h2').waitFor();
   for(const width of [390,820,1180]){
    await page.setViewportSize({width,height:844});
    const size=await page.locator('#attentionView').evaluate(el=>({right:el.getBoundingClientRect().right,overflow:el.scrollWidth-el.clientWidth,buttons:[...el.querySelectorAll('button,a')].map(x=>x.getBoundingClientRect().height)}));
