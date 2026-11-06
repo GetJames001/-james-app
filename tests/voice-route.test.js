@@ -17,9 +17,15 @@ test('voice validates current host conversation and bounded input before calling
 test('voice retains key server-side, uses correlated manual turns and only allowlisted read/navigation tools',async()=>{
  let form,headers;const handler=createHandler({store:{execute:async()=>({...scope,status:'ready'})},fetchImpl:async(url,options)=>{assert.equal(url,'https://api.openai.com/v1/realtime/calls');form=options.body;headers=options.headers;return {ok:true,text:async()=>'v=0\r\nanswer'}},env:{OPENAI_API_KEY:'synthetic-private-key'}});
  const response=res();await handler(req(),response);assert.equal(response.code,200);assert.equal(response.body,'v=0\r\nanswer');assert.doesNotMatch(response.body,/private-key/);assert.equal(headers.Authorization,'Bearer synthetic-private-key');
- const session=JSON.parse(form.get('session'));assert.equal(session.audio.output.voice,'marin');assert.equal(session.audio.input.turn_detection.create_response,false);assert.equal(session.audio.input.turn_detection.interrupt_response,false);
+ const session=JSON.parse(form.get('session'));assert.equal(session.audio.output.voice,'marin');assert.deepEqual(session.audio.input.noise_reduction,{type:'far_field'});assert.equal(session.audio.input.turn_detection.create_response,false);assert.equal(session.audio.input.turn_detection.interrupt_response,false);
  assert.deepEqual(session.tools.map(t=>t.name),['read_briefing','read_calendar','ask_james','open_page']);assert.match(response.headers['Cache-Control'],/no-store/);
 });
 test('provider rejection never masquerades as James sign-out or leaks provider details',async()=>{
  for(const status of [401,403,429,500]){const handler=createHandler({store:{execute:async()=>({...scope,status:'ready'})},fetchImpl:async()=>({ok:false,status,text:async()=>'PRIVATE_PROVIDER_DETAIL'}),env:{OPENAI_API_KEY:'synthetic-only'}});const response=res();await handler(req(),response);assert.equal(response.code,502);assert.doesNotMatch(JSON.stringify(response),/PRIVATE_PROVIDER_DETAIL|synthetic-only/);}
+});
+test('voice distinguishes exhausted quota from rate limiting without exposing provider text',async()=>{
+ for(const [code,expected] of [['insufficient_quota','VOICE_PROVIDER_QUOTA'],['credit_balance_exhausted','VOICE_PROVIDER_QUOTA'],['project_spend_limit_exceeded','VOICE_PROVIDER_QUOTA'],['rate_limit_exceeded','VOICE_PROVIDER_RATE_LIMIT'],['unknown_private_detail','VOICE_PROVIDER_LIMIT']]){
+  const handler=createHandler({store:{execute:async()=>({...scope,status:'ready'})},fetchImpl:async()=>({ok:false,status:429,text:async()=>JSON.stringify({error:{code,message:'PRIVATE_PROVIDER_DETAIL'}})}),env:{OPENAI_API_KEY:'synthetic-only'}});
+  const response=res();await handler(req(),response);assert.deepEqual(response.body,{error:expected});assert.doesNotMatch(JSON.stringify(response),/PRIVATE_PROVIDER_DETAIL|unknown_private_detail|synthetic-only/);
+ }
 });

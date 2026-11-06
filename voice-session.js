@@ -6,6 +6,12 @@
   status.setAttribute('role','status');transcript.className='james-voice-transcript';
   mute.type=stop.type=interrupt.type='button';mute.textContent='Mute microphone';stop.textContent='Close voice';interrupt.textContent='Stop reply';
   const voiceLabel=doc.createElement('label'),voice=doc.createElement('select'),samples=doc.createElement('a');voiceLabel.textContent='James’s voice ';voice.setAttribute('aria-label','James voice');for(const name of ['marin','coral','shimmer','sage','alloy','ash','ballad','echo','verse','cedar']){const option=doc.createElement('option');option.value=name;option.textContent=name[0].toUpperCase()+name.slice(1);voice.append(option);}try{if([...voice.options].some(o=>o.value===root.localStorage.getItem('james:voice')))voice.value=root.localStorage.getItem('james:voice');}catch{}voice.onchange=()=>{if(session)close('Voice changed. Tap James to reconnect using '+voice.value+'.');try{root.localStorage.setItem('james:voice',voice.value);}catch{}};voiceLabel.append(voice);samples.textContent='Listen to voice samples';samples.href='https://www.openai.fm/';samples.target='_blank';samples.rel='noopener noreferrer';const note=doc.createElement('p');note.className='muted';note.textContent='AI-generated voice · OpenAI API usage applies separately from Vercel. Voice sessions stop after five minutes.';panel.append(status,transcript,note,voiceLabel,samples,mute,interrupt,stop);doc.body.append(panel);
+  function failureMessage(code){
+   if(['VOICE_PROVIDER_QUOTA','insufficient_quota','credit_balance_exhausted','billing_hard_limit_reached','project_spend_limit_exceeded','organization_spend_limit_exceeded','organization_usage_limit_exceeded','usage_limit_exceeded'].includes(code))return 'The existing OpenAI API account has reached its credit or spending limit. Voice needs its billing or limits reviewed; your Vercel plan is separate.';
+   if(['VOICE_PROVIDER_RATE_LIMIT','rate_limit_exceeded','slow_down'].includes(code))return 'OpenAI temporarily limited voice requests. Wait a minute before reconnecting; this does not establish that credits are exhausted.';
+   if(code==='VOICE_PROVIDER_LIMIT')return 'OpenAI limited this voice connection. The response did not establish whether this is a rate or billing limit.';
+   return null;
+  }
   let session=null,serial=0;
   function state(value,message){if(value==='listening'&&session?.stream?.getAudioTracks().every(track=>!track.enabled)){value='muted';message='Microphone muted';}setState(value);if(message)status.textContent=message;orb.dataset.voiceState=value;orb.setAttribute('aria-pressed',String(!!session));orb.setAttribute('aria-label',session?'Close James voice':'Talk to James');if(button)button.textContent=session?'Close voice':'Talk to James';}
   const current=s=>session===s&&!s.closed;
@@ -47,6 +53,7 @@
     state('listening','Listening — speak naturally. You can interrupt James.');
     if(ui.context().page==='briefing'&&!s.history.length)void s.coordinator.submitTyped('Begin the Daily Briefing. Use read_briefing to ground the greeting and short review in available data, then ask the departure point if travel matters.');
    }
+   if(e.type==='error')s.failureMessage=failureMessage(e.error?.code)||'Voice session failed. Your conversation is retained; tap James to retry.';
    if(!s.coordinator.receive(e))return;
    if(e.type==='input_audio_buffer.committed')s.inputItemId=e.item_id;
    if(e.type==='input_audio_buffer.speech_started'){
@@ -83,7 +90,7 @@
     s.startup=setTimeout(()=>{if(current(s))close('Voice connection timed out. Tap James to retry.');},35000);
     const {createRealtimeTurnCoordinator}=await import('./realtime-coordinator.mjs');
     if(!current(s))return;
-    s.coordinator=await createRealtimeTurnCoordinator({identityOwner:prepared.identityOwner,scope:s.scope,send:event=>send(s,event),isActive:()=>current(s),endTransport:()=>close(),navigate:(door,options)=>options.isCurrent()?ui.navigate(door).then(result=>result.status==='ready'):false,newId:()=>root.crypto.randomUUID()});
+    s.coordinator=await createRealtimeTurnCoordinator({identityOwner:prepared.identityOwner,scope:s.scope,send:event=>send(s,event),isActive:()=>current(s),endTransport:()=>close(s.failureMessage),navigate:(door,options)=>options.isCurrent()?ui.navigate(door).then(result=>result.status==='ready'):false,newId:()=>root.crypto.randomUUID()});
     if(!current(s)){s.coordinator.detach();return;}
     s.pc=new Peer();s.pc.ontrack=e=>{if(current(s)){s.audio.srcObject=e.streams[0];s.audio.play().catch(()=>close('Audio playback was blocked. Tap James to try again.'));}};
     stream.getTracks().forEach(track=>s.pc.addTrack(track,stream));
@@ -96,7 +103,7 @@
     if(!response.ok){const data=await response.json();throw Error(data.error||'VOICE_SESSION_FAILED');}
     const sdp=await response.text();if(!current(s))return;await s.pc.setRemoteDescription({type:'answer',sdp});
     touch(s);s.check=setInterval(async()=>{try{if(!await ui.verifyVoice(s.scope)&&current(s))close('Conversation changed. Tap James to reconnect.');}catch{if(current(s))close('Sign-in could not be verified. Tap James to retry.');}},30000);
-   }catch(error){if(!current(s))return;const message=error.name==='NotAllowedError'?'Allow microphone access to talk to James.':error.name==='NotFoundError'?'No microphone is available in this browser. Connect a microphone or test James on your iPad or phone.':error.name==='NotReadableError'?'The microphone could not start. Close other apps using it, then tap James to retry.':error.message==='VOICE_PROVIDER_ACCESS'?'The existing OpenAI project denied voice access. Its API permissions or Realtime model access need review.':error.message==='VOICE_PROVIDER_LIMIT'?'The existing OpenAI project reached a usage or rate limit.':error.message==='VOICE_KEY_NOT_CONFIGURED'?'This deployment has no configured OpenAI connection.':error.message==='CONVERSATION_CHANGED'?'The conversation changed. Tap James to reconnect.':'James voice could not connect. Your conversation is retained; tap James to retry.';close(message);}
+   }catch(error){if(!current(s))return;const message=failureMessage(error.message)||(error.name==='NotAllowedError'?'Allow microphone access to talk to James.':error.name==='NotFoundError'?'No microphone is available in this browser. Connect a microphone or test James on your iPad or phone.':error.name==='NotReadableError'?'The microphone could not start. Close other apps using it, then tap James to retry.':error.message==='VOICE_PROVIDER_ACCESS'?'The existing OpenAI project denied voice access. Its API permissions or Realtime model access need review.':error.message==='VOICE_KEY_NOT_CONFIGURED'?'This deployment has no configured OpenAI connection.':error.message==='CONVERSATION_CHANGED'?'The conversation changed. Tap James to reconnect.':'James voice could not connect. Your conversation is retained; tap James to retry.');close(message);}
   }
   orb.onclick=start;if(button)button.onclick=start;
   mute.onclick=()=>{const s=session;if(!s)return;const muted=s.stream.getAudioTracks().some(t=>t.enabled);s.stream.getAudioTracks().forEach(t=>{t.enabled=!muted;});mute.textContent=muted?'Unmute microphone':'Mute microphone';mute.setAttribute('aria-pressed',String(muted));status.textContent=muted?'Microphone muted':'Listening';};
