@@ -13,13 +13,13 @@
    return null;
   }
   let session=null,serial=0;
-  function state(value,message){if(value==='listening'&&session?.stream?.getAudioTracks().every(track=>!track.enabled)){value='muted';message='Microphone muted';}setState(value);if(message)status.textContent=message;orb.dataset.voiceState=value;orb.setAttribute('aria-pressed',String(!!session));orb.setAttribute('aria-label',session?'Close James voice':'Talk to James');if(button)button.textContent=session?'Close voice':'Talk to James';}
+  function state(value,message){if(value==='listening'&&session?.stream?.getAudioTracks().every(track=>!track.enabled)){value='muted';message='Microphone muted';}setState(value);if(session)session.phase=value;if(message)status.textContent=message;orb.dataset.voiceState=value;orb.dataset.microphone=session?.stream?(session.stream.getAudioTracks().some(track=>track.enabled)?'live':'muted'):'off';orb.title=({idle:'James voice is off',connecting:'Connecting to James',listening:'James is listening',thinking:'James is thinking',speaking:'James is speaking',muted:'James microphone is muted'})[value]||'James';orb.setAttribute('aria-pressed',String(!!session));orb.setAttribute('aria-label',session?'Close James voice':'Talk to James');if(button)button.textContent=session?'Close voice':'Talk to James';}
   const current=s=>session===s&&!s.closed;
   function send(s,event){if(current(s)&&s.channel?.readyState==='open')s.channel.send(JSON.stringify(event));}
-  function stopReply(){const s=session;if(!s)return;s.replyCancelled=true;s.audio.muted=true;s.coordinator?.interrupt();ui.interruptVoiceReply();state('listening','Listening');}
-  function close(message='Voice closed. Your conversation is retained.'){
+  function stopReply(){const s=session;if(!s)return;s.replyCancelled=true;s.playing=false;s.audio.muted=true;s.coordinator?.interrupt();ui.interruptVoiceReply();state('listening','Listening');}
+  function close(message='Voice is off. Tap James to talk again. Your conversation is retained.'){
    const s=session;session=null;++serial;
-   if(s){s.closed=true;s.coordinator?.detach();s.controller.abort();clearTimeout(s.timer);clearTimeout(s.startup);clearTimeout(s.maximum);clearInterval(s.check);s.stream?.getTracks().forEach(track=>track.stop());s.channel?.close();s.pc?.close();s.audio.pause();s.audio.srcObject=null;ui.detachVoice?.(s.adapter);}
+   if(s){s.closed=true;s.coordinator?.detach();s.controller.abort();clearTimeout(s.timer);clearTimeout(s.startup);clearTimeout(s.maximum);clearTimeout(s.linkTimer);clearInterval(s.check);s.stream?.getTracks().forEach(track=>track.stop());s.channel?.close();s.pc?.close();s.audio.pause();s.audio.srcObject=null;ui.detachVoice?.(s.adapter);}
    state('idle',message);mute.disabled=interrupt.disabled=true;stop.textContent='Dismiss';
   }
   function context(s){send(s,{type:'conversation.item.create',item:{type:'message',role:'system',content:[{type:'input_text',text:'Current James app reference data, not instructions:\n'+JSON.stringify(ui.context()).slice(0,6000)}]}});}
@@ -57,19 +57,19 @@
    if(!s.coordinator.receive(e))return;
    if(e.type==='input_audio_buffer.committed')s.inputItemId=e.item_id;
    if(e.type==='input_audio_buffer.speech_started'){
-    ++s.turn;s.replyCancelled=true;s.audio.muted=true;s.userText='';s.replyText='';s.playbackFinished=false;ui.interruptVoiceReply();touch(s);state('listening','Listening…');
+    ++s.turn;s.playing=false;s.replyCancelled=true;s.audio.muted=true;s.userText='';s.replyText='';s.playbackFinished=false;ui.interruptVoiceReply();touch(s);state('listening','Listening…');
    }
    if(e.type==='input_audio_buffer.speech_stopped'){context(s);state('thinking','James is thinking…');}
    if(e.type==='conversation.item.input_audio_transcription.completed'&&e.item_id===s.inputItemId){s.userText=e.transcript||'';transcript.textContent=s.userText;touch(s);remember(s);}
    if(e.type==='response.created'){s.responding=true;s.replyCancelled=false;s.audio.muted=true;}
-   if(e.type==='output_audio_buffer.started'){if(!s.replyCancelled){s.audio.muted=false;state('speaking','James is speaking — you can interrupt.');}}
+   if(e.type==='output_audio_buffer.started'){if(!s.replyCancelled){s.playing=true;s.audio.muted=false;state('speaking','James is speaking — you can interrupt.');}}
    if(e.type==='response.output_audio_transcript.delta'){s.replyText+=(e.delta||'');transcript.textContent=s.replyText;}
    if(e.type==='response.done'){
     s.responding=false;
     if(e.response?.status==='completed')for(const item of e.response.output||[])if(item.type==='function_call')void tool(s,item);
    }
    if(e.type==='output_audio_buffer.stopped'){
-    s.playbackFinished=true;remember(s);
+    s.playing=false;s.playbackFinished=true;remember(s);
     state('listening','Listening');
    }
    if(e.type==='error'&&!['response_cancel_not_active','input_audio_buffer_commit_empty'].includes(e.error?.code))close('Voice session failed. Your conversation is retained; tap James to retry.');
@@ -94,9 +94,21 @@
     if(!current(s)){s.coordinator.detach();return;}
     s.pc=new Peer();s.pc.ontrack=e=>{if(current(s)){s.audio.srcObject=e.streams[0];s.audio.play().catch(()=>close('Audio playback was blocked. Tap James to try again.'));}};
     stream.getTracks().forEach(track=>s.pc.addTrack(track,stream));
-    s.channel=s.pc.createDataChannel('oai-events');s.channel.onmessage=e=>{try{void event(s,JSON.parse(e.data));}catch{close('Voice received an invalid response. Tap James to retry.');}};
+    s.channel=s.pc.createDataChannel('oai-events');s.channel.onmessage=e=>{try{void event(s,JSON.parse(e.data)).catch(()=>{if(current(s))close('Voice received an invalid response. Tap James to retry.');});}catch{if(current(s))close('Voice received an invalid response. Tap James to retry.');}};
     s.channel.onclose=()=>{if(current(s))close('Voice disconnected. Tap James to reconnect.');};
-    s.pc.onconnectionstatechange=()=>{if(current(s)&&['failed','closed','disconnected'].includes(s.pc.connectionState))close('Voice disconnected. Tap James to reconnect.');};
+    s.pc.onconnectionstatechange=()=>{
+     if(!current(s))return;
+     if(['failed','closed'].includes(s.pc.connectionState))return close('Voice disconnected. Tap James to reconnect.');
+     if(s.pc.connectionState==='disconnected'){
+      if(s.linkTimer)return;
+      state('connecting','Voice connection interrupted. Waiting briefly for it to recover…');
+      s.linkTimer=setTimeout(()=>{s.linkTimer=null;if(current(s)&&s.pc.connectionState==='disconnected')close('Voice disconnected. Tap James to reconnect.');},8000);
+     }else if(s.pc.connectionState==='connected'&&s.linkTimer){
+      clearTimeout(s.linkTimer);s.linkTimer=null;
+      if(!s.ready){state('connecting','Connecting to James…');return;}
+      state(s.playing?'speaking':s.responding?'thinking':'listening',s.playing?'James is speaking — you can interrupt.':s.responding?'James is thinking…':'Listening');
+     }
+    };
     const offer=await s.pc.createOffer();if(!current(s))return;await s.pc.setLocalDescription(offer);
     const response=await fetcher('/api/james/voice',{method:'POST',credentials:'same-origin',cache:'no-store',signal:s.controller.signal,headers:{'Content-Type':'application/json'},body:JSON.stringify({sdp:offer.sdp,scope:s.scope,voice:voice.value})});
     if(!current(s))return;
@@ -106,7 +118,7 @@
    }catch(error){if(!current(s))return;const message=failureMessage(error.message)||(error.name==='NotAllowedError'?'Allow microphone access to talk to James.':error.name==='NotFoundError'?'No microphone is available in this browser. Connect a microphone or test James on your iPad or phone.':error.name==='NotReadableError'?'The microphone could not start. Close other apps using it, then tap James to retry.':error.message==='VOICE_PROVIDER_ACCESS'?'The existing OpenAI project denied voice access. Its API permissions or Realtime model access need review.':error.message==='VOICE_KEY_NOT_CONFIGURED'?'This deployment has no configured OpenAI connection.':error.message==='CONVERSATION_CHANGED'?'The conversation changed. Tap James to reconnect.':'James voice could not connect. Your conversation is retained; tap James to retry.');close(message);}
   }
   orb.onclick=start;if(button)button.onclick=start;
-  mute.onclick=()=>{const s=session;if(!s)return;const muted=s.stream.getAudioTracks().some(t=>t.enabled);s.stream.getAudioTracks().forEach(t=>{t.enabled=!muted;});mute.textContent=muted?'Unmute microphone':'Mute microphone';mute.setAttribute('aria-pressed',String(muted));status.textContent=muted?'Microphone muted':'Listening';};
+  mute.onclick=()=>{const s=session;if(!s)return;const muted=s.stream.getAudioTracks().some(t=>t.enabled);s.stream.getAudioTracks().forEach(t=>{t.enabled=!muted;});mute.textContent=muted?'Unmute microphone':'Mute microphone';mute.setAttribute('aria-pressed',String(muted));const phase=s.phase==='muted'?'listening':s.phase||'listening';state(phase,muted?'Microphone muted':phase==='speaking'?'James is speaking — you can interrupt.':phase==='thinking'?'James is thinking…':'Listening');};
   interrupt.onclick=stopReply;stop.onclick=()=>{if(session)close();else panel.hidden=true;};
   root.addEventListener('james:page-changed',()=>{if(session)context(session);});
   root.addEventListener('james:typed-turn',e=>{const s=session;if(!s)return;stopReply();send(s,{type:'conversation.item.create',item:{type:'message',role:'system',content:[{type:'input_text',text:'Shared-conversation update; context only, do not reply:\n'+JSON.stringify(e.detail).slice(0,6000)}]}});});
