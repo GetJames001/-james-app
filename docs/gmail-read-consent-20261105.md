@@ -1,0 +1,9 @@
+# Gmail read consent — November 5, 2026
+
+Michael has five minutes and authorized continuing. Prepare the actual read-only Google consent step using existing James OAuth configuration; no new account/client/secret. Hotmail stays the primary/default sender; Gmail sending deferred.
+
+To Do → Mail connections → Enable Gmail reading submits an authenticated same-origin POST, then opens Google's account selection/consent page for gmail.readonly, incremental grants and offline access. Reuses the registered existing callback URL. Gmail-prefixed random state uses a separate secure HttpOnly cookie; callback requires the James session, matching state, explicit granted read scope and successful Gmail profile read. Gmail token/profile save uses an owner/environment/preview-branch namespace distinct from every Calendar token. No mail is sent or changed. Google consent must be performed by Michael; do not grant expanded access on his behalf.
+
+22 focused tests passed including existing Calendar callback/token isolation, Gmail state/scope/profile/save failures and no secrets in response. No consent was granted during testing. Consent alone does not implement Gmail collection or semantic review. Next is integrating the granted Gmail reader into the existing bounded Attention pipeline and showing source/coverage; then folder/window/Sent reconciliation and Travel draft imports. If Google rejects verification, inspect Gmail API enablement and existing OAuth project configuration before proposing another connection.
+
+Underlying combined Preview before this increment: 99688e21fc9082909965152b46d01567aeb5ecd5. Saved Hotmail review remains verified with 25 identities persisted/restored; Calendar and Marin were user-tested. Original closet wall-display mockup remains the agreed reference; longer wall-device session is proposed, not implemented. Pause when Michael leaves; no claim of background work after the turn.

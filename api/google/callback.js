@@ -11,6 +11,8 @@ module.exports = async function handler(req, res) {
     return res.status(405).send("Method not allowed.");
   }
 
+  if(typeof req.query?.state==='string'&&req.query.state.startsWith('gmail-'))return require('../../lib/google/gmail-connect.js').callback(req,res);
+
   let redirectUri, tokenKey;
   try { tokenKey = googleRefreshTokenKey(); redirectUri = googleRedirectUri(req); }
   catch { return res.status(503).send("Calendar connection is not configured for this preview address."); }
