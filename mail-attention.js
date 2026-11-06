@@ -41,5 +41,20 @@
   function clear(){++version;savedItems=[];savedAt=null;inventoryCount=0;loading=false;items=[];checkedAt=null;scanned=0;connected=false;stale=false;render();}
   render();void restore();return {update,fail,clear,restore};
  }
- const api={candidates,mount};if(typeof module!=='undefined')module.exports=api;else root.JamesMailAttention=api;
+ async function connectGmail(form,{fetchImpl=root.fetch.bind(root),navigate=url=>root.location.assign(url)}={}){
+  const button=form.querySelector('button'),status=form.querySelector('[data-gmail-status]');
+  button.disabled=true;status.textContent='Opening Google…';
+  try{
+   const response=await fetchImpl('/api/google/gmail/connect',{method:'POST',credentials:'same-origin',headers:{Accept:'application/json'},redirect:'error'});
+   if(!response.ok)throw Error();
+   const data=await response.json(),url=new URL(data.authorizationUrl);
+   if(url.origin!=='https://accounts.google.com'||url.pathname!=='/o/oauth2/v2/auth')throw Error();
+   navigate(url.href);
+  }catch{status.textContent='Gmail connection could not open. Refresh James and try again. Existing Calendar access is unchanged.';button.disabled=false;}
+ }
+ if(root.document)root.document.addEventListener('submit',event=>{
+  if(event.target?.id!=='gmailReadConnect')return;
+  event.preventDefault();void connectGmail(event.target);
+ });
+ const api={candidates,mount,connectGmail};if(typeof module!=='undefined')module.exports=api;else root.JamesMailAttention=api;
 })(typeof window==='undefined'?globalThis:window);

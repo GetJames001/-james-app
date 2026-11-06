@@ -2,7 +2,7 @@
 const test=require('node:test'),assert=require('node:assert/strict');
 const {createHandlers,tokenKey,SCOPE,COOKIE}=require('../lib/google/gmail-connect.js');
 const host='james-fixture.vercel.app',env={VERCEL_ENV:'preview',VERCEL_GIT_COMMIT_REF:'fixture',VERCEL_BRANCH_URL:host,JAMES_GOOGLE_PREVIEW_CALLBACK_URL:'https://'+host+'/api/google/callback',GOOGLE_CLIENT_ID:'synthetic-client',GOOGLE_CLIENT_SECRET:'synthetic-secret',KV_REST_API_URL:'https://store.invalid',KV_REST_API_TOKEN:'synthetic-store'};
-const response=()=>({headers:{},code:200,setHeader(k,v){this.headers[k]=v;},status(n){this.code=n;return this;},send(v){this.body=v;return this;},redirect(n,v){this.code=n;this.location=v;return this;}});
+const response=()=>({headers:{},code:200,setHeader(k,v){this.headers[k]=v;},status(n){this.code=n;return this;},send(v){this.body=v;return this;},json(v){this.body=v;return this;},redirect(n,v){this.code=n;this.location=v;return this;}});
 function fixture({scope=SCOPE,profile=true,saved='OK',authorized=true}={}){const calls=[];const handlers=createHandlers({env,identity:()=> 'owner',authorize:(req,res)=>{if(authorized)return true;res.status(401).send('Unauthorized');return false;},fetchImpl:async(url,options)=>{calls.push({url,options});return Response.json(calls.length===1?{access_token:'synthetic-access',refresh_token:'synthetic-refresh',scope}:calls.length===2?profile?{emailAddress:'owner@example.test'}:{}:{result:saved});}});return {...handlers,calls};}
 async function start(f){const res=response();await f.connect({method:'POST',headers:{host},query:{}},res);return res;}
 test('consent uses existing client/callback, read-only Gmail scope and no provider calls',async()=>{
@@ -19,4 +19,32 @@ test('authentication, POST initiation and preview callback configuration are req
  const f=fixture({authorized:false}),r=await start(f);assert.equal(r.code,401);assert.equal(f.calls.length,0);
  const g=fixture(),get=response();await g.connect({method:'GET',headers:{host}},get);assert.equal(get.code,405);assert.equal(g.calls.length,0);
  assert.throws(()=>tokenKey({...env,VERCEL_GIT_COMMIT_REF:''},'owner'),/BRANCH/);assert.notEqual(tokenKey(env,'owner'),tokenKey({...env,VERCEL_GIT_COMMIT_REF:'other'},'owner'));assert.notEqual(tokenKey(env,'owner'),tokenKey(env,'other-owner'));
+});
+
+test('JSON initiation returns an authorization URL without a cross-origin fetch redirect',async()=>{
+ const f=fixture(),r=response();await f.connect({method:'POST',headers:{host,accept:'application/json'}},r);
+ assert.equal(r.code,200);assert.equal(r.location,undefined);assert.equal(new URL(r.body.authorizationUrl).origin,'https://accounts.google.com');assert.match(r.headers['Set-Cookie'],/gmail-/);
+});
+test('real auth keeps missing and foreign Origin POSTs forbidden',async()=>{
+ const auth=require('../lib/auth.js');
+ const prior={};for(const [key,value] of Object.entries({JAMES_AUTH_EMAIL:'fixture@example.test',JAMES_SESSION_SECRET:'synthetic-session-secret-at-least-32-characters',JAMES_ALLOWED_HOSTS:host})){prior[key]=process.env[key];process.env[key]=value;}
+ try{
+  const cookie=auth.SESSION_COOKIE+'='+auth.createSessionToken('fixture@example.test');
+  const f=createHandlers({env,identity:()=> 'owner'});
+  for(const origin of [undefined,'null','https://foreign.invalid','https://'+host]){
+   const r=response();await f.connect({method:'POST',headers:{host,cookie,accept:'application/json',...(origin?{origin}:{})}},r);
+   assert.equal(r.code,origin==='https://'+host?200:403);
+  }
+ }finally{for(const [key,value] of Object.entries(prior)){if(value===undefined)delete process.env[key];else process.env[key]=value;}}
+});
+test('client uses same-origin fetch POST, navigates only to Google, and handles failure',async()=>{
+ const {connectGmail}=require('../mail-attention.js');
+ for(const kind of ['ok','forbidden','unsafe']){
+  const button={disabled:false},status={textContent:''},form={querySelector:s=>s==='button'?button:status};let destination=null;
+  await connectGmail(form,{fetchImpl:async(path,options)=>{
+   assert.equal(path,'/api/google/gmail/connect');assert.equal(options.method,'POST');assert.equal(options.credentials,'same-origin');assert.equal(options.redirect,'error');assert.equal(options.headers.Accept,'application/json');
+   return {ok:kind!=='forbidden',json:async()=>({authorizationUrl:kind==='unsafe'?'https://foreign.invalid/':'https://accounts.google.com/o/oauth2/v2/auth?state=synthetic'})};
+  },navigate:url=>{destination=url;}});
+  if(kind==='ok'){assert.match(destination,/^https:\/\/accounts.google.com/);assert.equal(button.disabled,true);}else{assert.equal(destination,null);assert.equal(button.disabled,false);assert.match(status.textContent,/could not open/);}
+ }
 });
