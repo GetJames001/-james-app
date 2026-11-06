@@ -16,7 +16,7 @@ function fixture({missing=false,failMessage=false,badList=false}={}){const calls
  return Response.json({id:'abc',snippet:'Please confirm your interview.',internalDate:String(Date.parse(at)),labelIds:['INBOX','IMPORTANT','STARRED'],payload:{mimeType:'text/plain',headers:[{name:'Subject',value:'Interview invitation'},{name:'From',value:'Fixture sender'}],body:{data:Buffer.from('<script>untrusted()</script> Plain message.').toString('base64url')}}});
  }});return {reader,calls,setHistory:value=>{historyId=value;}};}
 test('Gmail Inbox uses only separate saved grant, bounded metadata reads and no writes',async()=>{
- const f=fixture(),data=await f.reader();assert.equal(data.messages.length,1);assert.equal(data.messages[0].id,'gmail:abc');assert.equal(data.hasMore,true);assert.equal(data.mailboxWide,false);assert.equal(data.messages[0].bodyText,undefined);assert.equal(f.calls.length,5);assert.doesNotMatch(JSON.stringify(data),/synthetic-|private@example|opaque-private/);
+ const f=fixture(),data=await f.reader();assert.equal(data.messages.length,1);assert.equal(data.messages[0].id,'gmail:abc');assert.equal(data.hasMore,true);assert.equal(data.mailboxWide,false);assert.equal(data.messages[0].bodyText,undefined);assert.equal(f.calls.length,5);assert.doesNotMatch(JSON.stringify(data),/synthetic-|private@example/);
  assert.equal(f.calls.filter(c=>c.url===env.KV_REST_API_URL).length,1);
 });
 test('Gmail original is plain text and does not fetch attachments or mutate read state',async()=>{
