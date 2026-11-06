@@ -874,3 +874,15 @@ nav [data-page="attention"].has-attention{border-color:var(--gold);box-shadow:0 
 @keyframes jamesOrbThinking{0%,100%{transform:rotate(-7deg) scale(1)}50%{transform:rotate(7deg) scale(1.045)}}
 @keyframes jamesOrbConnecting{0%,100%{filter:brightness(.85) drop-shadow(0 0 4px rgba(109,181,227,.5))}50%{filter:brightness(1.1) drop-shadow(0 0 12px rgba(109,181,227,.9))}}
 @keyframes jamesOrbSpeaking{from{transform:scale(1);filter:brightness(1.02) drop-shadow(0 0 5px rgba(232,182,100,.5))}to{transform:scale(1.085);filter:brightness(1.16) drop-shadow(0 0 14px rgba(232,182,100,.9))}}
+
+/* Concierge orb: smooth gold core and blue rim from the approved dashboard direction. */
+#jamesOrb{background-image:url("assets/orb/james-concierge.svg")!important;filter:none;animation:none;box-shadow:none!important}
+#jamesOrb .orb-status{display:none}
+#jamesOrb.listening{filter:drop-shadow(0 0 4px rgba(110,204,235,.6))}
+#jamesOrb.thinking{animation:jamesOrbThinking 3s ease-in-out infinite;filter:drop-shadow(0 0 4px rgba(110,204,235,.5))}
+#jamesOrb.speaking{animation:jamesConciergeSpeaking 1.3s ease-in-out infinite alternate}
+#jamesOrb.connecting{animation:jamesOrbConnecting 2.6s ease-in-out infinite}
+#jamesOrb.muted{filter:grayscale(.55) brightness(.8)}
+@keyframes jamesConciergeSpeaking{from{transform:scale(1);filter:brightness(1)}to{transform:scale(1.045);filter:brightness(1.08) drop-shadow(0 0 4px rgba(222,184,126,.5))}}
+.james-voice-settings{border:1px solid var(--gs);border-radius:18px;background:var(--paper);color:var(--ink);padding:24px;max-width:min(420px,90vw)}
+.james-voice-settings label,.james-voice-settings a{display:block;margin:14px 0}.james-voice-settings select,.james-voice-settings button{padding:10px}.james-voice-settings::backdrop{background:#0008}
