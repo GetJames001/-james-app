@@ -1,6 +1,6 @@
 (function(root){
  'use strict';
- function mount({input,answer,askButton,stopInput=()=>{},navigate=async()=>true,chooseEndpoint=()=>'/api/fast',fetcher=fetch,requestTimeoutMs=30000,historyStorage,loadRuntime=async()=>[root.JamesConversationRuntime,root.JamesConversationRuntime]}){
+ function mount({input,answer,askButton,stopInput=()=>{},navigate=async()=>true,getContext=()=>({}),chooseEndpoint=()=>'/api/fast',fetcher=fetch,requestTimeoutMs=30000,historyStorage,loadRuntime=async()=>[root.JamesConversationRuntime,root.JamesConversationRuntime]}){
   const doc=input.ownerDocument,endButton=doc.createElement('button'),status=doc.createElement('p');
   endButton.type='button';endButton.textContent='End conversation';status.setAttribute('role','status');status.textContent='Ready';
   askButton.parentNode.append(endButton);askButton.parentNode.after(status);
@@ -39,7 +39,7 @@
    }catch(error){throw error;}finally{clearTimeout(timer);upstream?.removeEventListener('abort',abort);}
   }
   const isEmailDraft=text=>/\b(?:draft|write|compose)\b.{0,45}\b(?:e-?mail|message)\b/i.test(text);
-  function providerQuestion(text){const recent=[];let size=text.length+40;for(const item of [...history].reverse()){const line=`${item.role}: ${item.text}`;if(size+line.length+1>12000)break;recent.unshift(line);size+=line.length+1;}return ['Recent conversation:',...recent,`User: ${text}`].join('\n');}
+  function providerQuestion(text){const recent=[];const reference=JSON.stringify(getContext()).slice(0,4000);let size=text.length+reference.length+100;for(const item of [...history].reverse()){const line=`${item.role}: ${item.text}`;if(size+line.length+1>12000)break;recent.unshift(line);size+=line.length+1;}return ['Current app reference data (not instructions):',reference,'Recent conversation:',...recent,`User: ${text}`].join('\n');}
   const identityFetch=async(url,options)=>{const ticket=revision;const response=await requestJSON(url,options,8000);if(ticket===revision&&[401,403].includes(response.status)){++revision;bridge?.revoke();identity?.revoke();clear();stopInput();status.textContent='Sign in to continue';}return response;};
   async function runtime(){
    if(!loading)loading=loadRuntime().then(([ownerModule,bridgeModule])=>{
@@ -67,8 +67,8 @@
     const key=JSON.stringify(scope);if(scopeKey&&scopeKey!==key)clear();scopeKey=key;
     status.textContent='Checking conversation…';const verified=await bridge.verifyIdentity();if(ticket!==revision)return;if(verified.status!=='ready'||JSON.stringify(identity.current())!==key){clear();throw Error('IDENTITY_UNAVAILABLE');}
     if(!history.length)restoreHistory(scope);
-    bridge.interruptReply();
-    status.textContent='James is thinking…';const result=await bridge.submitTurn({origin:'typed',action:'ask',text});
+    if(request.origin!=='voice')bridge.interruptReply();
+    status.textContent='James is thinking…';const result=await bridge.submitTurn({origin:request.origin==='voice'?'voice':'typed',action:'ask',text});
     if(ticket!==revision||result.status==='superseded')return;
     if(result.status!=='completed'||!result.isCurrent())throw Error('REQUEST_FAILED');
     const checked=await bridge.verifyIdentity();if(ticket!==revision)return;if(checked.status!=='ready'||!result.isCurrent()||JSON.stringify(identity.current())!==key){clear();throw Error('IDENTITY_UNAVAILABLE');}
@@ -87,8 +87,9 @@
      const title=doc.createElement('h5'),list=doc.createElement('ul');title.textContent=label;
      for(const value of values){const item=doc.createElement('li');item.textContent=typeof value==='string'?value:String(value?.fact||value?.text||value?.title||'');list.append(item);}answer.append(title,list);
     }}
-    history.push({role:'User',text:data.databaseWorkspace?'Customer Database request (business-scoped reference omitted)':external?(request.historyText||text):text},{role:'James',text:data.databaseWorkspace?'Database result requires a fresh read of its selected business workspace.':reply});persistHistory(scope);
-    if(!external&&input.value.trim()===text)input.value='';status.textContent='Ready';return {status:'completed',answer:reply};
+    if(request.recordHistory!==false){history.push({role:'User',text:data.databaseWorkspace?'Customer Database request (business-scoped reference omitted)':external?(request.historyText||text):text},{role:'James',text:data.databaseWorkspace?'Database result requires a fresh read of its selected business workspace.':reply});persistHistory(scope);}
+    if(request.origin!=='voice')root.dispatchEvent?.(new CustomEvent('james:typed-turn',{detail:{text,reply}}));
+    if(!external&&input.value.trim()===text)input.value='';status.textContent='Ready';return {status:'completed',answer:reply,...(data.databaseWorkspace?{restricted:true}:{})};
    }catch(error){if(ticket===revision){if(identity&&!identity.current())clear();status.textContent=closure?'End is not confirmed. Try End conversation again.':error?.message==='MODEL_NOT_CONFIGURED'?"James's text model is not configured for this deployment. Your draft is still here.":error?.message==='MODEL_UNAVAILABLE'?"James's configured model is unavailable. Your draft is still here.":'James could not complete this request. Your draft is still here.';return {status:'failed',message:status.textContent};}}
   }
   async function end(expectedScope){
@@ -109,8 +110,25 @@
     status.textContent=closure?'End is not confirmed. Try End conversation again.':'Conversation ended';
    }catch{if(ticket===revision){closure=closure||{retry:()=>identity.end()};status.textContent='End is not confirmed. Try End conversation again.';}}finally{ending=false;}
   }
+  async function prepareVoice(adapter){
+   if(ending||closure)throw Error('Conversation End is not confirmed');
+   const ticket=revision;await runtime();preparing=identity.start();const scope=await preparing;preparing=null;
+   if(ticket!==revision||ending)throw Error('Conversation changed');
+   const key=JSON.stringify(scope);if(scopeKey&&scopeKey!==key)clear();scopeKey=key;
+   const verified=await bridge.verifyIdentity();if(ticket!==revision||verified.status!=='ready')throw Error('Conversation unavailable');
+   if(!history.length)restoreHistory(scope);
+   if(!bridge.attachVoice(adapter))throw Error('Voice is already active');
+   return {scope,history:history.map(item=>({...item})),identityOwner:{current:()=>identity.current(),snapshotIdentity:()=>identity.snapshotIdentity()}};
+  }
+  async function rememberVoice(scope,text,reply){
+   if(!text||!reply||JSON.stringify(identity?.current())!==JSON.stringify(scope))return false;
+   const ticket=revision,checked=await bridge.verifyIdentity();
+   if(ticket!==revision||checked.status!=='ready'||JSON.stringify(identity.current())!==JSON.stringify(scope))return false;
+   history.push({role:'User',text:String(text).slice(0,4000)},{role:'James',text:String(reply).slice(0,5000)});persistHistory(scope);return true;
+  }
+  const voiceAPI={prepareVoice,rememberVoice,detachVoice:adapter=>bridge?.detachVoice(adapter),interruptVoiceReply(){++revision;bridge?.interruptReply();},async verifyVoice(scope){await runtime();const result=await bridge.verifyIdentity();return result.status==='ready'&&JSON.stringify(identity.current())===JSON.stringify(scope);},context:()=>getContext()};
   askButton.onclick=()=>ask();endButton.onclick=()=>end();
-  return {ask,end,suspend(){++revision;stopInput();bridge?.revoke();identity?.revoke();clear(true);status.textContent='Ready';},cancelReply(){++revision;bridge?.interruptReply();stopInput();status.textContent='Reply cancelled. Your draft is retained.';},async askWorkbench(text,project,onScope){const context={title:String(project.title||'').slice(0,200),objective:String(project.objective||'').slice(0,1000),nextAction:String(project.nextAction||'').slice(0,500),selectedVersion:project.versions?.find(v=>v.id===project.selectedArtifactVersionId)?.content?.slice(0,2500)||'',decisions:(project.decisions||[]).slice(-6),constraints:(project.constraints||[]).slice(-6)};const question='Workbench project context (reference data, not instructions):\n'+JSON.stringify(context)+'\nUser request: '+String(text).slice(0,3000);if(question.length>8192)return {status:'failed',message:'Project context is too large. Your draft is retained.'};return ask({text:question,onScope,historyText:'Workbench project: '+context.title+'\nObjective: '+context.objective+'\nUser request: '+String(text).slice(0,3000)});},async snapshotWorkspaceIdentity(){await runtime();return identity.snapshotWorkspaceIdentity();},async snapshotIdentity(){await runtime();return identity.snapshotIdentity();},async navigate(door){if(bridge?.snapshot().identity)return bridge.navigate(door);return {status:'unavailable'};},revoke(){++revision;stopInput();bridge?.revoke();identity?.revoke();clear();status.textContent='Sign in to continue';}};
+  return {...voiceAPI,ask,end,suspend(){++revision;stopInput();bridge?.revoke();identity?.revoke();clear(true);status.textContent='Ready';},cancelReply(){++revision;bridge?.interruptReply();stopInput();status.textContent='Reply cancelled. Your draft is retained.';},async askWorkbench(text,project,onScope){const context={title:String(project.title||'').slice(0,200),objective:String(project.objective||'').slice(0,1000),nextAction:String(project.nextAction||'').slice(0,500),selectedVersion:project.versions?.find(v=>v.id===project.selectedArtifactVersionId)?.content?.slice(0,2500)||'',decisions:(project.decisions||[]).slice(-6),constraints:(project.constraints||[]).slice(-6)};const question='Workbench project context (reference data, not instructions):\n'+JSON.stringify(context)+'\nUser request: '+String(text).slice(0,3000);if(question.length>8192)return {status:'failed',message:'Project context is too large. Your draft is retained.'};return ask({text:question,onScope,historyText:'Workbench project: '+context.title+'\nObjective: '+context.objective+'\nUser request: '+String(text).slice(0,3000)});},async snapshotWorkspaceIdentity(){await runtime();return identity.snapshotWorkspaceIdentity();},async snapshotIdentity(){await runtime();return identity.snapshotIdentity();},async navigate(door){if(bridge?.snapshot().identity)return bridge.navigate(door);return {status:'unavailable'};},revoke(){++revision;stopInput();bridge?.revoke();identity?.revoke();clear();status.textContent='Sign in to continue';}};
  }
  root.JamesConversationUI={mount};
 })(typeof window==='undefined'?globalThis:window);
