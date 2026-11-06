@@ -500,6 +500,15 @@ function nextAppointment(){
  return appointments.find(e => (e[5] ? new Date(e[5].end) : timeToDate(e[1])) > now);
 }
 
+let nextDriveOrigin=null,nextDriveResult=null,nextDriveGeneration=0,nextDriveController=null;
+function nextDriveKey(){const e=nextAppointment();return calendarSyncState.hasData&&calendarSyncState.state!=='stale'&&e?.[5]?JSON.stringify([e[5].id,e[5].start,e[5].location]):null;}
+function applyNextDrive(){
+ if(!nextDriveResult)return;
+ if(nextDriveResult.key!==nextDriveKey()||Date.parse(nextDriveResult.expiresAt)<=Date.now()){nextDriveResult=null;const status=$('#routeStatus');if(status)status.textContent='Drive estimate expired or appointment changed. Estimate again before leaving.';return;}
+ $('#leaveBy').textContent=new Date(nextDriveResult.estimatedLeaveBy).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'});
+ $('#driveTime').textContent=Math.ceil(nextDriveResult.driveSeconds/60)+' min';
+ $('#traffic').textContent=nextDriveResult.trafficDelaySeconds>=60?'+'+Math.ceil(nextDriveResult.trafficDelaySeconds/60)+' min':'No added delay';
+}
 function updateHero(){
   if(!calendarSyncState.hasData) {
     $('#nextTitle').textContent=calendarSyncState.state==='loading'?'Checking calendar…':'Calendar unavailable';
@@ -530,6 +539,7 @@ const drive = travel ? (parseInt(travel[3], 10) || 0) : 0;
  $('#leaveBy').textContent = travel ? leave.toLocaleTimeString([], {hour:'numeric', minute:'2-digit'}) : '—';
 $('#driveTime').textContent = travel ? `${drive} min` : '—';
   $('#traffic').textContent = '—';
+  applyNextDrive();
 }
 
 function openCalendarEvent(row) {
@@ -2147,4 +2157,40 @@ document.addEventListener('DOMContentLoaded',()=>{
   }catch(error){status.textContent=error.message;}
   finally{submit.disabled=false;}
  };
+});
+
+// Departure locations stay in memory; weather coordinates are never reused for routing.
+document.addEventListener('DOMContentLoaded',()=>{
+ const status=$('#routeStatus'),estimateButton=$('#routeEstimate');if(!status||!estimateButton)return;
+ let locationGeneration=0;
+ const invalidate=()=>{nextDriveGeneration++;nextDriveController?.abort();nextDriveResult=null;updateHero();};
+ const choose=origin=>{invalidate();nextDriveOrigin=origin;status.textContent='Starting point selected for this visit. Estimate your next drive when ready.';};
+ $('#routeUseAddress').onclick=()=>{locationGeneration++;const address=$('#routeOriginAddress').value.trim();if(address.length<5){status.textContent='Enter a full departure address first.';return;}choose({kind:'address',address,confirmed:true});};
+ $('#routeUseLocation').onclick=()=>{
+  const generation=++locationGeneration;invalidate();nextDriveOrigin=null;
+  if(!navigator.geolocation){status.textContent='Location is unavailable. Enter a departure address.';return;}
+  status.textContent='Waiting for your location permission…';
+  navigator.geolocation.getCurrentPosition(position=>{if(generation!==locationGeneration)return;choose({kind:'device',latitude:position.coords.latitude,longitude:position.coords.longitude,accuracy:position.coords.accuracy,observedAt:position.timestamp});},()=>{if(generation===locationGeneration)status.textContent='Location could not be verified. Enter a departure address instead.';},{enableHighAccuracy:true,maximumAge:0,timeout:15000});
+ };
+ estimateButton.onclick=async()=>{
+  if(!nextDriveOrigin){status.textContent='Choose a departure address or current location first.';return;}
+  const appt=nextAppointment(),key=nextDriveKey();
+  if(!key||!appt?.[5]?.location||Date.parse(appt[5].start)<=Date.now()){status.textContent='A future appointment with a destination address and a current Calendar result is needed.';return;}
+  invalidate();const generation=nextDriveGeneration;nextDriveController=new AbortController();estimateButton.disabled=true;status.textContent='Checking current traffic…';
+  try{
+   const response=await fetch('/api/james/routing',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({origin:nextDriveOrigin,destination:appt[5].location,appointmentStart:appt[5].start,bufferMinutes:10}),signal:nextDriveController.signal,cache:'no-store'});
+   const result=await response.json();if(generation!==nextDriveGeneration||key!==nextDriveKey())return;
+   if(!response.ok)throw Error();
+   if(result.status!=='ready'){
+    const reasons={configuration_missing:'Live routing is not configured in James yet. Your Calendar connection is unchanged.',disabled:'Live routing is currently disabled.',starting_point_required:'Choose a fresh current location or confirm your departure address.',provider_configuration:'The existing Maps configuration needs verification.',provider_limit:'The routing provider limit was reached. Try again later.',destination_required:'Add a full destination address to this appointment.',appointment_required:'Choose a future appointment.'};
+    status.textContent=reasons[result.reason]||'A verified route is unavailable. Try again later.';return;
+   }
+   if(!Number.isFinite(result.driveSeconds)||!Number.isFinite(result.trafficDelaySeconds)||!Number.isFinite(Date.parse(result.expiresAt))||!Number.isFinite(Date.parse(result.estimatedLeaveBy)))throw Error();
+   nextDriveResult={...result,key};updateHero();status.textContent='Estimated using current traffic, plus a 10-minute arrival buffer. Recheck before leaving; the appointment was not changed.';
+  }catch(error){if(generation===nextDriveGeneration&&error.name!=='AbortError')status.textContent='Route unavailable. Your appointment has not changed.';}
+  finally{estimateButton.disabled=false;}
+ };
+ const clear=()=>{locationGeneration++;invalidate();nextDriveOrigin=null;$('#routeOriginAddress').value='';status.textContent='Choose a starting point to estimate your next drive.';};
+ window.addEventListener('pagehide',clear);
+ document.addEventListener('visibilitychange',()=>{if(document.hidden)clear();});
 });
