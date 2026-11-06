@@ -236,12 +236,30 @@ const messages = messagesData.value.map(message => ({
       preview: message.bodyPreview || "",
     body: message.body?.content || ''
     }));
+    let reconciliation;
+    if (req.query.reviewCheckIds !== undefined) {
+      let ids;
+      try { ids=JSON.parse(req.query.reviewCheckIds); } catch { return res.status(400).json({error:"INVALID_REVIEW_CHECK"}); }
+      if(account!=="personal"||!Array.isArray(ids)||ids.length>25||new Set(ids).size!==ids.length||ids.some(id=>typeof id!=="string"||!(/^[A-Za-z0-9_+=/-]{1,2048}$/).test(id)))return res.status(400).json({error:"INVALID_REVIEW_CHECK"});
+      const {verifyChecks}=require("../../lib/attention/mail-reconcile.cjs");
+      const checked=await verifyChecks(ids,async id=>{
+        const current=messages.find(message=>message.id===id);
+        if(current)return {message:current};
+        const result=await readStateRequest("https://graph.microsoft.com/v1.0/me/mailFolders/inbox/messages/"+encodeURIComponent(id)+"?$select=id,subject,from,receivedDateTime,bodyPreview,importance,flag",{headers:{Authorization:"Bearer "+tokens.access_token}},Date.now()+10000);
+        if(result.status===404)return {absent:true};
+        if(!result.ok||result.data?.id!==id)throw Error("MAIL_RECONCILIATION_UNAVAILABLE");
+        const message=result.data;
+        return {message:{id,subject:message.subject||"(No subject)",sender:message.from?.emailAddress?.name||message.from?.emailAddress?.address||"Unknown sender",receivedDateTime:message.receivedDateTime,preview:message.bodyPreview||"",importance:message.importance||"normal",flagStatus:message.flag?.flagStatus||"notFlagged"}};
+      });
+      reconciliation={...checked,cursor:ids.at(-1)||null};
+    }
     return res.status(200).json({
       connected: true,
       account,
       unreadCount: inbox.unreadItemCount ?? 0,
       totalCount: inbox.totalItemCount ?? 0,
       messages,
+      ...(reconciliation?{reconciliation}:{}),
       nextCursor,
       messagesStatus: "available",
       coverage: {
