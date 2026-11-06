@@ -1,3 +1,4 @@
+let gmailReviewGeneration = 0;
 let attentionScreen = null;
 let mailAttentionView = null;
 let attentionReader = null;
@@ -1449,10 +1450,24 @@ if (personalMailDetailBack) {
   const getJamesContext=()=>({page:document.querySelector('.page.active')?.id||'briefing',localTime:new Date().toLocaleString(),timezone:Intl.DateTimeFormat().resolvedOptions().timeZone,calendar:readJamesCalendar(jamesLocalDay(new Date())),travel:{connected:false,calendarWrites:false}});
   window.jamesConversationUI=window.JamesConversationUI.mount({input:$('#jamesQuestion'),answer:$('#jamesAnswer'),askButton:$('#askJamesButton'),stopInput:()=>{window.jamesVoice?.close();window.speechSynthesis?.cancel();},getContext:getJamesContext,navigate:async door=>{const id=door==='calendar'?'appointments':door;if(id==='workbench'||document.getElementById('workbench')?.classList.contains('active'))return await window.jamesWorkbenchNavigate?.(id);page(id);return true;},chooseEndpoint:question=>!detectUtility(question)&&shouldUseCouncil(question)?'/api/council':'/api/fast'});
   mailAttentionView=window.JamesMailAttention.mount($('#mailAttentionView'),{
-    refresh:()=>loadPersonalMicrosoftMail('attention-review'),
+    refresh:async()=>{},
     readSaved:async()=>{const response=await fetch('/api/attention',{credentials:'same-origin',cache:'no-store'});if(!response.ok)throw Error('Saved review unavailable');return (await response.json()).mailReview;},
     saveReview:async()=>{const response=await fetch('/api/attention/scan',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:'{}'});if(!response.ok)throw Error('Mail review could not be saved');},
-    review:async id=>{page('personalMail');let row=[...document.querySelectorAll('#personalMailMessages [data-message-id]')].find(node=>node.dataset.messageId===id);if(!row){try{const response=await fetch('/api/microsoft/mail?account=personal&readMessageId='+encodeURIComponent(id),{credentials:'same-origin',cache:'no-store'});const data=await response.json();if(!response.ok||data.message?.id!==id)throw Error();window.personalMicrosoftMessages=[...(window.personalMicrosoftMessages||[]),data.message];renderPersonalMicrosoftMail(window.personalMicrosoftMessages,{restoreDetail:false});row=[...document.querySelectorAll('#personalMailMessages [data-message-id]')].find(node=>node.dataset.messageId===id);}catch{mailStateNotice('The source email could not be opened. Its saved review item is retained.');return;}}if(row)row.click();},
+    review:async id=>{if(id.startsWith('gmail:')){
+      const version=personalMailStateVersion,generation=++gmailReviewGeneration;sessionStorage.removeItem('jamesOpenPersonalMailId');
+      $('#personalMailDetailSubject').textContent='Gmail message';$('#personalMailDetailMeta').textContent='Read only';$('#personalMailDetailBody').textContent='Loading Gmail message…';page('personalMailDetail');
+      try{
+        const response=await fetch('/api/google/gmail/messages?messageId='+encodeURIComponent(id.slice(6)),{credentials:'same-origin',cache:'no-store'}),data=await response.json();
+        if(!response.ok||data.message?.id!==id)throw Error();
+        if(version!==personalMailStateVersion||generation!==gmailReviewGeneration||!$('#personalMailDetail').classList.contains('active'))return;
+        $('#personalMailDetailSubject').textContent=data.message.subject;
+        $('#personalMailDetailMeta').textContent='Gmail · '+data.message.sender+' · Read only';
+        const text=document.createElement('pre');text.style.whiteSpace='pre-wrap';text.textContent=data.message.bodyText;
+        const notice=document.createElement('p');notice.textContent='Gmail reading only. Plain-text content is shown; HTML-only messages may show a preview. Attachments, rich formatting, sending and read-state changes are not connected here.';
+        $('#personalMailDetailBody').replaceChildren(notice,text);page('personalMailDetail');
+      }catch{if(version!==personalMailStateVersion||generation!==gmailReviewGeneration||!$('#personalMailDetail').classList.contains('active'))return;page('personalMail');mailStateNotice('The Gmail source could not be opened. Its saved review item is retained.');}
+      return;
+    }page('personalMail');let row=[...document.querySelectorAll('#personalMailMessages [data-message-id]')].find(node=>node.dataset.messageId===id);if(!row){try{const response=await fetch('/api/microsoft/mail?account=personal&readMessageId='+encodeURIComponent(id),{credentials:'same-origin',cache:'no-store'});const data=await response.json();if(!response.ok||data.message?.id!==id)throw Error();window.personalMicrosoftMessages=[...(window.personalMicrosoftMessages||[]),data.message];renderPersonalMicrosoftMail(window.personalMicrosoftMessages,{restoreDetail:false});row=[...document.querySelectorAll('#personalMailMessages [data-message-id]')].find(node=>node.dataset.messageId===id);}catch{mailStateNotice('The source email could not be opened. Its saved review item is retained.');return;}}if(row)row.click();},
     draft:item=>{page('tasks');const field=$('#taskTitleInput');if(field.value.trim()){taskNotice('Your unsaved task is retained. Finish it before drafting another.');field.focus();return;}field.value='Review email: '+item.subject;$('#taskDomainInput').value='personal';taskNotice('Task draft only. Review the original email, then choose Add task to save.');field.focus();}
   });
   if(window.personalMicrosoftMessages?.length)mailAttentionView.update(window.personalMicrosoftMessages);
