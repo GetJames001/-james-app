@@ -200,3 +200,9 @@ test('Refresh inbox can fetch immediately after an automatic refresh', async () 
   h.requests[1].resolve({ messages: [] });
   assert.deepEqual(await refresh, { messages: [] });
 });
+
+test('default live cadence is 30 seconds and pending results are ignored after stop',async()=>{
+ const documentTarget=eventTarget(),windowTarget=eventTarget(),pending=deferred();let interval,applied=0;
+ const controller=createPersonalMailRefreshController({fetchMail:()=>pending.promise,onSuccess:()=>applied++,isVisible:()=>true,isMailOpen:()=>true,documentTarget,windowTarget,setIntervalFn:(_,ms)=>{interval=ms;return 1;},clearIntervalFn:()=>{}});
+ controller.start();assert.equal(interval,30000);controller.stop();pending.resolve({messages:[]});await flushPromises();assert.equal(applied,0);
+});

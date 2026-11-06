@@ -8,7 +8,7 @@ const snapshot=(next,revision=1)=>({accountId:'owner',revision,...next});
 test('handled is reversible, survives repeated scans and applies only to the reviewed message version',()=>{
  let saved=snapshot(collectReview(null,'owner',[bill],at));const key=projectReview(saved).items[0].reviewKey;
  const before=JSON.stringify(saved.state);saved=snapshot(decideReview(saved,key,'handled',at),2);
- assert.equal(JSON.stringify(saved.state),before,'mail evidence and evaluator state are untouched');assert.equal(projectReview(saved).items.length,0);assert.equal(projectReview(saved).handledItems.length,1);
+ assert.equal(JSON.stringify(saved.state),before,'mail evidence and evaluator state are untouched');assert.equal(projectReview(saved).items.length,0);assert.equal(projectReview(saved,{includeHandled:true}).handledItems.length,1);assert.equal(projectReview(saved).handledItems.length,0,'public projection does not load handled cards');
  saved=snapshot(collectReview(saved,'owner',[bill],later),3);assert.equal(projectReview(saved).items.length,0,'refresh cannot resurrect an unchanged handled message');
  const undone=snapshot(decideReview(saved,key,'undo',later),4);assert.equal(projectReview(undone).items.length,1);assert.equal(projectReview(undone).handledItems.length,0);
  const changed=snapshot(collectReview(saved,'owner',[{...bill,preview:'New deadline, action required'}],later),4);assert.equal(projectReview(changed).items.length,1);assert.notEqual(projectReview(changed).items[0].reviewKey,key);assert.throws(()=>decideReview(changed,key,'handled',later),/REVIEW_CHANGED_RETRY/);

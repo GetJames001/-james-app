@@ -1244,7 +1244,7 @@ function applyPersonalMicrosoftMail(data) {
     olderMailLoaded = false;
     updateOlderMailButton();
     window.personalMicrosoftMessages = [];
-    mailAttentionView?.clear();
+    // A disconnected Hotmail inbox must not clear the independent Gmail review.
     renderPersonalMicrosoftMail([]);
     const empty = $('#personalMailMessages .panel-item');
     if (empty) empty.textContent = 'Personal Mail is not connected in this workspace.';
@@ -1266,7 +1266,7 @@ function applyPersonalMicrosoftMail(data) {
   window.personalMicrosoftMessages = [...messages.values()];
   mailAttentionView?.update(window.personalMicrosoftMessages);
   updateOlderMailButton();
-  renderPersonalMicrosoftMail(window.personalMicrosoftMessages);
+  renderPersonalMicrosoftMail(window.personalMicrosoftMessages,{restoreDetail:!($('#personalMailDetail')?.classList.contains('active')&&$('#personalMailDetailBody')?.childNodes.length)});
   hasSuccessfulPersonalMailLoad = true;
 }
 
@@ -1349,13 +1349,11 @@ document.addEventListener('DOMContentLoaded', () => {
   },5*60*1000);
   personalMailRefreshController = PersonalMailRefresh.createPersonalMailRefreshController({
     fetchMail: requestPersonalMicrosoftMail,
-    onSuccess: applyPersonalMicrosoftMail,
-    onError: handlePersonalMicrosoftMailError,
+    onSuccess:(data,reason)=>{applyPersonalMicrosoftMail(data);void mailAttentionView?.check({automatic:true});},
+    onError:error=>{handlePersonalMicrosoftMailError(error);void mailAttentionView?.check({automatic:true});},
     isVisible: () => document.visibilityState === 'visible',
-    isMailOpen: () =>
-      $('#personalMail')?.classList.contains('active') ||
-      $('#personalMailDetail')?.classList.contains('active') ||
-      $('#attention')?.classList.contains('active'),
+    isMailOpen:()=>true,
+    pollIntervalMs:30_000,refreshOnPageChange:false,
     documentTarget: document,
     windowTarget: window
   });
@@ -1405,6 +1403,7 @@ $$(".task-filter").forEach(button => {
       mailAttentionView?.clear();
       for(const source of Object.keys(todoCounts))setToDoCount(source,0);
       calendarRefreshController.stop();
+      personalMailRefreshController?.stop();
       try {
         await fetch('/api/auth/logout', {
           method: 'POST',
@@ -1461,8 +1460,8 @@ if (personalMailDetailBack) {
     refresh:async()=>{},
     onCount:count=>setToDoCount('mail',count),
     decide:async(reviewKey,action)=>{const response=await fetch('/api/attention/decision',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify({reviewKey,action})});if(!response.ok)throw Error('Review change could not be saved');},
-    readSaved:async()=>{const response=await fetch('/api/attention',{credentials:'same-origin',cache:'no-store'});if(!response.ok)throw Error('Saved review unavailable');const data=await response.json();setToDoCount('other',data.attentionItems?.length||0);return data.mailReview;},
-    saveReview:async()=>{const response=await fetch('/api/attention/scan',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:'{}'});if(!response.ok)throw Error('Mail review could not be saved');},
+    readSaved:async()=>{const response=await fetch('/api/attention',{credentials:'same-origin',cache:'no-store'});if(!response.ok)throw Error('Saved review unavailable');const data=await response.json();setToDoCount('other',data.attentionItems?.length||0);return data.mailReview?{...data.mailReview,revision:data.revision}:null;},
+    saveReview:async()=>{const response=await fetch('/api/attention/scan',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:'{}'});if(!response.ok)throw Object.assign(Error('Mail review could not be saved'),{conflict:response.status===409});},
     review:async id=>{if(id.startsWith('gmail:')){
       const version=personalMailStateVersion,generation=++gmailReviewGeneration;sessionStorage.removeItem('jamesOpenPersonalMailId');
       $('#personalMailDetailSubject').textContent='Gmail message';$('#personalMailDetailMeta').textContent='Read only';$('#personalMailDetailBody').textContent='Loading Gmail message…';page('personalMailDetail');
@@ -1481,6 +1480,7 @@ if (personalMailDetailBack) {
     draft:item=>{page('tasks');const field=$('#taskTitleInput');if(field.value.trim()){taskNotice('Your unsaved task is retained. Finish it before drafting another.');field.focus();return;}field.value='Review email: '+item.subject;$('#taskDomainInput').value='personal';taskNotice('Task draft only. Review the original email, then choose Add task to save.');field.focus();}
   });
   if(window.personalMicrosoftMessages?.length)mailAttentionView.update(window.personalMicrosoftMessages);
+  void mailAttentionView.check({automatic:true});
   for(const button of document.querySelectorAll('[data-action-page]'))button.onclick=()=>page(button.dataset.actionPage);
   $('#workbenchFiles').onclick=()=>page('files');
   $('#filesWorkbenchBack').onclick=()=>page('workbench');
