@@ -99,6 +99,15 @@ module.exports = async function handler(req, res) {
         error: "Microsoft Mail token refresh failed.",
       });
     }
+if (req.method === "GET" && req.query.readMessageId !== undefined) {
+  const id=req.query.readMessageId;
+  if(account!=="personal"||typeof id!=="string"||!/^[A-Za-z0-9_+=/-]{1,2048}$/.test(id))return res.status(400).json({error:"INVALID_MESSAGE_ID"});
+  const result=await readStateRequest("https://graph.microsoft.com/v1.0/me/messages/"+encodeURIComponent(id)+"?$select=id,subject,from,receivedDateTime,isRead,bodyPreview,body,importance,flag",{headers:{Authorization:"Bearer "+tokens.access_token}},Date.now()+10000);
+  if(!result.ok)return res.status(result.status===404?404:502).json({error:"MESSAGE_UNAVAILABLE"});
+  const message=result.data;
+  if(message.id!==id)return res.status(502).json({error:"MESSAGE_UNAVAILABLE"});
+  return res.status(200).json({message:{id:message.id,subject:message.subject||"(No subject)",sender:message.from?.emailAddress?.name||message.from?.emailAddress?.address||"Unknown sender",receivedDateTime:message.receivedDateTime,isRead:message.isRead,preview:message.bodyPreview||"",body:message.body?.content||"",importance:message.importance||"normal",flagStatus:message.flag?.flagStatus||"notFlagged"}});
+}
 if (req.method === "GET" && req.query.messageId !== undefined) {
   const { messageId, attachmentId } = req.query;
   const validId = id => typeof id === "string" && /^[A-Za-z0-9_+=/-]{1,2048}$/.test(id);

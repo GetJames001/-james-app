@@ -160,3 +160,16 @@ test('Personal OAuth requests mail and read-only calendar access while Work scop
       :'openid profile offline_access User.Read Mail.Read');
   }
 });
+
+test('saved review can fetch an original message by ID without changing read state or sending mail',async()=>{
+ const id='synthetic/id+=';
+ const {res,calls}=await run(request('GET',undefined,{query:{readMessageId:id}}),[stored(),token(),reply({id,subject:'Saved source',isRead:false,bodyPreview:'Source preview',body:{content:'Source body'}})]);
+ assert.equal(res.statusCode,200);assert.equal(res.body.message.id,id);assert.equal(res.body.message.isRead,false);
+ assert.match(calls[2].url,/messages\/synthetic%2Fid%2B%3D\?/);assert.equal(calls[2].options.method,undefined);assert.equal(calls.length,3);
+});
+test('saved source read rejects mismatched message identity and leaves missing mail unresolved',async()=>{
+ for(const provider of [reply({id:'other'}),reply({error:{message:'private'}},404)]){
+  const {res}=await run(request('GET',undefined,{query:{readMessageId:'expected'}}),[stored(),token(),provider]);
+  assert.ok([404,502].includes(res.statusCode));assert.deepEqual(res.body,{error:'MESSAGE_UNAVAILABLE'});
+ }
+});
