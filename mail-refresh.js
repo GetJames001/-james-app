@@ -15,7 +15,8 @@
       now = () => Date.now(),
       setIntervalFn = setInterval,
       clearIntervalFn = clearInterval,
-      pollIntervalMs = 60_000,
+      pollIntervalMs = 30_000,
+      refreshOnPageChange = true,
       minimumRefreshMs = 5_000
     } = options;
 
@@ -25,6 +26,7 @@
     let appliedVersion = 0;
     let pollTimer = null;
     let started = false;
+    let epoch = 0;
 
     function refresh(reason = "manual") {
       if (inFlight) return inFlight;
@@ -34,23 +36,24 @@
 
       lastStartedAt = now();
       const version = ++requestVersion;
+      const generation=epoch;
       let fetched;
       try {
-        fetched = fetchMail();
+        fetched = fetchMail(reason);
       } catch (error) {
         fetched = Promise.reject(error);
       }
       let request;
       request = Promise.resolve(fetched)
         .then(data => {
-          if (version >= appliedVersion) {
+          if (generation===epoch && version >= appliedVersion) {
             appliedVersion = version;
             onSuccess(data, reason);
           }
           return data;
         })
         .catch(error => {
-          if (version >= appliedVersion) onError(error, reason);
+          if (generation===epoch && version >= appliedVersion) onError(error, reason);
           return { error };
         })
         .finally(() => {
@@ -88,7 +91,7 @@
     }
 
     function pageChanged() {
-      if (isVisible() && isMailOpen()) refresh("mail-open");
+      if (refreshOnPageChange && isVisible() && isMailOpen()) refresh("mail-open");
       syncPolling();
     }
 
@@ -104,6 +107,7 @@
     function stop() {
       if (!started) return;
       started = false;
+      epoch++;inFlight=null;
       documentTarget.removeEventListener("visibilitychange", handleVisibilityChange);
       windowTarget.removeEventListener("pageshow", handlePageShow);
       stopPolling();

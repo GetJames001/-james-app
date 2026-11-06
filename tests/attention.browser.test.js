@@ -6,7 +6,7 @@ test('Attention saved view fits devices, retains items/focus on failure and clea
  const server=http.createServer((req,res)=>{
   const u=new URL(req.url,'http://localhost');
   if(u.pathname.startsWith('/api/')){
-   if(req.method!=='GET'&&u.pathname.startsWith('/api/attention'))writes++;
+   if(req.method!=='GET'&&['/api/attention','/api/attention/decision'].includes(u.pathname))writes++;
    res.setHeader('content-type','application/json');
    if(u.pathname==='/api/attention'){
     reads++;if(mode==='failed'){res.statusCode=503;return res.end('{}');}
