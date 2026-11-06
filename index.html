@@ -312,7 +312,7 @@
     <div class="sheet action-sheet"><h1>To Do</h1><p>What needs a decision, and what you have committed to doing.</p>
     <div class="action-tabs" aria-label="To Do sections"><button type="button" data-action-page="attention" aria-current="page">Needs attention</button><button type="button" data-action-page="tasks">My tasks</button></div>
     <div id="mailAttentionView"></div>
-    <details class="saved-attention"><summary>Mail connections</summary><p>Hotmail is your primary sending address. Gmail is a secondary reading source.</p><form action="/api/google/gmail/connect" method="post" target="_blank"><button type="submit">Enable Gmail reading</button></form><p>Opens Google to request read-only Gmail permission using the existing James Google setup. Gmail sending is deferred. Existing Calendar credentials are preserved. This step authorizes reading; it does not start a full mailbox scan.</p></details>
+    <details class="saved-attention"><summary>Mail connections</summary><p>Hotmail is your primary sending address. Gmail is a secondary reading source.</p><form id="gmailReadConnect" action="/api/google/gmail/connect" method="post"><button type="submit">Enable Gmail reading</button><span role="status" data-gmail-status></span></form><p>Opens Google to request read-only Gmail permission using the existing James Google setup. Gmail sending is deferred. Existing Calendar credentials are preserved. This step authorizes reading; it does not start a full mailbox scan.</p></details>
     <details class="saved-attention"><summary>Previously saved attention review</summary><div id="attentionView" aria-label="Attention List"></div></details>
     </div>
   </section>
