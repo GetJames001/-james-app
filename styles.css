@@ -864,3 +864,13 @@ nav [data-page="attention"].has-attention{border-color:var(--gold);box-shadow:0 
 .handled-mail-review{margin-top:24px;border-top:1px solid var(--gs);padding-top:16px}
 .handled-mail-review>div{display:flex;gap:16px;align-items:center;justify-content:space-between;margin:12px 0}
 .saved-attention details{margin-top:16px}
+
+/* Voice-state effects use filters: the accepted orb asset deliberately disables box shadows. */
+.persistent-orb.listening{filter:brightness(1.1) drop-shadow(0 0 9px rgba(88,195,242,.9)) drop-shadow(0 0 16px rgba(232,182,100,.65))}
+.persistent-orb.thinking{animation:jamesOrbThinking 2.4s ease-in-out infinite;filter:drop-shadow(0 0 10px rgba(109,181,227,.85))}
+.persistent-orb.connecting{animation:jamesOrbConnecting 1.8s ease-in-out infinite}
+.persistent-orb.speaking{animation:jamesOrbSpeaking .9s ease-in-out infinite alternate}
+.persistent-orb.muted{filter:grayscale(.65) brightness(.8);animation:none}
+@keyframes jamesOrbThinking{0%,100%{transform:rotate(-7deg) scale(1)}50%{transform:rotate(7deg) scale(1.045)}}
+@keyframes jamesOrbConnecting{0%,100%{filter:brightness(.85) drop-shadow(0 0 4px rgba(109,181,227,.5))}50%{filter:brightness(1.1) drop-shadow(0 0 12px rgba(109,181,227,.9))}}
+@keyframes jamesOrbSpeaking{from{transform:scale(1);filter:brightness(1.02) drop-shadow(0 0 5px rgba(232,182,100,.5))}to{transform:scale(1.085);filter:brightness(1.16) drop-shadow(0 0 14px rgba(232,182,100,.9))}}
