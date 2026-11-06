@@ -33,6 +33,7 @@ const exactHandlers = new Map([
   ["api/council", council],
   ["api/fast", fast],
   ["api/google/callback", googleCallback],
+  ["api/google/gmail/connect", require("../lib/google/gmail-connect.js").connect],
   ["api/google/capabilities", require("../lib/google/capabilities.js")],
   ["api/google/connect", googleConnect],
   ["api/microsoft/callback", microsoftCallback],
