@@ -961,3 +961,14 @@ html:has(body[data-wall-ambient=true]), body[data-wall-ambient=true] {
   background: #0b172480;
   border-color: #b99a6570;
 }
+
+/* Keep the ambient dashboard fixed. Conversation can scroll when it needs room. */
+body[data-wall-conversation=false] .wall-ambient { overflow: hidden; }
+@media (max-height: 600px) {
+  body[data-wall-conversation=false] .wall-surface { gap: 8px; padding-block: 12px; }
+  body[data-wall-conversation=false] .wall-top h1 { font-size: clamp(2.5rem, 8vh, 4rem); }
+  body[data-wall-conversation=false] .wall-tiles button { min-height: 0; padding: 10px; }
+}
+@media (max-height: 400px) {
+  body[data-wall-conversation=false] .wall-ambient { overflow-y: auto; }
+}
