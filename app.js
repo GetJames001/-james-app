@@ -913,7 +913,7 @@ async function loadWeatherForCoordinates({ latitude, longitude, savedAt }, tempE
 }
 
 let weatherRefreshInProgress=false;
-function loadLiveWeather(requestPermission=false, opening=false) {
+function loadLiveWeather(requestPermission=false) {
   const tempEl = $('#weatherTemp');
   const detailEl = $('#weatherDetail');
   const refresh = $('#weatherEnableLocation');
@@ -969,8 +969,7 @@ function loadLiveWeather(requestPermission=false, opening=false) {
   if (requestPermission) return locate();
   const handleUnknownPermission = () => {
     if (weatherRefreshInProgress) return;
-    if (opening) locate();
-    else needsPermission();
+    needsPermission();
   };
   if (!navigator.permissions?.query) return handleUnknownPermission();
   navigator.permissions.query({name:'geolocation'}).then(permission=>{
@@ -1366,7 +1365,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }));
   window.addEventListener('pagehide',()=>calendarRefreshController.stop());
   window.addEventListener('pageshow',event=>{if(event.persisted)window.location.reload();});
-  loadLiveWeather(false, true);
+  loadLiveWeather();
   document.addEventListener('visibilitychange',()=>{
     if(document.visibilityState==='visible')loadLiveWeather();
   });

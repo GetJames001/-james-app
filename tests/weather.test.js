@@ -141,19 +141,15 @@ test('does not prompt for device location when permission is not previously gran
 });
 
 for (const permission of ['prompt', null]) {
-  test(`loads weather on opening with location permission status ${permission}`, async () => {
+  test(`opening does not request device location when permission is ${permission}`, async () => {
+    let requests = 0;
     const harness = createHarness({
       permission,
-      geolocation: {
-        getCurrentPosition(success) {
-          success({coords:{latitude:35.9,longitude:-115.2}});
-        }
-      },
-      response: {ok:true,async json(){return {current:{temperature_2m:88,weather_code:0}};}}
+      geolocation: { getCurrentPosition() { requests++; } }
     });
     harness.loadWeather(true);
     await flushPromises();
-    assert.equal(harness.fetchCalls.length, 1);
-    assert.equal(harness.elements['#weatherTemp'].textContent, '88°');
+    assert.equal(requests, 0);
+    assert.equal(harness.elements['#weatherDetail'].textContent, 'Location permission required');
   });
 }

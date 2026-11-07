@@ -7,7 +7,6 @@
   'red-rock-terrace':'Red Rock Terrace', 'red-rock-snow':'Red Rock Snow', 'strip-terrace':'Strip Terrace',
   'winter-lodge':'Winter Lodge', 'winter-storm-penthouse':'Winter Storm Penthouse'
  };
- const motionScenes=new Set(['aurora-from-orbit','oceanfront']);
  function mount({settingsButton,app,read=()=>({}),navigate=()=>{},voice=()=>root.jamesVoice,ask=request=>root.jamesConversationUI?.ask(request),fetcher=fetch,wakeLock=root.navigator?.wakeLock,storage,document=root.document,now=Date.now}={}){
   if(storage===undefined)try{storage=root.localStorage}catch{}
   let config={mode:'regular',dim:true,idle:60,scene:'evening',wake:false};try{const saved=JSON.parse(storage?.getItem('james:wall-display:v1')||'null');if(saved){config.mode=saved.mode==='wall'?'wall':'regular';config.dim=saved.dim!==false;config.idle=[30,60,180].includes(saved.idle)?saved.idle:60;config.scene=Object.hasOwn(scenes,saved.scene)?saved.scene:'evening';config.wake=saved.wake===true;}}catch{}
@@ -31,7 +30,7 @@
   const reducedMotion=root.matchMedia('(prefers-reduced-motion: reduce)');
   let motionSource='';
   function paintMotion(){
-   const enabled=!disposed&&active&&!conversation&&!document.hidden&&!reducedMotion.matches&&motionScenes.has(config.scene);
+   const enabled=!disposed&&active&&!conversation&&!document.hidden&&!reducedMotion.matches;
    const clip=config.scene==='oceanfront'?'wall-oceanfront':config.scene;
    const source=enabled?'/assets/scenes/'+clip+'.mp4':'';
    if(source===motionSource)return;
@@ -61,7 +60,22 @@
   function wake(page){conversation=false;++turn;busy=false;send.disabled=false;active=false;ambient.hidden=true;app.inert=false;app.removeAttribute('aria-hidden');back.hidden=config.mode!=='wall';lastActivity=now();void listener.pause();paint();if(page)navigate(page);}
   function showConversation(){conversation=true;active=true;ambient.hidden=false;app.inert=true;app.setAttribute('aria-hidden','true');back.hidden=true;lastActivity=now();paint();}
   async function wakeAndTalk(){if(document.hidden||settings.open||config.mode!=='wall')return;const released=await listener.pause();if(released===false||document.hidden||settings.open||config.mode!=='wall')return;showConversation();if(!voice()?.active())await voice()?.start();}
-  async function toggleWake(){if(config.mode!=='wall'){wakeStatus.textContent='Choose Wall display mode first.';return;}const state=listener.snapshot();if(state.phase==='listening'){config.wake=false;await listener.disable();}else{arming=true;config.wake=true;settings.close();enter();try{await listener.enable();}finally{arming=false;}}save();}
+  async function toggleWake(){
+   if(config.mode!=='wall'){wakeStatus.textContent='Choose Wall display mode first.';return;}
+   if(listener.snapshot().phase==='listening'){
+    config.wake=false;
+    await listener.disable();
+   }else{
+    arming=true;
+    settings.close();
+    enter();
+    try{
+     config.wake=await listener.enable();
+     if(!config.wake&&!document.hidden&&config.mode==='wall'&&!settings.open)settings.showModal();
+    }finally{arming=false;}
+   }
+   save();
+  }
   async function setMode(value){config.mode=value;mode.value=value;save();if(value==='wall'){await acquireLock();await checkAuth();settings.close();enter();}else{config.wake=false;save();await listener.disable();await releaseLock();wake();back.hidden=true;}paint();}
   function showSettings(){
    if(settings.open)return;
