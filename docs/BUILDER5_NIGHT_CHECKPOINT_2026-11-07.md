@@ -32,3 +32,23 @@ Michael passed location/routing, then live appointment creation for Fontaineblea
 - Live location cannot reliably run with the web app closed or suspended by iPadOS. Resume only with granted permission; don't infer an active position from a stale cache.
 - Current photo/card and AARU sources are recovered snapshots. Compare with the latest source before implementing the Wardrobe bridge.
 - Preview readiness is not Production approval. Keep working rollback links and deployment history. Vercel cleanup requires identified candidates and separate deletion approval.
+
+## Wall Display increment — review next morning
+
+Built as an opt-in mode under Settings → Display mode, with Regular and Wall display. Reuses existing still JPEGs from five approved entrance scenes; no videos were converted/rerendered, no new imagery or credits used. Background picker includes Waterfront morning/evening/night, Moonlit Forest and Aurora from Orbit. Personal photo upload/slideshow and motion backgrounds are not included.
+
+Ambient mode shows time, date, existing weather/next appointment, and Today / Explore / Reminders. Existing due-reminder alert cards remain above the ambient view until Done/Snooze/Reschedule. A tap returns to the app or starts the existing voice flow; after 30/60/180 seconds of inactivity, it returns to ambient when no voice session or review dialog is active. Existing entrance/authentication and regular mode are preserved.
+
+Screen Wake Lock is requested while Wall mode is visible, released on hide/exit/Regular mode, and reacquired on foreground return when the browser permits it. Evening dimming is a visual dim from 8 PM to 7 AM, not system brightness or ambient-light sensing. Room-light sensor integration remains unconnected. Wall mode does not remove sign-in or prevent the OS from suspending the browser; session checks retain the existing authentication boundary.
+
+Hey James is a separate opt-in local-only recognition path. Requires browser support for SpeechRecognition.processLocally and local availability; unsupported browsers retain tap-to-wake. A local language-pack download can be initiated explicitly from settings. No cloud recognition fallback; no paid voice session is held open as a wake listener. Local microphone abort/end is confirmed before opening the existing realtime voice connection. Listening pauses on hidden/active conversation and stops in Regular mode. Commands spoken in the same breath as the wake phrase are not buffered; repeat after the normal conversation connects. Browser autoplay/permission restrictions can still require a tap.
+
+Validation before deployment: 30 focused checks and three browser flows passed, including synthetic local-recognition/wake-lock handoff, persistent reminder cards, evening dimming, idle return, foreground pause/reacquire, Regular-mode cleanup, existing voice and mail refresh. Real always-on reliability, wake-phrase sensitivity, room noise and playback on Michael's actual wall-tablet make/model/OS/browser remain a next-morning device test. Do not claim Google Home-equivalent hardware wake from locked/suspended tablet state.
+
+
+## Wall conversation correction — local only
+Michael clarified that waking the wall tablet must keep it on the wall screen. Updated the existing wall overlay to show spoken questions and streamed answers, plus typed follow-ups through the existing James conversation service. No automatic Daily Briefing navigation on wake or background tap. Explicit tiles/page navigation still open the full James page. Back to ambient clears the wall text; inactivity returns to ambient only when no request is pending and voice is not connecting, thinking or speaking. Due reminder alerts remain above the wall screen.
+
+Publishing remains blocked after the prior GitHub create-tree request was rejected. No retry, new remote commit, PR, deployment or Production change was attempted. The shared preview does not contain this wall build. Real tablet microphone/wake-phrase support still needs device testing; automated speech tests use fixtures, not live microphones.
+
+Validation: 30 focused wake/auth/voice-route checks and 3 browser flows passed, including wall-only voice text, typed follow-up, ambient inactivity, explicit navigation, persistent reminders, dimming, wake-lock cleanup, regular voice across pages and automatic mail refresh.
