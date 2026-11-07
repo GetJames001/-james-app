@@ -9,7 +9,13 @@
   const save=document.createElement('button');save.type='button';save.textContent='Create appointment';save.disabled=true;
   const cancel=document.createElement('button');cancel.type='button';cancel.textContent='Cancel';
   const note=document.createElement('p');note.textContent='Saves to your connected Google calendar. No invitations are sent. Review the location, date, time and duration before creating it.';
-  dialog.append(heading,details,note,status,consent,check,save,cancel);document.body.append(dialog);
+  const lookup=document.createElement('section');lookup.hidden=true;
+  const placeLabel=document.createElement('label');placeLabel.textContent='Business and city or street';
+  const placeQuery=document.createElement('input');placeQuery.type='search';placeQuery.maxLength=400;placeLabel.append(placeQuery);
+  const find=document.createElement('button');find.type='button';find.textContent='Find business';
+  const placeStatus=document.createElement('p');placeStatus.setAttribute('role','status');
+  const places=document.createElement('ul');lookup.append(placeLabel,find,placeStatus,places);
+  dialog.append(heading,details,note,status,consent,check,save,cancel,lookup);document.body.append(dialog);
   let token=null,revision=0,current={status:'none'},connected=false,saving=false;
   const errors={CALENDAR_PERMISSION_REQUIRED:'Appointment saving needs your Google permission. Calendar reading is unchanged.',REVIEW_EXPIRED:'This review expired. Prepare it again before saving.',CALENDAR_SAVE_UNCONFIRMED:'Saving could not be confirmed. Retry this same review to check safely; do not make a second draft.',CALENDAR_EVENT_CONFLICT:'This review conflicts with an existing saved event. Check Calendar before preparing another.',APPOINTMENT_TIME_REQUIRED:'Please provide a future start time and an end time after it.'};
   const format=(date,zone)=>new Intl.DateTimeFormat(undefined,{dateStyle:'full',timeStyle:'short',timeZone:zone}).format(new Date(date));
@@ -19,6 +25,7 @@
   }
   async function prepare(input){
    if(saving)return {status:'busy',message:'Finish the current save before preparing another appointment.'};
+   lookup.hidden=true;
    const generation=++revision;token=null;save.disabled=true;current={status:'preparing'};
    try{
     const data=await request({action:'prepare',details:input});if(generation!==revision)return {status:'cancelled'};
@@ -37,10 +44,19 @@
   };
   consent.onclick=async()=>{consent.disabled=true;try{const response=await fetcher('/api/google/appointments/connect',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'}),data=await response.json();if(!response.ok)throw Error();const url=new URL(data.authorizationUrl);if(url.origin!=='https://accounts.google.com'||url.pathname!=='/o/oauth2/v2/auth')throw Error();root.location.assign(url.href);}catch{status.textContent='Appointment permission could not be opened. Existing Calendar reading is unchanged.';}finally{consent.disabled=false;}};
   check.onclick=connection;
+  find.onclick=async()=>{
+   const query=placeQuery.value.trim();if(query.length<3){placeStatus.textContent='Enter a business name and city or street.';return;}
+   const generation=revision;find.disabled=true;places.replaceChildren();placeStatus.textContent='Finding business addresses…';
+   try{const response=await fetcher('/api/james/places',{method:'POST',headers:{'Content-Type':'application/json'},cache:'no-store',body:JSON.stringify({query})}),data=await response.json();if(generation!==revision)return;
+    if(!response.ok)throw Error();
+    if(data.status==='ready'&&Array.isArray(data.places)&&data.places.length){for(const item of data.places.slice(0,4)){const li=document.createElement('li');li.textContent=item.name+' — '+item.address;places.append(li);}placeStatus.textContent='Google Maps matches. These are ranked results, not an exhaustive list or a verified closest-to-home comparison.';}
+    else placeStatus.textContent=data.reason==='places_permission_required'?'Google Places access is not available on the existing Maps key. Keep Routes API enabled and allow Places API (New).':data.status==='no_matches'?'No verified matches returned. Try the city or street name.':'Business lookup is unavailable. Try again later.';
+   }catch{if(generation===revision)placeStatus.textContent='Business lookup is unavailable. Try again later.';}finally{find.disabled=false;}
+  };
   cancel.onclick=()=>{if(saving)return;revision++;token=null;if(current.status!=='created')current={status:'cancelled'};dialog.close();};
   dialog.addEventListener('cancel',event=>{if(saving){event.preventDefault();return;}revision++;token=null;current={status:'cancelled'};});
   root.addEventListener('pagehide',()=>{revision++;token=null;current={status:'none'};});
-  async function setup(){if(saving)return;revision++;token=null;current={status:'none'};details.replaceChildren();save.hidden=true;save.disabled=true;cancel.textContent='Done';status.textContent='Checking appointment saving permission…';if(!dialog.open)dialog.showModal();await connection();if(connected)status.textContent='Appointment saving is connected. Ask James to prepare an appointment; you will review it before saving.';}
+  async function setup(){if(saving)return;revision++;token=null;current={status:'none'};details.replaceChildren();lookup.hidden=false;placeQuery.value='';places.replaceChildren();placeStatus.textContent='Find an address without creating an appointment.';save.hidden=true;save.disabled=true;cancel.textContent='Done';status.textContent='Checking appointment saving permission…';if(!dialog.open)dialog.showModal();await connection();if(connected)status.textContent='Appointment saving is connected. Ask James to prepare an appointment; you will review it before saving.';}
   return {prepare,setup,read:()=>JSON.parse(JSON.stringify(current))};
  }
  root.JamesAppointments={mount};
