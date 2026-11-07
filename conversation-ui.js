@@ -1,6 +1,6 @@
 (function(root){
  'use strict';
- function mount({input,answer,askButton,stopInput=()=>{},navigate=async()=>true,getContext=()=>({}),chooseEndpoint=()=>'/api/fast',fetcher=fetch,requestTimeoutMs=30000,historyStorage,loadRuntime=async()=>[root.JamesConversationRuntime,root.JamesConversationRuntime]}){
+ function mount({input,answer,askButton,stopInput=()=>{},navigate=async()=>true,getContext=()=>({}),getLocation=()=>null,chooseEndpoint=()=>'/api/fast',fetcher=fetch,requestTimeoutMs=30000,historyStorage,loadRuntime=async()=>[root.JamesConversationRuntime,root.JamesConversationRuntime]}){
   const doc=input.ownerDocument,endButton=doc.createElement('button'),status=doc.createElement('p');
   endButton.type='button';endButton.textContent='End conversation';status.setAttribute('role','status');status.textContent='Ready';
   askButton.parentNode.append(endButton);askButton.parentNode.after(status);
@@ -46,7 +46,7 @@
     identity=ownerModule.createConversationIdentityOwner({fetch:identityFetch,newOperationId:()=>crypto.randomUUID()});
     bridge=bridgeModule.createConversationBridge({identityOwner:identity,newId:()=>crypto.randomUUID(),navigate,capabilities:{ask:async({text,signal,origin})=>{
      const database=await root.jamesDatabaseQuestion?.(text,signal);if(database?.answer)return database;if(signal.aborted)throw Error('REQUEST_CANCELLED');const question=database?.question||text;if(question.length>8192)throw Error('CONTEXT_LIMIT');
-     const response=await requestJSON(chooseEndpoint(text),{method:'POST',credentials:'same-origin',cache:'no-store',signal,headers:{'Content-Type':'application/json'},body:JSON.stringify({...(origin==='voice'?{responseStyle:'spoken_brief'}:{}),question:isEmailDraft(text)?question+'\nReturn a draft only, with Subject: on its own line followed by the email body. Omit recipient headers. James handles recipient and attachments separately in its Outlook composer after this step. Do not ask for the recipient or files, or claim the draft was sent.':providerQuestion(question),timezone:Intl.DateTimeFormat().resolvedOptions().timeZone})});
+     const response=await requestJSON(chooseEndpoint(text),{method:'POST',credentials:'same-origin',cache:'no-store',signal,headers:{'Content-Type':'application/json'},body:JSON.stringify({...(origin==='voice'?{responseStyle:'spoken_brief'}:{}),deviceLocation:getLocation(),question:isEmailDraft(text)?question+'\nReturn a draft only, with Subject: on its own line followed by the email body. Omit recipient headers. James handles recipient and attachments separately in its Outlook composer after this step. Do not ask for the recipient or files, or claim the draft was sent.':providerQuestion(question),timezone:Intl.DateTimeFormat().resolvedOptions().timeZone})});
      const data=await bounded(response.json());
      if(!response.ok){if([502,503].includes(response.status)&&['FAST_MODEL_UNAVAILABLE','FAST_MODEL_NOT_CONFIGURED'].includes(data?.error))return {ok:false,error:data.error};if([401,403].includes(response.status)){++revision;bridge.revoke();identity.revoke();clear();stopInput();status.textContent='Sign in to continue';}throw Error(data?.error==='FAST_MODEL_UNAVAILABLE'?'MODEL_UNAVAILABLE':'REQUEST_FAILED');}if(!data.ok)throw Error('REQUEST_FAILED');
      return database?.databaseWorkspace?{...data,databaseWorkspace:database.databaseWorkspace}:data;

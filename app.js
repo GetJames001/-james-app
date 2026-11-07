@@ -1474,8 +1474,18 @@ if (personalMailDetailBack) {
   };
   window.jamesAppointments=window.JamesAppointments.mount({onCreated:async()=>{try{applyGoogleEvents(await JamesCalendarSync.readCalendar(fetch));await refreshHotmailCalendar();}catch{calendarSyncState.state=calendarSyncState.hasData?'stale':'unavailable';}}});
   $('#appointmentSavingSetup').onclick=()=>window.jamesAppointments.setup();
-  const findJamesPlaces=async query=>{
-    try{const response=await fetch('/api/james/places',{method:'POST',headers:{'Content-Type':'application/json'},cache:'no-store',body:JSON.stringify({query})}),data=await response.json();return response.ok?data:{status:'unavailable',reason:'request_failed',places:[]};}catch{return {status:'unavailable',reason:'request_failed',places:[]};}
+  window.jamesReminders=window.JamesReminders.mount({host:$('#tasks'),onCount:count=>setToDoCount('reminders',count)});
+  window.jamesLocation=window.JamesLocation.mount({button:$('#jamesLiveLocation'),status:$('#jamesLocationStatus'),onPoint:point=>{
+    if(!nextDriveOrigin||nextDriveOrigin.kind==='device'){
+      const previous=nextDriveOrigin,moved=!previous||Math.hypot((point.latitude-previous.latitude)*111000,(point.longitude-previous.longitude)*111000*Math.cos(point.latitude*Math.PI/180))>100;
+      nextDriveOrigin=point;if(moved){nextDriveResult=null;nextDriveGeneration++;nextDriveController?.abort();updateHero();}
+    }
+    const weatherPoint=jamesWeatherState.location?.approximateCoordinates;
+    if(!jamesWeatherState.checkedAt||Date.now()-Date.parse(jamesWeatherState.checkedAt)>900000||!weatherPoint||Math.hypot(point.latitude-weatherPoint.latitude,point.longitude-weatherPoint.longitude)>.05)void loadWeatherForCoordinates(point,$('#weatherTemp'),$('#weatherDetail'));
+
+  },onClear:()=>{if(nextDriveOrigin?.kind==='device'){nextDriveOrigin=null;nextDriveResult=null;nextDriveGeneration++;nextDriveController?.abort();updateHero();}}});
+  const findJamesPlaces=async(query,area='explicit')=>{
+    try{const response=await fetch('/api/james/places',{method:'POST',headers:{'Content-Type':'application/json'},cache:'no-store',body:JSON.stringify({query,area,...(area==='nearby'?{location:window.jamesLocation.point()}: {})})}),data=await response.json();return response.ok?data:{status:'unavailable',reason:'request_failed',places:[]};}catch{return {status:'unavailable',reason:'request_failed',places:[]};}
   };
   const readJamesRoute=()=>{
     if(!nextDriveResult||nextDriveResult.key!==nextDriveKey()||Date.parse(nextDriveResult.expiresAt)<=Date.now())return {status:'unavailable',startingPointSelected:Boolean(nextDriveOrigin),nextStep:'Choose a starting point and Estimate next drive inside Next Appointment.'};
@@ -1487,10 +1497,10 @@ if (personalMailDetailBack) {
     weather:{...readJamesWeather(),temperature:$('#weatherTemp')?.textContent,detail:$('#weatherDetail')?.textContent},
     mail:{personalUnread:$('#personalEmailCount')?.textContent||'Unavailable',workUnread:$('#workEmailCount')?.textContent||'Unavailable'},
     travel:{route:readJamesRoute(),calendarCreate:'review_and_permission_required'},
-    attention:'Not scanned for this briefing; do not infer no urgent messages.'
+    reminders:window.jamesReminders.read(),attention:'Not scanned for this briefing; do not infer no urgent messages.'
   });
-  const getJamesContext=()=>({page:document.querySelector('.page.active')?.id||'briefing',localTime:new Date().toLocaleString(),timezone:Intl.DateTimeFormat().resolvedOptions().timeZone,weather:readJamesWeather(),calendar:readJamesCalendar(jamesLocalDay(new Date())),travel:{route:readJamesRoute(),calendarCreate:'review_and_permission_required'},appointmentReview:window.jamesAppointments.read()});
-  window.jamesConversationUI=window.JamesConversationUI.mount({input:$('#jamesQuestion'),answer:$('#jamesAnswer'),askButton:$('#askJamesButton'),stopInput:()=>{window.jamesVoice?.close();window.speechSynthesis?.cancel();},getContext:getJamesContext,navigate:async door=>{const id=door==='calendar'?'appointments':door;if(id==='workbench'||document.getElementById('workbench')?.classList.contains('active'))return await window.jamesWorkbenchNavigate?.(id);page(id);return true;},chooseEndpoint:question=>!detectUtility(question)&&shouldUseCouncil(question)?'/api/council':'/api/fast'});
+  const getJamesContext=()=>({page:document.querySelector('.page.active')?.id||'briefing',localTime:new Date().toLocaleString(),timezone:Intl.DateTimeFormat().resolvedOptions().timeZone,location:window.jamesLocation.snapshot(),weather:readJamesWeather(),calendar:readJamesCalendar(jamesLocalDay(new Date())),travel:{route:readJamesRoute(),calendarCreate:'review_and_permission_required'},appointmentReview:window.jamesAppointments.read(),reminders:window.jamesReminders.read()});
+  window.jamesConversationUI=window.JamesConversationUI.mount({input:$('#jamesQuestion'),answer:$('#jamesAnswer'),askButton:$('#askJamesButton'),stopInput:()=>{window.jamesVoice?.close();window.speechSynthesis?.cancel();},getContext:getJamesContext,getLocation:()=>window.jamesLocation.point(),navigate:async door=>{const id=door==='calendar'?'appointments':door;if(id==='workbench'||document.getElementById('workbench')?.classList.contains('active'))return await window.jamesWorkbenchNavigate?.(id);page(id);return true;},chooseEndpoint:question=>/\b(?:nearby|near me|street address|store location|restaurant|restaurants|caf[eé]|coffee shop)\b/i.test(question)?'/api/fast':!detectUtility(question)&&shouldUseCouncil(question)?'/api/council':'/api/fast'});
   mailAttentionView=window.JamesMailAttention.mount($('#mailAttentionView'),{
     refresh:async()=>{},
     onCount:count=>setToDoCount('mail',count),
@@ -1519,7 +1529,7 @@ if (personalMailDetailBack) {
   for(const button of document.querySelectorAll('[data-action-page]'))button.onclick=()=>page(button.dataset.actionPage);
   $('#workbenchFiles').onclick=()=>page('files');
   $('#filesWorkbenchBack').onclick=()=>page('workbench');
-  window.jamesVoice=window.JamesVoiceSession.mount({ui:window.jamesConversationUI,orb:$('#jamesOrb'),button:$('#voiceJamesButton'),settingsButton:$('#voiceSettingsOpen'),setState:setOrbState,findPlaces:findJamesPlaces,prepareAppointment:details=>window.jamesAppointments.prepare(details),readAppointmentReview:()=>window.jamesAppointments.read(),readRoute:readJamesRoute,readWeather:readJamesWeather,readBriefing:readJamesBriefing,readCalendar:async date=>{try{applyGoogleEvents(await JamesCalendarSync.readCalendar(fetch));await refreshHotmailCalendar();}catch{calendarSyncState.state=calendarSyncState.hasData?'stale':'unavailable';}return readJamesCalendar(date);}});
+  window.jamesVoice=window.JamesVoiceSession.mount({ui:window.jamesConversationUI,orb:$('#jamesOrb'),button:$('#voiceJamesButton'),settingsButton:$('#voiceSettingsOpen'),setState:setOrbState,createReminder:details=>window.jamesReminders.create(details),readReminders:()=>window.jamesReminders.read(),findPlaces:findJamesPlaces,prepareAppointment:details=>window.jamesAppointments.prepare(details),readAppointmentReview:()=>window.jamesAppointments.read(),readRoute:readJamesRoute,readWeather:readJamesWeather,readBriefing:readJamesBriefing,readCalendar:async date=>{try{applyGoogleEvents(await JamesCalendarSync.readCalendar(fetch));await refreshHotmailCalendar();}catch{calendarSyncState.state=calendarSyncState.hasData?'stale':'unavailable';}return readJamesCalendar(date);}});
   window.addEventListener('pagehide',()=>window.jamesConversationUI?.suspend());
 });
 
@@ -2182,6 +2192,7 @@ document.addEventListener('DOMContentLoaded',()=>{
   navigator.geolocation.getCurrentPosition(position=>{if(generation!==locationGeneration)return;choose({kind:'device',latitude:position.coords.latitude,longitude:position.coords.longitude,accuracy:position.coords.accuracy,observedAt:position.timestamp});},()=>{if(generation===locationGeneration)status.textContent='Location could not be verified. Enter a departure address instead.';},{enableHighAccuracy:true,maximumAge:0,timeout:15000});
  };
  estimateButton.onclick=async()=>{
+  if(!nextDriveOrigin)nextDriveOrigin=window.jamesLocation?.point();
   if(!nextDriveOrigin){status.textContent='Choose a departure address or current location first.';return;}
   const appt=nextAppointment(),key=nextDriveKey();
   if(!key||!appt?.[5]?.location||Date.parse(appt[5].start)<=Date.now()){status.textContent='A future appointment with a destination address and a current Calendar result is needed.';return;}
