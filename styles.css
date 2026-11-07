@@ -912,30 +912,31 @@ nav [data-page="attention"].has-attention{border-color:var(--gold);box-shadow:0 
 .wall-controls { justify-content: flex-end; gap: 4px; }
 .wall-controls button { margin: 0; }
 
-.wall-scene-video, .wall-scene-shade, .wall-ambient::before {
+.wall-scene-video, .wall-scene-shade {
   position: fixed;
   inset: 0;
   width: 100%;
   height: 100%;
   pointer-events: none;
 }
-.wall-scene-video { object-fit: cover; opacity: 0; }
+.wall-scene-video { object-fit: contain; opacity: 0; }
 .wall-scene-video[data-playing=true] { opacity: 1; }
 .wall-scene-shade { background: linear-gradient(180deg, #06121c22, #06121cbb); }
 .wall-surface { position: relative; }
-.wall-ambient[data-aurora-motion=true]::before {
-  content: "";
-  background: radial-gradient(ellipse 36% 26% at 23% 31%, #39f68c60, transparent 85%);
-  mix-blend-mode: screen;
-  animation: wall-aurora 24s ease-in-out infinite;
+.wall-ambient[data-scene=oceanfront], .wall-ambient[data-scene=aurora-from-orbit] {
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-color: #06121c;
 }
-@keyframes wall-aurora {
-  0%, 100% { opacity: .24; transform: translateX(-7%); }
-  50% { opacity: .95; transform: translateX(11%); }
+.wall-controls .wall-talk {
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border-radius: 50%;
+  border-color: transparent;
+  background: transparent url("/assets/orb/james-concierge.svg") center / contain no-repeat;
 }
-@media (prefers-reduced-motion: reduce) {
-  .wall-ambient[data-aurora-motion=true]::before { animation: none; }
-}
+.wall-controls .wall-talk:focus-visible { outline: 2px solid #e3c58e; }
 
 .weather-location { margin-top: 6px; font-size: .75rem; }
 .weather-location summary { cursor: pointer; width: fit-content; }
