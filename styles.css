@@ -898,3 +898,6 @@ nav [data-page="attention"].has-attention{border-color:var(--gold);box-shadow:0 
 .appointment-review::backdrop{background:#0009}
 .appointment-review h2{margin-top:0}.appointment-review dt{color:#d9bb86;margin-top:12px}.appointment-review dd{margin:4px 0;overflow-wrap:anywhere}
 .appointment-review button{padding:10px 14px;margin:6px 8px 0 0;border:1px solid #b99a65;border-radius:8px;background:transparent;color:inherit;cursor:pointer}.appointment-review button:disabled{opacity:.5;cursor:wait}
+
+#jamesLocationStatus{display:block;font-size:.7rem;line-height:1.4;max-width:28rem;margin-top:6px}
+.timed-reminders{margin-top:24px;border-top:1px solid #59606b;padding-top:16px}.timed-reminders input,.reminder-row input{padding:8px;margin:4px;border:1px solid #687181;border-radius:8px;background:transparent;color:inherit}.timed-reminders button,.reminder-alerts button{padding:8px 12px;margin:4px;border:1px solid #b99a65;border-radius:8px;background:transparent;color:inherit}.reminder-row{padding:8px 0;border-bottom:1px solid #59606b}.reminder-alerts{position:fixed;z-index:1200;right:16px;bottom:16px;max-width:min(460px,calc(100vw - 32px));max-height:70vh;overflow:auto;background:#102035;color:#f7efdf;border:1px solid #d7b778;border-radius:12px;padding:16px;box-shadow:0 8px 30px #0008}.reminder-alerts[hidden]{display:none}

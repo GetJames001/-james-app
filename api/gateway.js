@@ -24,6 +24,7 @@ const exactHandlers = new Map([
   ["api/health", health],
   ["api/weather", require("../lib/routes/weather.js")],
   ["api/james/routing", require("../lib/routes/routing.js")],
+  ["api/james/reminders", require("../lib/routes/reminders.js")],
   ["api/james/places", require("../lib/routes/places.js")],
   ["api/james/appointments", require("../lib/routes/appointments.js")],
   ["api/google/appointments/connect", require("../lib/appointments/connect.js").connect],
@@ -106,7 +107,7 @@ module.exports = async function handler(req, res) {
   if (
     route.startsWith("workbench/") ||
     route === "app.js" ||
-    route === "appointments-ui.js" ||
+    route === "appointments-ui.js" || route === "location-context.js" || route === "reminders-ui.js" ||
     route === "customer-database.css" || route === "customer-database-ui.js" ||
     ["realtime-coordinator.mjs","turn-timing.mjs","voice-session.js","conversation-ui.js","conversation-runtime.js","conversation-identity.mjs","conversation-bridge.mjs"].includes(route) ||
     route === "mail-refresh.js" || route === "mail-attention.js" ||

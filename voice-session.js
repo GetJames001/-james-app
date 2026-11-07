@@ -1,6 +1,6 @@
 (function(root){
  'use strict';
- function mount({ui,orb,button,settingsButton,setState,findPlaces=async()=>({status:"unavailable"}),prepareAppointment=async()=>({status:"unavailable"}),readAppointmentReview=()=>({status:"none"}),readRoute=()=>({status:"unavailable"}),readWeather=()=>({status:"unavailable"}),readBriefing=()=>({status:"unavailable"}),readCalendar=async()=>({status:"unavailable"}),fetcher=fetch,media=root.navigator.mediaDevices,Peer=root.RTCPeerConnection}){
+ function mount({ui,orb,button,settingsButton,setState,createReminder=async()=>({status:"unavailable"}),readReminders=()=>({status:"unavailable"}),findPlaces=async()=>({status:"unavailable"}),prepareAppointment=async()=>({status:"unavailable"}),readAppointmentReview=()=>({status:"none"}),readRoute=()=>({status:"unavailable"}),readWeather=()=>({status:"unavailable"}),readBriefing=()=>({status:"unavailable"}),readCalendar=async()=>({status:"unavailable"}),fetcher=fetch,media=root.navigator.mediaDevices,Peer=root.RTCPeerConnection}){
   const doc=orb.ownerDocument,panel=doc.createElement('aside'),status=doc.createElement('p'),transcript=doc.createElement('p'),mute=doc.createElement('button'),stop=doc.createElement('button'),interrupt=doc.createElement('button');
   panel.className='james-voice-panel';panel.hidden=true;panel.setAttribute('aria-label','James conversation');
   status.setAttribute('role','status');transcript.className='james-voice-transcript';
@@ -41,7 +41,9 @@
     if(!args||typeof args!=='object'||Array.isArray(args))throw Error();
     if(!await ui.verifyVoice(s.scope)||!current(s))return close('Conversation changed. Tap James to reconnect.');
     if(item.name==='read_weather'&&Object.keys(args).length===0)output=readWeather();
-    else if(item.name==='find_places'&&Object.keys(args).join('|')==='query'&&typeof args.query==='string'&&args.query.trim().length>=3&&args.query.length<=400)output=await findPlaces(args.query);
+    else if(item.name==='create_reminder'&&Object.keys(args).sort().join('|')==='dueAt|timeZone|title')output=await createReminder(args);
+    else if(item.name==='read_reminders'&&Object.keys(args).length===0)output=readReminders();
+    else if(item.name==='find_places'&&Object.keys(args).sort().join('|')==='area|query'&&['nearby','explicit'].includes(args.area)&&typeof args.query==='string'&&args.query.trim().length>=3&&args.query.length<=400)output=await findPlaces(args.query,args.area);
     else if(item.name==='read_route'&&Object.keys(args).length===0)output=readRoute();
     else if(item.name==='read_appointment_review'&&Object.keys(args).length===0)output=readAppointmentReview();
     else if(item.name==='prepare_appointment'&&Object.keys(args).sort().join('|')==='end|location|start|timeZone|title')output=await prepareAppointment(args);
