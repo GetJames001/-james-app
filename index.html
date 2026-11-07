@@ -79,6 +79,7 @@
     <button data-page="attention">To Do</button>
     <button data-page="travel">Travel</button>
     <button data-page="workbench">Workbench</button>
+    <button type="button" data-page="wardrobe">Wardrobe</button>
     <button data-page="customer-database">Customer Information</button>
     <button id="jamesNav" class="james-nav" data-page="insights">
   James
@@ -210,6 +211,11 @@
         <p id="quickCalendarStatus" role="status"></p>
         <div class="quick-calendar-shortcuts"><button id="quickCalendarToday" type="button">Today</button><button id="quickCalendarTomorrow" type="button">Tomorrow</button><button id="quickCalendarWeek" type="button">7 days</button></div>
       </section></div></div>
+      <button type="button" class="briefing-wardrobe" data-action-page="wardrobe">
+        <strong>Wardrobe</strong>
+        <span>Your closet, saved looks, and outfit planner</span>
+      </button>
+
       <div class="brief-grid">
         <div class="calendar-column">
           <small>TODAY’S CALENDAR · 7:00 AM–7:00 PM</small>
@@ -410,6 +416,18 @@
   </section>
 
   <section id="customer-database" class="page"></section>
+
+  <section id="wardrobe" class="page" aria-labelledby="wardrobeHeading">
+    <div class="sheet">
+      <div class="sheet-head">
+        <h3 id="wardrobeHeading">Wardrobe</h3>
+      </div>
+      <p>Open your existing closet, photos, saved looks, and planner.</p>
+      <p>Use your existing AARU sign-in if prompted.</p>
+      <a class="wardrobe-launch" href="https://aaru-working-review.aglow-ox-8353.chatgpt.site/wardrobe" target="_blank" rel="noopener noreferrer">Open Wardrobe <span>(new tab)</span></a>
+      <button type="button" data-action-page="briefing">Return to Briefing</button>
+    </div>
+  </section>
 
   <section id="insights" class="page">
   <div class="sheet content-wide recommendation-sheet">
