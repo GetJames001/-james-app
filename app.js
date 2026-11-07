@@ -1474,6 +1474,9 @@ if (personalMailDetailBack) {
   };
   window.jamesAppointments=window.JamesAppointments.mount({onCreated:async()=>{try{applyGoogleEvents(await JamesCalendarSync.readCalendar(fetch));await refreshHotmailCalendar();}catch{calendarSyncState.state=calendarSyncState.hasData?'stale':'unavailable';}}});
   $('#appointmentSavingSetup').onclick=()=>window.jamesAppointments.setup();
+  const findJamesPlaces=async query=>{
+    try{const response=await fetch('/api/james/places',{method:'POST',headers:{'Content-Type':'application/json'},cache:'no-store',body:JSON.stringify({query})}),data=await response.json();return response.ok?data:{status:'unavailable',reason:'request_failed',places:[]};}catch{return {status:'unavailable',reason:'request_failed',places:[]};}
+  };
   const readJamesRoute=()=>{
     if(!nextDriveResult||nextDriveResult.key!==nextDriveKey()||Date.parse(nextDriveResult.expiresAt)<=Date.now())return {status:'unavailable',startingPointSelected:Boolean(nextDriveOrigin),nextStep:'Choose a starting point and Estimate next drive inside Next Appointment.'};
     return {status:'ready',appointmentTitle:nextAppointment()?.[2],driveSeconds:nextDriveResult.driveSeconds,trafficDelaySeconds:nextDriveResult.trafficDelaySeconds,estimatedLeaveBy:nextDriveResult.estimatedLeaveBy,trafficBasis:nextDriveResult.trafficBasis,bufferMinutes:nextDriveResult.bufferMinutes,observedAt:nextDriveResult.observedAt,expiresAt:nextDriveResult.expiresAt,calendarChanged:false};
@@ -1516,7 +1519,7 @@ if (personalMailDetailBack) {
   for(const button of document.querySelectorAll('[data-action-page]'))button.onclick=()=>page(button.dataset.actionPage);
   $('#workbenchFiles').onclick=()=>page('files');
   $('#filesWorkbenchBack').onclick=()=>page('workbench');
-  window.jamesVoice=window.JamesVoiceSession.mount({ui:window.jamesConversationUI,orb:$('#jamesOrb'),button:$('#voiceJamesButton'),settingsButton:$('#voiceSettingsOpen'),setState:setOrbState,prepareAppointment:details=>window.jamesAppointments.prepare(details),readAppointmentReview:()=>window.jamesAppointments.read(),readRoute:readJamesRoute,readWeather:readJamesWeather,readBriefing:readJamesBriefing,readCalendar:async date=>{try{applyGoogleEvents(await JamesCalendarSync.readCalendar(fetch));await refreshHotmailCalendar();}catch{calendarSyncState.state=calendarSyncState.hasData?'stale':'unavailable';}return readJamesCalendar(date);}});
+  window.jamesVoice=window.JamesVoiceSession.mount({ui:window.jamesConversationUI,orb:$('#jamesOrb'),button:$('#voiceJamesButton'),settingsButton:$('#voiceSettingsOpen'),setState:setOrbState,findPlaces:findJamesPlaces,prepareAppointment:details=>window.jamesAppointments.prepare(details),readAppointmentReview:()=>window.jamesAppointments.read(),readRoute:readJamesRoute,readWeather:readJamesWeather,readBriefing:readJamesBriefing,readCalendar:async date=>{try{applyGoogleEvents(await JamesCalendarSync.readCalendar(fetch));await refreshHotmailCalendar();}catch{calendarSyncState.state=calendarSyncState.hasData?'stale':'unavailable';}return readJamesCalendar(date);}});
   window.addEventListener('pagehide',()=>window.jamesConversationUI?.suspend());
 });
 
