@@ -911,3 +911,28 @@ nav [data-page="attention"].has-attention{border-color:var(--gold);box-shadow:0 
 .wall-tiles button { min-height: 96px; padding: 16px; }
 .wall-controls { justify-content: flex-end; gap: 4px; }
 .wall-controls button { margin: 0; }
+
+.wall-scene-video, .wall-scene-shade, .wall-ambient::before {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+.wall-scene-video { object-fit: cover; opacity: 0; }
+.wall-scene-video[data-playing=true] { opacity: 1; }
+.wall-scene-shade { background: linear-gradient(180deg, #06121c22, #06121cbb); }
+.wall-surface { position: relative; }
+.wall-ambient[data-aurora-motion=true]::before {
+  content: "";
+  background: radial-gradient(ellipse at 24% 34%, #39f68c2b, transparent 39%);
+  mix-blend-mode: screen;
+  animation: wall-aurora 24s ease-in-out infinite;
+}
+@keyframes wall-aurora {
+  0%, 100% { opacity: .25; transform: translateX(-4%); }
+  50% { opacity: .8; transform: translateX(8%); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .wall-ambient[data-aurora-motion=true]::before { animation: none; }
+}
