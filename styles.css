@@ -972,3 +972,27 @@ body[data-wall-conversation=false] .wall-ambient { overflow: hidden; }
 @media (max-height: 400px) {
   body[data-wall-conversation=false] .wall-ambient { overflow-y: auto; }
 }
+
+.briefing-wardrobe {
+  display: grid;
+  gap: 4px;
+  width: 100%;
+  margin: 16px 0;
+  padding: 14px 16px;
+  border: 1px solid var(--gs);
+  border-radius: 12px;
+  background: transparent;
+  color: var(--ink);
+  text-align: left;
+}
+.briefing-wardrobe span { color: var(--muted); font-size: .85rem; }
+.briefing-wardrobe:hover { border-color: var(--gold); }
+.wardrobe-launch {
+  display: inline-block;
+  margin: 8px 12px 8px 0;
+  padding: 10px 14px;
+  border: 1px solid var(--gs);
+  border-radius: 8px;
+  color: var(--ink);
+}
+.wardrobe-launch span { color: var(--muted); font-size: .85rem; }
