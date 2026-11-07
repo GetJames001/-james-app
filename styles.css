@@ -946,3 +946,18 @@ html:has(body[data-wall-ambient=true]), body[data-wall-ambient=true] {
   overscroll-behavior: none;
 }
 .wall-ambient { overscroll-behavior: contain; }
+.wall-controls { align-items: center; gap: 8px; }
+.wall-controls button:not(.wall-talk) {
+  min-height: 44px;
+  padding: 6px 10px;
+  border-color: transparent;
+  background: transparent;
+  color: #f6efe3;
+  font-size: .75rem;
+  text-shadow: 0 1px 4px #000;
+}
+.wall-controls button:not(.wall-talk):hover,
+.wall-controls button:not(.wall-talk):focus-visible {
+  background: #0b172480;
+  border-color: #b99a6570;
+}
