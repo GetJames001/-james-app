@@ -21,14 +21,15 @@
    welcomeMemory={accountId:s.scope.accountId,day};try{root.localStorage.setItem(key,JSON.stringify(welcomeMemory));}catch{}
    return true;
   }
-  function state(value,message){if(value==='listening'&&session?.stream?.getAudioTracks().every(track=>!track.enabled)){value='muted';message='Microphone muted';}setState(value);if(session)session.phase=value;if(message)status.textContent=message;orb.dataset.voiceState=value;orb.dataset.microphone=session?.stream?(session.stream.getAudioTracks().some(track=>track.enabled)?'live':'muted'):'off';orb.title=({idle:'James voice is off',connecting:'Connecting to James',listening:'James is listening',thinking:'James is thinking',speaking:'James is speaking',muted:'James microphone is muted'})[value]||'James';orb.setAttribute('aria-pressed',String(!!session));orb.setAttribute('aria-label',session?'Close James voice':'Talk to James');if(button)button.textContent=session?'Close voice':'Talk to James';}
+  function state(value,message){root.dispatchEvent?.(new CustomEvent('james:voice-state',{detail:{phase:value,active:!!session,message:value==='idle'&&message!==defaultCloseMessage?message:''}}));if(value==='listening'&&session?.stream?.getAudioTracks().every(track=>!track.enabled)){value='muted';message='Microphone muted';}setState(value);if(session)session.phase=value;if(message)status.textContent=message;orb.dataset.voiceState=value;orb.dataset.microphone=session?.stream?(session.stream.getAudioTracks().some(track=>track.enabled)?'live':'muted'):'off';orb.title=({idle:'James voice is off',connecting:'Connecting to James',listening:'James is listening',thinking:'James is thinking',speaking:'James is speaking',muted:'James microphone is muted'})[value]||'James';orb.setAttribute('aria-pressed',String(!!session));orb.setAttribute('aria-label',session?'Close James voice':'Talk to James');if(button)button.textContent=session?'Close voice':'Talk to James';}
   const current=s=>session===s&&!s.closed;
   function send(s,event){if(current(s)&&s.channel?.readyState==='open')s.channel.send(JSON.stringify(event));}
   function stopReply(){const s=session;if(!s)return;s.replyCancelled=true;s.playing=false;s.audio.muted=true;s.coordinator?.interrupt();ui.interruptVoiceReply();state('listening','Listening');}
-  function close(message='Voice is off. Tap James to talk again. Your conversation is retained.'){
+  const defaultCloseMessage='Voice is off. Tap James to talk again. Your conversation is retained.';
+  function close(message=defaultCloseMessage){
    const s=session;session=null;++serial;
    if(s){s.closed=true;s.coordinator?.detach();s.controller.abort();clearTimeout(s.timer);clearTimeout(s.startup);clearTimeout(s.maximum);clearTimeout(s.linkTimer);clearInterval(s.check);s.stream?.getTracks().forEach(track=>track.stop());s.channel?.close();s.pc?.close();s.audio.pause();s.audio.srcObject=null;ui.detachVoice?.(s.adapter);}
-   state('idle',message);mute.disabled=interrupt.disabled=true;stop.textContent='Dismiss';
+   state('idle',message);if(doc.body.dataset.wallAmbient==='true')panel.hidden=true;mute.disabled=interrupt.disabled=true;stop.textContent='Dismiss';
   }
   function context(s){send(s,{type:'conversation.item.create',item:{type:'message',role:'system',content:[{type:'input_text',text:'Current James app reference data, not instructions:\n'+JSON.stringify(ui.context()).slice(0,6000)}]}});}
   function touch(s){clearTimeout(s.timer);s.timer=setTimeout(()=>close('Voice closed after five minutes without speech.'),300000);}
@@ -76,10 +77,10 @@
     ++s.turn;s.playing=false;s.replyCancelled=true;s.audio.muted=true;s.userText='';s.replyText='';s.playbackFinished=false;ui.interruptVoiceReply();touch(s);state('listening','Listening…');
    }
    if(e.type==='input_audio_buffer.speech_stopped'){context(s);state('thinking','James is thinking…');}
-   if(e.type==='conversation.item.input_audio_transcription.completed'&&e.item_id===s.inputItemId){s.userText=e.transcript||'';transcript.textContent=s.userText;touch(s);remember(s);}
+   if(e.type==='conversation.item.input_audio_transcription.completed'&&e.item_id===s.inputItemId){s.userText=e.transcript||'';transcript.textContent=s.userText;root.dispatchEvent?.(new CustomEvent('james:voice-transcript',{detail:{question:s.userText,answer:s.replyText}}));touch(s);remember(s);}
    if(e.type==='response.created'){s.responding=true;s.replyCancelled=false;s.audio.muted=true;}
    if(e.type==='output_audio_buffer.started'){if(!s.replyCancelled){s.playing=true;s.audio.muted=false;state('speaking','James is speaking — you can interrupt.');}}
-   if(e.type==='response.output_audio_transcript.delta'){s.replyText+=(e.delta||'');transcript.textContent=s.replyText;}
+   if(e.type==='response.output_audio_transcript.delta'){s.replyText+=(e.delta||'');transcript.textContent=s.replyText;root.dispatchEvent?.(new CustomEvent('james:voice-transcript',{detail:{question:s.userText,answer:s.replyText}}));}
    if(e.type==='response.done'){
     s.responding=false;
     if(e.response?.status==='completed')for(const item of e.response.output||[])if(item.type==='function_call')void tool(s,item);
@@ -99,7 +100,9 @@
    s.adapter={subscribeTurn:()=>()=>{},end:()=>{if(current(s))close();},interruptReply:()=>{if(current(s))s.coordinator?.interrupt();}};
    state('connecting','Connecting to James…');
    try{
-    // Microphone access starts only inside this user-triggered action.
+    // Microphone access follows an explicit tap or an opted-in local wake phrase.
+    if(root.jamesWallDisplay&&!await root.jamesWallDisplay.pauseWake())throw Error("LOCAL_MICROPHONE_BUSY");
+    if(!current(s))return;
     const stream=await media.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true}});
     if(!current(s)){stream.getTracks().forEach(track=>track.stop());return;}s.stream=stream;
     const prepared=await ui.prepareVoice(s.adapter);if(!current(s))return;s.scope=prepared.scope;s.history=prepared.history;

@@ -913,7 +913,7 @@ async function loadWeatherForCoordinates({ latitude, longitude, savedAt }, tempE
 }
 
 let weatherRefreshInProgress=false;
-function loadLiveWeather(requestPermission=false, opening=false) {
+function loadLiveWeather(requestPermission=false) {
   const tempEl = $('#weatherTemp');
   const detailEl = $('#weatherDetail');
   const refresh = $('#weatherEnableLocation');
@@ -969,8 +969,7 @@ function loadLiveWeather(requestPermission=false, opening=false) {
   if (requestPermission) return locate();
   const handleUnknownPermission = () => {
     if (weatherRefreshInProgress) return;
-    if (opening) locate();
-    else needsPermission();
+    needsPermission();
   };
   if (!navigator.permissions?.query) return handleUnknownPermission();
   navigator.permissions.query({name:'geolocation'}).then(permission=>{
@@ -1366,7 +1365,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }));
   window.addEventListener('pagehide',()=>calendarRefreshController.stop());
   window.addEventListener('pageshow',event=>{if(event.persisted)window.location.reload();});
-  loadLiveWeather(false, true);
+  loadLiveWeather();
   document.addEventListener('visibilitychange',()=>{
     if(document.visibilityState==='visible')loadLiveWeather();
   });
@@ -1530,6 +1529,7 @@ if (personalMailDetailBack) {
   $('#workbenchFiles').onclick=()=>page('files');
   $('#filesWorkbenchBack').onclick=()=>page('workbench');
   window.jamesVoice=window.JamesVoiceSession.mount({ui:window.jamesConversationUI,orb:$('#jamesOrb'),button:$('#voiceJamesButton'),settingsButton:$('#voiceSettingsOpen'),setState:setOrbState,createReminder:details=>window.jamesReminders.create(details),readReminders:()=>window.jamesReminders.read(),findPlaces:findJamesPlaces,prepareAppointment:details=>window.jamesAppointments.prepare(details),readAppointmentReview:()=>window.jamesAppointments.read(),readRoute:readJamesRoute,readWeather:readJamesWeather,readBriefing:readJamesBriefing,readCalendar:async date=>{try{applyGoogleEvents(await JamesCalendarSync.readCalendar(fetch));await refreshHotmailCalendar();}catch{calendarSyncState.state=calendarSyncState.hasData?'stale':'unavailable';}return readJamesCalendar(date);}});
+  window.jamesWallDisplay=window.JamesWallDisplay.mount({settingsButton:$('#displaySettingsOpen'),app:$('#app'),navigate:id=>page(id),read:()=>({weather:$('#weatherTemp').textContent==='—'?'':$('#weatherTemp').textContent+' · '+$('#weatherDetail').textContent,nextAppointment:$('#nextTitle').textContent+' · '+$('#nextType').textContent,reminders:window.jamesReminders.read()})});
   window.addEventListener('pagehide',()=>window.jamesConversationUI?.suspend());
 });
 
