@@ -24,6 +24,7 @@ const exactHandlers = new Map([
   ["api/health", health],
   ["api/weather", require("../lib/routes/weather.js")],
   ["api/james/routing", require("../lib/routes/routing.js")],
+  ["api/james/places", require("../lib/routes/places.js")],
   ["api/james/appointments", require("../lib/routes/appointments.js")],
   ["api/google/appointments/connect", require("../lib/appointments/connect.js").connect],
   ["api/james/workbench", workbench],
