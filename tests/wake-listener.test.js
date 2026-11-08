@@ -10,3 +10,20 @@ test('no mic before opt-in; only Hey James wakes and abort/end precedes handoff'
 test('unsupported and downloadable browsers never fall back to remote audio',async()=>{for(const state of ['unavailable','downloadable']){const f=fixture(state);await f.listener.enable();assert.equal(f.starts(),0);assert.equal(f.listener.snapshot().phase,state==='downloadable'?'download_required':'unsupported');}const listener=create({Recognition:class{},document:{hidden:false}});await listener.enable();assert.equal(listener.snapshot().phase,'unsupported');});
 test('pause releases microphone and hidden documents cannot restart it',async()=>{const f=fixture();await f.listener.enable();f.doc.hidden=true;await f.listener.pause();await f.listener.resume();assert.equal(f.starts(),1);f.doc.hidden=false;await f.listener.resume();assert.equal(f.starts(),2);await f.listener.disable();assert.equal(f.aborts(),2);});
 test('permission denial on noninteractive resume never requests microphone',async()=>{let starts=0;class Recognition{static async available(){return 'available';}constructor(){this.processLocally=false;}start(){starts++;}}const listener=create({Recognition,document:{hidden:false},permissions:{query:async()=>({state:'prompt'})}});await listener.restore();assert.equal(starts,0);assert.equal(listener.snapshot().phase,'permission_required');});
+
+test('external talk link is consumed once and waits for an explicit microphone action',()=>{
+ const fs=require('node:fs'),vm=require('node:vm');
+ const doc=new EventTarget();
+ const node=()=>({children:[],dataset:{},options:[],append(...children){this.children.push(...children);this.options.push(...children);},setAttribute(){},focus(){this.focused=true;}});
+ doc.createElement=node;doc.body=node();doc.hidden=false;
+ const root=new EventTarget(),location={hash:'#talk-to-james',pathname:'/',search:'?view=briefing'};
+ let micCalls=0,wakes=0;
+ Object.assign(root,{location,history:{state:null,replaceState(_state,_title,path){assert.equal(path,'/?view=briefing');location.hash='';}},navigator:{},jamesWallDisplay:{wake(){wakes++;}}});
+ vm.runInNewContext(fs.readFileSync(require.resolve('../voice-session'),'utf8'),{window:root,fetch,CustomEvent});
+ const orb={...node(),ownerDocument:doc};
+ const voice=root.JamesVoiceSession.mount({ui:{},orb,setState(){},media:{getUserMedia(){micCalls++;}}});
+ voice.showExternalLaunch();voice.showExternalLaunch();
+ const panel=doc.body.children[0],start=panel.children.find(child=>child.textContent==='Start conversation');
+ assert.equal(panel.hidden,false);assert.equal(start.hidden,false);assert.equal(start.focused,true);
+ assert.equal(wakes,1);assert.equal(micCalls,0);assert.equal(voice.active(),false);
+});
