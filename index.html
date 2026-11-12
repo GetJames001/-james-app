@@ -59,6 +59,7 @@
         <div class="header-preferences-menu">
           <button id="introScreenOpen" class="james-theme-toggle" type="button">Entrance</button>
           <button id="jamesThemeToggle" class="james-theme-toggle" type="button" aria-label="Use light theme">Light</button>
+          <button id="connectionsSettingsOpen" class="james-theme-toggle" type="button">Connections</button>
           <button id="voiceSettingsOpen" class="james-theme-toggle" type="button">Voice</button>
           <button id="displaySettingsOpen" class="james-theme-toggle" type="button">Wall display</button>
         </div>
@@ -84,6 +85,13 @@
     <button id="logoutButton" type="button">Sign out</button>
       
   </nav>
+
+  <dialog id="connectionSettings" aria-labelledby="connectionSettingsTitle">
+    <h2 id="connectionSettingsTitle">Connections</h2>
+    <p id="hotmailCalendarStatus" role="status"></p>
+    <a id="hotmailCalendarConnect" href="/api/microsoft/connect?account=personal">Connect Hotmail</a>
+    <form method="dialog"><button type="submit">Close</button></form>
+  </dialog>
 
   <section id="briefing" class="page active">
     <div class="sheet briefing-sheet">
@@ -111,7 +119,7 @@
 </svg>
     <span>WEATHER</span>
    <strong id="weatherTemp">—</strong>
-<small id="weatherDetail">—</small><div class="weather-location"><button id="jamesLiveLocation" type="button" aria-pressed="false">Live location</button><small id="jamesLocationStatus" role="status"></small><button id="weatherEnableLocation" type="button">Update weather</button></div>
+<small id="weatherDetail">—</small><div class="weather-location"><button id="jamesLiveLocation" type="button" aria-pressed="false">Live location</button><small id="jamesLocationStatus" role="status"></small></div>
   </div>
 
   <div class="intel-card">
@@ -286,7 +294,7 @@
           <h3>Your days, with room to pivot.</h3>
         </div>
       </div>
-      <p id="hotmailCalendarStatus"></p><a id="hotmailCalendarConnect" href="/api/microsoft/connect?account=personal">Connect personal Hotmail calendar</a>
+      
 <div class="appointment-controls" aria-label="Appointment date navigation">
         <button type="button" id="appointmentsToday">Today</button>
         <button type="button" id="appointmentsTomorrow">Tomorrow</button>
@@ -297,7 +305,7 @@
       </div>
       <p id="appointmentsViewStatus" role="status" aria-live="polite"></p>
       <div id="apptList" class="list"></div>
-      <p>Appointments reflect the Google calendars shown in the Briefing. New appointments are saved only after you review and confirm them.</p>
+      
       <button id="appointmentsRefreshButton" type="button">Refresh appointments</button>
     </div>
   </section>
@@ -416,8 +424,7 @@
       <div class="sheet-head">
         <h3 id="wardrobeHeading">Wardrobe</h3>
       </div>
-      <p>Open your existing closet, photos, saved looks, and planner.</p>
-      <p>Use your existing AARU sign-in if prompted.</p>
+      
       <a class="wardrobe-launch" href="https://aaru-working-review.aglow-ox-8353.chatgpt.site/wardrobe" target="_blank" rel="noopener noreferrer">Open Wardrobe <span>(new tab)</span></a>
       <button type="button" data-action-page="briefing">Return to Briefing</button>
     </div>

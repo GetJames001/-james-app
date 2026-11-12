@@ -865,16 +865,18 @@ function googleEventsFailed(error) {
   if(calendarSyncState.hasData)renderCalendarDay();else{updateHero();renderAppointmentView();renderQuickCalendar();}
 }
 function loadLiveGoogleEvents() { return calendarRefreshController ? calendarRefreshController.refresh('manual') : Promise.resolve({skipped:'not-started'}); }
+let weatherRequestGeneration=0;
 let jamesWeatherState={status:'not_checked',location:{status:'unknown',departureAddressVerified:false}};
 function readJamesWeather(){
  const copy=JSON.parse(JSON.stringify(jamesWeatherState));
  if(copy.checkedAt&&Date.now()-Date.parse(copy.checkedAt)>15*60*1000)copy.status='stale';
  if(copy.daylight?.status==='ready'){try{const parts=new Intl.DateTimeFormat('en-US',{timeZone:copy.daylight.timezone,year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date());const get=type=>parts.find(part=>part.type===type)?.value;const localDate=get('year')+'-'+get('month')+'-'+get('day');if(localDate!==copy.daylight.date)copy.daylight.status='stale';}catch{copy.daylight={status:'unavailable'};}}
  if(copy.location?.observedAt&&Date.now()-copy.location.observedAt>5*60*1000)copy.location.status='last_known';
- if(copy.location?.status==='unknown'||copy.location?.status==='denied')copy.nextStep='Use the Use my location button in the Daily Briefing weather area. Browser permission is required; no current location is inferred from home, timezone or profile.';
+ if(copy.location?.status==='unknown'||copy.location?.status==='denied')copy.nextStep='Use the location button in Weather. Once permitted, weather follows your location while James is open.';
  return copy;
 }
 async function loadWeatherForCoordinates({ latitude, longitude, savedAt }, tempEl, detailEl, locationLabel = "") {
+  const requestGeneration=++weatherRequestGeneration;
   const approximate={latitude:Number(Number(latitude).toFixed(2)),longitude:Number(Number(longitude).toFixed(2))};
   const location={status:locationLabel?'last_known':'current_approximate',observedAt:savedAt||Date.now(),approximateCoordinates:approximate,departureAddressVerified:false,precision:'Rounded for weather; not a verified routing origin'};
   jamesWeatherState={status:'loading',location};
@@ -885,6 +887,7 @@ async function loadWeatherForCoordinates({ latitude, longitude, savedAt }, tempE
 
     const response = await fetch(url);
     const data = await response.json();
+    if(requestGeneration!==weatherRequestGeneration)return;
 
     if (!response.ok || !data.current) throw new Error('Weather unavailable');
 
@@ -905,6 +908,7 @@ async function loadWeatherForCoordinates({ latitude, longitude, savedAt }, tempE
 
     detailEl.textContent = locationLabel ? locationLabel + " · " + condition : condition;
   } catch (error) {
+    if(requestGeneration!==weatherRequestGeneration)return;
     jamesWeatherState={status:'unavailable',location};
     tempEl.textContent = '—';
     detailEl.textContent = 'Weather unavailable';
@@ -912,73 +916,18 @@ async function loadWeatherForCoordinates({ latitude, longitude, savedAt }, tempE
   }
 }
 
-let weatherRefreshInProgress=false;
-function loadLiveWeather(requestPermission=false) {
-  const tempEl = $('#weatherTemp');
-  const detailEl = $('#weatherDetail');
-  const refresh = $('#weatherEnableLocation');
-  if (!tempEl || !detailEl || weatherRefreshInProgress) return;
-
-  if (refresh) refresh.onclick = () => loadLiveWeather(true);
-  const finish = () => {
-    weatherRefreshInProgress=false;
-    if (refresh) {refresh.disabled=false;refresh.hidden=false;refresh.textContent=tempEl.textContent==='—'?'Use my location':'Update weather';}
-  };
-  const restoreWeather = () => {
-    let saved;
-    try { saved=JSON.parse(localStorage.getItem('jamesWeatherLocation') || sessionStorage.getItem('jamesWeatherLocation')); } catch {}
-    if (!saved || Date.now()-saved.savedAt>7*24*60*60*1000) return false;
-    weatherRefreshInProgress=true;
-    loadWeatherForCoordinates(saved,tempEl,detailEl,'Last known location').finally(finish);
-    return true;
-  };
-  const showLocationUnavailable = error => {
-    if (!requestPermission && restoreWeather()) return;
-    jamesWeatherState={status:'unavailable',location:{status:error?.code===1?'denied':'unknown',departureAddressVerified:false}};
-    tempEl.textContent = '—';
-    detailEl.textContent = error?.code === 1 ? 'Allow location in browser settings for weather.' : 'Location unavailable';
-    finish();
-  };
-  const locate = () => {
-    weatherRefreshInProgress=true;
-    if (refresh) refresh.disabled=true;
-    detailEl.textContent = 'Locating…';
-    navigator.geolocation.getCurrentPosition(
-      ({coords}) => {
-        const saved = JSON.stringify({
-          latitude:Number(coords.latitude.toFixed(2)),
-          longitude:Number(coords.longitude.toFixed(2)),
-          savedAt:Date.now()
-        });
-        try { localStorage.setItem('jamesWeatherLocation',saved); }
-        catch { try { sessionStorage.setItem('jamesWeatherLocation',saved); } catch {} }
-        loadWeatherForCoordinates(coords,tempEl,detailEl).finally(finish);
-      },
-      showLocationUnavailable,
-      {enableHighAccuracy:false,timeout:8000,maximumAge:0}
-    );
-  };
-  const needsPermission = () => {
-    if (!restoreWeather()) {
-      jamesWeatherState={status:'unavailable',location:{status:'unknown',departureAddressVerified:false}};
-      detailEl.textContent = 'Location permission required';
-      if (refresh) refresh.hidden=false;
-    }
-  };
-  if (!navigator.geolocation) return showLocationUnavailable();
-  if (requestPermission) return locate();
-  const handleUnknownPermission = () => {
-    if (weatherRefreshInProgress) return;
-    needsPermission();
-  };
-  if (!navigator.permissions?.query) return handleUnknownPermission();
-  navigator.permissions.query({name:'geolocation'}).then(permission=>{
-    if(weatherRefreshInProgress)return;
-    if(permission.state==='granted')locate();
-    else if(permission.state==='denied') showLocationUnavailable({code:1});
-    else handleUnknownPermission();
-  }).catch(handleUnknownPermission);
+// The live-location controller is the sole permission and position owner.
+function loadLiveWeather() {
+ const tempEl=$('#weatherTemp'),detailEl=$('#weatherDetail');if(!tempEl||!detailEl)return;
+ const point=window.jamesLocation?.point();
+ if(point){void loadWeatherForCoordinates({...point,savedAt:point.observedAt},tempEl,detailEl);return;}
+ let saved;try{saved=JSON.parse(localStorage.getItem('jamesWeatherLocation')||sessionStorage.getItem('jamesWeatherLocation'));}catch{}
+ if(saved&&Number.isFinite(saved.latitude)&&Math.abs(saved.latitude)<=90&&Number.isFinite(saved.longitude)&&Math.abs(saved.longitude)<=180&&Number.isFinite(saved.savedAt)&&Date.now()-saved.savedAt>=0&&Date.now()-saved.savedAt<=7*86400000){void loadWeatherForCoordinates(saved,tempEl,detailEl,'Last known location');return;}
+ weatherRequestGeneration++;
+ jamesWeatherState={status:'unavailable',location:{status:'unknown',departureAddressVerified:false}};
+ tempEl.textContent='—';detailEl.textContent='Location needed';
 }
+
 function renderPersonalMicrosoftMail(messages = [], { restoreDetail = true } = {}) {
   const list = $('#personalMailMessages');
   if (!list) return;
@@ -1479,8 +1428,10 @@ if (personalMailDetailBack) {
       const previous=nextDriveOrigin,moved=!previous||Math.hypot((point.latitude-previous.latitude)*111000,(point.longitude-previous.longitude)*111000*Math.cos(point.latitude*Math.PI/180))>100;
       nextDriveOrigin=point;if(moved){nextDriveResult=null;nextDriveGeneration++;nextDriveController?.abort();updateHero();}
     }
+    const savedWeather={latitude:Number(point.latitude.toFixed(2)),longitude:Number(point.longitude.toFixed(2)),savedAt:point.observedAt};
+    try{localStorage.setItem('jamesWeatherLocation',JSON.stringify(savedWeather));}catch{}
     const weatherPoint=jamesWeatherState.location?.approximateCoordinates;
-    if(!jamesWeatherState.checkedAt||Date.now()-Date.parse(jamesWeatherState.checkedAt)>900000||!weatherPoint||Math.hypot(point.latitude-weatherPoint.latitude,point.longitude-weatherPoint.longitude)>.05)void loadWeatherForCoordinates(point,$('#weatherTemp'),$('#weatherDetail'));
+    if(!jamesWeatherState.checkedAt||Date.now()-Date.parse(jamesWeatherState.checkedAt)>900000||!weatherPoint||Math.hypot(point.latitude-weatherPoint.latitude,point.longitude-weatherPoint.longitude)>.05)void loadWeatherForCoordinates({...point,savedAt:point.observedAt},$('#weatherTemp'),$('#weatherDetail'));
 
   },onClear:()=>{if(nextDriveOrigin?.kind==='device'){nextDriveOrigin=null;nextDriveResult=null;nextDriveGeneration++;nextDriveController?.abort();updateHero();}}});
   const findJamesPlaces=async(query,area='explicit')=>{
@@ -1962,3 +1913,5 @@ document.addEventListener('DOMContentLoaded',()=>{
 });
 
  document.addEventListener('DOMContentLoaded',()=>{const menu=document.querySelector('.header-preferences');if(!menu)return;menu.addEventListener('click',event=>{if(event.target.closest('button'))menu.open=false;});document.addEventListener('keydown',event=>{if(event.key==='Escape'&&menu.open){menu.open=false;menu.querySelector('summary').focus();}});document.addEventListener('click',event=>{if(!menu.contains(event.target))menu.open=false;});});
+
+document.addEventListener('DOMContentLoaded',()=>{const dialog=$('#connectionSettings');$('#connectionsSettingsOpen').onclick=()=>dialog.showModal();});

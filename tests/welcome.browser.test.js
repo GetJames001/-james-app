@@ -175,7 +175,8 @@ test('external talk entry opens the foreground panel without requesting the micr
   assert.equal(await page.locator('#jamesOrb').isVisible(),true);
   assert.equal(await page.locator('#routeOriginAddress').isVisible(),true);
   assert.equal(await page.locator('#routeUseLocation').isVisible(),true);
-  assert.equal(await page.locator('#weatherEnableLocation').isVisible(),true);
+  assert.equal(await page.locator('.weather-location button').count(),1);
+  assert.equal(await page.locator('#jamesLiveLocation').isVisible(),true);
   assert.equal(await page.locator('.weather-status').count(),0);
   await page.locator('.header-preferences > summary').click();
   assert.equal(await page.locator('#displaySettingsOpen').isVisible(),true);
@@ -185,3 +186,24 @@ test('external talk entry opens the foreground panel without requesting the micr
   assert.equal(await page.locator('dialog[open]').count(),1);
   await context.close();
  }));
+
+test('one remembered location source automatically updates weather as Michael travels',async()=>fixture(async(b,url)=>{
+ const {page,context}=await pageFor(b,url,{reducedMotion:'reduce'});
+ await page.addInitScript(()=>{
+  localStorage.setItem('james:live-location:v1','enabled');window.__locationWatches=0;window.__oneShotLocations=0;
+  Object.defineProperty(navigator,'permissions',{configurable:true,value:{query:async()=>({state:'granted'})}});
+  Object.defineProperty(navigator,'geolocation',{configurable:true,value:{watchPosition(callback){window.__locationWatches++;window.__position=callback;return 1;},clearWatch(){},getCurrentPosition(){window.__oneShotLocations++;}}});
+ });
+ await page.route('**/api/weather?**',route=>route.fulfill({contentType:'application/json',body:JSON.stringify({current:{temperature_2m:new URL(route.request().url()).searchParams.get('latitude')==='44.05'?50:80,weather_code:0}})}));
+ await page.goto(url);await page.waitForFunction(()=>typeof window.__position==='function');
+ await page.evaluate(()=>window.__position({coords:{latitude:36.1,longitude:-115.2,accuracy:20},timestamp:Date.now()}));
+ await page.waitForFunction(()=>document.querySelector('#weatherTemp').textContent==='80°');
+ assert.equal(await page.locator('.weather-location button').count(),1);assert.equal(await page.locator('#jamesLocationStatus').textContent(),'');
+ await page.evaluate(()=>window.__position({coords:{latitude:44.05,longitude:-123.09,accuracy:20},timestamp:Date.now()}));
+ await page.waitForFunction(()=>document.querySelector('#weatherTemp').textContent==='50°');
+ assert.equal(await page.evaluate(()=>window.__locationWatches),1);assert.equal(await page.evaluate(()=>window.__oneShotLocations),0);
+ await page.locator('nav [data-page="appointments"]').click();assert.equal(await page.locator('#hotmailCalendarConnect').isVisible(),false);
+ await page.locator('.header-preferences > summary').click();await page.locator('#connectionsSettingsOpen').click();
+ assert.equal(await page.locator('#connectionSettings').isVisible(),true);assert.equal(await page.locator('#hotmailCalendarConnect').isVisible(),true);
+ await context.close();
+}));
