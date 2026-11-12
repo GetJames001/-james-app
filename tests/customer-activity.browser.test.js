@@ -4,6 +4,7 @@ const http=require('node:http');
 const path=require('node:path');
 const fs=require('node:fs');
 const {chromium}=require('playwright');
+const {customerActivityFixture}=require('./helpers/customer-activity-fixture.cjs');
 
 function createFixtureServer(){
   const root=path.join(__dirname,'..');
@@ -35,13 +36,13 @@ function createFixtureServer(){
     if(!filename.startsWith(root)) {res.statusCode=404;return res.end();}
     try{
       res.setHeader('Content-Type',filename.endsWith('.js')?'text/javascript':filename.endsWith('.css')?'text/css':'text/html');
-      return res.end(fs.readFileSync(filename));
+      return res.end(url.pathname==='/'?customerActivityFixture(fs.readFileSync(filename,'utf8')):fs.readFileSync(filename));
     }catch{res.statusCode=404;return res.end();}
   });
   return {server,counts:()=>({mutations,externalCalls}),fail:value=>fail=value,conflict:value=>conflict=value,loseReply:()=>loseReply=true,loseReplyAfter:n=>loseReplyCountdown=n,expire:()=>expired=true};
 }
 
-test('Customer Activity saves and reopens actual reports; retains drafts after failure/conflict',async()=>{
+test('retained form component: Customer Activity saves and reopens actual reports; retains drafts after failure/conflict',async()=>{
  const h=createFixtureServer();await new Promise(r=>h.server.listen(0,'127.0.0.1',r));let browser;
  try{
   browser=await chromium.launch({headless:true});const page=await browser.newPage({viewport:{width:1024,height:880}});
@@ -86,7 +87,7 @@ test('Customer Activity saves and reopens actual reports; retains drafts after f
  }finally{await browser?.close();h.server.closeAllConnections();await new Promise(r=>h.server.close(r));}
 });
 
-test('Customer Activity is usable at phone and tablet widths with no horizontal overflow',async()=>{
+test('retained form component: Customer Activity is usable at phone and tablet widths with no horizontal overflow',async()=>{
   const h=createFixtureServer();await new Promise(resolve=>h.server.listen(0,'127.0.0.1',resolve));
   let browser;
   try{
@@ -114,7 +115,7 @@ test('Customer Activity is usable at phone and tablet widths with no horizontal 
   }finally{await browser?.close();h.server.closeAllConnections();await new Promise(resolve=>h.server.close(resolve));}
 });
 
-test('Company contacts persist, activity keeps contact identity, and uncertain edits reconcile',async()=>{
+test('retained form component: Company contacts persist, activity keeps contact identity, and uncertain edits reconcile',async()=>{
  const h=createFixtureServer();await new Promise(r=>h.server.listen(0,'127.0.0.1',r));let browser;
  try{
   browser=await chromium.launch({headless:true});const page=await browser.newPage();
@@ -139,7 +140,7 @@ test('Company contacts persist, activity keeps contact identity, and uncertain e
  }finally{await browser?.close();h.server.closeAllConnections();await new Promise(r=>h.server.close(r));}
 });
 
-test('Close protects drafts; one save persists company edits and activity, refreshes history, and avoids empty records',async()=>{
+test('retained form component: Close protects drafts; one save persists company edits and activity, refreshes history, and avoids empty records',async()=>{
  const h=createFixtureServer();await new Promise(r=>h.server.listen(0,'127.0.0.1',r));let browser;
  try{
   browser=await chromium.launch({headless:true});const page=await browser.newPage();
@@ -163,7 +164,7 @@ test('Close protects drafts; one save persists company edits and activity, refre
  }finally{await browser?.close();h.server.closeAllConnections();await new Promise(r=>h.server.close(r));}
 });
 
-test('A lost second acknowledgment retains pending work and reconciles without repeating the confirmed company write',async()=>{
+test('retained form component: A lost second acknowledgment retains pending work and reconciles without repeating the confirmed company write',async()=>{
  const h=createFixtureServer();await new Promise(r=>h.server.listen(0,'127.0.0.1',r));let browser;
  try{
   browser=await chromium.launch({headless:true});const page=await browser.newPage();
@@ -181,7 +182,7 @@ test('A lost second acknowledgment retains pending work and reconciles without r
  }finally{await browser?.close();h.server.closeAllConnections();await new Promise(r=>h.server.close(r));}
 });
 
-test('Save and return includes drafts from more than one company',async()=>{
+test('retained form component: Save and return includes drafts from more than one company',async()=>{
  const h=createFixtureServer();await new Promise(r=>h.server.listen(0,'127.0.0.1',r));let browser;
  try{
   browser=await chromium.launch({headless:true});const page=await browser.newPage();
@@ -199,7 +200,7 @@ test('Save and return includes drafts from more than one company',async()=>{
  }finally{await browser?.close();h.server.closeAllConnections();await new Promise(r=>h.server.close(r));}
 });
 
-test('Five-company practice template explains fields, saves only locally and leaves saved records unchanged',async()=>{
+test('retained form component: Five-company practice template explains fields, saves only locally and leaves saved records unchanged',async()=>{
  const h=createFixtureServer();await new Promise(r=>h.server.listen(0,'127.0.0.1',r));let browser;
  try{
   browser=await chromium.launch({headless:true});const page=await browser.newPage({viewport:{width:820,height:1000}});let customerRequests=0;
@@ -208,7 +209,8 @@ test('Five-company practice template explains fields, saves only locally and lea
   await page.goto('http://127.0.0.1:'+h.server.address().port);await page.locator('#customerActivityOpen').click();await page.waitForFunction(()=>document.querySelectorAll('#customerDemoList button').length===5);
   assert.equal(customerRequests,0);assert.match(await page.locator('#customerModeNotice').textContent(),/fictional.*until reload/);
   await page.locator('#companyEditor summary').click();assert.equal(await page.locator('#companyContacts fieldset').count(),2);
-  assert.equal(await page.locator('#companyNameHelp').count(),0);assert.equal(await page.locator('#customerOutcomeKindHelp').count(),0);assert.equal(await page.locator('.customer-guide').count(),1);
+  assert.equal(await page.locator('#companyNameHelp').count(),0);assert.equal(await page.locator('#customerOutcomeKindHelp').count(),0);assert.equal(await page.locator('.customer-guide').count(),0);
+  for(const label of ['What happened?','When did it happen?','Activity notes','Next step'])assert.equal(await page.getByLabel(label,{exact:true}).isVisible(),true);
   for(const [name,note] of [['Silver Mesa Facilities','Practice attempt only'],['Desert Willow Hospitality','Practice second attempt']]){
    await page.locator('#customerDemoList').getByRole('button',{name,exact:true}).click();await page.locator('#customerOutcomeKind').selectOption('attempted');await page.locator('#customerOccurredAt').fill('2026-10-20T12:00');await page.locator('#customerNextKind').selectOption('No follow-up needed');await page.locator('#customerDemoOutcome').fill(note);
   }
@@ -222,7 +224,7 @@ test('Five-company practice template explains fields, saves only locally and lea
  }finally{await browser?.close();h.server.closeAllConnections();await new Promise(r=>h.server.close(r));}
 });
 
-test('Top save-and-close detects company autofill and activity values without input events',async()=>{
+test('retained form component: Top save-and-close detects company autofill and activity values without input events',async()=>{
  const h=createFixtureServer();await new Promise(r=>h.server.listen(0,'127.0.0.1',r));let browser;
  try{
   browser=await chromium.launch({headless:true});const page=await browser.newPage();
@@ -236,7 +238,7 @@ test('Top save-and-close detects company autofill and activity values without in
  }finally{await browser?.close();h.server.closeAllConnections();await new Promise(r=>h.server.close(r));}
 });
 
-test('Follow-up requires a commitment, preserves date/time, and exposes explicit contact actions',async()=>{
+test('retained form component: Follow-up requires a commitment, preserves date/time, and exposes explicit contact actions',async()=>{
  const h=createFixtureServer();await new Promise(r=>h.server.listen(0,'127.0.0.1',r));let browser;
  try{
   browser=await chromium.launch({headless:true});const page=await browser.newPage();
@@ -255,7 +257,7 @@ test('Follow-up requires a commitment, preserves date/time, and exposes explicit
  }finally{await browser?.close();h.server.closeAllConnections();await new Promise(r=>h.server.close(r));}
 });
 
-test('saved reminders become due automatically, survive refresh failure, reschedule, and reconcile completion without repeat writes',async()=>{
+test('retained form component: saved reminders become due automatically, survive refresh failure, reschedule, and reconcile completion without repeat writes',async()=>{
  const h=createFixtureServer();await new Promise(r=>h.server.listen(0,'127.0.0.1',r));let browser;
  try{
   const base='http://127.0.0.1:'+h.server.address().port;
@@ -283,7 +285,7 @@ test('saved reminders become due automatically, survive refresh failure, resched
  }finally{await browser?.close();h.server.closeAllConnections();await new Promise(r=>h.server.close(r));}
 });
 
-test('email composer supports a blank or saved recipient and 30-minute, hour and custom time choices',async()=>{
+test('retained form component: email composer supports a blank or saved recipient and 30-minute, hour and custom time choices',async()=>{
  const h=createFixtureServer();await new Promise(r=>h.server.listen(0,'127.0.0.1',r));let browser;
  try{
   browser=await chromium.launch({headless:true});const page=await browser.newPage();await page.route('https://**',r=>r.abort());await page.addInitScript(()=>sessionStorage.setItem('jamesIntroDate',new Date().toDateString()));await page.goto('http://127.0.0.1:'+h.server.address().port);await page.locator('#customerActivityOpen').click();await page.waitForFunction(()=>document.querySelectorAll('#customerDemoList button').length===5);
@@ -295,12 +297,38 @@ test('email composer supports a blank or saved recipient and 30-minute, hour and
  }finally{await browser?.close();h.server.closeAllConnections();await new Promise(r=>h.server.close(r));}
 });
 
-test('Exit keeps incomplete company and activity drafts without validation or writes',async()=>{
+test('retained form component: Exit keeps incomplete company and activity drafts without validation or writes',async()=>{
  const h=createFixtureServer();await new Promise(r=>h.server.listen(0,'127.0.0.1',r));let browser;
  try{
   browser=await chromium.launch({headless:true});const page=await browser.newPage();await page.route('https://**',r=>r.abort());await page.addInitScript(()=>sessionStorage.setItem('jamesIntroDate',new Date().toDateString()));await page.goto('http://127.0.0.1:'+h.server.address().port);await page.locator('#customerActivityOpen').click();await page.waitForFunction(()=>document.querySelectorAll('#customerDemoList button').length===5);
   await page.locator('#companyEditor summary').click();await page.locator('#companyName').fill('');await page.locator('#customerDemoOutcome').fill('Unfinished note');await page.locator('#customerActivityClose').click();await page.locator('#customerExitDraft').click();await page.locator('#customerActivityOverlay').waitFor({state:'hidden'});assert.equal(h.counts().mutations,0);assert.match(await page.locator('#customerSaveNotice').textContent(),/Not saved/);
   await page.locator('#customerActivityOpen').click();await page.waitForFunction(()=>!document.getElementById('customerDemoKeepDraft').disabled);assert.equal(await page.locator('#companyName').inputValue(),'');assert.equal(await page.locator('#customerDemoOutcome').inputValue(),'Unfinished note');await page.locator('#customerDemoKeepDraft').click();assert.equal(await page.locator('#customerActivityOverlay').isVisible(),true);assert.match(await page.locator('#customerDraftStatus').textContent(),/company name/);
   await page.locator('#customerActivityClose').click();await page.locator('#customerExitDraft').click();await page.locator('#customerActivityOverlay').waitFor({state:'hidden'});assert.equal(h.counts().mutations,0);
+ }finally{await browser?.close();h.server.closeAllConnections();await new Promise(r=>h.server.close(r));}
+});
+
+
+test('retained form component: both themes preserve the unsaved note and close protection',async()=>{
+ const h=createFixtureServer();await new Promise(r=>h.server.listen(0,'127.0.0.1',r));let browser;
+ try{
+  browser=await chromium.launch({headless:true});const context=await browser.newContext({reducedMotion:'reduce'}),page=await context.newPage();
+  await page.route('https://**',r=>r.abort());await page.addInitScript(()=>sessionStorage.setItem('jamesCustomerMode','saved'));
+ await page.route('**/api/customer-activity',r=>r.fulfill({json:{ok:true,document:{schemaVersion:2,revision:1,customers:[{id:'fictional-company',name:'Fictional Company',contacts:[],contact:'',phone:'',address:'',source:'manual',sourceRef:''}],activities:[]}}}));
+ await page.goto('http://127.0.0.1:'+h.server.address().port);
+ await page.locator('#customerActivityOpen').click();
+ await page.locator('#customerDemoOutcome').fill('Fictional draft — no visit reported');
+ for(const theme of ['light','dark']) {
+  await page.evaluate(theme=>JamesWelcome.applyTheme(theme),theme);
+  const colors=await page.locator('.customer-workspace').evaluate(el=>({background:getComputedStyle(el).backgroundColor,color:getComputedStyle(el).color}));
+  assert.equal(colors.background,theme==='light'?'rgb(250, 247, 241)':'rgb(16, 36, 59)');
+  assert.notEqual(colors.background,colors.color);
+  assert.equal(await page.locator('#customerDemoOutcome').inputValue(),'Fictional draft — no visit reported');
+ }
+ await page.locator('#customerActivityClose').click();
+ assert.equal(await page.locator('#customerClosePrompt').isVisible(),true);
+ await page.locator('#customerKeepEditing').click();
+ assert.equal(await page.locator('#customerActivityOverlay').isVisible(),true);
+ assert.equal(await page.locator('#customerDemoOutcome').inputValue(),'Fictional draft — no visit reported');
+  await context.close();
  }finally{await browser?.close();h.server.closeAllConnections();await new Promise(r=>h.server.close(r));}
 });

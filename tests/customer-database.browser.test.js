@@ -68,3 +68,18 @@ test('an account change clears business data before another operation can be sen
   await h.context.close();
  }finally{await browser.close();}
 });
+
+
+test('accepted Briefing shortcut and nav both open canonical Customer Information',async()=>{
+ const browser=await chromium.launch();try{
+  const h=await fixture(browser,390,true),p=h.page;
+  await p.locator('#customerActivityOpen').click();
+  await p.locator('#customer-database.active').waitFor();
+  assert.equal(await p.locator('#customerActivityOverlay').isVisible(),false);
+  await p.getByRole('button',{name:'Briefing',exact:true}).click();
+  await p.locator('nav [data-page="customer-database"]').click();
+  await p.locator('#customer-database.active').waitFor();
+  assert.equal(await p.locator('#customerActivityOverlay').isVisible(),false);
+  await h.context.close();
+ }finally{await browser.close();}
+});

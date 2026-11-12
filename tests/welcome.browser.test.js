@@ -89,26 +89,7 @@ test('first-render welcome greeting matches afternoon and evening without a minu
  }
 }));
 
-test('Customer Activity follows both themes and preserves its unsaved note across theme and workspace switches',async()=>fixture(async(b,url)=>{
- const {page,context}=await pageFor(b,url,{reducedMotion:'reduce'});
- await page.route('**/api/customer-activity',r=>r.fulfill({json:{ok:true,document:{schemaVersion:2,revision:1,customers:[{id:'fictional-company',name:'Fictional Company',contacts:[],contact:'',phone:'',address:'',source:'manual',sourceRef:''}],activities:[]}}}));
- await page.goto(url);
- await page.locator('#customerActivityOpen').click();
- await page.locator('#customerDemoOutcome').fill('Fictional draft — no visit reported');
- for(const theme of ['light','dark']) {
-  await page.evaluate(theme=>JamesWelcome.applyTheme(theme),theme);
-  const colors=await page.locator('.customer-workspace').evaluate(el=>({background:getComputedStyle(el).backgroundColor,color:getComputedStyle(el).color}));
-  assert.equal(colors.background,theme==='light'?'rgb(250, 247, 241)':'rgb(16, 36, 59)');
-  assert.notEqual(colors.background,colors.color);
-  assert.equal(await page.locator('#customerDemoOutcome').inputValue(),'Fictional draft — no visit reported');
- }
- await page.locator('#customerActivityClose').click();
- assert.equal(await page.locator('#customerClosePrompt').isVisible(),true);
- await page.locator('#customerKeepEditing').click();
- assert.equal(await page.locator('#customerActivityOverlay').isVisible(),true);
- assert.equal(await page.locator('#customerDemoOutcome').inputValue(),'Fictional draft — no visit reported');
- await context.close();
-}));
+
 
 
 test('Mail distinguishes a disconnected workspace from a verified empty inbox, and clears the connection notice on recovery',async()=>fixture(async(b,url)=>{

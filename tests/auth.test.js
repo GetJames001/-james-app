@@ -317,7 +317,7 @@ test("fixture-bearing application JavaScript is not exposed without a session", 
   assert.match(res.body, /loadPersonalMicrosoftMail/);
 });
 
-for (const [route, marker] of [["mail-refresh.js", /createPersonalMailRefreshController/], ["calendar-sync.js", /createCalendarRefreshController/]]) test(`gateway protects and serves ${route} only to authenticated GET and HEAD requests`, async () => {
+for (const [route, marker] of [["mail-refresh.js", /createPersonalMailRefreshController/], ["calendar-sync.js", /createCalendarRefreshController/], ["customer-activity-ui.js", /JamesCustomerActivity/]]) test(`gateway protects and serves ${route} only to authenticated GET and HEAD requests`, async () => {
   const gateway = require("../api/gateway.js");
 
   let res = mockRes();
