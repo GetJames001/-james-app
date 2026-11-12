@@ -657,7 +657,7 @@ function pageNow(id){
   if(id === "attention") openAttentionSavedView();
   else clearAttentionSavedView();
   sessionStorage.setItem('jamesCurrentPage', id);
-  $$('nav button').forEach(b => b.classList.toggle('active', b.dataset.page === (id==='tasks'?'attention':id==='files'?'workbench':id==='personalMailDetail'?'personalMail':id)));
+  $$('nav button').forEach(b => {const active=b.dataset.page === (id==='tasks'?'attention':id==='files'?'workbench':id==='personalMailDetail'?'personalMail':id);b.classList.toggle('active',active);if(active)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current');});
   $$('.page').forEach(p => p.classList.toggle('active', p.id === id));
   window.dispatchEvent(new Event('james:page-changed'));
   if(id === 'briefing') scheduleCalendarRelayout(true);

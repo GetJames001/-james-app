@@ -207,3 +207,16 @@ test('one remembered location source automatically updates weather as Michael tr
  assert.equal(await page.locator('#connectionSettings').isVisible(),true);assert.equal(await page.locator('#hotmailCalendarConnect').isVisible(),true);
  await context.close();
 }));
+
+test('shared James frame keeps navigation usable on desktop, iPad and phone without horizontal page overflow',async()=>fixture(async(b,url)=>{
+ for(const viewport of [{width:1440,height:1000},{width:1024,height:768},{width:820,height:1180},{width:390,height:844}]){
+  const {page,context}=await pageFor(b,url,{viewport,reducedMotion:'reduce'});await page.goto(url);await page.locator('#intro').waitFor({state:'hidden'});
+  assert.ok(await page.locator('#app').evaluate(e=>e.classList.contains('james-shell')));
+  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),true,'page stays within '+viewport.width);
+  if(viewport.width>1000){const nav=await page.locator('#nav').boundingBox(),body=await page.locator('#briefing').boundingBox();assert.ok(nav.x+nav.width<=body.x+1,'rail sits beside the workspace');}
+  await page.locator('nav [data-page="personalMail"]').click();assert.equal(await page.locator('#personalMail').isVisible(),true);assert.equal(await page.locator('nav [data-page="personalMail"]').getAttribute('aria-current'),'page');
+  await page.locator('nav [data-page="briefing"]').click();assert.equal(await page.locator('#briefing').isVisible(),true);assert.equal(await page.locator('#jamesOrb').isVisible(),true);
+  await page.locator('.header-preferences > summary').click();await page.locator('#jamesThemeToggle').click();assert.equal(await page.locator('html').getAttribute('data-theme'),'light');assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),true);
+  await context.close();
+ }
+}));

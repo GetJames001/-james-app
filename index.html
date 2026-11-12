@@ -38,13 +38,13 @@
   </div>
 </section>
 
-<main id="app" class="app frosted">
+<main id="app" class="app frosted james-shell">
 
   <header>
     <div class="brand">
       <div>
        <img class="james-signature" src="assets/james-signature-v2.png" alt="James">
-<small>Your Executive AI Assistant</small>
+<small>Your Life. Designed.</small>
       </div>
     </div>
 
@@ -70,18 +70,16 @@
     </div>
   </header>
 
-  <nav id="nav">
-    <button class="active" data-page="briefing">Briefing</button>
-    <button data-page="appointments">Appointments</button>
-    <button data-page="personalMail">Mail</button>
-    <button data-page="attention">To Do</button>
-    <button data-page="travel">Travel</button>
-    <button data-page="workbench">Workbench</button>
-    <button type="button" data-page="wardrobe">Wardrobe</button>
-    <button data-page="customer-database">Customer Information</button>
-    <button id="jamesNav" class="james-nav" data-page="insights">
-  James
-</button>
+  <nav id="nav" aria-label="James navigation">
+    <button class="active" aria-current="page" data-page="briefing"><svg class="nav-glyph" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v14H4zM8 9h8M8 13h5"/></svg><span>Briefing</span></button>
+    <button data-page="appointments"><svg class="nav-glyph" viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M8 3v4M16 3v4M4 10h16"/></svg><span>Appointments</span></button>
+    <button data-page="personalMail"><svg class="nav-glyph" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg><span>Mail</span></button>
+    <button data-page="attention"><svg class="nav-glyph" viewBox="0 0 24 24" aria-hidden="true"><path d="m4 7 2 2 4-4M13 7h7M4 15l2 2 4-4M13 15h7"/></svg><span>To Do</span></button>
+    <button data-page="travel"><svg class="nav-glyph" viewBox="0 0 24 24" aria-hidden="true"><path d="m3 10 7 2 4 8 2-1-1-7 5-5c2-2 0-4-2-2l-5 5-7-1z"/></svg><span>Travel</span></button>
+    <button data-page="workbench"><svg class="nav-glyph" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V4h8v3M3 12h18M10 12v3h4v-3"/></svg><span>Workbench</span></button>
+    <button type="button" data-page="wardrobe"><svg class="nav-glyph" viewBox="0 0 24 24" aria-hidden="true"><path d="M10 5a2 2 0 1 1 3 2l-1 1v2L3 16v3h18v-3l-9-6"/></svg><span>Wardrobe</span></button>
+    <button data-page="customer-database"><svg class="nav-glyph" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M5 17c0-4 8-4 8 0M15 9h3M15 13h3"/></svg><span>Customer Information</span></button>
+    <button id="jamesNav" class="james-nav" data-page="insights"><svg class="nav-glyph" viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 2.5 6.5L21 12l-6.5 2.5L12 21l-2.5-6.5L3 12l6.5-2.5z"/></svg><span>James</span></button>
     <button id="logoutButton" type="button">Sign out</button>
       
   </nav>
