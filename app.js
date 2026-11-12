@@ -1900,7 +1900,7 @@ document.addEventListener('DOMContentLoaded',()=>{
  const savedList=document.getElementById('savedJamesFiles');
  const searchFiles=document.getElementById('searchJamesFiles');
  const saveFiles=document.getElementById('saveJamesFiles');
- let savedFiles=[];
+ let savedFiles=[], filesLoaded=false;
  async function filesRequest({id, method='GET', payload}={}){
   const response=await fetch('/api/james/files'+(id?'?id='+encodeURIComponent(id):''),{
    method,cache:'no-store',
@@ -1928,7 +1928,13 @@ document.addEventListener('DOMContentLoaded',()=>{
  function renderSavedFiles(){
   savedList.replaceChildren();
   const query=searchFiles.value.trim().toLowerCase();
-  for(const file of savedFiles.filter(entry=>entry.name.toLowerCase().includes(query))){
+  const matches=savedFiles.filter(entry=>entry.name.toLowerCase().includes(query));
+  if(filesLoaded&&!matches.length){
+   const empty=document.createElement('p');
+   empty.textContent=savedFiles.length?'No files match your search.':'No files available';
+   savedList.append(empty);
+  }
+  for(const file of matches){
    const {id}=file;
    const row=document.createElement('p');
    const name=document.createElement('span');
@@ -1947,12 +1953,16 @@ document.addEventListener('DOMContentLoaded',()=>{
   }
  }
  async function refreshSavedFiles(){
-  ({files:savedFiles}=await filesRequest());
+  const result=await filesRequest();
+  if(!Array.isArray(result.files)||result.files.length>20||result.files.some(file=>!file||typeof file.id!=='string'||typeof file.name!=='string'||!Number.isFinite(file.size)))throw Error('Invalid saved file list');
+  savedFiles=result.files;
+  filesLoaded=true;
   renderSavedFiles();
  }
  function loadSavedFiles(){
-  return refreshSavedFiles().then(()=>true).catch(()=>{
-   filesStatus.textContent='James Files is unavailable. Open Files again to retry.';
+  return refreshSavedFiles().then(()=>{filesStatus.textContent='';return true;}).catch(()=>{
+   if(!savedFiles.length){filesLoaded=false;renderSavedFiles();}
+   filesStatus.textContent=savedFiles.length?'James Files is unavailable. The last loaded list may be out of date. Open Files again to retry.':'James Files is unavailable. Open Files again to retry.';
    return false;
   });
  }

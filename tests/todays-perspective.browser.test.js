@@ -33,7 +33,9 @@ test('daily Perspective attribution is explicit; checked quote and originals nev
  assert.match(app,/Original reflection/);
  assert.match(app,/jamesPerspectiveForDate/);
  assert.match(html,/id="perspectiveIntro"/);
- assert.match(html,/id="perspectiveRevisit"/);
+ assert.match(html,/<section class="perspective-revisit" aria-labelledby="perspectiveBriefHeading">/);
+ assert.match(html,/id="perspectiveBriefText"/);
+ assert.doesNotMatch(html,/<summary[^>]*>Today/);
  assert.doesNotMatch(app,/fetch\([^)]*perspective/i);
 });
 
@@ -57,8 +59,8 @@ test('intro and briefing show same daily perspective, no navigation regression, 
   assert.equal(await page.locator('#intro button, #intro input, #intro textarea').count(),0);
   await page.locator('#intro').waitFor({state:'hidden'});
   assert.equal(await page.locator('#briefing').evaluate(el=>el.classList.contains('active')),true);
-  const revisit=page.locator('#perspectiveRevisit');
-  await revisit.locator('summary').click();
+  const revisit=page.locator('section[aria-labelledby="perspectiveBriefHeading"]');
+  assert.equal(await revisit.isVisible(),true,'Perspective is visible without an extra click');
   assert.equal(await revisit.locator('blockquote').isVisible(),true);
   assert.equal(await revisit.locator('blockquote').textContent(),today);
   await page.locator('nav [data-page="tasks"]').click();
@@ -73,25 +75,25 @@ test('intro and briefing show same daily perspective, no navigation regression, 
   });
   assert.notEqual(texts[0],texts[1],'a new local day rotates the perspective');
   // A tablet can remain open overnight: reopening the words must use today.
-  await page.clock.setFixedTime(new Date(2026,9,21,12));
+  await page.clock.install({time:new Date(2026,9,21,12)});
   await page.reload();
   if(await page.locator('#intro').isVisible()){
    await page.locator('#intro').waitFor({state:'hidden'});
   }
   const previousDay=await page.locator('#perspectiveBriefText').textContent();
   await page.clock.setFixedTime(new Date(2026,9,22,12));
-  await revisit.locator('summary').click();
+  await page.clock.fastForward(60001);
   const nextDay=await page.evaluate(()=>jamesPerspectiveForDate(new Date()).text);
   assert.notEqual(nextDay,previousDay);
   await page.waitForFunction(text=>document.getElementById('perspectiveBriefText').textContent===text,nextDay,{timeout:3000});
-  assert.equal(await page.locator('#perspectiveBriefText').textContent(),nextDay,'reopen after midnight refreshes displayed words');
+  assert.equal(await page.locator('#perspectiveBriefText').textContent(),nextDay,'the visible panel refreshes automatically after midnight');
   await page.clock.setFixedTime(new Date(2026,9,23,12));
   await page.evaluate(()=>window.dispatchEvent(new Event('focus')));
   assert.equal(await page.locator('#perspectiveBriefText').textContent(),await page.evaluate(()=>jamesPerspectiveForDate(new Date()).text),'resuming a tab refreshes the day');
   assert.equal(await page.locator('#intro').isVisible(),false,'refresh never replays the intro');
   for(const width of [320,390,820,1280]){
    await page.setViewportSize({width,height:780});
-   const m=await page.locator('#perspectiveRevisit').evaluate(el=>{const r=el.getBoundingClientRect();return {left:r.left,right:r.right,width:innerWidth}});
+   const m=await revisit.evaluate(el=>{const r=el.getBoundingClientRect();return {left:r.left,right:r.right,width:innerWidth}});
    assert.ok(m.left>=-1 && m.right<=width+1,JSON.stringify(m));
   }
  }finally{await browser?.close();server.closeAllConnections();await new Promise(resolve=>server.close(resolve));}
