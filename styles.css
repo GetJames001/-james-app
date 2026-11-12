@@ -1100,3 +1100,16 @@ html[data-theme=light] #app.james-shell .briefing-sheet{background:transparent}
 }
 
 .james-shell .intel-icon{color:var(--muted);stroke:currentColor}
+
+/* Morning summaries: compact information plus a clear, optional outfit shortcut. */
+.james-shell .intel-strip{grid-template-columns:repeat(3,minmax(0,1fr))}
+.james-shell .intel-card{padding:16px 18px;min-height:0}
+.james-shell .intel-card>.intel-icon{width:20px;height:20px;margin-bottom:8px}
+.james-shell .intel-card>span{margin-bottom:7px}
+.james-shell .intel-card .mail-split{margin-top:4px;gap:7px}
+.james-shell .intel-strip>.briefing-wardrobe{display:block;width:100%;margin:0;text-align:left;border:1px solid var(--gs);border-radius:12px;background:rgba(18,39,57,.45);color:var(--ink);font:inherit}
+.james-shell .intel-strip>.briefing-wardrobe strong{font:400 clamp(1.2rem,2vw,1.65rem) Georgia,serif;color:var(--ink);margin:0 0 8px}
+.james-shell .intel-strip>.briefing-wardrobe:hover{border-color:var(--gold);background:var(--gs)}
+.james-shell .intel-strip>.briefing-wardrobe:focus-visible{outline:2px solid var(--gold);outline-offset:3px}
+html[data-theme=light] .james-shell .intel-strip>.briefing-wardrobe{background:#f3efe7}
+@media(max-width:600px){.james-shell .intel-strip{grid-template-columns:repeat(2,minmax(0,1fr))}.james-shell .intel-strip>.briefing-wardrobe{grid-column:1/-1}.james-shell .intel-strip>.briefing-wardrobe>.intel-icon{float:left;margin:3px 14px 0 0}.james-shell .intel-strip>.briefing-wardrobe strong{font-size:1.3rem}}
