@@ -1113,3 +1113,8 @@ html[data-theme=light] #app.james-shell .briefing-sheet{background:transparent}
 .james-shell .intel-strip>.briefing-wardrobe:focus-visible{outline:2px solid var(--gold);outline-offset:3px}
 html[data-theme=light] .james-shell .intel-strip>.briefing-wardrobe{background:#f3efe7}
 @media(max-width:600px){.james-shell .intel-strip{grid-template-columns:repeat(2,minmax(0,1fr))}.james-shell .intel-strip>.briefing-wardrobe{grid-column:1/-1}.james-shell .intel-strip>.briefing-wardrobe>.intel-icon{float:left;margin:3px 14px 0 0}.james-shell .intel-strip>.briefing-wardrobe strong{font-size:1.3rem}}
+
+/* The narrower summary cards keep complete Mail counts inside their own row. */
+.james-shell .mail-row{display:grid;grid-template-columns:auto minmax(0,1fr);gap:3px 6px;min-width:0}
+.james-shell .intel-card .mail-row>span{margin-bottom:0}
+.james-shell .intel-card .mail-row>strong{grid-column:1/-1;width:100%;max-width:100%;min-width:0;margin-left:0;font-size:.85rem;line-height:1.25;white-space:normal;overflow-wrap:anywhere;word-break:normal}
