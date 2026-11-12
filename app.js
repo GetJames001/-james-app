@@ -1893,14 +1893,17 @@ document.addEventListener('DOMContentLoaded',()=>{
 document.addEventListener('DOMContentLoaded',()=>{
  const status=$('#routeStatus'),estimateButton=$('#routeEstimate');if(!status||!estimateButton)return;
  let locationGeneration=0,automaticTimer=null,lastAttemptKey=null,lastAttemptAt=-Infinity;
+ let supersededRetry=false,automaticWindowKey=null,automaticWindowAt=-Infinity,automaticAttempts=0;
  const invalidate=()=>{nextDriveGeneration++;nextDriveController?.abort();nextDriveResult=null;updateHero();};
  const choose=origin=>{invalidate();nextDriveOrigin=origin;status.textContent='';void estimateButton.onclick();};
  const eligible=()=>{const appt=nextAppointment();return !document.hidden&&nextDriveOrigin&&nextDriveKey()&&typeof appt?.[5]?.location==='string'&&appt[5].location.trim().length>=5&&Date.parse(appt[5].start)>Date.now()&&(nextDriveOrigin.kind==='address'||(Date.now()-nextDriveOrigin.observedAt>=0&&Date.now()-nextDriveOrigin.observedAt<=300000));};
  refreshNextDriveIfNeeded=()=>{
   if(automaticTimer||estimateButton.disabled||!eligible())return;
   if(nextDriveResult&&nextDriveResult.key===nextDriveKey()&&Date.parse(nextDriveResult.expiresAt)>Date.now())return;
-  if(lastAttemptKey===nextDriveKey()&&Date.now()-lastAttemptAt<60000)return;
-  automaticTimer=setTimeout(()=>{automaticTimer=null;if(eligible()&&!estimateButton.disabled)void estimateButton.onclick();},1000);
+  const key=nextDriveKey();
+  if(key!==automaticWindowKey||Date.now()-automaticWindowAt>=60000){automaticWindowKey=key;automaticWindowAt=Date.now();automaticAttempts=0;}
+  if(automaticAttempts>=3||(!supersededRetry&&lastAttemptKey===key&&Date.now()-lastAttemptAt<60000))return;
+  automaticTimer=setTimeout(()=>{automaticTimer=null;if(eligible()&&!estimateButton.disabled){automaticAttempts++;supersededRetry=false;void estimateButton.onclick();}},1000);
  };
  $('#routeUseAddress').onclick=()=>{locationGeneration++;const address=$('#routeOriginAddress').value.trim();if(address.length<5){status.textContent='Enter a full departure address first.';return;}choose({kind:'address',address,confirmed:true});};
  $('#routeUseLocation').onclick=()=>{
@@ -1929,7 +1932,7 @@ document.addEventListener('DOMContentLoaded',()=>{
    if(!Number.isFinite(result.driveSeconds)||!Number.isFinite(result.trafficDelaySeconds)||!Number.isFinite(Date.parse(result.expiresAt))||!Number.isFinite(Date.parse(result.estimatedLeaveBy)))throw Error();
    nextDriveResult={...result,key};updateHero();status.textContent='Current traffic · includes 10 minutes to arrive early.';
   }catch(error){if(generation===nextDriveGeneration)status.textContent=controller.signal.aborted?'Drive estimate timed out. Try again.':'Route unavailable. Your appointment has not changed.';}
-  finally{clearTimeout(timeout);if(nextDriveController===controller){nextDriveController=null;estimateButton.disabled=false;}refreshNextDriveIfNeeded();}
+  finally{clearTimeout(timeout);if(nextDriveController===controller){if(controller.signal.aborted&&generation!==nextDriveGeneration)supersededRetry=true;nextDriveController=null;estimateButton.disabled=false;}refreshNextDriveIfNeeded();}
  };
  const clear=()=>{locationGeneration++;if(automaticTimer){clearTimeout(automaticTimer);automaticTimer=null;}nextDriveOrigin=null;invalidate();$('#routeOriginAddress').value='';status.textContent='';};
  window.addEventListener('pagehide',clear);

@@ -30,3 +30,16 @@ test('bounded route timeout reports the failure and page exit removes pending au
  const h=setup(),c=h.context;c.nextDriveOrigin={kind:'address',address:'123 Example Street',confirmed:true};const request=h.node('#routeEstimate').onclick();h.fire(15000);assert.equal(c.nextDriveController.signal.aborted,true);h.pending[0].reject(Object.assign(Error(),{name:'AbortError'}));await request;assert.match(h.node('#routeStatus').textContent,/timed out/);
  h.advance(60000);c.refreshNextDriveIfNeeded();h.listeners.pagehide();assert.equal(h.timers.size,0);assert.equal(c.nextDriveOrigin,null);
 });
+
+
+test('a newer location fix replaces an aborted startup estimate promptly without unbounded retrying',async()=>{
+ const h=setup(),c=h.context;c.nextDriveOrigin={kind:'device',observedAt:c.Date.now()};
+ c.refreshNextDriveIfNeeded();h.fire(1000);assert.equal(h.calls,1);
+ for(let index=0;index<3;index++){
+  c.nextDriveGeneration++;c.nextDriveController.abort();c.nextDriveOrigin={kind:'device',observedAt:c.Date.now()};
+  h.pending[index].reject(Object.assign(Error('new location fix'),{name:'AbortError'}));await settle();
+  if(index<2){assert.ok([...h.timers.values()].some(t=>t.ms===1000),'replacement does not wait a minute');h.fire(1000);}
+ }
+ assert.equal(h.calls,3);assert.equal(h.timers.size,0,'location jitter is limited to three automatic starts per minute');
+ h.advance(60000);c.nextDriveOrigin={kind:'device',observedAt:c.Date.now()};c.refreshNextDriveIfNeeded();h.fire(1000);h.resolve(3);await settle();assert.equal(c.nextDriveResult.driveSeconds,1200);
+});
