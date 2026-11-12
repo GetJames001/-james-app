@@ -80,3 +80,28 @@ test('browser reload retains verified Workbench context and End removes it',asyn
   await page.getByRole('button',{name:'End conversation',exact:true}).click();await page.getByRole('status').filter({hasText:'Conversation ended'}).waitFor();await page.reload();await page.getByLabel('Question',{exact:true}).fill('New conversation');await page.getByRole('button',{name:'Ask James',exact:true}).click();await page.getByText('Recovered fixture reply',{exact:true}).waitFor();assert.doesNotMatch(h.questions[2],/Synthetic bench|cobalt acorn/);await context.close();
  }finally{await browser.close();}
 });
+
+test('voice playback history and periodic connection check can overlap without detaching voice',async()=>{
+ const browser=await chromium.launch();try{
+  const h=await fixture(browser),context=await browser.newContext();await h.install(context);
+  await context.addCookies([{name:auth.SESSION_COOKIE,value:auth.createSessionToken(process.env.JAMES_AUTH_EMAIL),url:origin,secure:true,httpOnly:true,sameSite:'Strict'}]);
+  const page=await context.newPage();await page.goto(origin);
+  await page.evaluate(async()=>{
+   window.voiceEnded=0;
+   window.voicePrepared=await testUI.prepareVoice({subscribeTurn:()=>()=>{},end:()=>window.voiceEnded++,interruptReply(){}});
+  });
+  let release,entered;const gate=new Promise(resolve=>release=resolve),firstRead=new Promise(resolve=>entered=resolve);
+  await page.route('**/api/james/conversation',async route=>{
+   if(route.request().method()==='GET'){entered();await gate;}
+   await route.fallback();
+  });
+  await page.evaluate(()=>{window.voiceCheck=testUI.verifyVoice(window.voicePrepared.scope);});
+  await firstRead;
+  await page.evaluate(()=>{window.voiceHistorySave=testUI.rememberVoice(window.voicePrepared.scope,'Synthetic briefing request','Synthetic spoken briefing');});
+  release();
+  const result=await page.evaluate(async()=>({results:await Promise.all([window.voiceCheck,window.voiceHistorySave]),ended:window.voiceEnded}));
+  assert.deepEqual(result,{results:[true,true],ended:0});
+  assert.equal(h.calls(),0,'no provider call is needed to verify this race');
+  await context.close();
+ }finally{await browser.close();}
+});

@@ -186,3 +186,47 @@ test('voice shares the verified typed history and detaches without ending the co
  f.ui.detachVoice(adapter);const again=await f.ui.prepareVoice(adapter);assert.deepEqual(again.scope,prepared.scope);
  await f.ui.end();assert.equal(await f.ui.rememberVoice(prepared.scope,'Late speech','Late answer'),false);
 });
+
+test('overlapping voice reply persistence and connection verification keep the same live voice attached',async()=>{
+ let f,hold=false;const reads=[];
+ f=await fixture({fetcher:async(url,options)=>{
+  if(hold&&url==='/api/james/conversation'&&options.method==='GET')await new Promise(resolve=>reads.push(resolve));
+  return f.fetcher(url,options);
+ }});
+ let ended=0;
+ const prepared=await f.ui.prepareVoice({subscribeTurn:()=>()=>{},end:()=>ended++,interruptReply(){}});
+ hold=true;
+ const verification=f.ui.verifyVoice(prepared.scope);await f.flush();
+ const remembering=f.ui.rememberVoice(prepared.scope,'Synthetic briefing request','Synthetic completed briefing');await f.flush();
+ hold=false;for(const release of reads)release();
+ const [verified,remembered]=await Promise.all([verification,remembering]);
+ assert.equal(verified,true,'saving a reply must not make the connection check close the active voice');
+ assert.equal(remembered,true,'the completed voice reply remains in conversation history');
+ assert.equal(ended,0,'two same-owner checks must not end the active microphone');
+ assert.deepEqual(await f.ui.snapshotIdentity(),prepared.scope);
+});
+
+
+test('overlapping voice checks still reject expired authentication and clear private history',async()=>{
+ let f,expired=false;
+ f=await fixture({fetcher:async(url,options)=>expired?{ok:false,status:401,json:async()=>({error:'UNAUTHORIZED'})}:f.fetcher(url,options)});
+ let ended=0;const prepared=await f.ui.prepareVoice({subscribeTurn:()=>()=>{},end:()=>ended++,interruptReply(){}});
+ expired=true;
+ const [verified,remembered]=await Promise.all([f.ui.verifyVoice(prepared.scope),f.ui.rememberVoice(prepared.scope,'Private synthetic request','Private synthetic reply')]);
+ assert.equal(verified,false);assert.equal(remembered,false);assert.ok(ended>0);
+ assert.equal(f.answer.textContent,'');assert.equal(f.status.textContent,'Sign in to continue');
+});
+
+test('End during a shared voice check prevents a late reply from being remembered',async()=>{
+ let f,hold=false;const reads=[];
+ f=await fixture({fetcher:async(url,options)=>{
+  if(hold&&url==='/api/james/conversation'&&options.method==='GET')await new Promise(resolve=>reads.push(resolve));
+  return f.fetcher(url,options);
+ }});
+ const prepared=await f.ui.prepareVoice({subscribeTurn:()=>()=>{},end(){},interruptReply(){}});
+ hold=true;const verification=f.ui.verifyVoice(prepared.scope);await f.flush();
+ const remembering=f.ui.rememberVoice(prepared.scope,'Synthetic old request','Synthetic old reply');await f.flush();
+ await f.ui.end();hold=false;for(const release of reads)release();
+ const [verified,remembered]=await Promise.all([verification,remembering]);
+ assert.equal(verified,false);assert.equal(remembered,false);assert.equal(f.status.textContent,'Conversation ended');
+});
