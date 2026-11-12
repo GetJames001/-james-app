@@ -1436,7 +1436,7 @@ if (personalMailDetailBack) {
   window.jamesAppointments=window.JamesAppointments.mount({onCreated:async()=>{try{applyGoogleEvents(await JamesCalendarSync.readCalendar(fetch));await refreshHotmailCalendar();}catch{calendarSyncState.state=calendarSyncState.hasData?'stale':'unavailable';}}});
   $('#appointmentSavingSetup').onclick=()=>window.jamesAppointments.setup();
   window.jamesReminders=window.JamesReminders.mount({host:$('#tasks'),onCount:count=>setToDoCount('reminders',count)});
-  window.jamesLocation=window.JamesLocation.mount({button:$('#jamesLiveLocation'),status:$('#jamesLocationStatus'),onPoint:point=>{
+  window.jamesLocation=window.JamesLocation.mount({button:$('#jamesLiveLocation'),status:$('#jamesLocationStatus'),onState:()=>refreshNextDriveIfNeeded(),onPoint:point=>{
     if(!nextDriveOrigin||nextDriveOrigin.kind==='device'){
       const previous=nextDriveOrigin,moved=!previous||Math.hypot((point.latitude-previous.latitude)*111000,(point.longitude-previous.longitude)*111000*Math.cos(point.latitude*Math.PI/180))>100;
       nextDriveOrigin=point;if(moved){nextDriveResult=null;nextDriveGeneration++;nextDriveController?.abort();updateHero();}
@@ -1897,8 +1897,23 @@ document.addEventListener('DOMContentLoaded',()=>{
  const invalidate=()=>{nextDriveGeneration++;nextDriveController?.abort();nextDriveResult=null;updateHero();};
  const choose=origin=>{invalidate();nextDriveOrigin=origin;status.textContent='';void estimateButton.onclick();};
  const eligible=()=>{const appt=nextAppointment();return !document.hidden&&nextDriveOrigin&&nextDriveKey()&&typeof appt?.[5]?.location==='string'&&appt[5].location.trim().length>=5&&Date.parse(appt[5].start)>Date.now()&&(nextDriveOrigin.kind==='address'||(Date.now()-nextDriveOrigin.observedAt>=0&&Date.now()-nextDriveOrigin.observedAt<=300000));};
+ const waitingReason=()=>{
+  if(document.hidden)return 'Drive estimates resume when James is open.';
+  if(!nextDriveKey())return 'Waiting for a current Calendar result before estimating the drive.';
+  const appt=nextAppointment();
+  if(!appt)return 'No upcoming appointment needs a drive estimate.';
+  if(Date.parse(appt[5]?.start)<=Date.now())return 'This appointment is already in progress.';
+  if(typeof appt[5]?.location!=='string'||appt[5].location.trim().length<5)return 'This appointment needs a destination address for a drive estimate.';
+  if(nextDriveOrigin)return 'Waiting for a fresh location to update your drive estimate.';
+  const location=window.jamesLocation?.snapshot();
+  if(location?.enabled===false)return 'Use my location to enable automatic drive estimates.';
+  return {permission_required:'Allow location to update your drive estimate.',denied:'Location is blocked in browser settings.',inaccurate:'Waiting for a more precise location…',unavailable:'Current location is unavailable. Try Use current location.'}[location?.status]||'Waiting for your current location…';
+ };
  refreshNextDriveIfNeeded=()=>{
-  if(automaticTimer||estimateButton.disabled||!eligible())return;
+  // Adopt the shared fresh fix even if it arrived before this controller mounted.
+  if(!nextDriveOrigin)nextDriveOrigin=window.jamesLocation?.point()||null;
+  if(automaticTimer||estimateButton.disabled)return;
+  if(!eligible()){status.textContent=waitingReason();return;}
   if(nextDriveResult&&nextDriveResult.key===nextDriveKey()&&Date.parse(nextDriveResult.expiresAt)>Date.now())return;
   const key=nextDriveKey();
   if(key!==automaticWindowKey||Date.now()-automaticWindowAt>=60000){automaticWindowKey=key;automaticWindowAt=Date.now();automaticAttempts=0;}
@@ -1937,6 +1952,7 @@ document.addEventListener('DOMContentLoaded',()=>{
  const clear=()=>{locationGeneration++;if(automaticTimer){clearTimeout(automaticTimer);automaticTimer=null;}nextDriveOrigin=null;invalidate();$('#routeOriginAddress').value='';status.textContent='';};
  window.addEventListener('pagehide',clear);
  document.addEventListener('visibilitychange',()=>{if(document.hidden)clear();});
+ refreshNextDriveIfNeeded();
 });
 
  document.addEventListener('DOMContentLoaded',()=>{const menu=document.querySelector('.header-preferences');if(!menu)return;menu.addEventListener('click',event=>{if(event.target.closest('button'))menu.open=false;});document.addEventListener('keydown',event=>{if(event.key==='Escape'&&menu.open){menu.open=false;menu.querySelector('summary').focus();}});document.addEventListener('click',event=>{if(!menu.contains(event.target))menu.open=false;});});

@@ -2,15 +2,34 @@
 const test=require('node:test'),assert=require('node:assert/strict'),vm=require('node:vm'),fs=require('node:fs');
 const source=fs.readFileSync(require.resolve('../app.js'),'utf8');
 const block=source.slice(source.indexOf('// Departure locations stay in memory;'),source.indexOf("\n document.addEventListener('DOMContentLoaded',()=>{const menu"));
-function setup(){
+function setup({location}={}){
  let now=Date.now(),key='appointment-a',hidden=false,calls=0;
  const timers=new Map(),nodes=new Map(),listeners={},pending=[];let timerId=0;
  const node=id=>{if(!nodes.has(id))nodes.set(id,{textContent:'',value:'',disabled:false});return nodes.get(id);};
  const context={console,AbortController,Date:{now:()=>now,parse:Date.parse},setTimeout(fn,ms){const id=++timerId;timers.set(id,{fn,ms});return id;},clearTimeout:id=>timers.delete(id),nextDriveOrigin:null,nextDriveResult:null,nextDriveGeneration:0,nextDriveController:null,refreshNextDriveIfNeeded:()=>{},nextDriveKey:()=>key,nextAppointment:()=>({5:{start:new Date(now+3600000).toISOString(),location:'456 Example Avenue'}}),updateHero(){},$:selector=>node(selector),navigator:{},window:{addEventListener:(name,fn)=>listeners[name]=fn},document:{get hidden(){return hidden;},addEventListener:(name,fn)=>listeners[name]=fn},fetch:async()=>{calls++;return new Promise((resolve,reject)=>pending.push({resolve,reject}));}};
+ context.window.jamesLocation=location;
  vm.runInNewContext(block,context);listeners.DOMContentLoaded();
  return {context,node,pending,listeners,timers,get calls(){return calls;},key:value=>key=value,advance:ms=>now+=ms,hide:()=>hidden=true,fire(ms){const entry=[...timers].find(([,t])=>t.ms===ms);assert.ok(entry,'expected timer '+ms);timers.delete(entry[0]);entry[1].fn();},resolve(index=0){pending[index].resolve({ok:true,json:async()=>({status:'ready',driveSeconds:1200,trafficDelaySeconds:300,expiresAt:new Date(now+300000).toISOString(),estimatedLeaveBy:new Date(now+1800000).toISOString()})});}};
 }
 const settle=()=>new Promise(resolve=>setImmediate(resolve));
+test('automatic startup uses an already available shared live fix without a second location tap',async()=>{
+ const point={kind:'device',observedAt:Date.now()};
+ const h=setup({location:{point:()=>point,snapshot:()=>({enabled:true,status:'ready'})}});
+ assert.equal(h.context.nextDriveOrigin,point);h.fire(1000);assert.equal(h.calls,1);
+ h.resolve();await settle();assert.equal(h.context.nextDriveResult.driveSeconds,1200);
+});
+test('blocked automatic routes explain location permission, missing destinations and stale calendars without requests',()=>{
+ let state={enabled:true,status:'locating'};
+ const h=setup({location:{point:()=>null,snapshot:()=>state}}),c=h.context;
+ assert.match(h.node('#routeStatus').textContent,/Waiting for your current location/);
+ for(const [status,expected] of [['permission_required',/Allow location/],['denied',/blocked/],['inaccurate',/more precise/],['unavailable',/unavailable/]]){
+  state={enabled:true,status};c.refreshNextDriveIfNeeded();assert.match(h.node('#routeStatus').textContent,expected);
+ }
+ state={enabled:false,status:'off'};c.refreshNextDriveIfNeeded();assert.match(h.node('#routeStatus').textContent,/enable automatic/);
+ c.nextAppointment=()=>({5:{start:new Date(c.Date.now()+3600000).toISOString(),location:''}});c.refreshNextDriveIfNeeded();assert.match(h.node('#routeStatus').textContent,/destination address/);
+ h.key(null);c.refreshNextDriveIfNeeded();assert.match(h.node('#routeStatus').textContent,/Calendar result/);
+ assert.equal(h.calls,0);assert.equal(h.timers.size,0);
+});
 test('fresh live origin automatically estimates once; failures back off and hidden/stale points do not request',async()=>{
  const h=setup(),c=h.context;
  c.nextDriveOrigin={kind:'device',observedAt:c.Date.now()};c.refreshNextDriveIfNeeded();c.refreshNextDriveIfNeeded();assert.equal(h.timers.size,1);h.fire(1000);assert.equal(h.calls,1);

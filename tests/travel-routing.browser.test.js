@@ -81,6 +81,8 @@ test('remembered live location replaces a superseded startup route and estimates
   await context.addInitScript(()=>localStorage.setItem('james:live-location:v1','enabled'));
   await page.route('https://**',r=>r.abort());const url='http://127.0.0.1:'+server.address().port;await page.goto(url);
   const calendar=()=>page.evaluate(()=>{calendarSyncState.hasData=true;calendarSyncState.state='fresh';events=[['12:00','13:00','Reload route test','456 Example Avenue',null,{id:'reload-test',start:new Date(Date.now()+3600000).toISOString(),end:new Date(Date.now()+7200000).toISOString(),location:'456 Example Avenue'}]];updateHero();});
+  await page.evaluate(()=>{calendarSyncState.hasData=true;calendarSyncState.state='fresh';events=[['12:00','13:00','Missing destination test','',null,{id:'missing-destination',start:new Date(Date.now()+3600000).toISOString(),end:new Date(Date.now()+7200000).toISOString(),location:''}]];updateHero();});
+  await page.waitForFunction(()=>document.querySelector('#routeStatus').textContent.includes('destination address'));assert.equal(calls,0);
   await calendar();await new Promise((resolve,reject)=>{const timeout=setTimeout(()=>reject(Error('automatic startup route did not reach fixture')),10000);firstStarted.then(()=>{clearTimeout(timeout);resolve();});});
   // The server deliberately keeps the first provider reply pending while a better device fix arrives.
   await page.waitForFunction(()=>document.querySelector('#routeEstimate').disabled);await context.setGeolocation({latitude:36.02,longitude:-115,accuracy:10});

@@ -1,6 +1,6 @@
 (function(root){
  'use strict';
- function mount({button,status,geolocation=root.navigator?.geolocation,permissions=root.navigator?.permissions,storage,document=root.document,now=Date.now,onPoint=()=>{},onClear=()=>{}}={}){
+ function mount({button,status,geolocation=root.navigator?.geolocation,permissions=root.navigator?.permissions,storage,document=root.document,now=Date.now,onPoint=()=>{},onClear=()=>{},onState=()=>{}}={}){
   if(storage===undefined)try{storage=root.localStorage}catch{}
   const key='james:live-location:v1';let enabled=false,watch=null,point=null,generation=0,state='off',permission=null;
   try{enabled=storage?.getItem(key)==='enabled';}catch{}
@@ -10,6 +10,7 @@
    const needsPermission=enabled&&['permission_required','denied','unavailable'].includes(state)&&!fresh();
    if(button){button.textContent=needsPermission?'Enable location':enabled?'Live location on':'Use my location';button.setAttribute('aria-pressed',String(enabled&&!needsPermission));button.title='Use your location for weather, nearby searches and routes while James is open. Tap again to turn it off.';}
    if(status)status.textContent=!enabled||fresh()?'':document.hidden?'Location paused.':state==='denied'?'Allow location in browser settings.':state==='permission_required'?'Location permission needed.':state==='unavailable'?'Location unavailable. Try again.':'Locating…';
+   onState(snapshot());
   }
   function stop(){generation++;if(watch!==null)geolocation?.clearWatch(watch);watch=null;point=null;onClear();render();}
   async function start(interactive=false){
