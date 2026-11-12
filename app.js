@@ -1487,7 +1487,7 @@ if (personalMailDetailBack) {
     try{const response=await fetch('/api/james/places',{method:'POST',headers:{'Content-Type':'application/json'},cache:'no-store',body:JSON.stringify({query,area,...(area==='nearby'?{location:window.jamesLocation.point()}: {})})}),data=await response.json();return response.ok?data:{status:'unavailable',reason:'request_failed',places:[]};}catch{return {status:'unavailable',reason:'request_failed',places:[]};}
   };
   const readJamesRoute=()=>{
-    if(!nextDriveResult||nextDriveResult.key!==nextDriveKey()||Date.parse(nextDriveResult.expiresAt)<=Date.now())return {status:'unavailable',startingPointSelected:Boolean(nextDriveOrigin),nextStep:'Choose a starting point and Estimate next drive inside Next Appointment.'};
+    if(!nextDriveResult||nextDriveResult.key!==nextDriveKey()||Date.parse(nextDriveResult.expiresAt)<=Date.now())return {status:'unavailable',startingPointSelected:Boolean(nextDriveOrigin),nextStep:'Choose your starting point in Next Appointment to get a drive estimate.'};
     return {status:'ready',appointmentTitle:nextAppointment()?.[2],driveSeconds:nextDriveResult.driveSeconds,trafficDelaySeconds:nextDriveResult.trafficDelaySeconds,estimatedLeaveBy:nextDriveResult.estimatedLeaveBy,trafficBasis:nextDriveResult.trafficBasis,bufferMinutes:nextDriveResult.bufferMinutes,observedAt:nextDriveResult.observedAt,expiresAt:nextDriveResult.expiresAt,calendarChanged:false};
   };
   const readJamesBriefing=()=>({
