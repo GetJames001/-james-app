@@ -60,7 +60,7 @@ test('opted-in live location fills departure fields without clicking another rou
 });
 
 test('remembered live location replaces a superseded startup route and estimates again after reload without a tap',async()=>{
- let calls=0,releaseFirst,firstStartedResolve;const firstStarted=new Promise(resolve=>{firstStartedResolve=resolve;});
+ let calls=0,destination='',releaseFirst,firstStartedResolve;const firstStarted=new Promise(resolve=>{firstStartedResolve=resolve;});
  const server=http.createServer(async(req,res)=>{
   const url=new URL(req.url,'http://localhost');
   if(url.pathname.startsWith('/api/')){
@@ -70,6 +70,7 @@ test('remembered live location replaces a superseded startup route and estimates
     if(calls===1){firstStartedResolve();await new Promise(resolve=>{releaseFirst=resolve;});}
     return res.end(JSON.stringify({status:'ready',driveSeconds:1200,trafficDelaySeconds:300,estimatedLeaveBy:new Date(Date.now()+1800000).toISOString(),expiresAt:new Date(Date.now()+300000).toISOString()}));
    }
+   if(url.pathname==='/api/google/events')return res.end(JSON.stringify({connected:true,complete:true,partial:false,fetchedAt:new Date().toISOString(),calendars:[{id:'fixture',name:'Fictional routing calendar'}],events:[{id:'reload-test',calendarId:'fixture',title:'Reload route test',start:new Date(Date.now()+3600000).toISOString(),end:new Date(Date.now()+7200000).toISOString(),location:destination}]}));
    if(url.pathname==='/api/tasks')return res.end('{"tasks":[]}');
    if(url.pathname==='/api/auth/session')return res.end('{"ok":true,"authenticated":true}');
    return res.end('{"connected":false}');
@@ -77,16 +78,18 @@ test('remembered live location replaces a superseded startup route and estimates
   const file=path.join(__dirname,'..',url.pathname==='/'?'index.html':url.pathname.slice(1));try{res.setHeader('Content-Type',/\.m?js$/.test(file)?'text/javascript':file.endsWith('.css')?'text/css':'text/html');res.end(fs.readFileSync(file));}catch{res.statusCode=404;res.end();}
  });await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));let browser;
  try{
-  browser=await chromium.launch({headless:true});const context=await browser.newContext({permissions:['geolocation'],geolocation:{latitude:36,longitude:-115,accuracy:100}}),page=await context.newPage();
+  browser=await chromium.launch({headless:true});const context=await browser.newContext({timezoneId:'America/Los_Angeles',permissions:['geolocation'],geolocation:{latitude:36,longitude:-115,accuracy:100}}),page=await context.newPage();
   await context.addInitScript(()=>localStorage.setItem('james:live-location:v1','enabled'));
   await page.route('https://**',r=>r.abort());const url='http://127.0.0.1:'+server.address().port;await page.goto(url);
-  const calendar=()=>page.evaluate(()=>{calendarSyncState.hasData=true;calendarSyncState.state='fresh';events=[['12:00','13:00','Reload route test','456 Example Avenue',null,{id:'reload-test',start:new Date(Date.now()+3600000).toISOString(),end:new Date(Date.now()+7200000).toISOString(),location:'456 Example Avenue'}]];updateHero();});
-  await page.evaluate(()=>{calendarSyncState.hasData=true;calendarSyncState.state='fresh';events=[['12:00','13:00','Missing destination test','',null,{id:'missing-destination',start:new Date(Date.now()+3600000).toISOString(),end:new Date(Date.now()+7200000).toISOString(),location:''}]];updateHero();});
   await page.waitForFunction(()=>document.querySelector('#routeStatus').textContent.includes('destination address'));assert.equal(calls,0);
-  await calendar();await new Promise((resolve,reject)=>{const timeout=setTimeout(()=>reject(Error('automatic startup route did not reach fixture')),10000);firstStarted.then(()=>{clearTimeout(timeout);resolve();});});
+  destination='456 Example Avenue';
+  await page.evaluate(async()=>applyGoogleEvents(await JamesCalendarSync.readCalendar(fetch)));await new Promise((resolve,reject)=>{const timeout=setTimeout(()=>reject(Error('automatic startup route did not reach fixture')),10000);firstStarted.then(()=>{clearTimeout(timeout);resolve();});});
   // The server deliberately keeps the first provider reply pending while a better device fix arrives.
   await page.waitForFunction(()=>document.querySelector('#routeEstimate').disabled);await context.setGeolocation({latitude:36.02,longitude:-115,accuracy:10});
   await page.waitForFunction(()=>document.querySelector('#driveTime').textContent==='20 min',null,{timeout:15000});assert.equal(calls,2);releaseFirst();
-  await page.reload();await calendar();await page.waitForFunction(()=>document.querySelector('#driveTime').textContent==='20 min');assert.equal(await page.locator('#jamesLiveLocation').textContent(),'Live location on');assert.equal(calls,3);
+  await page.reload();
+  try{await page.waitForFunction(()=>document.querySelector('#driveTime').textContent==='20 min');}
+  catch(error){throw Error('Automatic reload route did not complete: '+JSON.stringify(await page.evaluate(()=>({routeStatus:document.querySelector('#routeStatus').textContent,location:window.jamesLocation.snapshot(),calendarState:calendarSyncState.state,routePending:document.querySelector('#routeEstimate').disabled}))),{cause:error});}
+  assert.equal(await page.locator('#jamesLiveLocation').textContent(),'Live location on');assert.equal(calls,3);
  }finally{releaseFirst?.();await browser?.close();server.closeAllConnections();await new Promise(resolve=>server.close(resolve));}
 });
