@@ -40,11 +40,11 @@ test('welcome auto dissolves once, does not speak or write route, keeps Perspect
  assert.equal(await page.locator('#app').evaluate(e=>e.inert),false);
  assert.equal(await page.evaluate(()=>localStorage.getItem('jamesStart')),'Existing route');
  assert.equal(await page.evaluate(()=>window.__speechCount+window.__micCount),0);
- await page.locator('#perspectiveRevisit summary').click();
+ assert.equal(await page.locator('section[aria-labelledby="perspectiveBriefHeading"]').isVisible(),true);
  assert.equal(await page.locator('#perspectiveBriefText').textContent(),await page.locator('#perspectiveIntroText').textContent());
- await page.locator('nav [data-page="tasks"]').click();await page.reload();
+ await page.locator('nav [data-page="attention"]').click();await page.reload();
  assert.equal(await page.locator('#intro').isVisible(),false);
- assert.equal(await page.locator('#tasks').evaluate(e=>e.classList.contains('active')),true);
+ assert.equal(await page.locator('#attention').evaluate(e=>e.classList.contains('active')),true);
  await context.close();
 }));
 test('light and dark share layout, theme survives reload, narrow and short welcome fits',async()=>fixture(async(b,url)=>{
@@ -66,7 +66,7 @@ test('light and dark share layout, theme survives reload, narrow and short welco
 test('reduced motion skips welcome while perspective stays accessible; theme remains switchable',async()=>fixture(async(b,url)=>{
  const {page,context}=await pageFor(b,url,{reducedMotion:'reduce'});await page.goto(url);
  assert.equal(await page.locator('#intro').isVisible(),false);assert.equal(await page.locator('#app').evaluate(e=>e.inert),false);
- await page.locator('#perspectiveRevisit summary').click();assert.equal(await page.locator('#perspectiveBriefText').isVisible(),true);
+ assert.equal(await page.locator('section[aria-labelledby="perspectiveBriefHeading"]').isVisible(),true);assert.equal(await page.locator('#perspectiveBriefText').isVisible(),true);
  assert.equal(await page.evaluate(()=>window.__speechCount+window.__micCount),0);
  await context.close();
 }));
