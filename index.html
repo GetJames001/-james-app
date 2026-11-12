@@ -54,21 +54,18 @@
     </div>
 
     <div class="status-cluster">
-      <button id="introScreenOpen" class="james-theme-toggle" type="button">Intro Screen</button>
-      <button id="jamesThemeToggle" class="james-theme-toggle" type="button" aria-label="Use light theme">Light</button>
-      <button id="displaySettingsOpen" class="james-theme-toggle" type="button">Settings</button>
-      <button id="voiceSettingsOpen" class="james-theme-toggle" type="button">Voice settings</button>
+      <details class="header-preferences">
+        <summary>Settings</summary>
+        <div class="header-preferences-menu">
+          <button id="introScreenOpen" class="james-theme-toggle" type="button">Entrance</button>
+          <button id="jamesThemeToggle" class="james-theme-toggle" type="button" aria-label="Use light theme">Light</button>
+          <button id="voiceSettingsOpen" class="james-theme-toggle" type="button">Voice</button>
+          <button id="displaySettingsOpen" class="james-theme-toggle" type="button">Wall display</button>
+        </div>
+      </details>
       <button id="jamesOrb" class="orb mini persistent-orb" aria-label="Talk to James" title="Talk to James">
         <span>J</span>
       </button>
-
-      <div class="weather-status">
-        <span class="sun">☀</span>
-        <div>
-                    <b>Weather details below</b>
-                    <small>Traffic not connected</small>
-        </div>
-      </div>
     </div>
   </header>
 
@@ -114,7 +111,7 @@
 </svg>
     <span>WEATHER</span>
    <strong id="weatherTemp">—</strong>
-<small id="weatherDetail">—</small><details class="weather-location"><summary>Location settings</summary><button id="jamesLiveLocation" type="button" aria-pressed="false">Use live location while James is open</button><small id="jamesLocationStatus" role="status"></small><button id="weatherEnableLocation" type="button" >Use my location</button></details>
+<small id="weatherDetail">—</small><div class="weather-location"><button id="jamesLiveLocation" type="button" aria-pressed="false">Live location</button><small id="jamesLocationStatus" role="status"></small><button id="weatherEnableLocation" type="button">Update weather</button></div>
   </div>
 
   <div class="intel-card">
@@ -191,17 +188,14 @@
             <b id="traffic">—</b>
           </div>
         </div>
-        <details class="routing-controls">
-          <summary>Starting point &amp; drive estimate</summary>
-          <p>Choose where you are leaving from. This starting point lasts until you close or leave James.</p>
-          <label for="routeOriginAddress">Departure address</label>
+        <div class="routing-controls" role="group" aria-label="Drive estimate">
+          <label for="routeOriginAddress">Leaving from</label>
           <input id="routeOriginAddress" type="text" maxlength="500" autocomplete="off" placeholder="Home, office or another address">
-          <button id="routeUseAddress" type="button">Use this address</button>
+          <button id="routeUseAddress" type="button">Get drive estimate</button>
           <button id="routeUseLocation" type="button">Use current location</button>
-          <button id="routeEstimate" type="button">Estimate next drive</button>
-          <p id="routeStatus" role="status">Choose a starting point to estimate your next drive.</p>
-          <small>Current traffic is an estimate. Recheck before leaving. Calendar appointments stay unchanged.</small>
-        </details>
+          <button id="routeEstimate" type="button">Refresh estimate</button>
+          <p id="routeStatus" role="status"></p>
+        </div>
       </section>
 
       <div class="briefing-calendar-side"><section class="quick-calendar" aria-label="Calendar quick access">

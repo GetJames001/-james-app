@@ -43,8 +43,9 @@ test('briefing omits unused integration shortcuts and focus placeholders', () =>
 test('header and spoken briefing do not present fixed weather, traffic, or deadline claims', () => {
   const deployedShell = `${index}\n${app}`;
 
-  assert.match(index, /Weather details below/);
-  assert.match(index, /Traffic not connected/);
+  assert.doesNotMatch(index, /Weather details below|Traffic not connected/);
+  assert.match(index, /id="weatherTemp">—/);
+  assert.match(index, /id="traffic">—/);
   assert.doesNotMatch(deployedShell, /82°\s*·\s*Sunny/i);
   assert.doesNotMatch(deployedShell, /Light traffic/i);
   assert.doesNotMatch(deployedShell, /Galleria bid is due tomorrow/i);

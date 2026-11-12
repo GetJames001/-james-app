@@ -1009,3 +1009,19 @@ body[data-wall-conversation=false] .wall-ambient { overflow: hidden; }
 body[data-wall-conversation=true] .wall-surface{height:100dvh;min-height:0;justify-content:flex-start}
 body[data-wall-conversation=true] .wall-conversation{flex:1;min-height:0;max-height:none;margin:0}
 body[data-wall-conversation=true] .wall-surface > .reminder-alerts{position:static;flex-shrink:0;align-self:flex-end;max-height:25vh;max-width:100%;z-index:auto}
+
+/* Briefing utilities stay quiet; daily information stays on the page. */
+.header-preferences{position:relative;color:var(--ink);font-size:.9rem}
+.header-preferences>summary{cursor:pointer;list-style:none;padding:10px 14px;border:1px solid var(--gs);border-radius:999px}
+.header-preferences>summary::-webkit-details-marker{display:none}
+.header-preferences-menu{position:absolute;right:0;top:calc(100% + 8px);z-index:30;display:grid;gap:6px;min-width:170px;padding:10px;border:1px solid var(--gs);border-radius:12px;background:var(--paper);box-shadow:0 12px 28px #0004}
+.header-preferences-menu button{width:100%;text-align:left}
+.weather-location{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.weather-location button{font:inherit;color:inherit;background:transparent;border:0;text-decoration:underline;text-underline-offset:3px;cursor:pointer;padding:4px 0;margin-right:8px}
+.weather-location [role=status]{flex-basis:100%;line-height:1.35}
+.weather-location [role=status]:empty,.routing-controls [role=status]:empty{display:none}
+.routing-controls{display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px}
+.routing-controls label{flex-basis:100%;color:var(--muted)}
+.routing-controls input{flex:1 1 220px;min-width:0;max-width:none;margin:0}
+.routing-controls button{margin:0}
+.routing-controls [role=status]{flex-basis:100%;margin:4px 0 0}

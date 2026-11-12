@@ -922,7 +922,7 @@ function loadLiveWeather(requestPermission=false) {
   if (refresh) refresh.onclick = () => loadLiveWeather(true);
   const finish = () => {
     weatherRefreshInProgress=false;
-    if (refresh) {refresh.disabled=false;refresh.hidden=false;refresh.textContent=tempEl.textContent==='—'?'Use my location':'Update location';}
+    if (refresh) {refresh.disabled=false;refresh.hidden=false;refresh.textContent=tempEl.textContent==='—'?'Use my location':'Update weather';}
   };
   const restoreWeather = () => {
     let saved;
@@ -1929,7 +1929,7 @@ document.addEventListener('DOMContentLoaded',()=>{
  const status=$('#routeStatus'),estimateButton=$('#routeEstimate');if(!status||!estimateButton)return;
  let locationGeneration=0;
  const invalidate=()=>{nextDriveGeneration++;nextDriveController?.abort();nextDriveResult=null;updateHero();};
- const choose=origin=>{invalidate();nextDriveOrigin=origin;status.textContent='Starting point selected for this visit. Estimate your next drive when ready.';};
+ const choose=origin=>{invalidate();nextDriveOrigin=origin;status.textContent='';void estimateButton.onclick();};
  $('#routeUseAddress').onclick=()=>{locationGeneration++;const address=$('#routeOriginAddress').value.trim();if(address.length<5){status.textContent='Enter a full departure address first.';return;}choose({kind:'address',address,confirmed:true});};
  $('#routeUseLocation').onclick=()=>{
   const generation=++locationGeneration;invalidate();nextDriveOrigin=null;
@@ -1952,11 +1952,13 @@ document.addEventListener('DOMContentLoaded',()=>{
     status.textContent=reasons[result.reason]||'A verified route is unavailable. Try again later.';return;
    }
    if(!Number.isFinite(result.driveSeconds)||!Number.isFinite(result.trafficDelaySeconds)||!Number.isFinite(Date.parse(result.expiresAt))||!Number.isFinite(Date.parse(result.estimatedLeaveBy)))throw Error();
-   nextDriveResult={...result,key};updateHero();status.textContent='Estimated using current traffic, plus a 10-minute arrival buffer. Recheck before leaving; the appointment was not changed.';
+   nextDriveResult={...result,key};updateHero();status.textContent='Current traffic · includes 10 minutes to arrive early.';
   }catch(error){if(generation===nextDriveGeneration&&error.name!=='AbortError')status.textContent='Route unavailable. Your appointment has not changed.';}
   finally{estimateButton.disabled=false;}
  };
- const clear=()=>{locationGeneration++;invalidate();nextDriveOrigin=null;$('#routeOriginAddress').value='';status.textContent='Choose a starting point to estimate your next drive.';};
+ const clear=()=>{locationGeneration++;invalidate();nextDriveOrigin=null;$('#routeOriginAddress').value='';status.textContent='';};
  window.addEventListener('pagehide',clear);
  document.addEventListener('visibilitychange',()=>{if(document.hidden)clear();});
 });
+
+ document.addEventListener('DOMContentLoaded',()=>{const menu=document.querySelector('.header-preferences');if(!menu)return;menu.addEventListener('click',event=>{if(event.target.closest('button'))menu.open=false;});document.addEventListener('keydown',event=>{if(event.key==='Escape'&&menu.open){menu.open=false;menu.querySelector('summary').focus();}});document.addEventListener('click',event=>{if(!menu.contains(event.target))menu.open=false;});});

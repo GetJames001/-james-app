@@ -59,7 +59,7 @@ test('light and dark share layout, theme survives reload, narrow and short welco
   }
  }
  await page.evaluate(()=>JamesWelcome.finish());await page.clock.fastForward(1000);
- await page.locator('#jamesThemeToggle').click();assert.equal(await page.locator('html').getAttribute('data-theme'),'light');
+ await page.locator('.header-preferences > summary').click();await page.locator('#jamesThemeToggle').click();assert.equal(await page.locator('html').getAttribute('data-theme'),'light');
  await page.reload();assert.equal(await page.locator('html').getAttribute('data-theme'),'light');
  await context.close();
 }));
@@ -79,7 +79,7 @@ test('welcome tolerates denied browser storage, repeat start and repeated finish
   JamesWelcome.start();JamesWelcome.finish();JamesWelcome.finish();
  });
  await page.locator('#intro').waitFor({state:'hidden'});assert.equal(await page.locator('#app').evaluate(e=>e.inert),false);
- await page.locator('#jamesThemeToggle').click();assert.equal(await page.locator('html').getAttribute('data-theme'),'light');
+ await page.locator('.header-preferences > summary').click();await page.locator('#jamesThemeToggle').click();assert.equal(await page.locator('html').getAttribute('data-theme'),'light');
  await context.close();
 }));
 test('first-render welcome greeting matches afternoon and evening without a minute delay',async()=>fixture(async(b,url)=>{
@@ -166,3 +166,22 @@ test('external talk entry opens the foreground panel without requesting the micr
  assert.equal(await page.evaluate(()=>window.externalMicRequests),0);
  await context.close();
 }));
+
+ test('Briefing has one settings entry, working preferences and visible daily controls',async()=>fixture(async(b,url)=>{
+  const {page,context}=await pageFor(b,url,{reducedMotion:'reduce',viewport:{width:820,height:1180}});await page.goto(url);
+  assert.equal(await page.locator('.header-preferences > summary').textContent(),'Settings');
+  assert.equal(await page.locator('#introScreenOpen').isVisible(),false);
+  assert.equal(await page.locator('#voiceSettingsOpen').isVisible(),false);
+  assert.equal(await page.locator('#jamesOrb').isVisible(),true);
+  assert.equal(await page.locator('#routeOriginAddress').isVisible(),true);
+  assert.equal(await page.locator('#routeUseLocation').isVisible(),true);
+  assert.equal(await page.locator('#weatherEnableLocation').isVisible(),true);
+  assert.equal(await page.locator('.weather-status').count(),0);
+  await page.locator('.header-preferences > summary').click();
+  assert.equal(await page.locator('#displaySettingsOpen').isVisible(),true);
+  await page.keyboard.press('Escape');assert.equal(await page.locator('.header-preferences').getAttribute('open'),null);
+  await page.locator('.header-preferences > summary').click();await page.locator('#voiceSettingsOpen').click();
+  assert.equal(await page.locator('.header-preferences').getAttribute('open'),null);
+  assert.equal(await page.locator('dialog[open]').count(),1);
+  await context.close();
+ }));
