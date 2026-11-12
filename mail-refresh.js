@@ -27,9 +27,13 @@
     let pollTimer = null;
     let started = false;
     let epoch = 0;
+    let failures = 0, nextAutomaticAt = 0;
 
     function refresh(reason = "manual") {
       if (inFlight) return inFlight;
+      if (["initial","poll","foreground","mail-open"].includes(reason) && now()<nextAutomaticAt) {
+        return Promise.resolve({skipped:"retry-backoff"});
+      }
       if (reason !== "inbox-button" && now() - lastStartedAt < minimumRefreshMs) {
         return Promise.resolve({ skipped: "minimum-interval" });
       }
@@ -48,12 +52,17 @@
         .then(data => {
           if (generation===epoch && version >= appliedVersion) {
             appliedVersion = version;
+            failures=0;nextAutomaticAt=0;
             onSuccess(data, reason);
           }
           return data;
         })
         .catch(error => {
-          if (generation===epoch && version >= appliedVersion) onError(error, reason);
+          if (generation===epoch && version >= appliedVersion) {
+            failures=Math.min(failures+1,10);
+            nextAutomaticAt=now()+Math.min(300000,pollIntervalMs*2**(failures-1));
+            onError(error, reason);
+          }
           return { error };
         })
         .finally(() => {

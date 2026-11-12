@@ -206,3 +206,19 @@ test('default live cadence is 30 seconds and pending results are ignored after s
  const controller=createPersonalMailRefreshController({fetchMail:()=>pending.promise,onSuccess:()=>applied++,isVisible:()=>true,isMailOpen:()=>true,documentTarget,windowTarget,setIntervalFn:(_,ms)=>{interval=ms;return 1;},clearIntervalFn:()=>{}});
  controller.start();assert.equal(interval,30000);controller.stop();pending.resolve({messages:[]});await flushPromises();assert.equal(applied,0);
 });
+
+
+test('failed automatic reads back off while an explicit inbox refresh still works and recovery resets the delay',async()=>{
+ const h=harness();h.controller.start();h.requests[0].reject(Error('provider unavailable'));await flushPromises();
+ h.setTime(16000);assert.deepEqual(await h.controller.refresh('foreground'),{skipped:'retry-backoff'});assert.equal(h.requests.length,1);
+ const explicit=h.controller.refresh('inbox-button');assert.equal(h.requests.length,2);h.requests[1].reject(Error('still unavailable'));await explicit;
+ h.setTime(135999);assert.deepEqual(await h.controller.refresh('poll'),{skipped:'retry-backoff'});
+ h.setTime(136000);const retry=h.controller.refresh('poll');h.requests[2].resolve({messages:[]});await retry;
+ h.setTime(142000);const recovered=h.controller.refresh('foreground');assert.equal(h.requests.length,4);h.requests[3].resolve({messages:[]});await recovered;
+});
+test('automatic failure backoff is bounded at five minutes',async()=>{
+ const h=harness({fetchMail:async()=>{throw Error('provider outage');}});
+ for(let i=0;i<8;i++)await h.controller.refresh('inbox-button');
+ h.setTime(309999);assert.deepEqual(await h.controller.refresh('poll'),{skipped:'retry-backoff'});
+ h.setTime(310000);const result=await h.controller.refresh('poll');assert.ok(result.error);
+});
