@@ -20,8 +20,19 @@ module.exports = async function handler(req, res) {
 
   if (req.method === "PATCH") return updateReadState(req, res, account);
 
+  const readOnly=req.method==='GET', deadline=Date.now()+15000;
+  let readStage='connection_store',upstreamStatus=null;
+  const readFailure=(code,reason='unavailable',status=502)=>res.status(status).json({
+    account,code,error:'Microsoft Mail is unavailable.',messagesStatus:'unavailable',
+    diagnostic:{stage:readStage,reason,upstreamStatus},
+    coverage:{scope:'latest_inbox_page',complete:false,mailboxScanComplete:false,limit:25}
+  });
+  const requestFetch=async(url,options={})=>{
+    const response=await fetch(url,readOnly?{...options,redirect:'error',signal:AbortSignal.timeout(Math.max(1,deadline-Date.now()))}:options);
+    upstreamStatus=Number.isInteger(response.status)?response.status:null;return response;
+  };
   try {
-    const redisResponse = await fetch(process.env.KV_REST_API_URL, {
+    const redisResponse = await requestFetch(process.env.KV_REST_API_URL, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${process.env.KV_REST_API_TOKEN}`,
@@ -45,6 +56,7 @@ module.exports = async function handler(req, res) {
         account,
         error: "Microsoft Mail connection status could not be checked. Please retry.",
         code: "MAIL_CONNECTION_STATUS_UNAVAILABLE",
+        diagnostic:{stage:"connection_store",reason:"invalid_response",upstreamStatus},
         messagesStatus: "unavailable",
         coverage: { scope: "latest_inbox_page", complete: false, mailboxScanComplete: false, limit: 25 },
       });
@@ -59,7 +71,8 @@ module.exports = async function handler(req, res) {
       });
     }
 
-    const tokenResponse = await fetch(
+    readStage='authorization';
+    const tokenResponse = await requestFetch(
       "https://login.microsoftonline.com/common/oauth2/v2.0/token",
       {
         method: "POST",
@@ -78,6 +91,12 @@ module.exports = async function handler(req, res) {
     );
 
     const tokens = await tokenResponse.json();
+    if(readOnly&&req.query.calendar!=='1'&&(!tokenResponse.ok||!tokens?.access_token)){
+      const reasons=['invalid_grant','interaction_required','consent_required','invalid_scope','invalid_client','unauthorized_client'];
+      const reason=reasons.includes(tokens?.error)?tokens.error:'provider_error';
+      const code=['invalid_client','unauthorized_client'].includes(reason)?'MAIL_CONFIGURATION_REQUIRED':['invalid_grant','interaction_required','consent_required','invalid_scope'].includes(reason)?'MAIL_AUTH_REQUIRED':'MAIL_AUTHORIZATION_UNAVAILABLE';
+      return readFailure(code,reason,code==='MAIL_AUTH_REQUIRED'?403:502);
+    }
 
     if (req.method === "GET" && req.query.calendar === "1") {
       if (account !== "personal") return res.status(400).json({ error: "PERSONAL_CALENDAR_ONLY" });
@@ -135,7 +154,7 @@ if (req.method === "POST") {
     });
   }
 
-  const replyResponse = await fetch(
+  const replyResponse = await requestFetch(
     `https://graph.microsoft.com/v1.0/me/messages/${encodeURIComponent(
       messageId
     )}/reply`,
@@ -166,7 +185,8 @@ if (req.method === "POST") {
     sent: true,
   });
 }
-    const graphResponse = await fetch(
+    readStage='inbox_count';
+    const graphResponse = await requestFetch(
       "https://graph.microsoft.com/v1.0/me/mailFolders/inbox?$select=unreadItemCount,totalItemCount",
       {
         headers: {
@@ -178,8 +198,7 @@ if (req.method === "POST") {
     const inbox = await graphResponse.json();
 
     if (!graphResponse.ok) {
-      console.error("Microsoft Graph mail request failed", inbox);
-
+      if(readOnly)return readFailure('MAIL_INBOX_UNAVAILABLE','provider_error');
       return res.status(500).json({
         connected: true,
         account,
@@ -194,7 +213,8 @@ if (cursor !== undefined) {
   }
   inboxMessages.searchParams.set("$skip", cursor);
 }
-const messagesResponse = await fetch(
+readStage='inbox_messages';
+const messagesResponse = await requestFetch(
   inboxMessages.toString(),
   {
     headers: {
@@ -209,6 +229,7 @@ const messageFailure = reason => res.status(502).json({
   account,
   error: "Microsoft Mail messages could not be refreshed. Please retry.",
   code: "MAIL_MESSAGES_UNAVAILABLE",
+  diagnostic:{stage:"inbox_messages",reason,upstreamStatus},
   messagesStatus: "unavailable",
   coverage: { scope: "latest_inbox_page", complete: false, mailboxScanComplete: false, limit: 25 },
   upstreamStatus: messagesResponse.status,
@@ -269,8 +290,8 @@ const messages = messagesData.value.map(message => ({
       },
     });
   } catch (err) {
-    console.error("Microsoft Mail endpoint error:", err);
-
+    if(readOnly)return readFailure(readStage==='connection_store'?'MAIL_CONNECTION_STATUS_UNAVAILABLE':'MAIL_READ_UNAVAILABLE',err?.name==='TimeoutError'||err?.name==='AbortError'?'timeout':'request_failed');
+    console.error("Microsoft Mail endpoint error", {stage:'write_request'});
     return res.status(500).json({
       connected: false,
       account,

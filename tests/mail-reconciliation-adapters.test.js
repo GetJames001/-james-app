@@ -35,7 +35,8 @@ test('Hotmail verifies Inbox membership without sends, read-state writes or Cale
   };
   const res={code:200,setHeader(){},status(n){this.code=n;return this;},json(data){this.body=data;return this;}};
   await handler({method:'GET',headers:{host:'www.getjames.ai',cookie:auth.SESSION_COOKIE+'='+auth.createSessionToken(process.env.JAMES_AUTH_EMAIL)},query:{account:'personal',reviewCheckIds:'["abc"]'}},res);
-  assert.equal(res.code,status===403?500:200);
+  assert.equal(res.code,status===403?502:200);
+  if(status===403){assert.equal(res.body.code,'MAIL_READ_UNAVAILABLE');assert.equal(Object.hasOwn(res.body,'reconciliation'),false);}
   if(status!==403)assert.deepEqual(res.body.reconciliation.removedIds,status===404?['abc']:[]);
   assert.equal(calls.filter(c=>c.url.includes('graph.microsoft.com')&&c.options.method!==undefined).length,0);
  }}finally{global.fetch=original;}

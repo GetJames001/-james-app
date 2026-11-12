@@ -1168,9 +1168,9 @@ if (restoreDetail && savedPage === 'personalMailDetail' && savedMailId) {
 async function requestPersonalMicrosoftMail() {
   if (personalMailMutationPending) throw new Error('Mail status update pending.');
   const version = personalMailStateVersion;
-  const response = await fetch('/api/microsoft/mail?account=personal', { cache: 'no-store' });
+  const response = await fetch('/api/microsoft/mail?account=personal', { cache: 'no-store', signal:AbortSignal.timeout(20000) });
   const data = await response.json();
-  if (!response.ok) throw new Error(data.error || 'Personal Mail refresh failed.');
+  if (!response.ok){const error=new Error('Mail unavailable');error.mailCode=data.code;error.mailDiagnostic=data.diagnostic;throw error;}
   if (version !== personalMailStateVersion || personalMailMutationPending) throw new Error('Discarding an older Mail refresh.');
   return data;
 }
@@ -1212,6 +1212,8 @@ function applyPersonalMicrosoftMail(data) {
   if (!personalMailCount) return;
 
   if (!data.connected) {
+    if($('#microsoftMailHealth'))$('#microsoftMailHealth').textContent='Hotmail is not connected.';
+    if($('#microsoftMailDiagnostic'))$('#microsoftMailDiagnostic').textContent='';
     personalMailCount.textContent = 'Not connected';
     olderMailGeneration++;
     olderMailCursor = null;
@@ -1230,6 +1232,8 @@ function applyPersonalMicrosoftMail(data) {
   for (const notice of $$('.mail-state-notice')) {
     if (notice.textContent === 'Personal Mail is not connected in this workspace.') notice.textContent = '';
   }
+  if($('#microsoftMailHealth'))$('#microsoftMailHealth').textContent='Hotmail Mail connected.';
+  if($('#microsoftMailDiagnostic'))$('#microsoftMailDiagnostic').textContent='';
   personalMailCount.textContent = `${data.unreadCount} unread`;
   const latest = Array.isArray(data.messages) ? data.messages : [];
   if (!olderMailLoaded) olderMailCursor = data.nextCursor;
@@ -1246,7 +1250,14 @@ function applyPersonalMicrosoftMail(data) {
 
 function handlePersonalMicrosoftMailError(error) {
   mailAttentionView?.fail();
-  console.error('Could not refresh Personal Microsoft Mail:', error);
+  const health=$('#microsoftMailHealth'),detail=$('#microsoftMailDiagnostic');
+  const labels={MAIL_AUTH_REQUIRED:'Hotmail needs authorization.',MAIL_CONFIGURATION_REQUIRED:'Hotmail connection configuration needs attention.',MAIL_CONNECTION_STATUS_UNAVAILABLE:'Stored Hotmail connection could not be checked.'};
+  if(health)health.textContent=labels[error?.mailCode]||'Hotmail Mail is unavailable. Your saved work is unchanged.';
+  const stages={connection_store:'Connection storage',authorization:'Microsoft authorization',inbox_count:'Inbox status',inbox_messages:'Inbox messages'};
+  const reasons={invalid_grant:'Sign-in required',interaction_required:'Sign-in required',consent_required:'Permission required',invalid_scope:'Permission configuration',invalid_client:'App credentials',unauthorized_client:'App authorization',provider_error:'Provider rejected request',timeout:'Request timed out',request_failed:'Request failed',invalid_response:'Invalid response',invalid_json:'Invalid response',invalid_message_list:'Invalid message list'};
+  const diagnostic=error?.mailDiagnostic;
+  if(detail)detail.textContent=stages[diagnostic?.stage]?stages[diagnostic.stage]+' · '+(reasons[diagnostic.reason]||'Unavailable')+(Number.isInteger(diagnostic.upstreamStatus)&&diagnostic.upstreamStatus>=100&&diagnostic.upstreamStatus<=599?' · HTTP '+diagnostic.upstreamStatus:''):'';
+  console.error('Personal Mail refresh unavailable');
   if (hasSuccessfulPersonalMailLoad) return;
   const personalMailCount = $('#personalEmailCount');
   if (personalMailCount) personalMailCount.textContent = '—';
@@ -1274,7 +1285,7 @@ async function refreshPersonalInbox(event) {
   try {
     const data = await loadPersonalMicrosoftMail('inbox-button');
     if (data.error) {
-      status.textContent = 'Could not refresh the inbox. Try again.';
+      status.textContent = 'Mail unavailable. See Settings → Connections.';
       return;
     }
     if (data.connected) {

@@ -24,6 +24,7 @@ test('Mail keeps known messages through failed refresh and accepts a later verif
           res.statusCode = 502;
           return res.end(JSON.stringify({
             code: 'MAIL_MESSAGES_UNAVAILABLE', messagesStatus: 'unavailable',
+            diagnostic:{stage:'inbox_messages',reason:'provider_error',upstreamStatus:503},
             error: 'Microsoft Mail messages could not be refreshed. Please retry.',
             coverage: { complete: false, mailboxScanComplete: false },
           }));
@@ -66,12 +67,16 @@ test('Mail keeps known messages through failed refresh and accepts a later verif
     assert.equal(await page.locator('#personalEmailCount').textContent(), '7 unread');
     assert.match(await page.locator('#personalMailMessages').textContent(), /Keep this known message/);
     assert.equal(await page.evaluate(() => window.personalMicrosoftMessages[0].id), 'synthetic-preserved');
+    assert.match(await page.locator('#microsoftMailHealth').textContent(),/unavailable/);
+    assert.match(await page.locator('#microsoftMailDiagnostic').textContent(),/Inbox messages.*HTTP 503/);
     mode = 'empty';
     await page.waitForTimeout(5100);
     await page.evaluate(() => loadPersonalMicrosoftMail());
     assert.equal(await page.locator('#personalEmailCount').textContent(), '0 unread');
     assert.match(await page.locator('#personalMailMessages').textContent(), /No recent messages/);
     assert.equal(await page.evaluate(() => window.personalMicrosoftMessages.length), 0);
+    assert.equal(await page.locator('#microsoftMailHealth').textContent(),'Hotmail Mail connected.');
+    assert.equal(await page.locator('#microsoftMailDiagnostic').textContent(),'');
     assert.equal(writes, 0, 'refresh never changes read state or sends mail');
   } finally {
     await browser?.close();
