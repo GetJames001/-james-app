@@ -79,7 +79,13 @@ test('remembered live location replaces a superseded startup route and estimates
  });await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));let browser;
  try{
   browser=await chromium.launch({headless:true});const context=await browser.newContext({timezoneId:'America/Los_Angeles',permissions:['geolocation'],geolocation:{latitude:36,longitude:-115,accuracy:100}}),page=await context.newPage();
-  await context.addInitScript(()=>localStorage.setItem('james:live-location:v1','enabled'));
+  await context.addInitScript(()=>{
+   localStorage.setItem('james:live-location:v1','enabled');
+   // Some browser sessions report prompt again on reload. James must still call
+   // geolocation for an existing opt-in; the actual browser grant gates access.
+   const query=navigator.permissions.query.bind(navigator.permissions);
+   navigator.permissions.query=descriptor=>descriptor.name==='geolocation'?Promise.resolve({state:'prompt'}):query(descriptor);
+  });
   await page.route('https://**',r=>r.abort());const url='http://127.0.0.1:'+server.address().port;await page.goto(url);
   await page.waitForFunction(()=>document.querySelector('#routeStatus').textContent.includes('destination address'));assert.equal(calls,0);
   destination='456 Example Avenue';

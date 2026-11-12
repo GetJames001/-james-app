@@ -24,13 +24,13 @@ test('typed chat executes the same Places tool, keeps coordinates out of model r
  finally{global.fetch=previous;}
 });
 
-test('remembered location resumes without Permissions API; permission-needed button does not say stop',async()=>{const h=harness(true,null);await new Promise(r=>setImmediate(r));assert.equal(h.watches(),1);h.send();assert.equal(h.status.textContent,'');assert.equal(h.button.textContent,'Live location on');const p=harness(true,'prompt');await new Promise(r=>setImmediate(r));assert.equal(p.watches(),0);assert.equal(p.button.textContent,'Enable location');await p.controller.toggle();assert.equal(p.watches(),1);});
+test('remembered location resumes through browser permission request; denied permission stays stopped',async()=>{const h=harness(true,null);await new Promise(r=>setImmediate(r));assert.equal(h.watches(),1);h.send();assert.equal(h.status.textContent,'');assert.equal(h.button.textContent,'Live location on');const p=harness(true,'prompt');await new Promise(r=>setImmediate(r));assert.equal(p.watches(),1);assert.equal(p.button.textContent,'Enable location');p.send();assert.equal(p.controller.snapshot().status,'ready');const denied=harness(true,'denied');await new Promise(r=>setImmediate(r));assert.equal(denied.watches(),0);assert.equal(denied.button.textContent,'Enable location');await denied.controller.toggle();assert.equal(denied.watches(),1);});
 
 
 test('location observers receive permission, ready and paused states without precise coordinates',async()=>{
  const h=harness(true,'prompt');await new Promise(resolve=>setImmediate(resolve));
- assert.equal(h.states.at(-1).status,'permission_required');
- await h.controller.toggle();assert.equal(h.states.at(-1).status,'locating');h.send();assert.equal(h.states.at(-1).status,'ready');
+ assert.equal(h.states.at(-1).status,'permission_required');assert.equal(h.watches(),1);
+ h.send();assert.equal(h.states.at(-1).status,'ready');
  h.doc.hidden=true;h.docEvents.visibilitychange();assert.equal(h.states.at(-1).status,'paused');
  assert.doesNotMatch(JSON.stringify(h.states),/44\.05|-123\.09|latitude|longitude/);
 });
