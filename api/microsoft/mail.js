@@ -99,6 +99,19 @@ module.exports = async function handler(req, res) {
       return readFailure(code,reason,code==='MAIL_AUTH_REQUIRED'?403:502);
     }
 
+    if(readOnly&&req.query.profileCheck==='1'){
+      if(account!=='personal')return res.status(400).json({error:'PERSONAL_MAIL_ONLY'});
+      readStage='account_profile';
+      const profileResponse=await requestFetch('https://graph.microsoft.com/v1.0/me?$select=mail,userPrincipalName',{
+        headers:{Authorization:`Bearer ${tokens.access_token}`}
+      });
+      const profile=await profileResponse.json();
+      if(!profileResponse.ok)return readFailure('MAIL_PROFILE_UNAVAILABLE','provider_error');
+      const expected=require('../../lib/microsoft/compose.js').personalMailbox;
+      const actual=typeof profile.mail==='string'&&profile.mail?profile.mail:profile.userPrincipalName;
+      if(typeof actual!=='string'||!actual)return readFailure('MAIL_PROFILE_UNAVAILABLE','invalid_response');
+      return res.status(200).json({ok:true,check:'personal_mailbox_identity',matchesExpectedMailbox:actual.toLowerCase()===expected,source:'microsoft_graph'});
+    }
     if (req.method === "GET" && req.query.calendar === "1") {
       if (account !== "personal") return res.status(400).json({ error: "PERSONAL_CALENDAR_ONLY" });
       if (!tokenResponse.ok || !tokens.access_token) {
