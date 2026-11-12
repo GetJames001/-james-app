@@ -501,6 +501,7 @@ function nextAppointment(){
 }
 
 let nextDriveOrigin=null,nextDriveResult=null,nextDriveGeneration=0,nextDriveController=null;
+let refreshNextDriveIfNeeded=()=>{};
 function nextDriveKey(){const e=nextAppointment();return calendarSyncState.hasData&&calendarSyncState.state!=='stale'&&e?.[5]?JSON.stringify([e[5].id,e[5].start,e[5].location]):null;}
 function applyNextDrive(){
  if(!nextDriveResult)return;
@@ -540,6 +541,7 @@ const drive = travel ? (parseInt(travel[3], 10) || 0) : 0;
 $('#driveTime').textContent = travel ? `${drive} min` : '—';
   $('#traffic').textContent = '—';
   applyNextDrive();
+  refreshNextDriveIfNeeded();
 }
 
 function openCalendarEvent(row) {
@@ -1439,6 +1441,7 @@ if (personalMailDetailBack) {
       const previous=nextDriveOrigin,moved=!previous||Math.hypot((point.latitude-previous.latitude)*111000,(point.longitude-previous.longitude)*111000*Math.cos(point.latitude*Math.PI/180))>100;
       nextDriveOrigin=point;if(moved){nextDriveResult=null;nextDriveGeneration++;nextDriveController?.abort();updateHero();}
     }
+    refreshNextDriveIfNeeded();
     const savedWeather={latitude:Number(point.latitude.toFixed(2)),longitude:Number(point.longitude.toFixed(2)),savedAt:point.observedAt};
     try{localStorage.setItem('jamesWeatherLocation',JSON.stringify(savedWeather));}catch{}
     const weatherPoint=jamesWeatherState.location?.approximateCoordinates;
@@ -1886,12 +1889,19 @@ document.addEventListener('DOMContentLoaded',()=>{
  };
 });
 
-// Departure locations stay in memory; weather coordinates are never reused for routing.
+// Departure locations stay in memory; only fresh, opted-in device points feed automatic routes.
 document.addEventListener('DOMContentLoaded',()=>{
  const status=$('#routeStatus'),estimateButton=$('#routeEstimate');if(!status||!estimateButton)return;
- let locationGeneration=0;
+ let locationGeneration=0,automaticTimer=null,lastAttemptKey=null,lastAttemptAt=-Infinity;
  const invalidate=()=>{nextDriveGeneration++;nextDriveController?.abort();nextDriveResult=null;updateHero();};
  const choose=origin=>{invalidate();nextDriveOrigin=origin;status.textContent='';void estimateButton.onclick();};
+ const eligible=()=>{const appt=nextAppointment();return !document.hidden&&nextDriveOrigin&&nextDriveKey()&&typeof appt?.[5]?.location==='string'&&appt[5].location.trim().length>=5&&Date.parse(appt[5].start)>Date.now()&&(nextDriveOrigin.kind==='address'||(Date.now()-nextDriveOrigin.observedAt>=0&&Date.now()-nextDriveOrigin.observedAt<=300000));};
+ refreshNextDriveIfNeeded=()=>{
+  if(automaticTimer||estimateButton.disabled||!eligible())return;
+  if(nextDriveResult&&nextDriveResult.key===nextDriveKey()&&Date.parse(nextDriveResult.expiresAt)>Date.now())return;
+  if(lastAttemptKey===nextDriveKey()&&Date.now()-lastAttemptAt<60000)return;
+  automaticTimer=setTimeout(()=>{automaticTimer=null;if(eligible()&&!estimateButton.disabled)void estimateButton.onclick();},1000);
+ };
  $('#routeUseAddress').onclick=()=>{locationGeneration++;const address=$('#routeOriginAddress').value.trim();if(address.length<5){status.textContent='Enter a full departure address first.';return;}choose({kind:'address',address,confirmed:true});};
  $('#routeUseLocation').onclick=()=>{
   const generation=++locationGeneration;invalidate();nextDriveOrigin=null;
@@ -1904,9 +1914,12 @@ document.addEventListener('DOMContentLoaded',()=>{
   if(!nextDriveOrigin){status.textContent='Choose a departure address or current location first.';return;}
   const appt=nextAppointment(),key=nextDriveKey();
   if(!key||!appt?.[5]?.location||Date.parse(appt[5].start)<=Date.now()){status.textContent='A future appointment with a destination address and a current Calendar result is needed.';return;}
-  invalidate();const generation=nextDriveGeneration;nextDriveController=new AbortController();estimateButton.disabled=true;status.textContent='Checking current traffic…';
+  if(automaticTimer){clearTimeout(automaticTimer);automaticTimer=null;}
+  lastAttemptKey=key;lastAttemptAt=Date.now();
+  invalidate();const generation=nextDriveGeneration,controller=new AbortController();nextDriveController=controller;estimateButton.disabled=true;status.textContent='Checking current traffic…';
+  const timeout=setTimeout(()=>controller.abort(),15000);
   try{
-   const response=await fetch('/api/james/routing',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({origin:nextDriveOrigin,destination:appt[5].location,appointmentStart:appt[5].start,bufferMinutes:10}),signal:nextDriveController.signal,cache:'no-store'});
+   const response=await fetch('/api/james/routing',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({origin:nextDriveOrigin,destination:appt[5].location,appointmentStart:appt[5].start,bufferMinutes:10}),signal:controller.signal,cache:'no-store'});
    const result=await response.json();if(generation!==nextDriveGeneration||key!==nextDriveKey())return;
    if(!response.ok)throw Error();
    if(result.status!=='ready'){
@@ -1915,10 +1928,10 @@ document.addEventListener('DOMContentLoaded',()=>{
    }
    if(!Number.isFinite(result.driveSeconds)||!Number.isFinite(result.trafficDelaySeconds)||!Number.isFinite(Date.parse(result.expiresAt))||!Number.isFinite(Date.parse(result.estimatedLeaveBy)))throw Error();
    nextDriveResult={...result,key};updateHero();status.textContent='Current traffic · includes 10 minutes to arrive early.';
-  }catch(error){if(generation===nextDriveGeneration&&error.name!=='AbortError')status.textContent='Route unavailable. Your appointment has not changed.';}
-  finally{estimateButton.disabled=false;}
+  }catch(error){if(generation===nextDriveGeneration)status.textContent=controller.signal.aborted?'Drive estimate timed out. Try again.':'Route unavailable. Your appointment has not changed.';}
+  finally{clearTimeout(timeout);if(nextDriveController===controller){nextDriveController=null;estimateButton.disabled=false;}refreshNextDriveIfNeeded();}
  };
- const clear=()=>{locationGeneration++;invalidate();nextDriveOrigin=null;$('#routeOriginAddress').value='';status.textContent='';};
+ const clear=()=>{locationGeneration++;if(automaticTimer){clearTimeout(automaticTimer);automaticTimer=null;}nextDriveOrigin=null;invalidate();$('#routeOriginAddress').value='';status.textContent='';};
  window.addEventListener('pagehide',clear);
  document.addEventListener('visibilitychange',()=>{if(document.hidden)clear();});
 });
