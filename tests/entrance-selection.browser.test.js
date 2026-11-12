@@ -39,7 +39,8 @@ test('fixed selection survives slow video, refresh, sign-in, selection change an
   await page.reload();assert.equal(await page.locator('#loginScene').getAttribute('poster'),'/login-poster-aurora-from-orbit.jpg');
   await page.locator('#email').fill('fictional@example.test');await page.locator('#password').fill('synthetic-password');await page.locator('#submitButton').click();
   await page.waitForFunction(()=>document.querySelector('#app')&&!document.querySelector('#app').inert);
-  await page.getByRole('button',{name:'Intro Screen',exact:true}).click();
+  await page.locator('.header-preferences > summary').click();
+  await page.getByRole('button',{name:'Entrance',exact:true}).click();
   await page.getByRole('button',{name:'Use Moonlit Forest Retreat',exact:true}).click();
   assert.match(await page.locator('#introModeNote').innerText(),/keep it/);
   await page.getByRole('button',{name:'Close intro settings',exact:true}).click();
