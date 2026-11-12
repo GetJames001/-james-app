@@ -116,6 +116,7 @@ function createServer() {
       '.css': 'text/css',
       '.html': 'text/html',
       '.js': 'text/javascript',
+      '.mjs': 'text/javascript',
       '.png': 'image/png'
     };
     response.writeHead(200, {
@@ -184,8 +185,8 @@ async function mailMetrics(page) {
     const personalRow = document.querySelector('#personalMailRow');
     const count = document.querySelector('#personalEmailCount');
     const mailCard = personalRow.closest('.intel-card');
-    const callbacksCard = [...document.querySelectorAll('.intel-card')]
-      .find(card => card.querySelector(':scope > span')?.textContent.trim() === 'CALLBACKS');
+    const otherCards = [...mailCard.parentElement.querySelectorAll(':scope > .intel-card')]
+      .filter(card => card !== mailCard);
     const rect = element => {
       const bounds = element.getBoundingClientRect();
       return {
@@ -227,7 +228,7 @@ async function mailMetrics(page) {
       countOverflow: countStyle.overflow,
       textSizeAdjust: countStyle.webkitTextSizeAdjust || countStyle.textSizeAdjust,
       mailCard: rect(mailCard),
-      callbacksCard: rect(callbacksCard),
+      otherCards: otherCards.map(rect),
       labels,
       icons,
       gridColumns: stripStyle.gridTemplateColumns
@@ -248,7 +249,15 @@ function assertMailContained(metrics) {
     assert.ok(bounds.top >= metrics.mailCard.top - tolerance);
     assert.ok(bounds.bottom <= metrics.mailCard.bottom + tolerance);
   }
-  assert.ok(metrics.mailCard.right <= metrics.callbacksCard.left + tolerance);
+  assert.ok(metrics.mailCard.left >= -tolerance);
+  assert.ok(metrics.mailCard.right <= metrics.viewportWidth + tolerance);
+  assert.ok(metrics.otherCards.length > 0);
+  for (const other of metrics.otherCards) {
+    assert.ok(metrics.mailCard.right <= other.left + tolerance ||
+      other.right <= metrics.mailCard.left + tolerance ||
+      metrics.mailCard.bottom <= other.top + tolerance ||
+      other.bottom <= metrics.mailCard.top + tolerance, 'briefing cards must not overlap');
+  }
   for (const label of metrics.labels) {
     assert.ok(label.text.length > 0);
     assert.ok(label.fontSize >= 10, `${label.text} font is ${label.fontSize}px`);
@@ -471,15 +480,13 @@ test('live Personal Mail value stays readable across Android phone widths', asyn
 
     const ipad = await mailMetrics(layoutPage);
     assertMailContained(ipad);
-    assert.equal(ipad.mailCard.top, ipad.callbacksCard.top);
-    assert.equal(ipad.mailCard.width, ipad.callbacksCard.width);
+    for (const card of ipad.otherCards) assert.ok(Math.abs(ipad.mailCard.width - card.width) <= 1);
 
     await layoutPage.setViewportSize({ width: 1440, height: 900 });
     await layoutPage.waitForFunction(() => window.innerWidth === 1440);
     const desktop = await mailMetrics(layoutPage);
     assertMailContained(desktop);
-    assert.equal(desktop.mailCard.top, desktop.callbacksCard.top);
-    assert.equal(desktop.mailCard.width, desktop.callbacksCard.width);
+    for (const card of desktop.otherCards) assert.ok(Math.abs(desktop.mailCard.width - card.width) <= 1);
     assert.notEqual(ipad.gridColumns, desktop.gridColumns);
 
     console.log('WIDE_MAIL_EVIDENCE', JSON.stringify({ ipad, desktop }));

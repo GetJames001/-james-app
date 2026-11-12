@@ -996,3 +996,11 @@ body[data-wall-conversation=false] .wall-ambient { overflow: hidden; }
   color: var(--ink);
 }
 .wardrobe-launch span { color: var(--muted); font-size: .85rem; }
+
+/* Allow identity controls to wrap within narrow screens rather than widening the page. */
+@media(max-width:1000px){
+  #app > header{grid-template-columns:minmax(0,1fr)}
+  #app > header > *,#app > header .brand > div{min-width:0}
+  #app > header .brand{flex-wrap:wrap;overflow-wrap:anywhere}
+  #app > header .status-cluster{flex-wrap:wrap}
+}
