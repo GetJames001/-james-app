@@ -1,5 +1,23 @@
 (function(root){
  'use strict';
+ function createMorningOutfitOffer({storage,now=()=>new Date()}={}){
+  const delivered=new Set();
+  function candidate(scope,context,briefing){
+   try{
+    if(typeof scope?.accountId!=='string'||!scope.accountId)return null;
+    const current=now(),parts=new Intl.DateTimeFormat('en-US',{timeZone:context?.timezone,year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',hourCycle:'h23'}).formatToParts(current),part=type=>parts.find(value=>value.type===type)?.value;
+    const hour=Number(part('hour'));if(hour<5||hour>=12)return null;
+    const calendar=briefing?.calendar?.google,checked=Date.parse(calendar?.fetchedAt),age=current.getTime()-checked;
+    if(!calendar?.hasData||calendar.complete!==true||!['fresh','ready'].includes(calendar.state)||!Number.isFinite(age)||age<0||age>900000)return null;
+    const day=part('year')+'-'+part('month')+'-'+part('day'),key='james:morning-outfit:v1:'+encodeURIComponent(scope.accountId),ticket={key,day};
+    if(delivered.has(key+'|'+day))return null;
+    try{if(storage?.getItem(key)===day)return null;}catch{}
+    return ticket;
+   }catch{return null;}
+  }
+  function markDelivered(ticket){if(!ticket)return;delivered.add(ticket.key+'|'+ticket.day);try{storage?.setItem(ticket.key,ticket.day);}catch{}}
+  return {candidate,markDelivered};
+ }
  function mount({ui,orb,button,settingsButton,setState,createReminder=async()=>({status:"unavailable"}),readReminders=()=>({status:"unavailable"}),findPlaces=async()=>({status:"unavailable"}),prepareAppointment=async()=>({status:"unavailable"}),readAppointmentReview=()=>({status:"none"}),readRoute=()=>({status:"unavailable"}),readWeather=()=>({status:"unavailable"}),readBriefing=()=>({status:"unavailable"}),readCalendar=async()=>({status:"unavailable"}),fetcher=fetch,media=root.navigator.mediaDevices,Peer=root.RTCPeerConnection}){
   const doc=orb.ownerDocument,panel=doc.createElement('aside'),status=doc.createElement('p'),transcript=doc.createElement('p'),mute=doc.createElement('button'),stop=doc.createElement('button'),interrupt=doc.createElement('button');
   const launchTalk=doc.createElement('button');
@@ -15,6 +33,8 @@
    return null;
   }
   let session=null,serial=0,welcomeMemory=null;
+  let offerStorage;try{offerStorage=root.localStorage;}catch{}
+  const morningOutfitOffer=createMorningOutfitOffer({storage:offerStorage});
   function claimDailyWelcome(s){
    const context=ui.context(),parts=new Intl.DateTimeFormat('en-US',{timeZone:context.timezone||Intl.DateTimeFormat().resolvedOptions().timeZone,year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date());
    const part=type=>parts.find(value=>value.type===type)?.value,day=part('year')+'-'+part('month')+'-'+part('day'),key='james:daily-welcome:v1';
@@ -50,7 +70,11 @@
     else if(item.name==='read_route'&&Object.keys(args).length===0)output=readRoute();
     else if(item.name==='read_appointment_review'&&Object.keys(args).length===0)output=readAppointmentReview();
     else if(item.name==='prepare_appointment'&&Object.keys(args).sort().join('|')==='end|location|start|timeZone|title')output=await prepareAppointment(args);
-    else if(item.name==='read_briefing'&&Object.keys(args).length===0)output=readBriefing();
+    else if(item.name==='read_briefing'&&Object.keys(args).length===0){
+     output=readBriefing();const candidate=morningOutfitOffer.candidate(s.scope,ui.context(),output);
+     s.pendingMorningOutfit=candidate?{candidate,turn}:null;
+     output={...output,wardrobe:{morningOffer:candidate?'available':'not_due',navigation:'wardrobe',closetAccess:'separate_wardrobe_app',outfitPrepared:false}};
+    }
     else if(item.name==='read_calendar'&&Object.keys(args).join('|')==='date'&&/^\d{4}-\d{2}-\d{2}$/.test(args.date))output=await readCalendar(args.date);
     else if(item.name==='open_page'&&Object.keys(args).join('|')==='page'&&typeof args.page==='string')output=await ui.navigate(args.page);
     else if(item.name==='ask_james'&&Object.keys(args).join('|')==='question'&&typeof args.question==='string'&&args.question.trim()&&args.question.length<=4000){
@@ -88,7 +112,9 @@
     if(e.response?.status==='completed')for(const item of e.response.output||[])if(item.type==='function_call')void tool(s,item);
    }
    if(e.type==='output_audio_buffer.stopped'){
-    s.playing=false;s.playbackFinished=true;remember(s);
+    s.playing=false;s.playbackFinished=true;
+    if(!s.replyCancelled&&s.pendingMorningOutfit?.turn===s.turn&&/\b(outfit|wardrobe|what to wear|get dressed)\b/i.test(s.replyText)){morningOutfitOffer.markDelivered(s.pendingMorningOutfit.candidate);s.pendingMorningOutfit=null;}
+    remember(s);
     state('listening','Listening');
    }
    if(e.type==='error'&&!['response_cancel_not_active','input_audio_buffer_commit_empty'].includes(e.error?.code))close('Voice session failed. Your conversation is retained; tap James to retry.');
@@ -160,5 +186,5 @@
   doc.addEventListener('visibilitychange',()=>{if(doc.hidden&&session)close('Voice paused while James was in the background. Tap James to reconnect.');});
   state('idle');return {start,close,stopReply,showExternalLaunch,active:()=>!!session,diagnostics:()=>({active:!!session,phase:session?.phase||'idle',lastResearchDurationMs:session?.lastResearchDurationMs??null})};
  }
- root.JamesVoiceSession={mount};
+ root.JamesVoiceSession={mount,createMorningOutfitOffer};
 })(typeof window==='undefined'?globalThis:window);
