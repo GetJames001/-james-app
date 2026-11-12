@@ -50,6 +50,7 @@ const exactHandlers = new Map([
   ["api/tasks", tasks],
   ["api/attention", attention],
   ["api/attention/decision", require("../lib/routes/attention-decision.js")],
+  ["api/attention/background-scan", require("../lib/routes/attention-background.js")],
   ["api/attention/scan", require("../lib/routes/attention-scan.js")],
   ["api/customer-activity", customerActivity],
   ["api/customer-database", require("../lib/routes/customer-database.js")]
