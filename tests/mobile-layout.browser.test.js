@@ -377,7 +377,7 @@ test('responsive calendar and mail layout survive live viewport changes', async 
   }
 });
 
-test('transient Personal Mail refresh failure preserves the populated rendered state', async () => {
+test('transient Personal Mail failure marks refresh unavailable while preserving messages', async () => {
   const server = createServer();
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
   const { port } = server.address();
@@ -398,7 +398,6 @@ test('transient Personal Mail refresh failure preserves the populated rendered s
     await page.locator('#personalMailMessages .panel-item b', { hasText: 'Mobile mail test' }).waitFor();
 
     const before = {
-      count: await page.locator('#personalEmailCount').innerText(),
       messages: await page.locator('#personalMailMessages .panel-item').allTextContents()
     };
 
@@ -406,7 +405,7 @@ test('transient Personal Mail refresh failure preserves the populated rendered s
       handlePersonalMicrosoftMailError(new Error('temporary provider failure'));
     });
 
-    assert.equal(await page.locator('#personalEmailCount').innerText(), before.count);
+    assert.equal(await page.locator('#personalEmailCount').innerText(), 'Refresh unavailable');
     assert.deepEqual(
       await page.locator('#personalMailMessages .panel-item').allTextContents(),
       before.messages

@@ -64,7 +64,7 @@ test('Mail keeps known messages through failed refresh and accepts a later verif
     await page.waitForTimeout(5100);
     await page.evaluate(() => loadPersonalMicrosoftMail());
     assert.ok(reads > initialReads, 'the failing refresh actually reached the server');
-    assert.equal(await page.locator('#personalEmailCount').textContent(), '7 unread');
+    assert.equal(await page.locator('#personalEmailCount').textContent(), 'Refresh unavailable');
     assert.match(await page.locator('#personalMailMessages').textContent(), /Keep this known message/);
     assert.equal(await page.evaluate(() => window.personalMicrosoftMessages[0].id), 'synthetic-preserved');
     assert.match(await page.locator('#microsoftMailHealth').textContent(),/unavailable/);

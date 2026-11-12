@@ -89,7 +89,6 @@ let calendarRelayoutFrame;
 let calendarRelayoutForced = false;
 let lastCalendarGeometry = '';
 let personalMailRefreshController;
-let hasSuccessfulPersonalMailLoad = false;
 let personalMailStateVersion = 0;
 let personalMailMutationPending = 0;
 let personalMailMutationQueue = Promise.resolve();
@@ -1168,12 +1167,12 @@ if (restoreDetail && savedPage === 'personalMailDetail' && savedMailId) {
 }
 }
 async function requestPersonalMicrosoftMail() {
-  if (personalMailMutationPending) throw new Error('Mail status update pending.');
+  if (personalMailMutationPending) throw Object.assign(new Error('Mail status update pending.'),{mailCode:'MAIL_REFRESH_SUPERSEDED'});
   const version = personalMailStateVersion;
   const response = await fetch('/api/microsoft/mail?account=personal', { cache: 'no-store', signal:AbortSignal.timeout(20000) });
   const data = await response.json();
   if (!response.ok){const error=new Error('Mail unavailable');error.mailCode=data.code;error.mailDiagnostic=data.diagnostic;throw error;}
-  if (version !== personalMailStateVersion || personalMailMutationPending) throw new Error('Discarding an older Mail refresh.');
+  if (version !== personalMailStateVersion || personalMailMutationPending) throw Object.assign(new Error('Discarding an older Mail refresh.'),{mailCode:'MAIL_REFRESH_SUPERSEDED'});
   return data;
 }
 
@@ -1227,7 +1226,6 @@ function applyPersonalMicrosoftMail(data) {
     const empty = $('#personalMailMessages .panel-item');
     if (empty) empty.textContent = 'Personal Mail is not connected in this workspace.';
     mailStateNotice('Personal Mail is not connected in this workspace.');
-    hasSuccessfulPersonalMailLoad = true;
     return;
   }
 
@@ -1247,10 +1245,10 @@ function applyPersonalMicrosoftMail(data) {
   mailAttentionView?.update(window.personalMicrosoftMessages);
   updateOlderMailButton();
   renderPersonalMicrosoftMail(window.personalMicrosoftMessages,{restoreDetail:!($('#personalMailDetail')?.classList.contains('active')&&$('#personalMailDetailBody')?.childNodes.length)});
-  hasSuccessfulPersonalMailLoad = true;
 }
 
 function handlePersonalMicrosoftMailError(error) {
+  if(error?.mailCode==='MAIL_REFRESH_SUPERSEDED')return;
   mailAttentionView?.fail();
   const health=$('#microsoftMailHealth'),detail=$('#microsoftMailDiagnostic');
   const labels={MAIL_AUTH_REQUIRED:'Hotmail needs authorization.',MAIL_CONFIGURATION_REQUIRED:'Hotmail connection configuration needs attention.',MAIL_CONNECTION_STATUS_UNAVAILABLE:'Stored Hotmail connection could not be checked.'};
@@ -1260,9 +1258,8 @@ function handlePersonalMicrosoftMailError(error) {
   const diagnostic=error?.mailDiagnostic;
   if(detail)detail.textContent=stages[diagnostic?.stage]?stages[diagnostic.stage]+' · '+(reasons[diagnostic.reason]||'Unavailable')+(Number.isInteger(diagnostic.upstreamStatus)&&diagnostic.upstreamStatus>=100&&diagnostic.upstreamStatus<=599?' · HTTP '+diagnostic.upstreamStatus:''):'';
   console.error('Personal Mail refresh unavailable');
-  if (hasSuccessfulPersonalMailLoad) return;
   const personalMailCount = $('#personalEmailCount');
-  if (personalMailCount) personalMailCount.textContent = '—';
+  if (personalMailCount) personalMailCount.textContent = error?.mailCode==='MAIL_AUTH_REQUIRED'?'Sign-in needed':'Refresh unavailable';
 }
 
 function loadPersonalMicrosoftMail(reason = 'manual') {
