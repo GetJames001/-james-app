@@ -1004,3 +1004,8 @@ body[data-wall-conversation=false] .wall-ambient { overflow: hidden; }
   #app > header .brand{flex-wrap:wrap;overflow-wrap:anywhere}
   #app > header .status-cluster{flex-wrap:wrap}
 }
+
+/* Reminders occupy their own row while the wall conversation is open. */
+body[data-wall-conversation=true] .wall-surface{height:100dvh;min-height:0;justify-content:flex-start}
+body[data-wall-conversation=true] .wall-conversation{flex:1;min-height:0;max-height:none;margin:0}
+body[data-wall-conversation=true] .wall-surface > .reminder-alerts{position:static;flex-shrink:0;align-self:flex-end;max-height:25vh;max-width:100%;z-index:auto}

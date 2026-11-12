@@ -51,7 +51,22 @@
   let conversation=false,busy=false,turn=0,voicePhase='idle',active=false,lastActivity=now(),lock=null,lockPending=false,lockVersion=0,lastRead=0,lastAuth=0,authPending=false,disposed=false,arming=false;
   function save(){try{storage?.setItem('james:wall-display:v1',JSON.stringify(config));}catch{}}
   const listener=root.JamesWakeListener.create({allowed:()=>config.mode==='wall'&&active&&!conversation&&!document.hidden&&!voice()?.active()&&!settings.open,onStatus:state=>{wakeStatus.textContent=state.message;if(!conversation){mic.hidden=state.phase!=='listening';mic.textContent='Listening for “Hey James”';}wakeButton.textContent=state.phase==='listening'?'Disable Hey James':'Enable Hey James';wakeButton.setAttribute('aria-pressed',String(state.phase==='listening'));install.hidden=state.phase!=='download_required';},onWake:async()=>wakeAndTalk()});
-  function paint(){const hour=new Date(now()).getHours(),night=config.dim&&(hour>=20||hour<7);document.body.dataset.wallMode=config.mode;document.body.dataset.wallAmbient=String(active);document.body.dataset.wallConversation=String(active&&conversation);conversationPanel.hidden=!conversation;tiles.hidden=conversation;surface.style.setProperty('--wall-brightness',night?'.38':'1');ambient.dataset.scene=config.scene;ambient.style.backgroundImage='url("/assets/scenes/'+config.scene+'.jpg")';paintMotion();}
+  // Keep due reminders in the wall's layout while conversing, so they cannot cover Send.
+  // Restore the same live node to its original host outside wall conversation mode.
+  let dockedReminder=null,reminderHost=null,reminderNext=null;
+  function placeReminders(){
+   if(active&&conversation){
+    const alerts=document.querySelector('.reminder-alerts');
+    if(alerts&&alerts!==dockedReminder){
+     dockedReminder=alerts;reminderHost=alerts.parentNode;reminderNext=alerts.nextSibling;
+     surface.append(alerts);
+    }
+   }else if(dockedReminder){
+    if(reminderHost?.isConnected)reminderHost.insertBefore(dockedReminder,reminderNext?.parentNode===reminderHost?reminderNext:null);
+    dockedReminder=null;reminderHost=null;reminderNext=null;
+   }
+  }
+  function paint(){placeReminders();const hour=new Date(now()).getHours(),night=config.dim&&(hour>=20||hour<7);document.body.dataset.wallMode=config.mode;document.body.dataset.wallAmbient=String(active);document.body.dataset.wallConversation=String(active&&conversation);conversationPanel.hidden=!conversation;tiles.hidden=conversation;surface.style.setProperty('--wall-brightness',night?'.38':'1');ambient.dataset.scene=config.scene;ambient.style.backgroundImage='url("/assets/scenes/'+config.scene+'.jpg")';paintMotion();}
   async function acquireLock(){if(config.mode!=='wall'||document.hidden||lock||lockPending)return;if(!wakeLock?.request){lockStatus.textContent='Keep-screen-awake is unavailable in this browser. Check tablet sleep settings.';return;}lockPending=true;const version=lockVersion;try{const requested=await wakeLock.request('screen');if(config.mode!=='wall'||document.hidden||version!==lockVersion){await requested.release();return;}lock=requested;retryLock.hidden=true;lockStatus.textContent='Screen wake lock active while James is visible.';requested.addEventListener('release',()=>{if(lock===requested){lock=null;retryLock.hidden=false;lockStatus.textContent='Screen wake lock released by the device. Tap Retry if needed.';}});}catch{retryLock.hidden=false;lockStatus.textContent='The device did not allow keeping the screen awake. Tap Retry or check tablet sleep settings.';}finally{lockPending=false;}}
   async function releaseLock(){lockVersion++;const current=lock;lock=null;if(current)try{await current.release();}catch{}}
   async function checkAuth(){if(authPending||config.mode!=='wall'||document.hidden)return;authPending=true;lastAuth=now();try{const response=await fetcher('/api/auth/session',{cache:'no-store',signal:AbortSignal.timeout(8000)});if([401,403].includes(response.status)){await listener.disable();voice()?.close();await releaseLock();ambient.replaceChildren(element('p','Sign in to continue using James.'));root.location.assign('/login');}}catch{mic.textContent='Connection could not be checked. Tap if voice does not connect.';}finally{authPending=false;}}
