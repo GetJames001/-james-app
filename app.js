@@ -1233,8 +1233,8 @@ function applyPersonalMicrosoftMail(data) {
     if (notice.textContent === 'Personal Mail is not connected in this workspace.') notice.textContent = '';
   }
   if($('#microsoftMailHealth'))$('#microsoftMailHealth').textContent='Hotmail Mail connected.';
-  if($('#microsoftMailDiagnostic'))$('#microsoftMailDiagnostic').textContent='';
-  personalMailCount.textContent = `${data.unreadCount} unread`;
+  if($('#microsoftMailDiagnostic'))$('#microsoftMailDiagnostic').textContent=data.countStatus==='unavailable'?'Messages refreshed; unread count unavailable.':'';
+  personalMailCount.textContent = Number.isSafeInteger(data.unreadCount)&&data.unreadCount>=0?`${data.unreadCount} unread`:'Mail connected';
   const latest = Array.isArray(data.messages) ? data.messages : [];
   if (!olderMailLoaded) olderMailCursor = data.nextCursor;
   const messages = new Map(latest.map(message => [message.id, message]));

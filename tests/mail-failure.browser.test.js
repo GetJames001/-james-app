@@ -77,6 +77,9 @@ test('Mail keeps known messages through failed refresh and accepts a later verif
     assert.equal(await page.evaluate(() => window.personalMicrosoftMessages.length), 0);
     assert.equal(await page.locator('#microsoftMailHealth').textContent(),'Hotmail Mail connected.');
     assert.equal(await page.locator('#microsoftMailDiagnostic').textContent(),'');
+    await page.evaluate(()=>applyPersonalMicrosoftMail({connected:true,unreadCount:null,totalCount:null,countStatus:'unavailable',messages:[{id:'count-safe',subject:'Count unavailable, message confirmed',isRead:false}]}));
+    assert.equal(await page.locator('#personalEmailCount').textContent(),'Mail connected');
+    assert.match(await page.locator('#personalMailMessages').textContent(),/Count unavailable, message confirmed/);
     assert.equal(writes, 0, 'refresh never changes read state or sends mail');
   } finally {
     await browser?.close();

@@ -28,6 +28,7 @@ module.exports = async function handler(req, res) {
     coverage:{scope:'latest_inbox_page',complete:false,mailboxScanComplete:false,limit:25}
   });
   const requestFetch=async(url,options={})=>{
+    upstreamStatus=null;
     const response=await fetch(url,readOnly?{...options,redirect:'error',signal:AbortSignal.timeout(Math.max(1,deadline-Date.now()))}:options);
     upstreamStatus=Number.isInteger(response.status)?response.status:null;return response;
   };
@@ -185,26 +186,15 @@ if (req.method === "POST") {
     sent: true,
   });
 }
-    readStage='inbox_count';
-    const graphResponse = await requestFetch(
-      "https://graph.microsoft.com/v1.0/me/mailFolders/inbox?$select=unreadItemCount,totalItemCount",
-      {
-        headers: {
-          Authorization: `Bearer ${tokens.access_token}`,
-        },
-      }
-    );
-
-    const inbox = await graphResponse.json();
-
-    if (!graphResponse.ok) {
-      if(readOnly)return readFailure('MAIL_INBOX_UNAVAILABLE','provider_error');
-      return res.status(500).json({
-        connected: true,
-        account,
-        error: "Microsoft Mail could not be read.",
-      });
-    }
+    // A delayed unread count must not prevent actual messages from loading.
+    const inboxRead=(async()=>{
+      try{
+        const result=await readStateRequest('https://graph.microsoft.com/v1.0/me/mailFolders/inbox?$select=unreadItemCount,totalItemCount',{
+          headers:{Authorization:`Bearer ${tokens.access_token}`},redirect:'error'
+        },Math.min(deadline,Date.now()+5000));
+        return result.ok?result.data:null;
+      }catch{return null;}
+    })();
 const inboxMessages = new URL("https://graph.microsoft.com/v1.0/me/mailFolders/inbox/messages?$top=25&$select=id,subject,from,receivedDateTime,isRead,bodyPreview,body,importance,flag&$orderby=receivedDateTime%20desc");
 const cursor = req.query.cursor;
 if (cursor !== undefined) {
@@ -274,11 +264,13 @@ const messages = messagesData.value.map(message => ({
       });
       reconciliation={...checked,cursor:ids.at(-1)||null};
     }
+    const inbox=await inboxRead;
+    const unreadCount=Number.isSafeInteger(inbox?.unreadItemCount)&&inbox.unreadItemCount>=0?inbox.unreadItemCount:null;
+    const totalCount=Number.isSafeInteger(inbox?.totalItemCount)&&inbox.totalItemCount>=0?inbox.totalItemCount:null;
     return res.status(200).json({
       connected: true,
       account,
-      unreadCount: inbox.unreadItemCount ?? 0,
-      totalCount: inbox.totalItemCount ?? 0,
+      unreadCount,totalCount,countStatus:unreadCount===null?'unavailable':'available',
       messages,
       ...(reconciliation?{reconciliation}:{}),
       nextCursor,
