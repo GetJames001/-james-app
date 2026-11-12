@@ -1049,7 +1049,7 @@ body[data-wall-conversation=true] .wall-surface > .reminder-alerts{position:stat
 .james-shell .perspective-revisit-body{background:transparent;border:0;border-left:1px solid var(--gs);padding:0 0 0 18px;border-radius:0}
 .james-shell .perspective-revisit-body blockquote{font:400 clamp(1.05rem,1.6vw,1.25rem) Georgia,serif;line-height:1.5;margin:0 0 9px;color:var(--ink)}
 .james-shell .perspective-credit{font-size:.72rem}
-.james-shell .intel-strip{gap:14px}
+.james-shell .intel-strip{gap:14px;grid-template-columns:repeat(2,minmax(0,1fr));width:100%;max-width:none}
 .james-shell .intel-card{border:1px solid var(--gs);background:rgba(18,39,57,.45);border-radius:12px;box-shadow:none;min-width:0}
 .james-shell .briefing-outlook{gap:22px;margin-top:24px}
 .james-shell .next-card{border:1px solid var(--gs);background:linear-gradient(120deg,rgba(31,53,71,.75),rgba(12,28,44,.6));border-radius:12px;box-shadow:none;padding:24px}
@@ -1098,3 +1098,5 @@ html[data-theme=light] #app.james-shell .briefing-sheet{background:transparent}
  .james-shell .routing-controls input{flex-basis:100%}
  .james-shell .next-meta{grid-template-columns:repeat(3,minmax(0,1fr));gap:9px}
 }
+
+.james-shell .intel-icon{color:var(--muted);stroke:currentColor}
