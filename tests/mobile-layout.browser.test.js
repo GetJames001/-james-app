@@ -353,13 +353,9 @@ test('responsive calendar and mail layout survive live viewport changes', async 
     await page.locator('#personalMailBack').click();
     assert.equal(await page.locator('.page.active').getAttribute('id'), 'briefing');
 
-    await page.getByRole('button', { name: 'Conversations', exact: true }).click();
-    assert.equal(await page.locator('.page.active').getAttribute('id'), 'conversations');
-    assert.equal(await page.getByText('No conversations available', { exact: true }).count(), 1);
-
-    await page.getByRole('button', { name: 'Files', exact: true }).click();
-    assert.equal(await page.locator('.page.active').getAttribute('id'), 'files');
-    assert.equal(await page.getByText('No files available', { exact: true }).count(), 1);
+    assert.equal(await page.locator('nav [data-page="conversations"],nav [data-page="files"]').count(), 0);
+    // File states have dedicated behavior coverage. The accepted entry now lives in Workbench.
+    assert.equal(await page.locator('#workbenchFiles').textContent(), 'All Files');
 
     await page.getByRole('button', { name: 'Briefing', exact: true }).click();
     assert.equal(await page.locator('[data-panel="callbacks"],[data-panel="emails"],[data-panel="proposals"]').count(), 0);
