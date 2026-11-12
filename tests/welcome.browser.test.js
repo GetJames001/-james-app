@@ -142,3 +142,27 @@ test('Workbench follows host light and dark themes with readable saved cards, co
  }
  await context.close();
 }));
+
+
+test('external talk entry opens the foreground panel without requesting the microphone',async()=>fixture(async(b,url)=>{
+ const {page,context}=await pageFor(b,url,{reducedMotion:'reduce'});
+ await page.addInitScript(()=>{
+  sessionStorage.setItem('jamesIntroDate',new Date().toDateString());
+  window.externalMicRequests=0;
+  Object.defineProperty(navigator,'mediaDevices',{configurable:true,value:{getUserMedia:async()=>{window.externalMicRequests++;throw Error('Unexpected microphone request');}}});
+ });
+ await page.goto(url+'/#talk-to-james');
+ const panel=page.getByRole('complementary',{name:'James conversation',exact:true});
+ await panel.waitFor({state:'visible'});
+ assert.equal(await panel.getByRole('button',{name:'Start conversation',exact:true}).isEnabled(),true);
+ assert.equal(await panel.getByRole('button',{name:'Mute microphone',exact:true}).isEnabled(),false);
+ assert.equal(await panel.getByRole('button',{name:'Stop reply',exact:true}).isEnabled(),false);
+ assert.equal(await page.evaluate(()=>location.hash),'');
+ assert.equal(await page.evaluate(()=>window.externalMicRequests),0);
+ await panel.getByRole('button',{name:'Dismiss',exact:true}).click();
+ assert.equal(await panel.isVisible(),false);
+ await page.reload();
+ assert.equal(await panel.isVisible(),false,'consumed entry does not reopen after refresh');
+ assert.equal(await page.evaluate(()=>window.externalMicRequests),0);
+ await context.close();
+}));

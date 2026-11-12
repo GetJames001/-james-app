@@ -108,7 +108,8 @@
         const appResponse = await fetch('/', { credentials: 'same-origin', cache: 'no-store' });
         if (!appResponse.ok) throw new Error('Unable to open James');
         const html = await appResponse.text();
-        history.replaceState(null,'','/');
+        const launchHash = location.hash === '#talk-to-james' ? location.hash : '';
+        history.replaceState(null,'','/'+launchHash);
         mark('protectedHtml');
         const parsed = new DOMParser().parseFromString(html, 'text/html');
         if (!parsed.querySelector('#intro') || !parsed.querySelector('#app')) {

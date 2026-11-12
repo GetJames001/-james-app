@@ -2,10 +2,12 @@
  'use strict';
  function mount({ui,orb,button,settingsButton,setState,createReminder=async()=>({status:"unavailable"}),readReminders=()=>({status:"unavailable"}),findPlaces=async()=>({status:"unavailable"}),prepareAppointment=async()=>({status:"unavailable"}),readAppointmentReview=()=>({status:"none"}),readRoute=()=>({status:"unavailable"}),readWeather=()=>({status:"unavailable"}),readBriefing=()=>({status:"unavailable"}),readCalendar=async()=>({status:"unavailable"}),fetcher=fetch,media=root.navigator.mediaDevices,Peer=root.RTCPeerConnection}){
   const doc=orb.ownerDocument,panel=doc.createElement('aside'),status=doc.createElement('p'),transcript=doc.createElement('p'),mute=doc.createElement('button'),stop=doc.createElement('button'),interrupt=doc.createElement('button');
+  const launchTalk=doc.createElement('button');
+  launchTalk.type='button';launchTalk.textContent='Start conversation';launchTalk.hidden=true;
   panel.className='james-voice-panel';panel.hidden=true;panel.setAttribute('aria-label','James conversation');
   status.setAttribute('role','status');transcript.className='james-voice-transcript';
   mute.type=stop.type=interrupt.type='button';mute.textContent='Mute microphone';stop.textContent='Close voice';interrupt.textContent='Stop reply';
-  const voiceLabel=doc.createElement('label'),voice=doc.createElement('select'),samples=doc.createElement('a');voiceLabel.textContent='James’s voice ';voice.setAttribute('aria-label','James voice');for(const name of ['marin','coral','shimmer','sage','alloy','ash','ballad','echo','verse','cedar']){const option=doc.createElement('option');option.value=name;option.textContent=name[0].toUpperCase()+name.slice(1);voice.append(option);}try{if([...voice.options].some(o=>o.value===root.localStorage.getItem('james:voice')))voice.value=root.localStorage.getItem('james:voice');}catch{}voice.onchange=()=>{if(session)close('Voice changed. Tap James to reconnect using '+voice.value+'.');try{root.localStorage.setItem('james:voice',voice.value);}catch{}};voiceLabel.append(voice);samples.textContent='Listen to voice samples';samples.href='https://www.openai.fm/';samples.target='_blank';samples.rel='noopener noreferrer';const note=doc.createElement('p');note.className='muted';note.textContent='AI-generated voice · OpenAI API usage applies separately from Vercel. Voice sessions stop after five minutes.';const disclosure=doc.createElement('small');disclosure.textContent='AI-generated voice';panel.append(status,transcript,disclosure,mute,interrupt,stop);doc.body.append(panel);const settings=doc.createElement('dialog'),settingsTitle=doc.createElement('h2'),settingsClose=doc.createElement('button');settings.setAttribute('aria-label','James voice settings');settings.className='james-voice-settings';settingsTitle.textContent='James voice';settingsClose.type='button';settingsClose.textContent='Close settings';settingsClose.onclick=()=>settings.close();settings.append(settingsTitle,voiceLabel,samples,note,settingsClose);doc.body.append(settings);if(settingsButton)settingsButton.onclick=()=>settings.showModal();
+  const voiceLabel=doc.createElement('label'),voice=doc.createElement('select'),samples=doc.createElement('a');voiceLabel.textContent='James’s voice ';voice.setAttribute('aria-label','James voice');for(const name of ['marin','coral','shimmer','sage','alloy','ash','ballad','echo','verse','cedar']){const option=doc.createElement('option');option.value=name;option.textContent=name[0].toUpperCase()+name.slice(1);voice.append(option);}try{if([...voice.options].some(o=>o.value===root.localStorage.getItem('james:voice')))voice.value=root.localStorage.getItem('james:voice');}catch{}voice.onchange=()=>{if(session)close('Voice changed. Tap James to reconnect using '+voice.value+'.');try{root.localStorage.setItem('james:voice',voice.value);}catch{}};voiceLabel.append(voice);samples.textContent='Listen to voice samples';samples.href='https://www.openai.fm/';samples.target='_blank';samples.rel='noopener noreferrer';const note=doc.createElement('p');note.className='muted';note.textContent='AI-generated voice · OpenAI API usage applies separately from Vercel. Voice sessions stop after five minutes.';const disclosure=doc.createElement('small');disclosure.textContent='AI-generated voice';panel.append(status,transcript,disclosure,launchTalk,mute,interrupt,stop);doc.body.append(panel);const settings=doc.createElement('dialog'),settingsTitle=doc.createElement('h2'),settingsClose=doc.createElement('button');settings.setAttribute('aria-label','James voice settings');settings.className='james-voice-settings';settingsTitle.textContent='James voice';settingsClose.type='button';settingsClose.textContent='Close settings';settingsClose.onclick=()=>settings.close();settings.append(settingsTitle,voiceLabel,samples,note,settingsClose);doc.body.append(settings);if(settingsButton)settingsButton.onclick=()=>settings.showModal();
   function failureMessage(code){
    if(['VOICE_PROVIDER_QUOTA','insufficient_quota','credit_balance_exhausted','billing_hard_limit_reached','project_spend_limit_exceeded','organization_spend_limit_exceeded','organization_usage_limit_exceeded','usage_limit_exceeded'].includes(code))return 'The existing OpenAI API account has reached its credit or spending limit. Voice needs its billing or limits reviewed; your Vercel plan is separate.';
    if(['VOICE_PROVIDER_RATE_LIMIT','rate_limit_exceeded','slow_down'].includes(code))return 'OpenAI temporarily limited voice requests. Wait a minute before reconnecting; this does not establish that credits are exhausted.';
@@ -93,7 +95,7 @@
   }
   async function start(){
    if(session){close();return;}
-   panel.hidden=false;mute.disabled=interrupt.disabled=false;mute.textContent='Mute microphone';mute.setAttribute('aria-pressed','false');stop.textContent='Close voice';transcript.textContent='';
+   launchTalk.hidden=true;panel.hidden=false;mute.disabled=interrupt.disabled=false;mute.textContent='Mute microphone';mute.setAttribute('aria-pressed','false');stop.textContent='Close voice';transcript.textContent='';
    if(!media?.getUserMedia||!Peer){state('idle','Live voice is unavailable in this browser. You can still type to James.');return;}
    const s={id:++serial,controller:new AbortController(),audio:doc.createElement('audio'),turn:0,calls:new Set(),closed:false,responding:false,userText:'',replyText:''};session=s;
    s.audio.autoplay=true;s.audio.muted=true;s.audio.setAttribute('playsinline','');
@@ -136,6 +138,18 @@
     touch(s);s.check=setInterval(async()=>{try{if(!await ui.verifyVoice(s.scope)&&current(s))close('Conversation changed. Tap James to reconnect.');}catch{if(current(s))close('Sign-in could not be verified. Tap James to retry.');}},30000);
    }catch(error){if(!current(s))return;const message=failureMessage(error.message)||(error.name==='NotAllowedError'?'Allow microphone access to talk to James.':error.name==='NotFoundError'?'No microphone is available in this browser. Connect a microphone or test James on your iPad or phone.':error.name==='NotReadableError'?'The microphone could not start. Close other apps using it, then tap James to retry.':error.message==='VOICE_PROVIDER_ACCESS'?'The existing OpenAI project denied voice access. Its API permissions or Realtime model access need review.':error.message==='VOICE_KEY_NOT_CONFIGURED'?'This deployment has no configured OpenAI connection.':error.message==='CONVERSATION_CHANGED'?'The conversation changed. Tap James to reconnect.':'James voice could not connect. Your conversation is retained; tap James to retry.');close(message);}
   }
+  function showExternalLaunch(){
+   if(root.location.hash!=='#talk-to-james'||doc.hidden)return;
+   root.history.replaceState(root.history.state,'',root.location.pathname+root.location.search);
+   if(session)return;
+   root.jamesWallDisplay?.wake();
+   panel.hidden=false;launchTalk.hidden=false;mute.disabled=interrupt.disabled=true;stop.textContent='Dismiss';
+   status.textContent='Ready to talk. Start the conversation to turn on the microphone.';
+   launchTalk.focus({preventScroll:true});
+  }
+  launchTalk.onclick=start;
+  root.addEventListener('hashchange',showExternalLaunch);
+  doc.addEventListener('visibilitychange',showExternalLaunch);
   orb.onclick=start;if(button)button.onclick=start;
   mute.onclick=()=>{const s=session;if(!s)return;const muted=s.stream.getAudioTracks().some(t=>t.enabled);s.stream.getAudioTracks().forEach(t=>{t.enabled=!muted;});mute.textContent=muted?'Unmute microphone':'Mute microphone';mute.setAttribute('aria-pressed',String(muted));const phase=s.phase==='muted'?'listening':s.phase||'listening';state(phase,muted?'Microphone muted':phase==='speaking'?'James is speaking — you can interrupt.':phase==='thinking'?'James is thinking…':'Listening');};
   interrupt.onclick=stopReply;stop.onclick=()=>{if(session)close();else panel.hidden=true;};
@@ -144,7 +158,7 @@
   root.addEventListener('james-conversation-ended',()=>close('Conversation ended.'));
   root.addEventListener('pagehide',()=>close());
   doc.addEventListener('visibilitychange',()=>{if(doc.hidden&&session)close('Voice paused while James was in the background. Tap James to reconnect.');});
-  state('idle');return {start,close,stopReply,active:()=>!!session,diagnostics:()=>({active:!!session,phase:session?.phase||'idle',lastResearchDurationMs:session?.lastResearchDurationMs??null})};
+  state('idle');return {start,close,stopReply,showExternalLaunch,active:()=>!!session,diagnostics:()=>({active:!!session,phase:session?.phase||'idle',lastResearchDurationMs:session?.lastResearchDurationMs??null})};
  }
  root.JamesVoiceSession={mount};
 })(typeof window==='undefined'?globalThis:window);

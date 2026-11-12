@@ -28,3 +28,15 @@ test('retained login CSP still excludes external script origins',()=>{
  assert.match(csp,/script-src 'self' 'unsafe-inline';/);
  assert.ok(!csp.includes('vercel.live'));
 });
+
+// Execute the login handoff code itself: preserve only the recognized, non-secret entry fragment.
+test('login handoff preserves only the explicit external talk entry',()=>{
+ const start=html.indexOf('        const launchHash =');
+ const end=html.indexOf("        mark('protectedHtml');",start);
+ assert.ok(start>=0&&end>start);
+ for(const [hash,expected] of [['#talk-to-james','/#talk-to-james'],['#other','/'],['','/']]){
+  const calls=[];
+  vm.runInNewContext(html.slice(start,end),{location:{hash},history:{replaceState:(_state,_title,path)=>calls.push(path)}});
+  assert.deepEqual(calls,[expected]);
+ }
+});
