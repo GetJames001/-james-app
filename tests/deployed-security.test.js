@@ -37,6 +37,11 @@ const unauthorizedCases = [
   { name: "private Tasks API", target: "/api/tasks?cache=security-review" },
   { name: "private conversation lifecycle", target: "/api/james/conversation" },
   { name: "private preparation task API", target: "/api/james/task-execution" },
+  { name: "private hosted proof controls", target: "/api/james/hosted-proof" },
+  { name: "private hosted proof page", target: "/hosted-proof" },
+  { name: "private hosted proof script", target: "/hosted-proof-ui.js" },
+  { name: "private scheduler function path", target: "/api/proof-schedule" },
+  { name: "private scheduler source path", target: "/api/proof-schedule.js" },
   { name: "server-only preparation composition", target: "/lib/task-execution/preview-proof.cjs" },
   { name: "private typed reply endpoint", target: "/api/fast" },
   { name: "private conversation UI", target: "/conversation-ui.js" },
@@ -353,6 +358,16 @@ test("authorized automation reaches both protected Preview application gateways"
       }
     });
     assertUnauthorized(forwardedHeaders, `${baseUrl}: spoofed forwarded headers`);
+
+    for (const target of ['/api/proof-schedule','/api/proof-schedule.js','/api/gateway?path=api/proof-schedule']) {
+      const response=authorizedRequest(baseUrl,target,{method:'POST',headers:{
+        'ce-specversion':'1.0','ce-type':'com.vercel.schedule.v1beta','ce-source':'/schedules/fictional',
+        'ce-id':'fictional-run','ce-vssscheduledat':'2026-11-13T00:00:00.000Z',
+        'ce-vssscheduleid':'fictional-schedule','ce-vssschedulename':'james-fictional-proof',
+        'ce-vssnamespace':'default','ce-vssschedulesource':'static','ce-vssexpression':'*/15 * * * *'
+      }});
+      assertUnauthorized(response,`${baseUrl}: forged scheduler headers ${target}`);
+    }
 
     const hostileOriginLogout = authorizedRequest(baseUrl, "/api/auth/logout", {
       method: "POST",
