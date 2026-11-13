@@ -3,7 +3,7 @@ const test=require('node:test'),assert=require('node:assert/strict'),http=requir
 const {chromium,webkit}=require('playwright');
 const fixtures=require('./fixtures/mobile-wake-audio.json');
 for(const [name,browserType] of [['Chromium',chromium],...(process.env.JAMES_TEST_MOBILE_WEBKIT==='true'?[['WebKit',webkit]]:[])]){
- test(name+': actual offline mobile model recognises synthetic Hey James and rejects comparison phrases',{timeout:300000},async()=>{
+ test(name+': actual offline mobile model recognises synthetic Hey James and rejects comparison phrases',{timeout:300000},async t=>{
   const root=path.join(__dirname,'..'),files=new Set(['/mobile-wake-recognition.js','/mobile-wake-worklet.js','/wake-listener.js','/assets/wake/v1/vosk-0.0.8.js','/assets/wake/v1/vosk-worker-0.0.8.js','/assets/wake/v1/english-0.15.tar.gz']);
   const loginPolicy=fs.readFileSync(path.join(root,'login.html'),'utf8').match(/http-equiv="Content-Security-Policy" content="([^"]+)"/)[1];
   const workerPolicy=require('../vercel.json').routes[0].headers['Content-Security-Policy'];
@@ -47,20 +47,31 @@ for(const [name,browserType] of [['Chromium',chromium],...(process.env.JAMES_TES
    // never a physical microphone or paid conversation provider.
    for(let journey=0;journey<Number(process.env.JAMES_WAKE_STABILITY_ROUNDS||1);journey++){
    await page.evaluate(wav=>{
-    window.finished=false;window.releaseVerified=false;window.wakeCount=0;window.fixtureError=null;window.fixtureStates=[];window.fixtureMicCalls=0;
+    window.finished=false;window.releaseVerified=false;window.wakeCount=0;window.fixtureError=null;window.fixtureStates=[];window.fixtureMicCalls=0;window.fixtureDiagnostics={frames:0,nonzero:0,results:[],listeningDelayMs:null};
     document.querySelector('#start').onclick=async()=>{
      const audio=new AudioContext();await audio.resume();const bytes=Uint8Array.from(atob(wav),c=>c.charCodeAt(0));const decoded=await audio.decodeAudioData(bytes.buffer);
      const buffer=audio.createBuffer(1,decoded.length+audio.sampleRate*3,audio.sampleRate);buffer.getChannelData(0).set(decoded.getChannelData(0),audio.sampleRate);
-     const destination=audio.createMediaStreamDestination();let calls=0;
-     Object.defineProperty(navigator,'mediaDevices',{configurable:true,value:{getUserMedia:async()=>{calls++;window.fixtureMicCalls=calls;const source=audio.createBufferSource();source.buffer=buffer;source.connect(destination);source.start();return destination.stream;}}});
-     const listener=JamesWakeListener.create({Recognition:null,onStatus:state=>{window.fixtureState=state;window.fixtureStates.push(state.phase);if(state.phase==='paused'&&!window.wakeCount)window.fixtureError=state.message;},onWake:async()=>{window.wakeCount++;window.releaseVerified=destination.stream.getTracks().every(track=>track.readyState==='ended');await listener.disable();await audio.close();window.finished=true;}});
+     const destination=audio.createMediaStreamDestination();let calls=0,micAt=0,engine,source;
+     class ObservedRecognition extends JamesMobileWakeRecognition{constructor(){super();engine=this;}}
+     Object.defineProperty(navigator,'mediaDevices',{configurable:true,value:{getUserMedia:async()=>{calls++;window.fixtureMicCalls=calls;micAt=performance.now();source=audio.createBufferSource();source.buffer=buffer;source.connect(destination);return destination.stream;}}});
+     const listener=JamesWakeListener.create({Recognition:null,MobileRecognition:ObservedRecognition,onStatus:state=>{window.fixtureState=state;window.fixtureStates.push(state.phase);
+      if(state.phase==='listening'){
+       window.fixtureDiagnostics.listeningDelayMs=Math.round(performance.now()-micAt);
+       const receive=engine.node.port.onmessage;engine.node.port.onmessage=event=>{window.fixtureDiagnostics.frames++;if(event.data.some(value=>Math.abs(value)>0.001))window.fixtureDiagnostics.nonzero++;receive(event);};
+       engine.recognizer.on('result',event=>window.fixtureDiagnostics.results.push(event.result));
+       // Speak after the advertised listening cue, not during permission/startup.
+       // No retry or looping utterance is used to hide a missed wake.
+       source.start();
+      }
+      if(state.phase==='paused'&&!window.wakeCount)window.fixtureError=state.message;},onWake:async()=>{window.wakeCount++;window.releaseVerified=destination.stream.getTracks().every(track=>track.readyState==='ended');await listener.disable();await audio.close();window.finished=true;}});
      window.fixtureListener=listener;await listener.enable();
     };
    },samples.find(sample=>sample.wake).wav);
-   await page.locator('#start').click();try{await page.waitForFunction(()=>window.finished||window.fixtureError,{},{timeout:90000});}catch(error){throw Error('Synthetic wake timed out: '+JSON.stringify(await page.evaluate(()=>({states:window.fixtureStates,microphoneCalls:window.fixtureMicCalls,finished:window.finished,wakes:window.wakeCount}))),{cause:error});}
+   await page.locator('#start').click();try{await page.waitForFunction(()=>window.finished||window.fixtureError,{},{timeout:90000});}catch(error){throw Error('Synthetic wake timed out: '+JSON.stringify(await page.evaluate(()=>({states:window.fixtureStates,microphoneCalls:window.fixtureMicCalls,finished:window.finished,wakes:window.wakeCount,audio:window.fixtureDiagnostics}))),{cause:error});}
    assert.equal(await page.evaluate(()=>window.fixtureError),null);assert.equal(await page.evaluate(()=>window.wakeCount),1);assert.equal(await page.evaluate(()=>window.releaseVerified),true);
    assert.equal(requests.some(url=>new URL(url).origin!==origin&&!url.startsWith('data:application/octet-stream;base64,')),false);
    assert.equal(requests.some(url=>url.includes('/api/')),false);
+   t.diagnostic(name+' journey '+(journey+1)+': '+JSON.stringify(await page.evaluate(()=>window.fixtureDiagnostics)));
    }
   }finally{await browser?.close();server.closeAllConnections();await new Promise(resolve=>server.close(resolve));}
  });
