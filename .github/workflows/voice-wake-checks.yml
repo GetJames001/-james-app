@@ -1,0 +1,34 @@
+name: James voice and wake checks
+on:
+  push:
+    branches: [work/voice-wake-20261113]
+  pull_request:
+    branches: [fix/calendar-refresh-diagnosis-20261031]
+permissions:
+  contents: read
+jobs:
+  voice-regressions:
+    if: github.event_name == 'push' || github.head_ref == 'work/voice-wake-20261113'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: npx playwright install --with-deps chromium
+      - name: Prepare disposable local Redis verification
+        shell: bash
+        run: |
+          set -euo pipefail
+          if ! command -v redis-server >/dev/null 2>&1 || ! command -v redis-cli >/dev/null 2>&1; then
+            sudo apt-get update -qq
+            sudo apt-get install -y --no-install-recommends redis-server redis-tools
+          fi
+          redis_binary="$(command -v redis-server)"
+          test -x "$(dirname "$redis_binary")/redis-cli"
+          printf 'JAMES_TEST_REDIS_BIN=%s\n' "$redis_binary" >> "$GITHUB_ENV"
+      - run: npm test
+      - run: npm audit --omit=dev

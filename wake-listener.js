@@ -12,7 +12,7 @@
    if(!interactive){try{const permission=await permissions?.query({name:'microphone'});if(permission?.state!=='granted'){status('permission_required','Tap Enable Hey James to allow the microphone.');return false;}}catch{status('permission_required','Tap Enable Hey James to allow the microphone.');return false;}}
    status('checking','Checking local wake-word support…');const available=await check();
    if(generation!==ticket||!wanted||document.hidden||!allowed())return false;
-   if(available!=='available'){status(available==='downloadable'||available==='downloading'?'download_required':'unsupported',available==='downloadable'||available==='downloading'?'A local speech pack is needed. Download it in Display settings.':'Local Hey James is unavailable in this browser. Tap to wake still works.');return false;}
+   if(available!=='available'){status(available==='downloadable'||available==='downloading'?'download_required':'unsupported',available==='downloadable'||available==='downloading'?'A local speech pack is needed. Download it in Voice or Display settings.':'Local Hey James is unavailable in this browser. Tap to wake still works.');return false;}
    const current=new Recognition();current.lang='en-US';current.continuous=true;current.interimResults=false;current.processLocally=true;
    if(current.processLocally!==true){status('unsupported','Local wake-word processing could not be verified. Tap to wake.');return false;}
    engine=current;
@@ -20,9 +20,9 @@
    current.onresult=async event=>{
     if(engine!==current||document.hidden||!allowed())return;
     for(let i=event.resultIndex||0;i<event.results.length;i++){const result=event.results[i];if(!result.isFinal)continue;const text=String(result[0]?.transcript||'').toLowerCase().replace(/[^a-z\s]/g,' ').replace(/\s+/g,' ');if(!/(^|\s)hey james(?:\s|$)/.test(text))continue;
-     status('waking','Heard Hey James. Releasing the local microphone…');const released=await stop();if(!wanted||document.hidden||!allowed())return;
+     status('waking','Heard Hey James. Releasing the local microphone…');const stopped=stop(),generation=ticket;const released=await stopped;if(generation!==ticket||!wanted||document.hidden||!allowed())return;
      if(!released){status('paused','Microphone handoff could not be confirmed. Tap James to talk.');return;}
-     await onWake();return;
+     try{await onWake();}catch{status('paused','James could not connect. Tap James to talk.');}return;
     }
    };
    current.onerror=event=>{if(engine!==current)return;if(event.error==='no-speech')return;wanted=false;void stop();status('paused',event.error==='not-allowed'||event.error==='service-not-allowed'?'Microphone permission was denied. Tap to wake or enable permission in browser settings.':'Local wake-word listening stopped. Tap Enable Hey James to retry.');};

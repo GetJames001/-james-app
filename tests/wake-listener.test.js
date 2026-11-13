@@ -14,7 +14,7 @@ test('permission denial on noninteractive resume never requests microphone',asyn
 test('external talk link is consumed once and waits for an explicit microphone action',()=>{
  const fs=require('node:fs'),vm=require('node:vm');
  const doc=new EventTarget();
- const node=()=>({children:[],dataset:{},options:[],append(...children){this.children.push(...children);this.options.push(...children);},setAttribute(){},focus(){this.focused=true;}});
+ const node=()=>({addEventListener(){},children:[],dataset:{},options:[],append(...children){this.children.push(...children);this.options.push(...children);},setAttribute(){},focus(){this.focused=true;}});
  doc.createElement=node;doc.body=node();doc.hidden=false;
  const root=new EventTarget(),location={hash:'#talk-to-james',pathname:'/',search:'?view=briefing'};
  let micCalls=0,wakes=0;
@@ -26,4 +26,12 @@ test('external talk link is consumed once and waits for an explicit microphone a
  const panel=doc.body.children[0],start=panel.children.find(child=>child.textContent==='Start conversation');
  assert.equal(panel.hidden,false);assert.equal(start.hidden,false);assert.equal(start.focused,true);
  assert.equal(wakes,1);assert.equal(micCalls,0);assert.equal(voice.active(),false);
+});
+
+test('a cancelled handoff cannot start voice after microphone release arrives late',async()=>{
+ let current,wakes=0;
+ class Recognition extends EventTarget{static async available(){return 'available';}constructor(){super();this.processLocally=false;}start(){current=this;this.onstart?.();}abort(){}}
+ const listener=create({Recognition,document:{hidden:false},onWake:async()=>wakes++});
+ await listener.enable();const pending=current.onresult({resultIndex:0,results:[Object.assign([{transcript:'Hey James'}],{isFinal:true})]});
+ const cancelled=listener.disable();current.dispatchEvent(new Event('end'));await Promise.all([pending,cancelled]);assert.equal(wakes,0);
 });

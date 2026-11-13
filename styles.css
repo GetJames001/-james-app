@@ -884,7 +884,7 @@ nav [data-page="attention"].has-attention{border-color:var(--gold);box-shadow:0 
 #jamesOrb.connecting{animation:jamesOrbConnecting 2.6s ease-in-out infinite}
 #jamesOrb.muted{filter:grayscale(.55) brightness(.8)}
 @keyframes jamesConciergeSpeaking{from{transform:scale(1);filter:brightness(1)}to{transform:scale(1.045);filter:brightness(1.08) drop-shadow(0 0 4px rgba(222,184,126,.5))}}
-.james-voice-settings{border:1px solid var(--gs);border-radius:18px;background:var(--paper);color:var(--ink);padding:24px;max-width:min(420px,90vw)}
+.james-voice-settings{border:1px solid var(--gs);border-radius:18px;background:var(--paper);color:var(--ink);padding:24px;max-width:min(420px,90vw);max-height:85vh;overflow:auto}
 .james-voice-settings label,.james-voice-settings a{display:block;margin:14px 0}.james-voice-settings select,.james-voice-settings button{padding:10px}.james-voice-settings::backdrop{background:#0008}
 
 .routing-controls{margin-top:16px;font-size:.85rem;line-height:1.5}
