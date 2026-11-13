@@ -23,14 +23,18 @@ async function build(){
   const archive=await unzipper.Open.buffer(model);
   for(const file of archive.files){if(file.type==='Directory')continue;if(!file.path.startsWith(MODEL+'/')||file.path.split('/').includes('..'))throw Error('Invalid model path');const target=path.join(temp,file.path);await fs.mkdir(path.dirname(target),{recursive:true});await fs.writeFile(target,await file.buffer());}
   await fs.mkdir(output,{recursive:true});
-  await fs.writeFile(path.join(output,'vosk-0.0.8.js'),execFileSync('tar',['-xOf',path.join(temp,'runtime.tgz'),'package/dist/vosk.js'],{maxBuffer:8000000}));
+  const bundled=execFileSync('tar',['-xOf',path.join(temp,'runtime.tgz'),'package/dist/vosk.js'],{maxBuffer:8000000}).toString('utf8');
+  const workerPattern=/var WorkerFactory = createBase64WorkerFactory\('([^']+)', null, false\);/;
+  const worker=bundled.match(workerPattern);if(!worker)throw Error('Pinned worker packaging changed');
+  await fs.writeFile(path.join(output,'vosk-worker-0.0.8.js'),Buffer.from(worker[1],'base64'));
+  await fs.writeFile(path.join(output,'vosk-0.0.8.js'),bundled.replace(workerPattern,"var WorkerFactory = function(options){ return new Worker('/assets/wake/v1/vosk-worker-0.0.8.js', options); };"));
   execFileSync('tar',['--sort=name','--mtime=@0','--owner=0','--group=0','--numeric-owner','-czf',path.join(output,'english-0.15.tar.gz'),'-C',temp,MODEL]);
   const manifest={runtime:'vosk-browser@0.0.8',model:MODEL,files:[]};
-  for(const name of ['vosk-0.0.8.js','english-0.15.tar.gz']){const data=await fs.readFile(path.join(output,name));manifest.files.push({name,bytes:data.length,sha256:createHash('sha256').update(data).digest('hex')});}
+  for(const name of ['vosk-0.0.8.js','vosk-worker-0.0.8.js','english-0.15.tar.gz']){const data=await fs.readFile(path.join(output,name));manifest.files.push({name,bytes:data.length,sha256:createHash('sha256').update(data).digest('hex')});}
   await fs.writeFile(path.join(output,'manifest.json'),JSON.stringify(manifest,null,2)+'\n');
   const published=path.join(__dirname,'public/assets/wake/v1');
   await fs.mkdir(published,{recursive:true});
-  for(const name of ['vosk-0.0.8.js','english-0.15.tar.gz','manifest.json','LICENSE.txt','NOTICE.txt'])await fs.copyFile(path.join(output,name),path.join(published,name));
+  for(const name of ['vosk-0.0.8.js','vosk-worker-0.0.8.js','english-0.15.tar.gz','manifest.json','LICENSE.txt','NOTICE.txt'])await fs.copyFile(path.join(output,name),path.join(published,name));
   console.log(JSON.stringify(manifest));
  }finally{await fs.rm(temp,{recursive:true,force:true});}
 }

@@ -27,6 +27,12 @@ test('retained login CSP still excludes external script origins',()=>{
  const csp=html.match(/http-equiv="Content-Security-Policy" content="([^"]+)"/)[1];
  assert.match(csp,/script-src 'self' 'unsafe-inline';/);
  assert.ok(!csp.includes('vercel.live'));
+ assert.match(csp,/worker-src 'self';/);
+ assert.ok(!csp.includes("'unsafe-eval'"));
+ assert.ok(!csp.includes('blob:'));
+ const route=fs.readFileSync(require('node:path').join(__dirname,'..','lib/routes/login-page.js'),'utf8');
+ assert.match(route,/worker-src 'self';/);
+ assert.ok(!route.includes("'unsafe-eval'"));
 });
 
 // Execute the login handoff code itself: preserve only the recognized, non-secret entry fragment.

@@ -4,9 +4,12 @@ const {chromium,webkit}=require('playwright');
 const fixtures=require('./fixtures/mobile-wake-audio.json');
 for(const [name,browserType] of [['Chromium',chromium],...(process.env.JAMES_TEST_MOBILE_WEBKIT==='true'?[['WebKit',webkit]]:[])]){
  test(name+': actual offline mobile model recognises synthetic Hey James and rejects comparison phrases',{timeout:180000},async()=>{
-  const root=path.join(__dirname,'..'),files=new Set(['/mobile-wake-recognition.js','/mobile-wake-worklet.js','/wake-listener.js','/assets/wake/v1/vosk-0.0.8.js','/assets/wake/v1/english-0.15.tar.gz']);
+  const root=path.join(__dirname,'..'),files=new Set(['/mobile-wake-recognition.js','/mobile-wake-worklet.js','/wake-listener.js','/assets/wake/v1/vosk-0.0.8.js','/assets/wake/v1/vosk-worker-0.0.8.js','/assets/wake/v1/english-0.15.tar.gz']);
+  const loginPolicy=fs.readFileSync(path.join(root,'login.html'),'utf8').match(/http-equiv="Content-Security-Policy" content="([^"]+)"/)[1];
+  const workerPolicy=require('../vercel.json').routes[0].headers['Content-Security-Policy'];
   const server=http.createServer((req,res)=>{
-   if(req.url==='/'){res.setHeader('Content-Type','text/html; charset=utf-8');return res.end('<!doctype html><button id="start">Start fixture</button><script src="/mobile-wake-recognition.js"></script><script src="/wake-listener.js"></script>');}
+   if(req.url==='/'){res.setHeader('Content-Security-Policy',loginPolicy);res.setHeader('Content-Type','text/html; charset=utf-8');return res.end('<!doctype html><button id="start">Start fixture</button><script src="/mobile-wake-recognition.js"></script><script src="/wake-listener.js"></script>');}
+   if(req.url.includes('vosk-worker-'))res.setHeader('Content-Security-Policy',workerPolicy);
    if(!files.has(req.url)){res.writeHead(404);return res.end();}res.setHeader('Content-Type',req.url.endsWith('.js')?'text/javascript; charset=utf-8':'application/gzip');fs.createReadStream(path.join(root,req.url)).pipe(res);
   });await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));let browser;
   try{
@@ -39,7 +42,7 @@ for(const [name,browserType] of [['Chromium',chromium],...(process.env.JAMES_TES
     }finally{model.worker.terminate();}
    },samples);
    for(const sample of fixtures.samples){const result=results.find(result=>result.name===sample.name);const woke=result.texts.some(value=>value?.text==='hey james'&&value.result?.length===2&&value.result.every(word=>Number.isFinite(word.conf)&&word.conf>=0.8));assert.equal(woke,sample.wake,JSON.stringify(result));}
-   assert.equal(requests.some(url=>!url.startsWith(origin+'/')),false,'All model/runtime requests stay on the app origin');
+   assert.equal(requests.some(url=>new URL(url).origin!==origin&&!url.startsWith('data:application/octet-stream;base64,')),false,JSON.stringify(requests.map(url=>url.slice(0,160))));
    // Exercise the actual AudioWorklet + recognizer adapter with synthetic sound,
    // never a physical microphone or paid conversation provider.
    await page.evaluate(wav=>{
@@ -55,6 +58,8 @@ for(const [name,browserType] of [['Chromium',chromium],...(process.env.JAMES_TES
    },samples.find(sample=>sample.wake).wav);
    await page.locator('#start').click();await page.waitForFunction(()=>window.finished||window.fixtureError,{},{timeout:90000});
    assert.equal(await page.evaluate(()=>window.fixtureError),null);assert.equal(await page.evaluate(()=>window.wakeCount),1);assert.equal(await page.evaluate(()=>window.releaseVerified),true);
+   assert.equal(requests.some(url=>new URL(url).origin!==origin&&!url.startsWith('data:application/octet-stream;base64,')),false);
+   assert.equal(requests.some(url=>url.includes('/api/')),false);
   }finally{await browser?.close();server.closeAllConnections();await new Promise(resolve=>server.close(resolve));}
  });
 }

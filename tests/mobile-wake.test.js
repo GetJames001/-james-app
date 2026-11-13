@@ -32,9 +32,9 @@ test('portable fallback uses the same release-before-voice contract',async()=>{
  const listener=create({Recognition:null,MobileRecognition:f.root.JamesMobileWakeRecognition,document:f.doc,onWake:async()=>{assert.ok(f.counts().stops>=1);assert.equal(f.counts().terminations,1);wakes++;}});
  await listener.enable();await flush();await flush();f.recognizer().events.result({result:{text:'hey james',result:[{conf:1},{conf:1}]}});await flush();assert.equal(wakes,1);await listener.disable();
 });
-test('only five exact licensed static wake assets bypass the app gateway',async()=>{
+test('only six exact licensed static wake assets bypass the app gateway',async()=>{
  const config=require('../vercel.json'),route=config.routes[0],match=new RegExp(route.src),gateway=require('../api/gateway');
- for(const filename of ['vosk-0.0.8.js','english-0.15.tar.gz','manifest.json','NOTICE.txt','LICENSE.txt'])assert.ok(match.test('/assets/wake/v1/'+filename));
+ for(const filename of ['vosk-0.0.8.js','vosk-worker-0.0.8.js','english-0.15.tar.gz','manifest.json','NOTICE.txt','LICENSE.txt'])assert.ok(match.test('/assets/wake/v1/'+filename));
  for(const filename of ['../app.js','model-secret.txt','english-0x15.tar.gz','manifest.json/extra','../../api/tasks'])assert.equal(match.test('/assets/wake/v1/'+filename),false);
  for(const path of ['mobile-wake-recognition.js','mobile-wake-worklet.js','api/james/voice','assets/wake/other.json']){const response={setHeader(){},status(n){this.code=n;return this;},json(){return this;},end(){return this;}};await gateway({method:'GET',headers:{host:'www.getjames.ai'},query:{path}},response);assert.equal(response.code,401);}
 });

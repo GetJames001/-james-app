@@ -6,4 +6,6 @@ https://github.com/alphacep/vosk-api
 https://alphacephei.com/vosk/models
 The model archive README and its original files are retained.
 Only the archive packaging is changed from ZIP to deterministic tar.gz.
-The JavaScript runtime is copied unchanged from its integrity-verified npm package.
+The JavaScript wrapper is modified only to load its extracted worker from the
+same-origin static file instead of a Blob URL. Worker contents remain unchanged.
+This keeps the worker runtime policy separate from the login document policy.
