@@ -40,7 +40,20 @@ test('Task Pad preserves other-device updates, drafts and unknown outcomes; unav
     await context.route('https://**',r=>r.abort());
     const address=`http://127.0.0.1:${server.address().port}`;
     const a=await context.newPage(),b=await context.newPage(),pageErrors=[];
-    for(const page of [a,b])page.on('pageerror',error=>pageErrors.push(error.message));
+    for(const page of [a,b]){
+      page.on('pageerror',error=>pageErrors.push(error.message));
+      await page.addInitScript(()=>{
+        window.taskpadFixtureEvents=[];
+        const add=EventTarget.prototype.addEventListener;
+        EventTarget.prototype.addEventListener=function(type,listener,options){
+          if(this.id==='taskAddButton'&&type==='click'){
+            window.taskpadFixtureEvents.push('bound');
+            return add.call(this,type,function(event){window.taskpadFixtureEvents.push({title:document.querySelector('#taskTitleInput').value,enabled:canEditTasks()});return listener.call(this,event);},options);
+          }
+          return add.call(this,type,listener,options);
+        };
+      });
+    }
     async function open(page){
       await page.goto(address);
       await page.waitForFunction(()=>typeof taskReadState!=='undefined'&&taskReadState!=='loading');
@@ -50,7 +63,7 @@ test('Task Pad preserves other-device updates, drafts and unknown outcomes; unav
     await open(a);await open(b);
     await add(a,'Fictional device A');
     try{await a.waitForFunction(()=>!taskSaving&&tasks.length===2,{},{timeout:5000});}
-    catch(error){throw new Error(JSON.stringify({posts,records,pageErrors,state:await a.evaluate(()=>({saving:taskSaving,read:taskReadState,writable:taskWritable,revision:taskRevision,count:tasks.length,notice:document.querySelector('#taskNotice').textContent}))}),{cause:error});}
+    catch(error){throw new Error(JSON.stringify({posts,records,pageErrors,state:await a.evaluate(()=>({saving:taskSaving,read:taskReadState,writable:taskWritable,revision:taskRevision,count:tasks.length,notice:document.querySelector('#taskNotice').textContent,input:document.querySelector('#taskTitleInput').value,events:window.taskpadFixtureEvents}))}),{cause:error});}
     await add(b,'Fictional device B');
     await b.getByText('Tasks changed on another device.',{exact:false}).waitFor();
     assert.equal(records.length,2);assert.ok(records.some(t=>t.title==='Fictional device A'));
