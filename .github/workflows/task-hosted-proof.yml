@@ -8,6 +8,7 @@ permissions:
   contents: read
   deployments: read
   pull-requests: read
+  statuses: read
 jobs:
   regressions:
     if: github.event_name == 'push' || github.head_ref == 'work/hosted-preparation-proof-20261113'
@@ -38,9 +39,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     outputs:
-      authorized: ${{ steps.gate.outputs.authorized }}
-      head: ${{ steps.gate.outputs.head }}
-      urls: ${{ steps.gate.outputs.urls }}
+      authorized: ${{ steps.mapping.outputs.authorized }}
+      head: ${{ steps.mapping.outputs.head }}
+      urls: ${{ steps.mapping.outputs.urls }}
     steps:
       - name: Require owner re-run and explicit exact-head approval
         id: gate
@@ -56,7 +57,6 @@ jobs:
           ATTEMPT: ${{ github.run_attempt }}
           APPROVED_PR: ${{ vars.JAMES_TASK_PROOF_APPROVED_PR }}
           APPROVED_HEAD: ${{ vars.JAMES_TASK_PROOF_APPROVED_HEAD }}
-          BRANCH_URL: ${{ vars.JAMES_TASK_PROOF_BRANCH_URL }}
         run: |
           set -euo pipefail
           set +x
@@ -75,23 +75,35 @@ jobs:
           echo 'Verifying current pull-request metadata.'
           current_pr=$(gh api "repos/$GITHUB_REPOSITORY/pulls/$PR")
           jq -e --arg head "$EVENT_HEAD" --arg base "$EVENT_BASE" '.state == "open" and .head.sha == $head and .base.sha == $base' <<< "$current_pr" >/dev/null
-          echo 'Pull-request metadata verified; listing exact-head Preview deployments.'
-          deployment_id=$(gh api "repos/$GITHUB_REPOSITORY/deployments?sha=$EVENT_HEAD&per_page=30" --jq '[.[] | select(.environment == "Preview" and .creator.login == "vercel[bot]")] | sort_by(.created_at) | last | .id')
-          test -n "$deployment_id" && test "$deployment_id" != null
-          echo 'Exact-head Preview deployment found; reading its successful status.'
-          immutable_url=$(gh api "repos/$GITHUB_REPOSITORY/deployments/$deployment_id/statuses?per_page=30" --jq '[.[] | select(.state == "success" and .creator.login == "vercel[bot]")] | sort_by(.created_at) | last | .environment_url')
-          IMMUTABLE_URL="$immutable_url" node <<'NODE'
-          const expectedBranch='james-app-git-work-hosted-preparation-proof-20261113-james-cb7a.vercel.app';
-          const branch=new URL(process.env.BRANCH_URL);
-          const immutable=new URL(process.env.IMMUTABLE_URL);
-          for(const url of [branch,immutable]) {
-            if(url.protocol!=='https:' || url.pathname!=='/' || url.username || url.password || url.port || url.search || url.hash) throw Error('Invalid Preview URL');
-          }
-          if(branch.hostname!==expectedBranch || !/^james-[a-z0-9]+-james-cb7a\.vercel\.app$/.test(immutable.hostname) || branch.hostname===immutable.hostname) throw Error('Unexpected Preview host');
-          NODE
-          echo "head=$EVENT_HEAD" >> "$GITHUB_OUTPUT"
-          echo "urls=$immutable_url,$BRANCH_URL" >> "$GITHUB_OUTPUT"
           echo 'authorized=true' >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        if: steps.gate.outputs.authorized == 'true'
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        if: steps.gate.outputs.authorized == 'true'
+        with:
+          node-version: 22
+      - name: Bind exact-head status to the dashboard-reviewed immutable deployment
+        id: mapping
+        if: steps.gate.outputs.authorized == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT_HEAD: ${{ github.event.pull_request.head.sha }}
+          APPROVED_DEPLOYMENT_ID: ${{ vars.JAMES_TASK_PROOF_DEPLOYMENT_ID }}
+          APPROVED_IMMUTABLE_URL: ${{ vars.JAMES_TASK_PROOF_IMMUTABLE_URL }}
+          BRANCH_URL: ${{ vars.JAMES_TASK_PROOF_BRANCH_URL }}
+        run: |
+          set -euo pipefail
+          set +x
+          test "$(git rev-parse HEAD)" = "$EVENT_HEAD"
+          metadata_file=$(mktemp)
+          authored_file=$(mktemp)
+          trap 'rm -f "$metadata_file" "$authored_file"' EXIT
+          gh api "repos/$GITHUB_REPOSITORY/commits/$EVENT_HEAD/status" > "$metadata_file"
+          gh api "repos/$GITHUB_REPOSITORY/commits/$EVENT_HEAD/statuses?per_page=100" > "$authored_file"
+          node tools/task-execution-proof/verify-preview-metadata.cjs "$metadata_file" "$authored_file"
   hosted-security:
     needs: [regressions, authorize-security]
     if: needs.authorize-security.outputs.authorized == 'true'
