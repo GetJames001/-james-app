@@ -53,7 +53,7 @@
   function save(){try{storage?.setItem('james:wall-display:v1',JSON.stringify(config));}catch{}}
   let wakeState={phase:'off',message:'Wake microphone off.'};
   const wakeAllowed=()=>!disposed&&!conversation&&!document.hidden&&!voice()?.active()&&!document.querySelector('dialog[open]')&&(config.mode==='regular'||active);
-  const listener=root.JamesWakeListener.create({allowed:wakeAllowed,onStatus:state=>{wakeState=state;wakeStatus.textContent=state.message;if(!conversation){mic.hidden=state.phase!=='listening';mic.textContent='Listening for “Hey James”';}wakeButton.textContent=state.phase==='listening'?'Disable Hey James':'Enable Hey James';wakeButton.setAttribute('aria-pressed',String(state.phase==='listening'));install.hidden=state.phase!=='download_required';root.dispatchEvent(new CustomEvent('james:wake-state',{detail:state}));},onWake:async()=>wakeAndTalk(true)});
+  const listener=root.JamesWakeListener.create({allowed:wakeAllowed,onStatus:state=>{state={...state,enabled:state.phase==='listening'||(wakeEnabled()&&listener.snapshot().wanted)};wakeState=state;wakeStatus.textContent=state.message;if(!conversation){mic.hidden=state.phase!=='listening';mic.textContent='Listening for “Hey James”';}wakeButton.textContent=state.enabled?'Disable Hey James':'Enable Hey James';wakeButton.setAttribute('aria-pressed',String(state.enabled));install.hidden=state.phase!=='download_required';root.dispatchEvent(new CustomEvent('james:wake-state',{detail:state}));},onWake:async()=>wakeAndTalk(true)});
   function resumeWake(){if(wakeEnabled()&&!arming&&wakeAllowed())return listener.restore();return Promise.resolve(false);}
   async function disableWake(){if(config.mode==='wall')config.wake=false;else config.regularWake=false;save();await listener.disable();}
   // Keep due reminders in the wall's layout while conversing, so they cannot cover Send.
@@ -81,7 +81,7 @@
   function showConversation(){conversation=true;active=true;ambient.hidden=false;app.inert=true;app.setAttribute('aria-hidden','true');back.hidden=true;lastActivity=now();paint();}
   async function wakeAndTalk(fromWake=false){const canTalk=()=>!disposed&&!document.hidden&&!document.querySelector('dialog[open]')&&!voice()?.active()&&(!fromWake||wakeAllowed());if(!canTalk())return;const released=await listener.pause();if(released===false||!canTalk())return;if(config.mode==='wall')showConversation();await voice()?.start();}
   async function toggleWake(){
-   if(listener.snapshot().phase==='listening')return disableWake();
+   if(listener.snapshot().phase==='listening'||(wakeEnabled()&&listener.snapshot().wanted))return disableWake();
    if(arming)return false;
    arming=true;
    const requestedMode=config.mode;
@@ -112,7 +112,7 @@
   root.addEventListener('pagehide',()=>{disposed=true;paintMotion();clearInterval(timer);timer=null;void listener.disable();voice()?.close();void releaseLock();});
   root.addEventListener('james-conversation-ended',()=>void disableWake());
   paint();if(config.mode==='wall')void setMode('wall');else void resumeWake();
-  return {pauseWake:()=>listener.pause(),resumeWake,toggleWake,disableWake,installWake:()=>listener.install(),wakeStatus:()=>({...wakeState,enabled:wakeEnabled()}),showSettings,enter,wake,setMode,snapshot:()=>({mode:config.mode,ambient:active,conversation,wake:listener.snapshot(),screenAwake:!!lock})};
+  return {pauseWake:()=>listener.pause(),resumeWake,toggleWake,disableWake,installWake:()=>listener.install(),wakeStatus:()=>({...wakeState}),showSettings,enter,wake,setMode,snapshot:()=>({mode:config.mode,ambient:active,conversation,wake:listener.snapshot(),screenAwake:!!lock})};
  }
  root.JamesWallDisplay={mount};
 })(typeof window==='undefined'?globalThis:window);

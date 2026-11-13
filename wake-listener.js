@@ -8,7 +8,7 @@
   async function pause(){const released=await stop();status(wanted?'paused':'off',wanted?'Wake microphone paused.':'Wake microphone off.');return released;}
   async function disable(){wanted=false;await pause();}
   async function listen(interactive=false){
-   if(!wanted||document.hidden||!allowed()||engine)return false;const generation=++ticket;const released=await stopping;if(!released||generation!==ticket){status('paused','Microphone release could not be verified. Tap to wake.');return false;}
+   if(!wanted||document.hidden||!allowed()||engine)return false;const generation=++ticket;const released=await stopping;if(generation!==ticket)return false;if(!released){status('paused','Microphone release could not be verified. Tap to wake.');return false;}
    if(!interactive){try{const permission=await permissions?.query({name:'microphone'});if(permission?.state!=='granted'){status('permission_required','Tap Enable Hey James to allow the microphone.');return false;}}catch{status('permission_required','Tap Enable Hey James to allow the microphone.');return false;}}
    status('checking','Checking local wake-word support…');const available=await check();
    if(generation!==ticket||!wanted||document.hidden||!allowed())return false;

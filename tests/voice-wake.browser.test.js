@@ -3,8 +3,8 @@ const test=require('node:test'),assert=require('node:assert/strict'),http=requir
 const {chromium}=require('playwright');
 test('regular James shares one local wake listener with voice, honours opt-in and releases each microphone',async()=>{
  const server=http.createServer((req,res)=>{
-  if(req.url==='/'){res.setHeader('Content-Type','text/html');return res.end('<link rel="stylesheet" href="/styles.css"><main id="app"><button id="orb">James</button><button id="talk">Talk</button><button id="voiceSettings">Voice settings</button></main><script src="/wake-listener.js"></script><script src="/wall-display.js"></script><script src="/voice-session.js"></script>');}
-  const file=path.join(__dirname,'..',req.url.split('?')[0]);try{res.setHeader('Content-Type',req.url.endsWith('.css')?'text/css':'text/javascript');res.end(fs.readFileSync(file));}catch{res.statusCode=404;res.end();}
+  if(req.url==='/'){res.setHeader('Content-Type','text/html; charset=utf-8');return res.end('<link rel="stylesheet" href="/styles.css"><main id="app"><button id="orb">James</button><button id="talk">Talk</button><button id="voiceSettings">Voice settings</button></main><script src="/wake-listener.js"></script><script src="/wall-display.js"></script><script src="/voice-session.js"></script>');}
+  const file=path.join(__dirname,'..',req.url.split('?')[0]);try{res.setHeader('Content-Type',req.url.endsWith('.css')?'text/css':'text/javascript; charset=utf-8');res.end(fs.readFileSync(file));}catch{res.statusCode=404;res.end();}
  });await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));let browser;
  try{
   browser=await chromium.launch();const page=await browser.newPage({viewport:{width:390,height:700}});await page.goto('http://127.0.0.1:'+server.address().port);
@@ -32,7 +32,7 @@ test('regular James shares one local wake listener with voice, honours opt-in an
   await page.getByRole('button',{name:'Close voice',exact:true}).last().click();await page.waitForFunction(()=>window.localActive);assert.equal(await page.evaluate(()=>window.trackStops),1);
   await page.evaluate(()=>{Object.defineProperty(document,'hidden',{get:()=>true,configurable:true});document.dispatchEvent(new Event('visibilitychange'));});await page.waitForFunction(()=>!window.localActive);
   await page.evaluate(()=>{Object.defineProperty(document,'hidden',{get:()=>false,configurable:true});document.dispatchEvent(new Event('visibilitychange'));});await page.waitForFunction(()=>window.localActive);
-  await page.locator('#voiceSettings').click();await page.waitForFunction(()=>!window.localActive);await settings.getByRole('button',{name:'Turn wake listening off'}).click();await settings.getByRole('button',{name:'Close settings',exact:true}).click();
+  await page.locator('#voiceSettings').click();await page.waitForFunction(()=>!window.localActive);assert.equal(await settings.getByRole('button',{name:'Disable Hey James',exact:true}).isVisible(),true);await settings.getByRole('button',{name:'Turn wake listening off'}).click();await settings.getByRole('button',{name:'Close settings',exact:true}).click();
   assert.equal(await page.evaluate(()=>window.jamesWallDisplay.snapshot().wake.wanted),false);assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem('james:wall-display:v1')).regularWake),false);
   await page.evaluate(()=>{window.unsupported=true;});await page.locator('#voiceSettings').click();await settings.getByRole('button',{name:'Enable Hey James',exact:true}).click();await settings.getByText('Local Hey James is unavailable in this browser. Tap to wake still works.',{exact:true}).waitFor();
   assert.equal(await page.evaluate(()=>window.localActive),false);assert.equal(await page.evaluate(()=>window.providerCalls),1);
