@@ -1,0 +1,9 @@
+James mobile wake preview bundles vosk-browser 0.0.8 (Ciaran O'Reilly),
+the Vosk WebAssembly runtime, and vosk-model-small-en-us-0.15.
+Model copyright 2020 Alpha Cephei Inc. Apache License, Version 2.0.
+https://github.com/ccoreilly/vosk-browser
+https://github.com/alphacep/vosk-api
+https://alphacephei.com/vosk/models
+The model archive README and its original files are retained.
+Only the archive packaging is changed from ZIP to deterministic tar.gz.
+The JavaScript runtime is copied unchanged from its integrity-verified npm package.

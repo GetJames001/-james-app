@@ -18,7 +18,7 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci --ignore-scripts
-      - run: npx playwright install --with-deps chromium
+      - run: npx playwright install --with-deps chromium webkit
       - name: Prepare disposable local Redis verification
         shell: bash
         run: |
@@ -30,5 +30,8 @@ jobs:
           redis_binary="$(command -v redis-server)"
           test -x "$(dirname "$redis_binary")/redis-cli"
           printf 'JAMES_TEST_REDIS_BIN=%s\n' "$redis_binary" >> "$GITHUB_ENV"
+      - run: node wake-assets-build.cjs
       - run: npm test
+        env:
+          JAMES_TEST_MOBILE_WEBKIT: "true"
       - run: npm audit --omit=dev

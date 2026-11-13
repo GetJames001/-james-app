@@ -7,8 +7,17 @@
   },
   "routes": [
     {
+      "src": "^/assets/wake/v1/(vosk-0\\.0\\.8\\.js|english-0\\.15\\.tar\\.gz|LICENSE\\.txt|NOTICE\\.txt|manifest\\.json)$",
+      "dest": "/assets/wake/v1/$1",
+      "headers": {
+        "Cache-Control": "public, max-age=31536000, immutable",
+        "X-Content-Type-Options": "nosniff"
+      }
+    },
+    {
       "src": "^/(.*)$",
       "dest": "/api/gateway?path=$1"
     }
-  ]
+  ],
+  "buildCommand": "node wake-assets-build.cjs"
 }
