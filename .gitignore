@@ -5,3 +5,4 @@ node_modules/
 assets/wake/v1/vosk-0.0.8.js
 assets/wake/v1/english-0.15.tar.gz
 assets/wake/v1/manifest.json
+public/

@@ -28,6 +28,9 @@ async function build(){
   const manifest={runtime:'vosk-browser@0.0.8',model:MODEL,files:[]};
   for(const name of ['vosk-0.0.8.js','english-0.15.tar.gz']){const data=await fs.readFile(path.join(output,name));manifest.files.push({name,bytes:data.length,sha256:createHash('sha256').update(data).digest('hex')});}
   await fs.writeFile(path.join(output,'manifest.json'),JSON.stringify(manifest,null,2)+'\n');
+  const published=path.join(__dirname,'public/assets/wake/v1');
+  await fs.mkdir(published,{recursive:true});
+  for(const name of ['vosk-0.0.8.js','english-0.15.tar.gz','manifest.json','LICENSE.txt','NOTICE.txt'])await fs.copyFile(path.join(output,name),path.join(published,name));
   console.log(JSON.stringify(manifest));
  }finally{await fs.rm(temp,{recursive:true,force:true});}
 }

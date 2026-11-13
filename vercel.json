@@ -19,5 +19,6 @@
       "dest": "/api/gateway?path=$1"
     }
   ],
-  "buildCommand": "node wake-assets-build.cjs"
+  "buildCommand": "node wake-assets-build.cjs",
+  "outputDirectory": "public"
 }
