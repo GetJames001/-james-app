@@ -51,14 +51,16 @@ for(const [name,browserType] of [['Chromium',chromium],...(process.env.JAMES_TES
     document.querySelector('#start').onclick=async()=>{
      const audio=new AudioContext();await audio.resume();const bytes=Uint8Array.from(atob(wav),c=>c.charCodeAt(0));const decoded=await audio.decodeAudioData(bytes.buffer);
      const buffer=audio.createBuffer(1,decoded.length+audio.sampleRate*3,audio.sampleRate);buffer.getChannelData(0).set(decoded.getChannelData(0),audio.sampleRate);
-     const destination=audio.createMediaStreamDestination();let calls=0,micAt=0,engine,source;
+     let destination,calls=0,micAt=0,engine,source;
      class ObservedRecognition extends JamesMobileWakeRecognition{constructor(){super();engine=this;}}
-     Object.defineProperty(navigator,'mediaDevices',{configurable:true,value:{getUserMedia:async()=>{calls++;window.fixtureMicCalls=calls;micAt=performance.now();source=audio.createBufferSource();source.buffer=buffer;source.connect(destination);return destination.stream;}}});
+     Object.defineProperty(navigator,'mediaDevices',{configurable:true,value:{getUserMedia:async()=>{calls++;window.fixtureMicCalls=calls;micAt=performance.now();destination=engine.context.createMediaStreamDestination();source=engine.context.createBufferSource();source.buffer=buffer;source.connect(destination);return destination.stream;}}});
      const listener=JamesWakeListener.create({Recognition:null,MobileRecognition:ObservedRecognition,onStatus:state=>{window.fixtureState=state;window.fixtureStates.push(state.phase);
       if(state.phase==='listening'){
        window.fixtureDiagnostics.listeningDelayMs=Math.round(performance.now()-micAt);
        const receive=engine.node.port.onmessage;engine.node.port.onmessage=event=>{window.fixtureDiagnostics.frames++;if(event.data.some(value=>Math.abs(value)>0.001))window.fixtureDiagnostics.nonzero++;receive(event);};
        engine.recognizer.on('result',event=>window.fixtureDiagnostics.results.push(event.result));
+       // Use the capture context's clock: a second live output context would add
+       // synthetic cross-clock resampling/dropouts that a microphone does not.
        // Speak after the advertised listening cue, not during permission/startup.
        // No retry or looping utterance is used to hide a missed wake.
        source.start();
