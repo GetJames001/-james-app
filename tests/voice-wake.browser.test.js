@@ -11,7 +11,7 @@ test('regular James shares one local wake listener with voice, honours opt-in an
   await page.evaluate(()=>{
    window.starts=0;window.voiceStarts=0;window.providerCalls=0;window.trackStops=0;window.localActive=false;
    class Recognition extends EventTarget{static async available(){return window.unsupported?'unavailable':'available';}constructor(){super();this.processLocally=false;}start(){if(window.localActive)throw Error('Two wake listeners');if(window.jamesVoice?.active())throw Error('Voice owns microphone');window.localActive=true;window.recognition=this;window.starts++;this.onstart?.();}abort(){window.localActive=false;queueMicrotask(()=>this.dispatchEvent(new Event('end')));}}
-   window.SpeechRecognition=Recognition;Object.defineProperty(navigator,'permissions',{value:{query:async()=>({state:'granted'})},configurable:true});
+   window.SpeechRecognition=Recognition;Object.defineProperty(navigator,'permissions',{value:{query:async()=>({state:window.permissionState||'granted'})},configurable:true});
    const scope={accountId:'fixture',conversationId:'fixture-conversation',generation:1},owner={current:()=>scope,snapshotIdentity:async()=>scope};
    class Peer{createDataChannel(){return {readyState:'open',send(){},close(){}};}addTrack(){}async createOffer(){return {type:'offer',sdp:'v=0 synthetic'};}async setLocalDescription(){}async setRemoteDescription(){}close(){}}
    localStorage.setItem('james:voice','marin');
@@ -32,6 +32,9 @@ test('regular James shares one local wake listener with voice, honours opt-in an
   await page.getByRole('button',{name:'Close voice',exact:true}).last().click();await page.waitForFunction(()=>window.localActive);assert.equal(await page.evaluate(()=>window.trackStops),1);
   await page.evaluate(()=>{Object.defineProperty(document,'hidden',{get:()=>true,configurable:true});document.dispatchEvent(new Event('visibilitychange'));});await page.waitForFunction(()=>!window.localActive);
   await page.evaluate(()=>{Object.defineProperty(document,'hidden',{get:()=>false,configurable:true});document.dispatchEvent(new Event('visibilitychange'));});await page.waitForFunction(()=>window.localActive);
+  await page.evaluate(async()=>{window.permissionState='prompt';await window.jamesWallDisplay.pauseWake();await window.jamesWallDisplay.resumeWake();});
+  assert.equal(await page.evaluate(()=>window.jamesWallDisplay.snapshot().wake.phase),'permission_required');
+  await page.locator('#voiceSettings').click();await settings.getByRole('button',{name:'Enable Hey James',exact:true}).click();await page.waitForFunction(()=>window.localActive);await page.evaluate(()=>{window.permissionState='granted';});
   await page.locator('#voiceSettings').click();await page.waitForFunction(()=>!window.localActive);assert.equal(await settings.getByRole('button',{name:'Disable Hey James',exact:true}).isVisible(),true);await settings.getByRole('button',{name:'Turn wake listening off'}).click();await settings.getByRole('button',{name:'Close settings',exact:true}).click();
   assert.equal(await page.evaluate(()=>window.jamesWallDisplay.snapshot().wake.wanted),false);assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem('james:wall-display:v1')).regularWake),false);
   await page.evaluate(()=>{window.unsupported=true;});await page.locator('#voiceSettings').click();await settings.getByRole('button',{name:'Enable Hey James',exact:true}).click();await settings.getByText('Local Hey James is unavailable in this browser. Tap to wake still works.',{exact:true}).waitFor();

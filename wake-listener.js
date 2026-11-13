@@ -9,7 +9,7 @@
   async function disable(){wanted=false;await pause();}
   async function listen(interactive=false){
    if(!wanted||document.hidden||!allowed()||engine)return false;const generation=++ticket;const released=await stopping;if(generation!==ticket)return false;if(!released){status('paused','Microphone release could not be verified. Tap to wake.');return false;}
-   if(!interactive){try{const permission=await permissions?.query({name:'microphone'});if(permission?.state!=='granted'){status('permission_required','Tap Enable Hey James to allow the microphone.');return false;}}catch{status('permission_required','Tap Enable Hey James to allow the microphone.');return false;}}
+   if(!interactive){try{const permission=await permissions?.query({name:'microphone'});if(permission?.state!=='granted'){wanted=false;status('permission_required','Tap Enable Hey James to allow the microphone.');return false;}}catch{wanted=false;status('permission_required','Tap Enable Hey James to allow the microphone.');return false;}}
    status('checking','Checking local wake-word support…');const available=await check();
    if(generation!==ticket||!wanted||document.hidden||!allowed())return false;
    if(available!=='available'){status(available==='downloadable'||available==='downloading'?'download_required':'unsupported',available==='downloadable'||available==='downloading'?'A local speech pack is needed. Download it in Voice or Display settings.':'Local Hey James is unavailable in this browser. Tap to wake still works.');return false;}
