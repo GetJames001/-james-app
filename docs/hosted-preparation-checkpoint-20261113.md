@@ -1,0 +1,32 @@
+# Successor reconciliation and disabled hosted preparation seam
+
+November 13, 2026 (Pacific). Logical base: PR88 `d440d93e0e1075548cef87298d62a1a50d0eb043`, tree `d068a1d7b88605204d4feb00dada65ef20dc43bb`. All 334 recovered source blobs match the remote recursive Git tree. Local recovery Git history is a snapshot; it must not be pushed as replacement ancestry. Publish additions with the real remote parent.
+
+## Reconciled evidence
+
+- Latest master checklist is version103, not102. The missing558-test increment is published draft PR88 on `work/agent-systems-dispatcher-20261112`, stacked on draft PR87. PR87 remains `1c4edc1e46b4197f17c3b844c0d1d6ca877d3505`. PR58 remains draft/open at `4012695b5cdde4b5801f4d451d7ae2aefa3b40cd`. No merge occurred.
+- Read-only dashboard verification: accepted integration deployment `CAQX8FNJFpMRBPDZuVp2byjqXsKz` is Ready/Preview at `https://james-81nlgn60v-james-cb7a.vercel.app/`, source4012695; supplied branch alias is attached to it. Dispatcher deployment `EE1JW5XR33KT7Vgac2P2Fd5TNo7R` is Ready/Preview at `https://james-gfabkevdz-james-cb7a.vercel.app/`, source d440d93, with dispatcher branch alias attached. Production dashboard remains main5953549.
+- PR88 job131681842204/run43363361583 logs independently confirm559total/558passed/0failed/1skipped and the forced-process-death evidence, including `actualDeviceTest=false` and `hostedSchedulerTest=false`.
+- Current Vercel connection still returns404 for the exact known James project; dashboard access works. This is an API visibility mismatch, not deletion or permission restoration. No account, grant or setting changed.
+
+## New source and limits
+
+`dispatch-rest-storage.cjs` provides narrow, separate dispatch/notification REST CAS ports using the existing CAS script and bounded response reader. It rejects other namespaces, invalid results and oversized values, and masks upstream errors. The original task adapter is unchanged.
+
+`preview-proof.cjs` composes the published ledger, triggers, dispatcher and outbox with these ports. It is server-only, has no route or automatic invocation, and requires exact Preview branch plus explicit enable flag and valid absolute start/end instants within30minutes. A fresh owner-plus-proof-ID hash isolates the pilot from the main account's task records. Two fixed fictional preparations are the only registrations. Follow-up blocks until the fixed fictional missing input is supplied; the agenda can finish independently. Restarted compositions reuse persisted receipts. Stop revokes registrations and suppresses queued notifications even after expiry, retaining evidence. The original Workbench API remains default-off on its original branch; this pilot scope is not yet visible in the live user interface.
+
+No notification sender is installed: queued is not delivered. No scheduler, receiver, package, new credential, live mailbox/calendar read/write, provider/model call, paid service, Production or separate Wardrobe change is included. The clock window bounds admission, not platform billing or arbitrary already-running JavaScript. Existing finite transport timeouts and fences remain necessary. A separately reviewed transport must bind configured server identity, authenticate scheduler origin and honor cancellation/deadlines before activation. A final public/physical-device journey is not ready yet.
+
+## Security gate preparation
+
+The inherited `protected-preview-security.yml` is pinned to the old customer-activity branch/Production base and cannot validate this stack. It remains untouched. New `task-hosted-proof.yml` runs full Chromium/disposable-Redis regressions and audit without protected credentials. Its separate hosted-security path requires: same-repository PR from this exact branch, pinned PR88 base, owner original/re-run actors, attempt>1, open/current PR head/base, exact reviewed PR/head variables, a verified fixed branch hostname, and an immutable successful Vercel deployment for that head. It checks out that exact head and passes the existing automation secret only to the original deployed gateway suite. No dependency installation runs with the secret. First-run skip is never a hosted security pass.
+
+Approval variables: `JAMES_TASK_PROOF_APPROVED_PR`, `JAMES_TASK_PROOF_APPROVED_HEAD`, `JAMES_TASK_PROOF_BRANCH_URL`. Existing encrypted secret name: `JAMES_VERCEL_AUTOMATION_BYPASS`. Presence/access have not been established. No variable/secret was read, created or changed. A new temporary bypass would grant access across the James project's protected deployments until revoked; it requires specific approval and direct credential handling. Revoke after recording results. Never disable Vercel Authentication or publish a share link to obtain a pass.
+
+## Verification and next gates
+
+Focused transport plus retained dispatcher/process/storage suite:31passed/0failed/0skipped. Native suite before the new Redis-only test:496total/493passed/0failed/3environment-dependent skips. Local full-browser attempt cannot establish acceptance in this runtime; exact-revision remote Chromium/Redis results are required after publication. The new disposable Redis test verifies the composed three namespaces and independent runtime instances, cancellation and outage; its actual result must be attached after CI.
+
+Next: publish only these additions as a draft stacked PR, attach exact CI/Preview results, then run the exact-head hosted security gate using approved temporary access. Do not turn on recurring work before a concrete activation diff, current usage/cost review and approval where required. Preferred next compatibility experiment is the official private-function schedule target (no public scheduler credential), subject to this gateway's catch-all route/build verification. Current official references: https://vercel.com/docs/schedules/configuration and https://vercel.com/docs/schedules/handle-runs . No compatibility pass or new schedule is implied.
+
+The later limited hosted journey must record provider-scheduled invocations with all clients closed, independently blocked/completed tasks, actual worker restart/recovery, cancellation/duplicate suppression and honest notification outcomes; then request Michael's one genuine second-device journey. Mail timeout/owner identity and Wardrobe identity/calendar/thumbnail investigations remain separate open items. Accepted routing, Calendar, Workbench, entrance, Files and Wardrobe reviews stay protected.

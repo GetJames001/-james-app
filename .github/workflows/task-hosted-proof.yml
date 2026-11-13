@@ -1,0 +1,133 @@
+name: Isolated hosted preparation proof
+on:
+  push:
+    branches: [work/hosted-preparation-proof-20261113]
+  pull_request:
+    branches: [work/agent-systems-dispatcher-20261112]
+permissions:
+  contents: read
+  deployments: read
+  pull-requests: read
+  statuses: read
+jobs:
+  regressions:
+    if: github.event_name == 'push' || github.head_ref == 'work/hosted-preparation-proof-20261113'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: npx playwright install --with-deps chromium
+      - name: Prepare disposable Redis
+        run: |
+          set -euo pipefail
+          if ! command -v redis-server >/dev/null || ! command -v redis-cli >/dev/null; then
+            sudo apt-get update -qq
+            sudo apt-get install -y --no-install-recommends redis-server redis-tools
+          fi
+          printf 'JAMES_TEST_REDIS_BIN=%s\n' "$(command -v redis-server)" >> "$GITHUB_ENV"
+      - run: npm test
+      - run: npm audit --omit=dev
+  authorize-security:
+    if: github.event_name == 'pull_request' && github.head_ref == 'work/hosted-preparation-proof-20261113'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      authorized: ${{ steps.mapping.outputs.authorized }}
+      head: ${{ steps.mapping.outputs.head }}
+      urls: ${{ steps.mapping.outputs.urls }}
+    steps:
+      - name: Require owner re-run and explicit exact-head approval
+        id: gate
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT_HEAD: ${{ github.event.pull_request.head.sha }}
+          EVENT_BASE: ${{ github.event.pull_request.base.sha }}
+          EVENT_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+          EVENT_BRANCH: ${{ github.head_ref }}
+          PR: ${{ github.event.pull_request.number }}
+          ACTOR: ${{ github.actor }}
+          TRIGGERING_ACTOR: ${{ github.triggering_actor }}
+          ATTEMPT: ${{ github.run_attempt }}
+          APPROVED_PR: ${{ vars.JAMES_TASK_PROOF_APPROVED_PR }}
+          APPROVED_HEAD: ${{ vars.JAMES_TASK_PROOF_APPROVED_HEAD }}
+        run: |
+          set -euo pipefail
+          set +x
+          echo 'authorized=false' >> "$GITHUB_OUTPUT"
+          if [[ "$ATTEMPT" == '1' ]]; then
+            echo '::notice::Hosted security is not run on ordinary CI. Requires owner exact-head approval and re-run.'
+            exit 0
+          fi
+          test "$ACTOR" = GetJames001
+          test "$TRIGGERING_ACTOR" = GetJames001
+          test "$EVENT_REPO" = "$GITHUB_REPOSITORY"
+          test "$EVENT_BRANCH" = work/hosted-preparation-proof-20261113
+          test "$EVENT_BASE" = d440d93e0e1075548cef87298d62a1a50d0eb043
+          test "$APPROVED_PR" = "$PR"
+          test "$APPROVED_HEAD" = "$EVENT_HEAD"
+          echo 'Verifying current pull-request metadata.'
+          current_pr=$(gh api "repos/$GITHUB_REPOSITORY/pulls/$PR")
+          jq -e --arg head "$EVENT_HEAD" --arg base "$EVENT_BASE" '.state == "open" and .head.sha == $head and .base.sha == $base' <<< "$current_pr" >/dev/null
+          echo 'authorized=true' >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        if: steps.gate.outputs.authorized == 'true'
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        if: steps.gate.outputs.authorized == 'true'
+        with:
+          node-version: 22
+      - name: Bind exact-head status to the dashboard-reviewed immutable deployment
+        id: mapping
+        if: steps.gate.outputs.authorized == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT_HEAD: ${{ github.event.pull_request.head.sha }}
+          APPROVED_DEPLOYMENT_ID: ${{ vars.JAMES_TASK_PROOF_DEPLOYMENT_ID }}
+          APPROVED_IMMUTABLE_URL: ${{ vars.JAMES_TASK_PROOF_IMMUTABLE_URL }}
+          BRANCH_URL: ${{ vars.JAMES_TASK_PROOF_BRANCH_URL }}
+        run: |
+          set -euo pipefail
+          set +x
+          test "$(git rev-parse HEAD)" = "$EVENT_HEAD"
+          metadata_file=$(mktemp)
+          authored_file=$(mktemp)
+          trap 'rm -f "$metadata_file" "$authored_file"' EXIT
+          gh api "repos/$GITHUB_REPOSITORY/commits/$EVENT_HEAD/status" > "$metadata_file"
+          gh api "repos/$GITHUB_REPOSITORY/commits/$EVENT_HEAD/statuses?per_page=100" > "$authored_file"
+          node tools/task-execution-proof/verify-preview-metadata.cjs "$metadata_file" "$authored_file"
+  hosted-security:
+    needs: [regressions, authorize-security]
+    if: needs.authorize-security.outputs.authorized == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ needs.authorize-security.outputs.head }}
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 22
+      - name: Probe both protected application gateways
+        env:
+          EXPECTED_HEAD: ${{ needs.authorize-security.outputs.head }}
+          JAMES_SECURITY_USE_AUTOMATION_BYPASS: '1'
+          JAMES_SECURITY_PREVIEW_URLS: ${{ needs.authorize-security.outputs.urls }}
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.JAMES_VERCEL_AUTOMATION_BYPASS }}
+        run: |
+          set -euo pipefail
+          set +x
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test -n "$VERCEL_AUTOMATION_BYPASS_SECRET"
+          echo "::add-mask::$VERCEL_AUTOMATION_BYPASS_SECRET"
+          trap 'unset VERCEL_AUTOMATION_BYPASS_SECRET' EXIT
+          node --test tests/deployed-security.test.js
