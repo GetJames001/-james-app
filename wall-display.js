@@ -9,7 +9,7 @@
  };
  function mount({settingsButton,app,read=()=>({}),navigate=()=>{},voice=()=>root.jamesVoice,ask=request=>root.jamesConversationUI?.ask(request),fetcher=fetch,wakeLock=root.navigator?.wakeLock,storage,document=root.document,now=Date.now}={}){
   if(storage===undefined)try{storage=root.localStorage}catch{}
-  let config={mode:'regular',dim:true,idle:60,scene:'evening',wake:false};try{const saved=JSON.parse(storage?.getItem('james:wall-display:v1')||'null');if(saved){config.mode=saved.mode==='wall'?'wall':'regular';config.dim=saved.dim!==false;config.idle=[30,60,180].includes(saved.idle)?saved.idle:60;config.scene=Object.hasOwn(scenes,saved.scene)?saved.scene:'evening';config.wake=saved.wake===true;}}catch{}
+  let config={mode:'regular',dim:true,idle:60,scene:'evening',wake:false,regularWake:false};try{const saved=JSON.parse(storage?.getItem('james:wall-display:v1')||'null');if(saved){config.mode=saved.mode==='wall'?'wall':'regular';config.dim=saved.dim!==false;config.idle=[30,60,180].includes(saved.idle)?saved.idle:60;config.scene=Object.hasOwn(scenes,saved.scene)?saved.scene:'evening';config.wake=saved.wake===true;config.regularWake=saved.regularWake===true;}}catch{}
   const element=(tag,text)=>{const node=document.createElement(tag);if(text)node.textContent=text;return node;},button=(label,action)=>{const node=element('button',label);node.type='button';node.onclick=action;return node;};
   const settings=element('dialog');settings.className='wall-settings';settings.setAttribute('aria-label','James display settings');settings.append(element('h2','Display mode'));
   function choice(label,values,value,onchange){const wrap=element('label',label),select=element('select');select.setAttribute('aria-label',label);for(const [v,t] of values){const option=element('option',t);option.value=v;select.append(option);}select.value=String(value);select.onchange=()=>onchange(select.value);wrap.append(select);settings.append(wrap);return select;}
@@ -19,10 +19,10 @@
   const dimLabel=element('label'),dim=element('input');dim.type='checkbox';dim.checked=config.dim;dim.onchange=()=>{config.dim=dim.checked;save();paint();};dimLabel.append(dim,document.createTextNode('Dim automatically from 8 PM to 7 AM'));settings.append(dimLabel);
   settings.append(element('p','Dimming changes the James display, not the tablet brightness. Room-light sensing is not connected. Wall mode keeps the app open; tablet/browser sleep, battery saving and sign-in limits still apply.'));
   const lockStatus=element('p'),wakeStatus=element('p');wakeStatus.setAttribute('role','status');lockStatus.setAttribute('role','status');
-  const wakeButton=button('Enable Hey James',()=>void toggleWake());wakeButton.setAttribute('aria-pressed','false');const stopWake=button('Turn wake listening off',()=>{config.wake=false;save();void listener.disable();});const install=button('Download local speech pack',()=>void listener.install());install.hidden=true;
+  const wakeButton=button('Enable Hey James',async()=>{if(await toggleWake()===false&&!document.hidden&&!settings.open)settings.showModal();});wakeButton.setAttribute('aria-pressed','false');const stopWake=button('Turn wake listening off',()=>void disableWake());const install=button('Download local speech pack',()=>void listener.install());install.hidden=true;
   const retryLock=button('Retry screen wake lock',()=>void acquireLock());
   retryLock.hidden=true;
-  settings.append(lockStatus,retryLock,element('h3','Hey James'),element('p','Optional local wake-phrase listening while this ambient screen is visible. The browser must support on-device recognition. No room audio is sent to a cloud recognizer. After waking, the normal James conversation uses the existing voice service. If you speak a command with the wake phrase, repeat it after James connects.'),wakeStatus,wakeButton,stopWake,install,button('Close settings',()=>settings.close()));document.body.append(settings);
+  settings.append(lockStatus,retryLock,element('h3','Hey James'),element('p','Say “Hey James” while James is visible. Wake listening stays on this device; first mobile use downloads about 45 MB. Conversation audio uses the existing voice service. It pauses when James is hidden or the screen locks. Say your request after James connects. Browser support varies.'),wakeStatus,wakeButton,stopWake,install,button('Close settings',()=>settings.close()));document.body.append(settings);
   const ambient=element('section');ambient.className='wall-ambient';ambient.hidden=true;ambient.setAttribute('aria-label','James ambient wall display');
   const movie=element('video');movie.className='wall-scene-video';movie.defaultMuted=true;movie.muted=true;movie.loop=true;movie.playsInline=true;
   movie.setAttribute('aria-hidden','true');movie.onplaying=()=>{movie.dataset.playing='true';};movie.onpause=()=>{movie.dataset.playing='false';};movie.onerror=()=>{movie.dataset.playing='false';};
@@ -49,8 +49,13 @@
   const talk=button('',()=>void wakeAndTalk());talk.className='wall-talk';talk.setAttribute('aria-label','Tap to talk to James');talk.title='Talk to James';const controls=element('div');controls.className='wall-controls';controls.append(talk,button('Display settings',showSettings),button('Regular mode',()=>void setMode('regular')));surface.append(controls,top,tiles,conversationPanel);ambient.append(movie,shade,surface);document.body.append(ambient);
   const back=button('Return to ambient',()=>{voice()?.close();enter();});back.className='wall-return';back.hidden=true;document.body.append(back);
   let conversation=false,busy=false,turn=0,voicePhase='idle',active=false,lastActivity=now(),lock=null,lockPending=false,lockVersion=0,lastRead=0,lastAuth=0,authPending=false,disposed=false,arming=false;
+  const wakeEnabled=()=>config.mode==='wall'?config.wake:config.regularWake;
   function save(){try{storage?.setItem('james:wall-display:v1',JSON.stringify(config));}catch{}}
-  const listener=root.JamesWakeListener.create({allowed:()=>config.mode==='wall'&&active&&!conversation&&!document.hidden&&!voice()?.active()&&!settings.open,onStatus:state=>{wakeStatus.textContent=state.message;if(!conversation){mic.hidden=state.phase!=='listening';mic.textContent='Listening for “Hey James”';}wakeButton.textContent=state.phase==='listening'?'Disable Hey James':'Enable Hey James';wakeButton.setAttribute('aria-pressed',String(state.phase==='listening'));install.hidden=state.phase!=='download_required';},onWake:async()=>wakeAndTalk()});
+  let wakeState={phase:'off',message:'Wake microphone off.'};
+  const wakeAllowed=()=>!disposed&&!conversation&&!document.hidden&&!voice()?.active()&&!document.querySelector('dialog[open]')&&(config.mode==='regular'||active);
+  const listener=root.JamesWakeListener.create({allowed:wakeAllowed,onStatus:state=>{state={...state,enabled:state.phase==='listening'||(wakeEnabled()&&listener.snapshot().wanted)};wakeState=state;wakeStatus.textContent=state.message;if(!conversation){mic.hidden=state.phase!=='listening';mic.textContent='Listening for “Hey James”';}wakeButton.textContent=state.enabled?'Disable Hey James':'Enable Hey James';wakeButton.setAttribute('aria-pressed',String(state.enabled));install.hidden=state.phase!=='download_required';root.dispatchEvent(new CustomEvent('james:wake-state',{detail:state}));},onWake:async()=>wakeAndTalk(true)});
+  function resumeWake(){if(wakeEnabled()&&!arming&&wakeAllowed())return listener.restore();return Promise.resolve(false);}
+  async function disableWake(){if(config.mode==='wall')config.wake=false;else config.regularWake=false;save();await listener.disable();}
   // Keep due reminders in the wall's layout while conversing, so they cannot cover Send.
   // Restore the same live node to its original host outside wall conversation mode.
   let dockedReminder=null,reminderHost=null,reminderNext=null;
@@ -74,41 +79,40 @@
   function enter(){if(config.mode!=='wall'||document.hidden||document.querySelector('dialog[open]')||voice()?.active())return;conversation=false;mic.hidden=true;busy=false;++turn;send.disabled=false;question.textContent='';answer.textContent='What can I help you with?';active=true;ambient.hidden=false;app.inert=true;app.setAttribute('aria-hidden','true');back.hidden=true;lastActivity=now();refresh();if(config.wake&&!arming)void listener.restore();}
   function wake(page){conversation=false;++turn;busy=false;send.disabled=false;active=false;ambient.hidden=true;app.inert=false;app.removeAttribute('aria-hidden');back.hidden=config.mode!=='wall';lastActivity=now();void listener.pause();paint();if(page)navigate(page);}
   function showConversation(){conversation=true;active=true;ambient.hidden=false;app.inert=true;app.setAttribute('aria-hidden','true');back.hidden=true;lastActivity=now();paint();}
-  async function wakeAndTalk(){if(document.hidden||settings.open||config.mode!=='wall')return;const released=await listener.pause();if(released===false||document.hidden||settings.open||config.mode!=='wall')return;showConversation();if(!voice()?.active())await voice()?.start();}
+  async function wakeAndTalk(fromWake=false){const canTalk=()=>!disposed&&!document.hidden&&!document.querySelector('dialog[open]')&&!voice()?.active()&&(!fromWake||wakeAllowed());if(!canTalk())return;const released=await listener.pause();if(released===false||!canTalk())return;if(config.mode==='wall')showConversation();await voice()?.start();}
   async function toggleWake(){
-   if(config.mode!=='wall'){wakeStatus.textContent='Choose Wall display mode first.';return;}
-   if(listener.snapshot().phase==='listening'){
-    config.wake=false;
-    await listener.disable();
-   }else{
-    arming=true;
-    settings.close();
-    enter();
-    try{
-     config.wake=await listener.enable();
-     if(!config.wake&&!document.hidden&&config.mode==='wall'&&!settings.open)settings.showModal();
-    }finally{arming=false;}
-   }
-   save();
+   if(listener.snapshot().phase==='listening'||(wakeEnabled()&&listener.snapshot().wanted))return disableWake();
+   if(arming)return false;
+   arming=true;
+   const requestedMode=config.mode;
+   settings.close();
+   if(config.mode==='wall')enter();
+   try{
+    const enabled=await listener.enable();
+    if(requestedMode!==config.mode||disposed)return false;
+    if(config.mode==='wall')config.wake=enabled;else config.regularWake=enabled;
+    save();return enabled;
+   }finally{arming=false;}
   }
-  async function setMode(value){config.mode=value;mode.value=value;save();if(value==='wall'){await acquireLock();await checkAuth();settings.close();enter();}else{config.wake=false;save();await listener.disable();await releaseLock();wake();back.hidden=true;}paint();}
+  async function setMode(value){config.mode=value;mode.value=value;save();if(value==='wall'){await acquireLock();await checkAuth();settings.close();enter();}else{config.wake=false;save();await listener.disable();await releaseLock();wake();back.hidden=true;void resumeWake();}paint();}
   function showSettings(){
    if(settings.open)return;
    settings.showModal();
    if(voice()?.active())voice().close();
    void listener.pause();
   }
-  if(settingsButton)settingsButton.onclick=showSettings;settings.addEventListener('close',()=>{lastActivity=now();if(active&&config.wake&&!arming)void listener.resume();});
+  if(settingsButton)settingsButton.onclick=showSettings;settings.addEventListener('close',()=>{lastActivity=now();void resumeWake();});
   document.addEventListener('pointerdown',()=>{lastActivity=now();},{passive:true});document.addEventListener('keydown',()=>{lastActivity=now();});
-  document.addEventListener('visibilitychange',()=>{paintMotion();if(document.hidden){void listener.pause();void releaseLock();}else if(config.mode==='wall'){void acquireLock();void checkAuth();if(active&&config.wake&&!arming)void listener.resume();lastActivity=now();}});
-  root.addEventListener('james:voice-state',event=>{voicePhase=event.detail?.phase||'listening';lastActivity=now();if(event.detail?.active){void listener.pause();if(conversation){mic.hidden=false;mic.textContent='James · '+voicePhase;}}else if(conversation){mic.hidden=!event.detail?.message;mic.textContent=event.detail?.message||'';}});
+  document.addEventListener('visibilitychange',()=>{paintMotion();if(document.hidden){void listener.pause();void releaseLock();}else if(config.mode==='wall'){void acquireLock();void checkAuth();lastActivity=now();}if(!document.hidden)void resumeWake();});
+  root.addEventListener('james:voice-state',event=>{voicePhase=event.detail?.phase||'listening';lastActivity=now();if(event.detail?.active){void listener.pause();if(conversation){mic.hidden=false;mic.textContent='James · '+voicePhase;}}else if(conversation){mic.hidden=!event.detail?.message;mic.textContent=event.detail?.message||'';}else if(!event.detail?.active)void resumeWake();});
   root.addEventListener('james:voice-transcript',event=>{if(!active||!conversation)return;question.textContent=event.detail?.question||'';answer.textContent=event.detail?.answer||'Listening…';lastActivity=now();});
   root.addEventListener('james:page-changed',()=>{if(active&&config.mode==='wall')wake();});
   let timer;function startTimer(){if(timer)return;timer=setInterval(()=>{if(disposed||config.mode!=='wall'||document.hidden)return;if(now()-lastRead>=10000){lastRead=now();refresh();}if(now()-lastAuth>=60000)void checkAuth();if(now()-lastActivity>=config.idle*1000){if(active&&conversation&&!busy&&!['connecting','thinking','speaking'].includes(voicePhase)){voice()?.close();enter();}else if(!active)enter();}},1000);}
-  startTimer();root.addEventListener('pageshow',()=>{disposed=false;paintMotion();startTimer();if(config.mode==='wall'&&!document.hidden){void acquireLock();void checkAuth();if(active&&config.wake)void listener.restore();}});
+  startTimer();root.addEventListener('pageshow',()=>{disposed=false;paintMotion();startTimer();if(config.mode==='wall'&&!document.hidden){void acquireLock();void checkAuth();}void resumeWake();});
   root.addEventListener('pagehide',()=>{disposed=true;paintMotion();clearInterval(timer);timer=null;void listener.disable();voice()?.close();void releaseLock();});
-  paint();if(config.mode==='wall')void setMode('wall');
-  return {pauseWake:()=>listener.pause(),showSettings,enter,wake,setMode,snapshot:()=>({mode:config.mode,ambient:active,conversation,wake:listener.snapshot(),screenAwake:!!lock})};
+  root.addEventListener('james-conversation-ended',()=>void disableWake());
+  paint();if(config.mode==='wall')void setMode('wall');else void resumeWake();
+  return {pauseWake:()=>listener.pause(),resumeWake,toggleWake,disableWake,installWake:()=>listener.install(),wakeStatus:()=>({...wakeState}),showSettings,enter,wake,setMode,snapshot:()=>({mode:config.mode,ambient:active,conversation,wake:listener.snapshot(),screenAwake:!!lock})};
  }
  root.JamesWallDisplay={mount};
 })(typeof window==='undefined'?globalThis:window);

@@ -41,7 +41,15 @@ const unauthorizedCases = [
   { name: "private conversation runtime", target: "/conversation-runtime.js" },
   { name: "private conversation identity", target: "/conversation-identity.mjs" },
   { name: "private conversation bridge", target: "/conversation-bridge.mjs" },
-  { name: "encoded conversation runtime", target: "/%63onversation-runtime.js" }
+  { name: "encoded conversation runtime", target: "/%63onversation-runtime.js" },
+  { name: "portable wake adapter", target: "/mobile-wake-recognition.js" },
+  { name: "portable wake worklet", target: "/mobile-wake-worklet.js" },
+  { name: "encoded portable wake adapter", target: "/%6dobile-wake-recognition.js" },
+  { name: "shared wake coordinator", target: "/wake-listener.js" },
+  { name: "voice session", target: "/voice-session.js" },
+  { name: "voice provider route", target: "/api/james/voice" },
+  { name: "non-allowlisted model path", target: "/assets/wake/v1/private.json" },
+  { name: "static prefix escape", target: "/assets/wake/v1/../../app.js" }
 ];
 
 const redirectCases = [
@@ -322,6 +330,26 @@ test("authorized automation reaches both protected Preview application gateways"
   validatePreviewUrls();
 
   for (const baseUrl of previewUrls) {
+    const manifestResponse=authorizedRequest(baseUrl,"/assets/wake/v1/manifest.json");
+    assert.equal(manifestResponse.status,200,"public licensed model manifest");
+    assert.deepEqual(headerValues(manifestResponse,"x-content-type-options"),["nosniff"]);
+    assert.deepEqual(headerValues(manifestResponse,"set-cookie"),[]);
+    const manifest=JSON.parse(manifestResponse.body);
+    assert.equal(manifest.runtime,"vosk-browser@0.0.8");
+    assert.equal(manifest.model,"vosk-model-small-en-us-0.15");
+    assert.deepEqual(manifest.files.map(file=>[file.name,file.sha256]),[
+      ["vosk-0.0.8.js","f0c1ff03e925b12b6ffcb41891bcd25d3662c8de0ae9abf86bf62c2c9ebd2e6c"],
+      ["vosk-worker-0.0.8.js","7ba6b482f49ff3d49290b85f4ca13d5c6a5787b237cac1c6d15129668d36f529"],
+      ["english-0.15.tar.gz","96e369245bab3bbdf8f7b5f50c78bb91321566683bc855478096a2693b99b891"]
+    ]);
+    const worker=authorizedRequest(baseUrl,"/assets/wake/v1/vosk-worker-0.0.8.js",{method:"HEAD"});
+    assert.equal(worker.status,200);
+    assert.match(headerValues(worker,"content-security-policy").join(";"),/connect-src 'self' data:/);
+    assert.deepEqual(headerValues(worker,"x-content-type-options"),["nosniff"]);
+    const login=authorizedRequest(baseUrl,"/login");
+    assert.equal(login.status,200);
+    assert.match(headerValues(login,"content-security-policy").join(";"),/worker-src 'self'/);
+    assert.doesNotMatch(headerValues(login,"content-security-policy").join(";"),/'unsafe-eval'/);
     for (const entry of redirectCases) {
       const response = authorizedRequest(baseUrl, entry.target);
       assertGatewayResponse(response, 302, `${baseUrl}: ${entry.name}`);
@@ -376,7 +404,7 @@ test("authorized automation reaches both protected Preview application gateways"
       assert.match(cookie, /Path=\//);
       assert.match(cookie, /HttpOnly/);
       assert.match(cookie, /Secure/);
-      assert.match(cookie, /SameSite=Lax/);
+      assert.match(cookie, /SameSite=Strict/);
       assert.match(cookie, /Max-Age=0/);
     }
 

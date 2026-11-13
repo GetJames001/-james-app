@@ -153,9 +153,12 @@ test("API inventory explicitly classifies every deployed function within the Hob
   assert.match(fs.readFileSync(path.join(root, "api/gateway.js"), "utf8"), /auth\/login/);
 });
 
-test("Vercel routes send every normalized path through the fail-closed gateway", () => {
+test("Vercel routes protect application paths and expose only the fixed licensed wake assets", () => {
   const config = JSON.parse(fs.readFileSync(path.join(root, "vercel.json"), "utf8"));
-  assert.deepEqual(config.routes, [{
+  assert.equal(config.routes.length,2);
+  assert.equal(config.routes[0].dest,'/assets/wake/v1/$1');
+  for(const value of ['/','/index.html','/app.js','/api/tasks','/assets/wake/v1/../app.js','/assets/wake/v1/private.json'])assert.equal(new RegExp(config.routes[0].src).test(value),false);
+  assert.deepEqual(config.routes.slice(1), [{
     src: "^/(.*)$",
     dest: "/api/gateway?path=$1"
   }]);

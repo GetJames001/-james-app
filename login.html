@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="robots" content="noindex,nofollow,noarchive">
   <meta name="referrer" content="no-referrer">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; connect-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self'; media-src 'self'; base-uri 'none'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; connect-src 'self'; worker-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self'; media-src 'self'; base-uri 'none'">
   <title>James — Private Access</title>
   <script src="/entrance-scenes.js"></script>
   <style id="loginOnlyStyle">
@@ -123,7 +123,7 @@
         const appScriptPaths = new Set([
           '/mail-refresh.js','/calendar-sync.js','/welcome.js',
           '/conversation-runtime.js','/conversation-ui.js','/voice-session.js','/mail-attention.js',
-          '/appointments-ui.js','/location-context.js','/reminders-ui.js','/wake-listener.js','/wall-display.js','/customer-activity-ui.js','/app.js',
+          '/appointments-ui.js','/location-context.js','/reminders-ui.js','/mobile-wake-recognition.js','/wake-listener.js','/wall-display.js','/customer-activity-ui.js','/app.js',
           '/customer-database-ui.js','/workbench/host.mjs'
         ]);
         const scripts = [...parsed.body.querySelectorAll('script')].flatMap(node=>{
