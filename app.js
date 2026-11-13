@@ -49,22 +49,35 @@ let briefingEvents = [];
 let tasks = [];
 let taskReadState = "loading";
 let taskSaving = false;
+let taskRevision = null;
+let taskWritable = false;
+let taskReadGeneration = 0;
 let removedTask = null;
+function canEditTasks() {
+  return !taskSaving && taskReadState === "available" && taskWritable && !!taskRevision;
+}
 function taskNotice(message) {
   const notice = document.querySelector("#taskNotice");
   if (notice) notice.textContent = message;
 }
 async function changeTaskList(change) {
-  if (taskSaving) return false;
+  if (!canEditTasks()) return false;
   const before = structuredClone(tasks);
   taskSaving = true;
+  taskNotice("");
   change();
   renderTaskPad();
-  const saved = await saveTasks();
-  if (!saved) { tasks = before; taskNotice("Could not save the change. Please try again."); }
+  const outcome = await saveTasks();
+  if (outcome !== "saved") tasks = before;
   taskSaving = false;
+  if (outcome !== "saved") {
+    const refreshed = await loadTasks();
+    taskNotice(outcome === "conflict"
+      ? (refreshed ? "Tasks changed on another device. Latest tasks loaded; your change was not saved. Review and try again." : "Tasks changed on another device. Refresh to review them before trying again.")
+      : (refreshed ? "Could not confirm the save. Latest tasks loaded; check them before trying again." : "Could not confirm the save. Previously loaded tasks retained. Refresh before trying again."));
+  }
   renderTaskPad();
-  return saved;
+  return outcome === "saved";
 }
 async function deleteTask(id) {
   const index = tasks.findIndex(task => task.id === id);
@@ -320,9 +333,9 @@ function renderTaskPad() {
   if (!list) return;
 
   const add = $("#taskAddButton");
-  if (add) add.disabled = taskSaving;
+  if (add) add.disabled = !canEditTasks();
   const undo = $("#taskUndoButton");
-  if (undo) { undo.hidden = !removedTask; undo.disabled = taskSaving; }
+  if (undo) { undo.hidden = !removedTask; undo.disabled = !canEditTasks(); }
   const visibleTasks = tasks.filter(task =>
     activeTaskFilter === "all" || task.domain === activeTaskFilter
   );
@@ -337,8 +350,8 @@ function renderTaskPad() {
   if (!visibleTasks.length) {
     list.innerHTML = `
       <div id="taskEmpty" class="task-empty">
-        <b>No tasks yet.</b>
-        <span>Tasks James is protecting will appear here.</span>
+        <b>${taskReadState === "loading" ? "Loading tasks…" : taskReadState === "unavailable" ? "Tasks unavailable." : "No tasks yet."}</b>
+        <span>${taskReadState === "unavailable" ? "Refresh to try again. Your saved tasks have not been cleared." : taskReadState === "loading" ? "Your saved tasks are loading." : "Tasks James is protecting will appear here."}</span>
       </div>
     `;
     return;
@@ -354,7 +367,7 @@ function renderTaskPad() {
     const checkbox = document.createElement("input");
     checkbox.type = "checkbox";
     checkbox.checked = task.status === "completed";
-    checkbox.disabled = taskSaving;
+    checkbox.disabled = !canEditTasks();
     checkbox.setAttribute("aria-label", `Complete ${task.title}`);
     checkbox.addEventListener("change", async () => {
       const completed = checkbox.checked;
@@ -382,7 +395,7 @@ function renderTaskPad() {
     const remove = document.createElement("button");
     remove.type = "button";
     remove.textContent = "Delete task";
-    remove.disabled = taskSaving;
+    remove.disabled = !canEditTasks();
     remove.addEventListener("click", () => deleteTask(task.id));
     actions.append(menu, remove);
     row.append(checkbox, title, meta, actions);
@@ -390,9 +403,15 @@ function renderTaskPad() {
   });
 }
 async function loadTasks() {
+  if (taskSaving) return false;
+  const generation = ++taskReadGeneration;
+  taskReadState = "loading";
+  taskRevision = null;
+  taskWritable = false;
+  renderTaskPad();
   try {
     const response = await fetch("/api/tasks", {
-      cache: "no-store",
+      cache: "no-store", signal: AbortSignal.timeout(10000),
     });
 
     if (!response.ok) {
@@ -400,14 +419,21 @@ async function loadTasks() {
     }
 
     const data = await response.json();
-    tasks = Array.isArray(data.tasks) ? data.tasks : [];
-    taskReadState = Array.isArray(data.tasks) ? "available" : "unavailable";
+    if (!Array.isArray(data.tasks)) throw new Error("Invalid task response");
+    if (generation !== taskReadGeneration) return false;
+    tasks = data.tasks;
+    taskRevision = typeof data.revision === "string" && /^[a-f0-9]{64}$/.test(data.revision) ? data.revision : null;
+    taskWritable = data.writable === true && !!taskRevision;
+    taskReadState = "available";
+    taskNotice(data.writable === false ? "This Preview shows saved tasks. Changes are disabled." : !taskWritable ? "Refresh James before changing tasks." : "");
     renderTaskPad();
-  } catch (error) {
-    console.error("Task load failed:", error);
-    tasks = [];
+    return true;
+  } catch {
+    if (generation !== taskReadGeneration) return false;
     taskReadState = "unavailable";
+    taskNotice(tasks.length ? "Tasks unavailable. Showing previously loaded tasks; changes are disabled." : "Tasks unavailable. Refresh to try again.");
     renderTaskPad();
+    return false;
   }
 }
 async function saveTasks() {
@@ -417,24 +443,27 @@ async function saveTasks() {
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ tasks }),
+      signal: AbortSignal.timeout(10000),
+      body: JSON.stringify({ tasks, revision: taskRevision }),
     });
-
+    if (response.status === 409 || response.status === 428) return "conflict";
     if (!response.ok) {
       throw new Error(`Task save failed with ${response.status}`);
     }
 
     const data = await response.json();
-    tasks = Array.isArray(data.tasks) ? data.tasks : tasks;
+    if (data.saved !== true || !Array.isArray(data.tasks) ||
+        typeof data.revision !== "string" || !/^[a-f0-9]{64}$/.test(data.revision)) throw new Error("Unconfirmed task save");
+    tasks = data.tasks;
+    taskRevision = data.revision;
     renderTaskPad();
-    return true;
-  } catch (error) {
-    console.error("Task save failed:", error);
-    return false;
+    return "saved";
+  } catch {
+    return "unknown";
   }
 }
 async function createTask() {
-  if (taskSaving) return;
+  if (!canEditTasks()) return;
   const titleInput = $("#taskTitleInput");
   const domainInput = $("#taskDomainInput");
 
@@ -446,7 +475,7 @@ async function createTask() {
   }
 const now = new Date().toISOString();
   const newTask = {
-  id: `task-${Date.now()}`,
+  id: `task-${crypto.randomUUID()}`,
   title,
   domain: domainInput?.value === "personal" ? "personal" : "work",
   status: "open",
@@ -459,12 +488,12 @@ const now = new Date().toISOString();
   const saved = await changeTaskList(() => tasks.unshift(newTask));
 
   if (!saved) {
-    tasks = tasks.filter(task => task.id !== newTask.id);
-    renderTaskPad();
+    // A lost response may follow a committed write. The refresh is authoritative.
+    if (tasks.some(task => task.id === newTask.id) && titleInput.value.trim() === title) titleInput.value = "";
     return;
   }
 
-  titleInput.value = "";
+  if (titleInput.value.trim() === title) titleInput.value = "";
   titleInput.focus();
 }
 document.addEventListener("DOMContentLoaded", () => {

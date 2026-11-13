@@ -4,6 +4,8 @@ const fs=require('node:fs');
 const path=require('node:path');
 const http=require('node:http');
 const {chromium}=require('playwright');
+const {createHash}=require('node:crypto');
+const revision=records=>createHash('sha256').update(JSON.stringify(records)).digest('hex');
 test('task deletion persists, undo preserves records, failures roll back and concurrent writes are blocked',async()=>{
   const original=[{id:'test',title:'Synthetic test',domain:'work',status:'completed',createdAt:'2026-01-01',extra:'preserve'},{id:'real',title:'Synthetic real task',domain:'personal',status:'open'}];
   let records=structuredClone(original),fail=false,hold=false,release,posts=0;
@@ -16,9 +18,11 @@ test('task deletion persists, undo preserves records, failures roll back and con
           posts++;let body='';for await(const chunk of req)body+=chunk;
           if(hold)await new Promise(resolve=>release=resolve);
           if(fail){res.statusCode=503;return res.end('{}');}
-          records=JSON.parse(body).tasks;
+          const data=JSON.parse(body);
+          if(data.revision!==revision(records)){res.statusCode=409;return res.end('{"error":"TASKS_CONFLICT"}');}
+          records=data.tasks;
         }
-        return res.end(JSON.stringify({tasks:records}));
+        return res.end(JSON.stringify({tasks:records,revision:revision(records),writable:true,saved:req.method==='POST'}));
       }
       if(url.pathname==='/api/auth/session')return res.end('{"authenticated":true,"ok":true}');
       return res.end('{"connected":false,"messages":[],"unreadCount":0}');
@@ -37,7 +41,7 @@ test('task deletion persists, undo preserves records, failures roll back and con
     await page.getByText('Task deleted.',{exact:false}).waitFor();assert.deepEqual(records,[original[1]]);
     await page.locator('#taskUndoButton').click();await page.getByText('Task restored.',{exact:true}).waitFor();assert.deepEqual(records,original);
     fail=true;await row('test').locator('summary').click();await row('test').getByRole('button',{name:'Delete task'}).click();
-    await page.getByText('Could not save the change.',{exact:false}).waitFor();assert.equal(await page.locator('.task-row').count(),2);assert.deepEqual(records,original);
+    await page.getByText('Could not confirm the save.',{exact:false}).waitFor();assert.equal(await page.locator('.task-row').count(),2);assert.deepEqual(records,original);
     fail=false;hold=true;const before=posts;
     await row('test').locator('summary').click();await row('test').getByRole('button',{name:'Delete task'}).click();
     await page.waitForFunction(()=>document.querySelector('#taskAddButton').disabled);

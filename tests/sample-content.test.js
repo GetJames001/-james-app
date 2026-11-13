@@ -56,6 +56,6 @@ test('task storage remains persistent and is not seeded or cleared by this clean
 
   assert.match(tasksApi, /const TASKS_KEY = "james:tasks"/);
   assert.match(tasksApi, /\["GET", TASKS_KEY\]/);
-  assert.match(tasksApi, /"SET",\s*TASKS_KEY/);
+  assert.match(tasksApi, /"EVAL", CAS, 1, TASKS_KEY/);
   assert.doesNotMatch(`${index}\n${app}\n${tasksApi}`, /Fix James weather card|Water the plants/);
 });
