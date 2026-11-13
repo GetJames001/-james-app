@@ -21,16 +21,17 @@ test('authenticated browser clients recover preparation results through the real
  // Test-only view. It exercises the actual gateway/auth/storage, without
  // changing the real James interface or sending traffic to an external site.
  const html='<!doctype html><button id="queue">Prepare fictional agenda</button><p id="request-status"></p><pre id="tasks"></pre><script>const command='+JSON.stringify(command)+';async function refresh(){const r=await fetch("/api/james/task-execution");const d=await r.json();document.querySelector("#tasks").textContent=r.ok?d.tasks.map(t=>t.id+" "+t.status).join("\\n"):String(r.status);}document.querySelector("#queue").onclick=async()=>{const r=await fetch("/api/james/task-execution",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(command)});document.querySelector("#request-status").textContent=String(r.status);await refresh();};refresh();</script>';
+ const workbenchHtml='<!doctype html><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="/workbench/workbench.css"><section id="workbench" class="page active"><button id="workbenchExit">Save and return to Briefing</button><p id="workbenchStatus"></p><div id="workbenchRoot" hidden></div></section><section id="briefing" class="page" hidden>Fictional Briefing</section><script>window.fixtureScope={accountId:'+JSON.stringify(owner)+',conversationId:"fixture-conversation",generation:1};window.jamesConversationUI={snapshotWorkspaceIdentity:async()=>({...window.fixtureScope}),end:async()=>{}};window.jamesPageNow=id=>document.querySelectorAll(".page").forEach(el=>{el.hidden=el.id!==id;el.classList.toggle("active",el.id===id);});</script><script type="module" src="/workbench/host.mjs"></script>';
  try{
   browser=await chromium.launch({headless:true});
-  async function client(signedIn){
+  async function client(signedIn,workbench=false){
    const context=await browser.newContext();if(signedIn)await context.addCookies([{name:auth.SESSION_COOKIE,value:token,url:origin,secure:true,httpOnly:true,sameSite:'Lax'}]);
    await context.route('**/*',async route=>{
     const request=route.request(),url=new URL(request.url());assert.equal(url.origin,origin,'no third-party traffic in this proof');
-    if(url.pathname==='/')return route.fulfill({status:200,contentType:'text/html',body:html});
-    if(url.pathname!=='/api/james/task-execution')return route.fulfill({status:404,body:''});
-    const req={method:request.method(),query:{path:'api/james/task-execution',...Object.fromEntries(url.searchParams)},headers:{...await request.allHeaders(),host:url.host},body:request.postData()||undefined},response={code:200,headers:{},setHeader(k,v){this.headers[k]=v;},status(code){this.code=code;return this;},json(body){this.body=body;return this;},end(){return this;}};
-    await gateway(req,response);await route.fulfill({status:response.code,headers:response.headers,body:JSON.stringify(response.body)});
+    if(url.pathname==='/')return route.fulfill({status:200,contentType:'text/html',body:workbench?workbenchHtml:html});
+    if(!url.pathname.startsWith('/workbench/')&&!['/api/james/task-execution','/api/james/workbench'].includes(url.pathname))return route.fulfill({status:404,body:''});
+    const req={method:request.method(),query:{path:url.pathname.slice(1),...Object.fromEntries(url.searchParams)},headers:{...await request.allHeaders(),host:url.host},body:request.postData()||undefined},response={code:200,headers:{},setHeader(k,v){this.headers[k]=v;},status(code){this.code=code;return this;},json(body){this.body=body;return this;},send(body){this.body=body;return this;},end(){return this;}};
+    await gateway(req,response);await route.fulfill({status:response.code,headers:response.headers,body:typeof response.body==='string'?response.body:JSON.stringify(response.body)});
    });
    const page=await context.newPage();await page.goto(origin);return {context,page};
   }
@@ -46,7 +47,15 @@ test('authenticated browser clients recover preparation results through the real
    return {owner:await post({...command,owner:'different-owner'}),completion:await post({...command,type:'complete'})};
   });
   assert.deepEqual(rejected,{owner:400,completion:403});assert.equal(storageCalls,before,'rejected commands never reach storage');assert.equal(store.artifactCount(),1);
+  const workbench=await client(true,true);await workbench.page.waitForFunction(()=>typeof window.jamesWorkbenchNavigate==='function');assert.equal(await workbench.page.evaluate(()=>window.jamesWorkbenchNavigate('workbench')),true);
+  await workbench.page.waitForFunction(()=>document.querySelector('[data-task-status]')?.textContent.includes('Ready'));
+  assert.match(await workbench.page.locator('[data-task-status]').textContent(),/Fictional agenda/);await workbench.page.locator('[data-task-status] summary').click();assert.match(await workbench.page.locator('[data-task-status] pre').textContent(),/09:00 · Fictional planning call/);assert.doesNotMatch(await workbench.page.locator('[data-task-status]').textContent(),/artifactKey|planDigest/);
+  await workbench.page.setViewportSize({width:390,height:844});assert.equal(await workbench.page.locator('[data-task-status]').evaluate(el=>el.scrollWidth<=el.clientWidth),true,'compact status fits phone width');
+  await workbench.page.locator('#workbenchExit').click();await workbench.page.waitForFunction(()=>document.querySelector('#workbenchRoot').hidden);assert.equal(await workbench.page.locator('[data-task-status]').count(),0,'leaving disposes task presentation');
+  assert.equal(await workbench.page.evaluate(()=>window.jamesWorkbenchNavigate('workbench')),true);await workbench.page.waitForFunction(()=>document.querySelector('[data-task-status]')?.textContent.includes('Ready'));
+  await workbench.page.evaluate(()=>window.dispatchEvent(new Event('james-conversation-ended')));await workbench.page.waitForFunction(()=>document.querySelector('#workbenchRoot').hidden);assert.equal(await workbench.page.locator('[data-task-status]').count(),0,'ending the conversation removes private work');
   console.log('TASK_API_BROWSER_EVIDENCE',JSON.stringify({actualGatewayAuth:true,firstBrowserClosedBeforeWorker:true,secondAuthenticatedContextRead:true,reloadPersisted:true,unauthenticatedRejected:true,forgedOwnerRejected:true,workerCommandRejected:true,preparedArtifacts:1,externalProviderCalls:0,actualDeviceTest:false,hostedSchedulerTest:false}));
+  console.log('WORKBENCH_TASK_STATUS_EVIDENCE',JSON.stringify({actualWorkbenchHost:true,preparedResultReadable:true,mobileWidthFits:true,navigationDisposed:true,reentryRecovered:true,conversationEndCleared:true,actualDeviceTest:false,hostedSchedulerTest:false}));
  }finally{
   await browser?.close();if(worker&&worker.exitCode===null&&worker.signalCode===null)worker.kill('SIGKILL');store.close();fs.rmSync(dir,{recursive:true,force:true});global.fetch=originalFetch;for(const key of envKeys)previous[key]===undefined?delete process.env[key]:process.env[key]=previous[key];
  }
