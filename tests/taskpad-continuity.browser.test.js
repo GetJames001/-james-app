@@ -36,7 +36,7 @@ test('Task Pad preserves other-device updates, drafts and unknown outcomes; unav
   await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));let browser;
   try{
     browser=await chromium.launch({headless:true});
-    const context=await browser.newContext({viewport:{width:390,height:844}});
+    const context=await browser.newContext({viewport:{width:390,height:844},reducedMotion:'reduce'});
     await context.route('https://**',r=>r.abort());
     const address=`http://127.0.0.1:${server.address().port}`;
     const a=await context.newPage(),b=await context.newPage();
@@ -44,11 +44,12 @@ test('Task Pad preserves other-device updates, drafts and unknown outcomes; unav
       await page.bringToFront();
       await page.goto(address);
       await page.waitForFunction(()=>typeof taskReadState!=='undefined'&&taskReadState!=='loading');
-      await page.evaluate(()=>{document.querySelectorAll('.intro,.intro-overlay').forEach(el=>el.remove());document.querySelector('nav [data-page=attention]').click();document.querySelector('[data-action-page=tasks]').click();document.body.classList.remove('frosted');});
+      await page.waitForFunction(()=>document.querySelector('#app').inert===false);
+      await page.locator('nav [data-page=attention]').click();
+      await page.locator('#attention [data-action-page=tasks]').click();
     }
     async function add(page,title){
-      // Chromium keyboard insertion follows the active tab. Select the client
-      // before entering text, then verify the intended draft before clicking.
+      // Select the client and verify its draft before clicking.
       await page.bringToFront();
       await page.locator('#taskTitleInput').fill(title);
       assert.equal(await page.locator('#taskTitleInput').inputValue(),title);
