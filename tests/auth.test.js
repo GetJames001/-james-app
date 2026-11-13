@@ -131,6 +131,8 @@ test("API inventory explicitly classifies every deployed function within the Hob
     "api/microsoft/callback.js"
   ]);
   const mixedFunctions = new Set(["api/gateway.js"]);
+  // Private platform target, permanently disabled in this compatibility probe.
+  const disabledPrivateFunctions = new Set(["api/proof-schedule.js"]);
   const expectedProtected = new Set([
     "api/council.js",
     "api/fast.js",
@@ -144,7 +146,7 @@ test("API inventory explicitly classifies every deployed function within the Hob
 
   assert.deepEqual(
     new Set(apiFiles),
-    new Set([...publicFunctions, ...mixedFunctions, ...expectedProtected])
+    new Set([...publicFunctions, ...mixedFunctions, ...expectedProtected, ...disabledPrivateFunctions])
   );
   assert.ok(apiFiles.length <= 12, `Vercel Hobby function limit exceeded: ${apiFiles.length}`);
   for (const file of expectedProtected) {

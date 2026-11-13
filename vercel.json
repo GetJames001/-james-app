@@ -1,5 +1,9 @@
 {
   "functions": {
+    "api/proof-schedule.js": {
+      "experimentalTriggers": [{ "type": "schedule/v1beta" }],
+      "maxDuration": 15
+    },
     "api/gateway.js": {
       "includeFiles": "{*.html,*.js,*.mjs,*.css,*.png,assets/**/*.png,assets/orb/*.svg,assets/scenes/*.mp4,assets/scenes/*.jpg,workbench/**/*.js,workbench/**/*.mjs,workbench/**/*.css,workbench/**/*.svg}",
       "maxDuration": 120
