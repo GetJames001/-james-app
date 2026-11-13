@@ -30,6 +30,7 @@ const exactHandlers = new Map([
   ["api/google/appointments/connect", require("../lib/appointments/connect.js").connect],
   ["api/james/workbench", workbench],
   ["api/james/conversation", conversation],
+  ["api/james/task-execution", require("../lib/routes/task-execution.js")],
   ["api/james/voice", require("../lib/routes/voice.js")],
   ["api/james/files", require("../lib/routes/files.js")],
   ["api/auth/login", login],
