@@ -1,6 +1,6 @@
 # James background work: contracts and first proof
 
-Prepared November 12, 2026 (Pacific). Status: source audit and bounded implementation assignment; no new background service is activated by this document.
+Prepared November 12, 2026 (Pacific). Status: source audit and bounded implementation assignment; isolated domain/process proof is now implemented (see task-execution-proof-evidence-20261112.md). No new hosted background service is activated.
 
 ## Checkpoint and protected work
 
