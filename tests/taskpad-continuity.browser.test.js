@@ -39,7 +39,8 @@ test('Task Pad preserves other-device updates, drafts and unknown outcomes; unav
     const context=await browser.newContext({viewport:{width:390,height:844}});
     await context.route('https://**',r=>r.abort());
     const address=`http://127.0.0.1:${server.address().port}`;
-    const a=await context.newPage(),b=await context.newPage();
+    const a=await context.newPage(),b=await context.newPage(),pageErrors=[];
+    for(const page of [a,b])page.on('pageerror',error=>pageErrors.push(error.message));
     async function open(page){
       await page.goto(address);
       await page.waitForFunction(()=>typeof taskReadState!=='undefined'&&taskReadState!=='loading');
@@ -48,7 +49,8 @@ test('Task Pad preserves other-device updates, drafts and unknown outcomes; unav
     async function add(page,title){await page.locator('#taskTitleInput').fill(title);await page.locator('#taskAddButton').click();}
     await open(a);await open(b);
     await add(a,'Fictional device A');
-    await a.waitForFunction(()=>!taskSaving&&tasks.length===2);
+    try{await a.waitForFunction(()=>!taskSaving&&tasks.length===2,{},{timeout:5000});}
+    catch(error){throw new Error(JSON.stringify({posts,records,pageErrors,state:await a.evaluate(()=>({saving:taskSaving,read:taskReadState,writable:taskWritable,revision:taskRevision,count:tasks.length,notice:document.querySelector('#taskNotice').textContent}))}),{cause:error});}
     await add(b,'Fictional device B');
     await b.getByText('Tasks changed on another device.',{exact:false}).waitFor();
     assert.equal(records.length,2);assert.ok(records.some(t=>t.title==='Fictional device A'));
