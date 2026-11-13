@@ -36,6 +36,8 @@ const unauthorizedCases = [
   { name: "unknown route", target: "/unknown-private-route" },
   { name: "private Tasks API", target: "/api/tasks?cache=security-review" },
   { name: "private conversation lifecycle", target: "/api/james/conversation" },
+  { name: "private preparation task API", target: "/api/james/task-execution" },
+  { name: "server-only preparation composition", target: "/lib/task-execution/preview-proof.cjs" },
   { name: "private typed reply endpoint", target: "/api/fast" },
   { name: "private conversation UI", target: "/conversation-ui.js" },
   { name: "private conversation runtime", target: "/conversation-runtime.js" },
