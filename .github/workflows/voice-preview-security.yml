@@ -1,0 +1,81 @@
+name: James voice Preview security
+on:
+  pull_request:
+    branches: [fix/calendar-refresh-diagnosis-20261031]
+permissions:
+  contents: read
+  pull-requests: read
+  statuses: read
+jobs:
+  authorize:
+    if: github.head_ref == 'work/voice-wake-20261113' && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      authorized: ${{ steps.gate.outputs.authorized }}
+      head: ${{ steps.gate.outputs.head }}
+      urls: ${{ steps.gate.outputs.urls }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 22
+      - name: Require exact candidate approval and owner re-run
+        id: gate
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT_HEAD: ${{ github.event.pull_request.head.sha }}
+          EVENT_BASE: ${{ github.event.pull_request.base.sha }}
+          EVENT_BRANCH: ${{ github.head_ref }}
+          EVENT_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+          EVENT_PR: ${{ github.event.pull_request.number }}
+          ACTOR: ${{ github.actor }}
+          TRIGGERING_ACTOR: ${{ github.triggering_actor }}
+          ATTEMPT: ${{ github.run_attempt }}
+          REVIEW_APPROVAL: ${{ vars.JAMES_VOICE_REVIEW }}
+        run: |
+          set -euo pipefail
+          set +x
+          echo 'authorized=false' >> "$GITHUB_OUTPUT"
+          if [[ "$ATTEMPT" == '1' ]]; then
+            echo '::notice::Ordinary CI does not receive the protected Preview credential.'
+            exit 0
+          fi
+          node tools/voice-review/authorize.cjs validate
+          test "$(git rev-parse HEAD)" = "$EVENT_HEAD"
+          review_dir=$(mktemp -d)
+          trap 'rm -rf "$review_dir"' EXIT
+          gh api "repos/$GITHUB_REPOSITORY/pulls/92" > "$review_dir/pr.json"
+          gh api "repos/$GITHUB_REPOSITORY/commits/$EVENT_HEAD/status" > "$review_dir/combined.json"
+          gh api "repos/$GITHUB_REPOSITORY/commits/$EVENT_HEAD/statuses?per_page=100" > "$review_dir/statuses.json"
+          node tools/voice-review/authorize.cjs "$review_dir/pr.json" "$review_dir/combined.json" "$review_dir/statuses.json"
+  hosted-security:
+    needs: authorize
+    if: needs.authorize.outputs.authorized == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ needs.authorize.outputs.head }}
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 22
+      - name: Probe the two reviewed Preview gateways
+        env:
+          EXPECTED_HEAD: ${{ needs.authorize.outputs.head }}
+          JAMES_SECURITY_USE_AUTOMATION_BYPASS: '1'
+          JAMES_SECURITY_PREVIEW_URLS: ${{ needs.authorize.outputs.urls }}
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.JAMES_VERCEL_AUTOMATION_BYPASS }}
+        run: |
+          set -euo pipefail
+          set +x
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test -n "$VERCEL_AUTOMATION_BYPASS_SECRET"
+          echo "::add-mask::$VERCEL_AUTOMATION_BYPASS_SECRET"
+          trap 'unset VERCEL_AUTOMATION_BYPASS_SECRET' EXIT
+          node --test tests/deployed-security.test.js
