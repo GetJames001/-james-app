@@ -72,11 +72,13 @@ jobs:
           test "$EVENT_BASE" = d440d93e0e1075548cef87298d62a1a50d0eb043
           test "$APPROVED_PR" = "$PR"
           test "$APPROVED_HEAD" = "$EVENT_HEAD"
-          test "$(gh api "repos/$GITHUB_REPOSITORY/pulls/$PR" --jq '.state')" = open
-          test "$(gh api "repos/$GITHUB_REPOSITORY/pulls/$PR" --jq '.head.sha')" = "$EVENT_HEAD"
-          test "$(gh api "repos/$GITHUB_REPOSITORY/pulls/$PR" --jq '.base.sha')" = "$EVENT_BASE"
+          echo 'Verifying current pull-request metadata.'
+          current_pr=$(gh api "repos/$GITHUB_REPOSITORY/pulls/$PR")
+          jq -e --arg head "$EVENT_HEAD" --arg base "$EVENT_BASE" '.state == "open" and .head.sha == $head and .base.sha == $base' <<< "$current_pr" >/dev/null
+          echo 'Pull-request metadata verified; listing exact-head Preview deployments.'
           deployment_id=$(gh api "repos/$GITHUB_REPOSITORY/deployments?sha=$EVENT_HEAD&per_page=30" --jq '[.[] | select(.environment == "Preview" and .creator.login == "vercel[bot]")] | sort_by(.created_at) | last | .id')
           test -n "$deployment_id" && test "$deployment_id" != null
+          echo 'Exact-head Preview deployment found; reading its successful status.'
           immutable_url=$(gh api "repos/$GITHUB_REPOSITORY/deployments/$deployment_id/statuses?per_page=30" --jq '[.[] | select(.state == "success" and .creator.login == "vercel[bot]")] | sort_by(.created_at) | last | .environment_url')
           IMMUTABLE_URL="$immutable_url" node <<'NODE'
           const expectedBranch='james-app-git-work-hosted-preparation-proof-20261113-james-cb7a.vercel.app';
