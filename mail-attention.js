@@ -84,6 +84,11 @@
     const article=node('article'),title=node('h3',item.subject),sender=node('p',(item.id.startsWith('gmail:')?'Gmail · ':'Hotmail · ')+item.sender),reason=node('p',item.reasons.join(' · ')),preview=node('p',item.preview),open=node('button','Review in Mail'),task=node('button','Draft a task');
     open.type=task.type='button';open.dataset.reviewAction='review';task.dataset.reviewAction='draft';open.dataset.reviewId=task.dataset.reviewId=item.id;open.onclick=()=>review(item.id);task.onclick=()=>draft(item);article.append(title,sender,reason,preview,open,task);
     if(decide){const handled=node('button','Mark handled');handled.type='button';handled.dataset.reviewAction='handled';handled.dataset.reviewId=item.id;handled.disabled=loading||!item.reviewKey;handled.title=item.reviewKey?'Remove this suggestion from Needs attention; keep the email and tasks.':'Check recent mail first to save this suggestion.';handled.onclick=()=>void decision(item,'handled');article.append(handled);}
+    if(/^[a-f0-9]{64}$/.test(item.reviewKey)){
+     const link=node('a','Open saved review');
+     link.href='/review/mail/'+item.reviewKey;
+     article.append(link);
+    }
     list.append(article);
    }
    onCount(displayed.size);

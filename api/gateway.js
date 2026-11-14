@@ -73,6 +73,9 @@ module.exports = async function handler(req, res) {
     return res.status(400).json({ ok: false, error: "INVALID_REQUEST" });
   }
 
+  const review = /^review\/mail\/([a-f0-9]{64})$/.exec(route);
+  if (review) return attention.savedReview(req, res, review[1]);
+
   // Protected Vercel Preview only: self-contained fictional interface.
   // Never exposed by production and never reads a real auth/session/provider.
   if(route === "customer-demo" || route === "customer-demo.html"){

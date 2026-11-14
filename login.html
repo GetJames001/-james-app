@@ -103,6 +103,11 @@
         if (!response.ok) throw new Error('Sign-in failed');
         // Keep playback continuous across authentication; welcome owns cleanup.
         try { sessionStorage.removeItem('jamesIntroDate'); } catch (_) {}
+        const reviewKey=new URLSearchParams(location.search).get('review');
+        if(/^[a-f0-9]{64}$/.test(reviewKey)){
+          location.replace('/review/mail/'+reviewKey);
+          return;
+        }
         // Load the authenticated application into this document without discarding
         // the already playing decorative scene. No app request is made before login.
         const appResponse = await fetch('/', { credentials: 'same-origin', cache: 'no-store' });
