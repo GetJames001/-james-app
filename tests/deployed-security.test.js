@@ -359,6 +359,8 @@ test("authorized automation reaches both protected Preview application gateways"
     });
     assertUnauthorized(forwardedHeaders, `${baseUrl}: spoofed forwarded headers`);
 
+    assertUnauthorized(authorizedRequest(baseUrl, "/api/james/hosted-proof", { method: "POST", headers: { "Content-Type": "application/json" } }), `${baseUrl}: unauthenticated proof mutation`);
+
     for (const target of ['/api/proof-schedule','/api/proof-schedule.js','/api/gateway?path=api/proof-schedule']) {
       const response=authorizedRequest(baseUrl,target,{method:'POST',headers:{
         'ce-specversion':'1.0','ce-type':'com.vercel.schedule.v1beta','ce-source':'/schedules/fictional',

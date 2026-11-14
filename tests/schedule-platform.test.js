@@ -48,3 +48,31 @@ test('deadline aborts hanging management calls without a late disable',{timeout:
  const manager=createSchedulePlatform({config:{scheduleId:'fixture-id',end:END},project:PROJECT,name:NAME,expression:EXPRESSION,clientFactory:options=>new SchedulesClient({...options,token:'synthetic'}),fetchImpl:async(url,{signal})=>{calls++;return new Promise((resolve,reject)=>signal.addEventListener('abort',()=>{aborted=true;reject(Error('aborted'));},{once:true}));}});
  assert.equal((await manager.stop()).state,'unknown');assert.equal(aborted,true);assert.equal(calls,1);
 });
+
+test('finite enable uses the pinned SDK expiry, fresh inactive read and confirmed readback',async()=>{
+ for(const lostReply of [false,true]){
+  let current=snapshot({state:'inactive',activeUntil:undefined});const calls=[];
+  const manager=createSchedulePlatform({config:{scheduleId:'fixture-id',start:780000,end:END},project:PROJECT,name:NAME,expression:EXPRESSION,now:()=>900000,clientFactory:o=>new SchedulesClient({...o,token:'synthetic'}),fetchImpl:async(url,options)=>{
+   calls.push(options.method);assert.equal(options.redirect,'error');
+   if(options.method==='POST'){
+    assert.equal(new URL(url).pathname,'/v1/schedules/'+NAME+'/enable');
+    assert.deepEqual(JSON.parse(options.body),{until:END});current=snapshot();
+    if(lostReply)throw Error('lost enable acknowledgement');
+   }return Response.json(current);
+  }});
+  assert.equal((await manager.enableBounded()).bounded,true);assert.deepEqual(calls,['GET','POST','GET']);
+  assert.equal((await manager.enableBounded()).state,'unknown');assert.deepEqual(calls,['GET','POST','GET','GET']);
+ }
+});
+test('finite enable refuses invalid windows, unknown identity and bad acknowledgement without extension',async()=>{
+ for(const config of [{start:0,end:END},{start:END,end:END},{start:1000000,end:END},{start:780000,end:899999},{start:NaN,end:END}]){
+  let calls=0;const manager=createSchedulePlatform({config:{scheduleId:'fixture-id',...config},project:PROJECT,name:NAME,expression:EXPRESSION,now:()=>900000,clientFactory:o=>new SchedulesClient({...o,token:'synthetic'}),fetchImpl:async()=>{calls++;return Response.json(snapshot());}});
+  assert.equal((await manager.enableBounded()).state,'unknown');assert.equal(calls,0);
+ }
+ for(const mismatch of [true,false]){
+  const methods=[];const manager=createSchedulePlatform({config:{scheduleId:'fixture-id',start:780000,end:END},project:PROJECT,name:NAME,expression:EXPRESSION,now:()=>900000,clientFactory:o=>new SchedulesClient({...o,token:'synthetic'}),fetchImpl:async(url,options)=>{
+   methods.push(options.method);return Response.json(snapshot({state:'inactive',activeUntil:undefined,...(mismatch?{projectId:'other'}:{})}));
+  }});
+  assert.equal((await manager.enableBounded()).state,'unknown');assert.deepEqual(methods,mismatch?['GET']:['GET','POST','GET']);
+ }
+});

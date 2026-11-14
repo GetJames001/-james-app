@@ -117,12 +117,44 @@ test('private handler uses the pinned SDK, rejects invalid input and never refle
  for(const req of [{method:'GET',headers:eventHeaders()},{method:'POST',headers:{}},{method:'POST',headers:{...eventHeaders(),'ce-type':'private-value'}},{method:'POST',headers:eventHeaders(),body:{owner:'other'}}]){r=res();await handler(req,r);assert.ok([400,405].includes(r.code));assert.doesNotMatch(JSON.stringify(r.body),/private-value|other/);}
  assert.equal(calls,1);
 });
-test('owner controls expose only arm, stop, resume and redacted status, not arbitrary worker operations',async()=>{
+test('owner controls expose bounded proof operations and redacted status, not arbitrary worker operations',async()=>{
  const h=fixture(),handler=createOwnerHandler({authorize:()=>true,service:()=>h.make()});
  for(const body of [{action:'tick'},{action:'arm',owner:'other'},{action:'create'},{action:'stop',schedule:'other'},[]]){const r=res();await handler({method:'POST',headers:{'content-type':'application/json'},query:{},body},r);assert.equal(r.code,400);}
  assert.equal(h.calls.length,0);
  let r=res();await handler({method:'POST',headers:{'content-type':'application/json'},body:{action:'arm'}},r);assert.equal(r.code,200);assert.deepEqual(r.body,{status:'armed'});
  r=res();await handler({method:'GET',headers:{},query:{owner:'other'}},r);assert.equal(r.code,400);
+ r=res();await handler({method:'POST',headers:{'content-type':'application/json'},body:{action:'enable'}},r);assert.equal(r.code,409);assert.equal(r.body.error,'PROOF_ACTIVATION_NOT_APPROVED');assert.equal(h.scheduler.enables(),0);
+});
+
+test('activation needs separate exact-head approval, durable arm and time before the first tick',async()=>{
+ const h=fixture();h.scheduler.state('inactive');
+ await assert.rejects(()=>h.make().enable(),/PROOF_ACTIVATION_NOT_APPROVED/);
+ await assert.rejects(()=>h.make('fixture-owner',{JAMES_HOSTED_SCHEDULE_ACTIVATION_APPROVED_HEAD:'b'.repeat(40)}).enable(),/PROOF_ACTIVATION_NOT_APPROVED/);
+ assert.equal(h.calls.length,0);
+ const make=()=>h.make('fixture-owner',{JAMES_HOSTED_SCHEDULE_ACTIVATION_APPROVED_HEAD:HEAD});
+ await assert.rejects(()=>make().enable(),/PROOF_STOPPED/);await make().arm();
+ h.at(FIRST-60000);await assert.rejects(()=>make().enable(),/PROOF_ACTIVATION_TOO_LATE/);assert.equal(h.scheduler.enables(),0);
+ h.at(START);assert.equal((await make().enable()).status,'enabled');
+ await assert.rejects(()=>make().enable(),/PROOF_ACTIVATION_USED/);assert.equal(h.scheduler.enables(),1);
+ assert.equal((await make().status()).activation,'verified');await make().stop();await assert.rejects(()=>make().enable(),/PROOF_STOPPED/);
+});
+test('concurrent activation is single-use and stop cannot claim completion ahead of an in-flight enable',async()=>{
+ const h=fixture();h.scheduler.state('inactive');const make=()=>h.make('fixture-owner',{JAMES_HOSTED_SCHEDULE_ACTIVATION_APPROVED_HEAD:HEAD});await make().arm();
+ let release,entered;const enteredPromise=new Promise(r=>entered=r),hold=new Promise(r=>release=r);
+ h.scheduler.enableHook(async()=>{entered();await hold;});const enabling=make().enable();await enteredPromise;
+ await assert.rejects(()=>make().enable(),/PROOF_ACTIVATION_USED/);assert.equal(h.scheduler.enables(),1);
+ const earlyStop=await make().stop();assert.equal(earlyStop.schedulerDisabled,true);assert.equal(earlyStop.activationPending,true);assert.equal(earlyStop.status,'reconcile_required');
+ release();assert.equal((await enabling).status,'reconcile_required');assert.equal((await make().status()).schedulerDisabled,true);
+ assert.equal((await make().stop()).status,'stopped');
+});
+test('uncertain activation and lost reservation replies never trigger another enable',async()=>{
+ for(const loseReservation of [true,false]){
+  const h=fixture();h.scheduler.state('inactive');const make=()=>h.make('fixture-owner',{JAMES_HOSTED_SCHEDULE_ACTIVATION_APPROVED_HEAD:HEAD});await make().arm();
+  if(loseReservation){h.lose();await assert.rejects(()=>make().enable(),/PROOF_CONTROL_UNAVAILABLE/);assert.equal(h.scheduler.enables(),0);}
+  else{h.scheduler.available(false);assert.equal((await make().enable()).status,'reconcile_required');assert.equal(h.scheduler.enables(),1);h.scheduler.available(true);}
+  await assert.rejects(()=>make().enable(),/PROOF_ACTIVATION_USED/);assert.equal((await make().status()).activation,'pending');
+  assert.equal((await make().stop()).status,'reconcile_required');h.at(END);assert.equal((await make().stop()).status,'stopped');
+ }
 });
 test('real gateway enforces session and CSRF, hides disabled owner controls and never routes the private worker',async()=>{
  const values={...env(),JAMES_AUTH_EMAIL:'fixture@example.test',JAMES_SESSION_SECRET:'synthetic-secret-at-least-thirty-two-characters'},old=Object.fromEntries(Object.keys(values).map(k=>[k,process.env[k]]));
@@ -130,7 +162,7 @@ test('real gateway enforces session and CSRF, hides disabled owner controls and 
  const cookie=auth.SESSION_COOKIE+'='+auth.createSessionToken(values.JAMES_AUTH_EMAIL);
  const req=(path='api/james/hosted-proof',extra={})=>({method:'GET',query:{path},headers:{host:'www.getjames.ai',cookie,...extra}});
  try{
-  for(const [request,expected] of [[req(undefined,{cookie:''}),401],[req(undefined,{host:'other.example'}),403],[{...req(undefined,{origin:'https://other.example'}),method:'POST',body:{action:'arm'}},403],[req('api/proof-schedule',eventHeaders()),404],[req('api/proof-schedule.js',eventHeaders()),404]]){const r=res();await gateway(request,r);assert.equal(r.code,expected);}
+  for(const [request,expected] of [[req(undefined,{cookie:''}),401],[{...req(undefined,{cookie:''}),method:'POST',body:{action:'enable'}},401],[req(undefined,{host:'other.example'}),403],[{...req(undefined,{origin:'https://other.example'}),method:'POST',body:{action:'enable'}},403],[req('api/proof-schedule',eventHeaders()),404],[req('api/proof-schedule.js',eventHeaders()),404]]){const r=res();await gateway(request,r);assert.equal(r.code,expected);}
   process.env.JAMES_HOSTED_SCHEDULE_ENABLED='false';const r=res();await gateway(req(),r);assert.equal(r.code,404);assert.equal(calls,0);
  }finally{global.fetch=original;for(const k of Object.keys(values))old[k]===undefined?delete process.env[k]:process.env[k]=old[k];}
 });

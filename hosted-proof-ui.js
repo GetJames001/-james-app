@@ -5,14 +5,15 @@
  function buttons(){
   const available=state&&!busy,active=available&&Date.now()>=state.window.start&&Date.now()<state.window.end;
   $('arm').disabled=!active||state.armed||state.stopped;
+  $('enable').disabled=!active||!state.armed||state.stopped||!state.activationAllowed||state.activation!=='unused'||Date.now()>=state.window.enableBefore;
   $('resume').disabled=!active||!state.armed||state.stopped||!state.tasks.some(t=>t.status==='blocked');
   $('stop').disabled=!available;
   $('refresh').disabled=busy;
  }
  function list(id,rows,empty){$(id).replaceChildren(...(rows.length?rows:[empty]).map(text=>{const li=document.createElement('li');li.textContent=text;return li;}));}
  function render(){
-  const schedule=state.scheduler?.state==='inactive'?'Hosted schedule verified inactive.':state.scheduler?.bounded?'Hosted schedule has a verified end time.':'Hosted schedule status needs verification.';
-  $('state').textContent=(state.stopped?'Task stop recorded. ':Date.now()>=state.window.end?'The check window has ended. ':state.armed?'Tasks registered. ':'Ready to register the fictional check. ')+schedule+(state.armed&&state.scheduler?.bounded?' You can close this page.':'');
+  const schedule=state.activation==='pending'&&Date.now()<state.window.end?'Schedule activation is unresolved. Stop and check results; do not retry activation.':state.scheduler?.state==='inactive'?'Hosted schedule verified inactive.':state.scheduler?.bounded?'Hosted schedule has a verified end time.':'Hosted schedule status needs verification.';
+  $('state').textContent=(state.stopped?'Task stop recorded. ':Date.now()>=state.window.end?'The check window has ended. ':state.armed?'Tasks registered. ':'Ready to register the fictional check. ')+schedule+(state.armed&&state.activation==='verified'&&state.scheduler?.bounded?' You can close this page.':'');
   list('tasks',state.tasks.map(t=>(t.kind==='agenda_fixture'?'Agenda':'Follow-up')+': '+(t.outcome==='prepared'?'prepared':t.status==='blocked'?'waiting for a fictional customer detail':t.status)), 'No task has started.');
   list('notices',state.notifications.map(n=>n.state==='queued'?'Update queued; delivery has not been tested.':n.state==='cancelled'?'Update cancelled.':n.state==='delivered'&&n.hasReceipt?'Delivery receipt recorded.':n.state==='unknown'?'Delivery outcome unknown.':'Update '+n.state+'.'),'No update queued.');
   buttons();
@@ -24,7 +25,7 @@
     const changed=await fetch(endpoint,{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify({action})});
     if(!changed.ok)throw Error('Action could not be confirmed. Check results before retrying.');
     const outcome=await changed.json();
-    $('message').textContent=action==='stop'?(outcome.status==='stopped'&&outcome.schedulerDisabled?'Task cancellation and hosted schedule shutdown confirmed.':'Stop needs reconciliation. Refresh results or retry Stop.'):action==='resume'?'Fictional detail supplied. Waiting for the next scheduled run.':'Check registered. Waiting for the scheduled run.';
+    $('message').textContent=action==='stop'?(outcome.status==='stopped'&&outcome.schedulerDisabled?'Task cancellation and hosted schedule shutdown confirmed.':'Stop needs reconciliation. Refresh results or retry Stop.'):action==='enable'?(outcome.status==='enabled'?'Scheduled check enabled with a verified automatic end time.':'Activation needs reconciliation. Stop and check results; do not retry activation.'):action==='resume'?'Fictional detail supplied. Waiting for the next scheduled run.':'Check registered. The schedule has not been enabled by this action.';
    }
    const response=await fetch(endpoint,{credentials:'same-origin',cache:'no-store'});if(!response.ok)throw Error('Results are unavailable. Any previous results remain below.');
    const next=await response.json();if(!next||!next.window||!Array.isArray(next.tasks)||!Array.isArray(next.notifications))throw Error('Results are unavailable.');
@@ -32,7 +33,7 @@
   }catch(error){$('error').textContent=error.message;}
   finally{busy=false;buttons();}
  }
- for(const action of ['arm','resume','stop'])$(action).addEventListener('click',()=>request(action));
+ for(const action of ['arm','enable','resume','stop'])$(action).addEventListener('click',()=>request(action));
  $('refresh').addEventListener('click',()=>request());
  // Reads only; no timer, page lifecycle event or browser client dispatches work.
  request();
