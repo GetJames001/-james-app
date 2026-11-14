@@ -173,3 +173,19 @@ test('saved source read rejects mismatched message identity and leaves missing m
   assert.ok([404,502].includes(res.statusCode));assert.deepEqual(res.body,{error:'MESSAGE_UNAVAILABLE'});
  }
 });
+
+test('inbox and individual reads keep the body format and only link to the Outlook original', async () => {
+  const source = {id:'letter', body:{contentType:'Text', content:'Lines\nwith <labels>.'}, webLink:'https://outlook.live.com/mail/letter'};
+  const list = await run(request('GET'), [stored(), token(), reply({unreadItemCount:0}), reply({value:[source]})]);
+  const {body, bodyType, outlookUrl} = list.res.body.messages[0];
+  assert.equal(body, source.body.content);
+  assert.equal(bodyType, 'text');
+  assert.equal(outlookUrl, source.webLink);
+  assert.ok(list.calls.some(call => String(call.url).includes('webLink')));
+  for (const webLink of [source.webLink, 'https://other.example/message']) {
+    const read = await run(request('GET', undefined, {query:{readMessageId:source.id}}),
+      [stored(), token(), reply({...source, webLink})]);
+    assert.equal(read.res.body.message.bodyType, 'text');
+    assert.equal(read.res.body.message.outlookUrl, webLink === source.webLink ? webLink : null);
+  }
+});

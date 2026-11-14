@@ -990,6 +990,7 @@ detailBody.replaceChildren();
 
 const emailFrame = document.createElement("iframe");
 
+emailFrame.title = "Email content";
 emailFrame.setAttribute("sandbox", "");
 emailFrame.setAttribute("referrerpolicy", "no-referrer");
 
@@ -999,29 +1000,77 @@ emailFrame.style.border = "0";
 emailFrame.style.background = "#fff";
 emailFrame.style.borderRadius = "8px";
 
-const body = message.body || "";
+let body = message.body || "";
+let bodyType = message.bodyType;
 const attachmentList = document.createElement("div");
 const inlineImages = new Map();
+const picturesButton = document.createElement("button");
+picturesButton.type = "button";
+picturesButton.textContent = "Show pictures";
+picturesButton.title = "Load this message's pictures from the sender";
+let showDeferredPictures = false;
+picturesButton.onclick = () => {
+  showDeferredPictures = true;
+  renderEmailBody();
+};
 function renderEmailBody() {
   const parsed = document.implementation.createHTMLDocument("");
   const template = parsed.createElement("template");
-  template.innerHTML = body;
-  if (!body) template.content.append(document.createTextNode(message.preview || "No message content."));
-  for (const img of template.content.querySelectorAll("img")) {
-    const src = img.getAttribute("src") || "";
-    if (src.startsWith("cid:")) img.setAttribute("src", inlineImages.get(src.slice(4)) || "");
+  let hasDeferredPictures = false;
+  if (body && bodyType !== "text") {
+    template.innerHTML = body;
+    for (const img of template.content.querySelectorAll("img")) {
+      const src = (img.getAttribute("src") || "").trim();
+      const original = (img.getAttribute("originalsrc") || "").trim();
+      const cid = /^cid:/i.test(original) ? original : src;
+      if (/^cid:/i.test(cid)) {
+        const id = cid.slice(4).replace(/^<|>$/g, "");
+        const embedded = inlineImages.get(id);
+        if (embedded) img.setAttribute("src", embedded);
+        else img.removeAttribute("src");
+        continue;
+      }
+      if (!src || src === "about:blank") {
+        const deferred = original || img.getAttribute("data-src") || img.getAttribute("data-original");
+        if (!deferred) continue;
+        let url;
+        try { url = new URL(deferred); } catch { continue; }
+        if (url.protocol !== "https:" || url.username || url.password) continue;
+        if (showDeferredPictures) img.setAttribute("src", url.href);
+        else hasDeferredPictures = true;
+      }
+    }
+  } else {
+    const text = parsed.createElement("div");
+    text.style.whiteSpace = "pre-wrap";
+    text.style.overflowWrap = "anywhere";
+    text.textContent = body || message.preview || "No message content.";
+    template.content.append(text);
   }
-  emailFrame.srcdoc = '<meta http-equiv="Content-Security-Policy" content="default-src \'none\'; style-src \'unsafe-inline\'; img-src data: https:' +
-    '; base-uri \'none\'">' + template.innerHTML;
-  if (!body) emailFrame.title = message.preview || "No message content.";
+  if (hasDeferredPictures) mailActions.append(picturesButton);
+  else picturesButton.remove();
+  emailFrame.srcdoc = `<!doctype html><meta charset="utf-8"><meta name="referrer" content="no-referrer">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src data: https:; base-uri 'none'; form-action 'none'">` + template.innerHTML;
 }
-renderEmailBody();
 
 const mailActions = document.createElement("div");
 mailActions.className = "personal-mail-actions";
 mailActions.setAttribute("role", "group");
 mailActions.setAttribute("aria-label", "Message actions");
 detailBody.append(mailActions, attachmentList, emailFrame);
+renderEmailBody();
+
+if (!body.trim()) {
+  const original = "/api/microsoft/mail?account=personal&readMessageId=" + encodeURIComponent(message.id);
+  fetch(original, { cache: "no-store" }).then(async response => {
+    if (!response.ok) return;
+    const { message: full } = await response.json();
+    if (!emailFrame.isConnected || full?.id !== message.id || !full.body?.trim()) return;
+    body = full.body;
+    bodyType = full.bodyType;
+    renderEmailBody();
+  }).catch(() => {});
+}
 const attachmentUrl = "/api/microsoft/mail?account=personal&messageId=" + encodeURIComponent(message.id);
 async function getAttachment(id) {
   const response = await fetch(attachmentUrl + (id ? "&attachmentId=" + encodeURIComponent(id) : ""), {cache:"no-store"});
@@ -1146,6 +1195,14 @@ readButton.onclick = () => {
   if (current) setPersonalMailReadState(message.id, current.isRead !== true);
 };
 mailActions.appendChild(readButton);
+if (message.outlookUrl) {
+  const original = document.createElement('a');
+  original.href = message.outlookUrl;
+  original.target = '_blank';
+  original.rel = 'noopener noreferrer';
+  original.textContent = 'Open in Outlook';
+  mailActions.append(original);
+}
   page('personalMailDetail');
   updateMailStateControls();
   if (!event?.restore && message.isRead === false) setPersonalMailReadState(message.id, true);

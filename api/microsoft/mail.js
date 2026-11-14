@@ -135,11 +135,11 @@ module.exports = async function handler(req, res) {
 if (req.method === "GET" && req.query.readMessageId !== undefined) {
   const id=req.query.readMessageId;
   if(account!=="personal"||typeof id!=="string"||!/^[A-Za-z0-9_+=/-]{1,2048}$/.test(id))return res.status(400).json({error:"INVALID_MESSAGE_ID"});
-  const result=await readStateRequest("https://graph.microsoft.com/v1.0/me/messages/"+encodeURIComponent(id)+"?$select=id,subject,from,receivedDateTime,isRead,bodyPreview,body,importance,flag",{headers:{Authorization:"Bearer "+tokens.access_token}},Date.now()+10000);
+  const result=await readStateRequest("https://graph.microsoft.com/v1.0/me/messages/"+encodeURIComponent(id)+"?$select=id,subject,from,receivedDateTime,isRead,bodyPreview,body,webLink,importance,flag",{headers:{Authorization:"Bearer "+tokens.access_token}},Date.now()+10000);
   if(!result.ok)return res.status(result.status===404?404:502).json({error:"MESSAGE_UNAVAILABLE"});
   const message=result.data;
   if(message.id!==id)return res.status(502).json({error:"MESSAGE_UNAVAILABLE"});
-  return res.status(200).json({message:{id:message.id,subject:message.subject||"(No subject)",sender:message.from?.emailAddress?.name||message.from?.emailAddress?.address||"Unknown sender",receivedDateTime:message.receivedDateTime,isRead:message.isRead,preview:message.bodyPreview||"",body:message.body?.content||"",importance:message.importance||"normal",flagStatus:message.flag?.flagStatus||"notFlagged"}});
+  return res.status(200).json({message:{id:message.id,subject:message.subject||"(No subject)",sender:message.from?.emailAddress?.name||message.from?.emailAddress?.address||"Unknown sender",receivedDateTime:message.receivedDateTime,isRead:message.isRead,preview:message.bodyPreview||"",...messageReaderFields(message),importance:message.importance||"normal",flagStatus:message.flag?.flagStatus||"notFlagged"}});
 }
 if (req.method === "GET" && req.query.messageId !== undefined) {
   const { messageId, attachmentId } = req.query;
@@ -208,7 +208,7 @@ if (req.method === "POST") {
         return result.ok?result.data:null;
       }catch{return null;}
     })();
-const inboxMessages = new URL("https://graph.microsoft.com/v1.0/me/mailFolders/inbox/messages?$top=25&$select=id,subject,from,receivedDateTime,isRead,bodyPreview,body,importance,flag&$orderby=receivedDateTime%20desc");
+const inboxMessages = new URL("https://graph.microsoft.com/v1.0/me/mailFolders/inbox/messages?$top=25&$select=id,subject,from,receivedDateTime,isRead,bodyPreview,body,webLink,importance,flag&$orderby=receivedDateTime%20desc");
 const cursor = req.query.cursor;
 if (cursor !== undefined) {
   if (account !== "personal" || typeof cursor !== "string" || !/^\d{1,12}$/.test(cursor)) {
@@ -258,7 +258,7 @@ const messages = messagesData.value.map(message => ({
       importance: message.importance || "normal",
       flagStatus: message.flag?.flagStatus || "notFlagged",
       preview: message.bodyPreview || "",
-    body: message.body?.content || ''
+      ...messageReaderFields(message)
     }));
     let reconciliation;
     if (req.query.reviewCheckIds !== undefined) {
@@ -386,6 +386,21 @@ async function updateReadState(req, res, account) {
       ok: false, error: err.name === "TimeoutError" ? "MAIL_REQUEST_TIMEOUT" : "MAIL_REQUEST_FAILED"
     });
   }
+}
+
+function messageReaderFields(message) {
+  // The original-message link belongs to Microsoft, never to the email sender.
+  let outlookUrl = null;
+  try {
+    const link = new URL(message.webLink);
+    const origins = ['https://outlook.live.com', 'https://outlook.office.com', 'https://outlook.office365.com'];
+    if (origins.includes(link.origin) && !link.username && !link.password) outlookUrl = link.href;
+  } catch {}
+  return {
+    body: message.body?.content || '',
+    bodyType: message.body?.contentType?.toLowerCase() === 'text' ? 'text' : 'html',
+    outlookUrl
+  };
 }
 
 async function readStateRequest(url, options, deadline) {
