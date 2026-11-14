@@ -20,7 +20,12 @@ const attention = require("../lib/routes/attention.js");
 const workbench = require('../lib/routes/workbench.js');
 const conversation = require("../lib/routes/conversation.js");
 
+const deviceProof = require("../lib/routes/device-proof.js");
 const exactHandlers = new Map([
+  ["device-check/", deviceProof],
+  ["device-check/ui.js", deviceProof],
+  ["device-check/worker.js", deviceProof],
+  ["api/james/device-check", deviceProof],
   ["api/health", health],
   ["api/weather", require("../lib/routes/weather.js")],
   ["api/james/routing", require("../lib/routes/routing.js")],
