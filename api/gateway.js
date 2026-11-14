@@ -73,6 +73,17 @@ module.exports = async function handler(req, res) {
     return res.status(400).json({ ok: false, error: "INVALID_REQUEST" });
   }
 
+  if(route==='review/alerts/worker.js'){
+    if(!requireAuth(req,res))return;
+    if(!['GET','HEAD'].includes(req.method)){
+      res.setHeader('Allow','GET, HEAD');
+      return res.status(405).end();
+    }
+    res.setHeader('Content-Type','text/javascript; charset=utf-8');
+    res.setHeader('Service-Worker-Allowed','/review/alerts/');
+    res.setHeader('Content-Security-Policy',"default-src 'none'; connect-src 'self'");
+    return req.method==='HEAD'?res.status(200).end():res.status(200).send(require('node:fs').readFileSync('saved-review-worker.js','utf8'));
+  }
   const review = /^review\/mail\/([a-f0-9]{64})$/.exec(route);
   if (review) return attention.savedReview(req, res, review[1]);
 

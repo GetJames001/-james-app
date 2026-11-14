@@ -32,9 +32,9 @@ test('saved review survives login and resolves only the current owner and messag
   const handoff=html.slice(html.indexOf('        const reviewKey='),html.indexOf('        // Load the authenticated application'));
   let destination;vm.runInNewContext('(function(){'+handoff+'})()',{URLSearchParams,location:{search:target.search,replace:value=>destination=value}});
   assert.equal(destination,'/'+path);
-  const result=await open(path,true);assert.equal(result.code,200);assert.match(result.body,/Interview invitation &lt;example&gt;/);assert.doesNotMatch(result.body,/invoice is overdue/);
+  const result=await open(path,true);assert.equal(result.code,200);assert.equal(result.headers['X-James-Review-State'],'ready');assert.match(result.body,/Interview invitation &lt;example&gt;/);assert.doesNotMatch(result.body,/invoice is overdue/);
   snapshot={...snapshot,...decideReview(snapshot,item.reviewKey,'handled',at)};
-  assert.match((await open(path,true)).body,/already handled/);
+  const handled=await open(path,true);assert.match(handled.body,/already handled/);assert.equal(handled.headers['X-James-Review-State'],'handled');
   process.env.JAMES_AUTH_EMAIL='other@example.test';assert.equal((await open(path,true)).code,404);
   offline=true;assert.equal((await open(path,true)).code,503);
 });
