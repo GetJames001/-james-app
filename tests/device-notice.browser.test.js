@@ -24,16 +24,19 @@ test('Chrome handles an injected wake with zero James windows and suppresses rep
   });
   await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
   t.after(()=>{server.closeAllConnections();server.close();});
-  const browser=await chromium.launch();
-  t.after(()=>browser.close());
+  // Regular-profile Chromium matches Android Chrome; private contexts can disable persistent notifications.
+  const profile=fs.mkdtempSync(require('node:path').join(require('node:os').tmpdir(),'james-chrome-'));
+  const context=await chromium.launchPersistentContext(profile,{channel:'chromium',headless:false});
+  t.after(async()=>{await context.close();fs.rmSync(profile,{recursive:true,force:true});});
   const origin='http://127.0.0.1:'+server.address().port;
-  const context=await browser.newContext();
   await context.grantPermissions(['notifications'],{origin});
   const controller=await context.newPage(), cdp=await context.newCDPSession(controller);
   const registered=new Promise(resolve=>cdp.on('ServiceWorker.workerRegistrationUpdated',({registrations})=>{
     const reg=registrations.find(r=>r.scopeURL===origin+'/device-check/'&&!r.isDeleted);
     if(reg)resolve(reg.registrationId);
   }));
+  const errors=[];
+  cdp.on('ServiceWorker.workerErrorReported',({errorMessage})=>errors.push(errorMessage.errorMessage));
   await cdp.send('ServiceWorker.enable');
   const app=await context.newPage();
   await app.goto(origin+'/device-check/');
@@ -43,9 +46,8 @@ test('Chrome handles an injected wake with zero James windows and suppresses rep
   assert.equal(context.pages().filter(p=>p.url().startsWith(origin)).length,0);
   for(let i=1;i<=2;i++) {
     await cdp.send('ServiceWorker.deliverPushMessage',{origin,registrationId,data:''});
-    await controller.waitForFunction(()=>true);
     for(let n=0;n<100 && (events.filter(x=>x==='pending').length<i || notices.length===0);n++)await new Promise(r=>setTimeout(r,25));
-    assert.equal(events.filter(x=>x==='pending').length,i);assert.equal(notices.length,1);
+    assert.equal(events.filter(x=>x==='pending').length,i);assert.equal(notices.length,1,JSON.stringify({events,errors}));
   }
   const page=await context.newPage();await page.goto(origin+'/device-check/');
   const displayed=await page.evaluate(async()=>{const reg=await navigator.serviceWorker.ready;return (await reg.getNotifications()).map(n=>[n.title,n.tag,n.data.id]);});
