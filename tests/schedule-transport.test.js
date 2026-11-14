@@ -6,11 +6,13 @@ const {SCHEDULE_BRANCH}=require('../lib/task-execution/preview-proof.cjs');
 const {createHandler}=require('../api/proof-schedule.js');
 const {createHandler:createOwnerHandler}=require('../lib/routes/hosted-proof.js');
 const auth=require('../lib/auth.js'),gateway=require('../api/gateway.js');
+const {schedulePlatformFixture}=require('./helpers/schedule-platform-fixture.cjs');
 const HEAD='a'.repeat(40),START=780000,FIRST=900000,END=2580000;
 const env=(extra={})=>({VERCEL_ENV:'preview',VERCEL_PROJECT_ID:PROJECT,VERCEL_GIT_COMMIT_REF:SCHEDULE_BRANCH,VERCEL_GIT_COMMIT_SHA:HEAD,JAMES_HOSTED_PROOF_APPROVED_HEAD:HEAD,JAMES_HOSTED_SCHEDULE_ENABLED:'true',JAMES_HOSTED_PROOF_ENABLED:'true',JAMES_HOSTED_PROOF_ID:'fictional-only',JAMES_HOSTED_PROOF_SCHEDULE_ID:'schedule-fixture',JAMES_HOSTED_PROOF_START_AT:String(START),JAMES_HOSTED_PROOF_END_AT:String(END),KV_REST_API_URL:'https://fixture.example.test',KV_REST_API_TOKEN:'synthetic',...extra});
 const metadata=(extra={})=>({name:NAME,namespace:'default',source:'static',expression:EXPRESSION,scheduleId:'schedule-fixture',executionId:'run-one',scheduledAt:new Date(FIRST),...extra});
 function fixture(){
  const rows=new Map(),calls=[];let at=START,loseControl=false,failEngine=false,hook=null;
+ const scheduler=schedulePlatformFixture(END,()=>at);
  const fetchImpl=async(url,options)=>{
   assert.equal(url,'https://fixture.example.test');assert.equal(options.redirect,'error');assert.ok(options.signal);
   assert.equal(options.headers.Authorization,'Bearer synthetic');
@@ -26,7 +28,7 @@ function fixture(){
   if(loseControl&&key.includes('proof-control')){loseControl=false;throw Error('lost response');}
   return Response.json({result:1});
  };
- return {rows,calls,fetchImpl,make:(owner='fixture-owner',extra={})=>createScheduleProof({env:env(extra),owner,fetchImpl,now:()=>at}),at:value=>at=value,lose:()=>{loseControl=true;},fail:value=>{failEngine=value;},hook:fn=>{hook=fn;}};
+ return {rows,calls,fetchImpl,scheduler,make:(owner='fixture-owner',extra={})=>createScheduleProof({env:env(extra),owner,fetchImpl,now:()=>at,platform:scheduler.platform}),at:value=>at=value,lose:()=>{loseControl=true;},fail:value=>{failEngine=value;},hook:fn=>{hook=fn;}};
 }
 function res(){return {code:200,headers:{},setHeader(k,v){this.headers[k]=v;},status(n){this.code=n;return this;},json(v){this.body=v;return this;}};}
 test('transport caps network starts and aborts a stalled operation at the shared deadline',{timeout:15000},async()=>{
@@ -79,11 +81,25 @@ test('two attempts per occurrence and two occurrences cap repeated storage failu
 });
 test('durable stop survives cancellation outage and expiry; no later arm or scheduled dispatch revives it',async()=>{
  const h=fixture();await h.make().arm();h.at(FIRST);await h.make().run(metadata());h.fail(true);
- await assert.rejects(()=>h.make().stop(),/TASK_STORAGE_UNAVAILABLE|DISPATCH_STORAGE_UNAVAILABLE/);
+ const stopped=await h.make().stop();assert.equal(stopped.status,'reconcile_required');assert.equal(stopped.schedulerDisabled,true);assert.equal(stopped.tasksStopped,false);
  h.fail(false);assert.equal((await h.make().status()).stopped,true);await assert.rejects(()=>h.make().arm(),/PROOF_STOPPED/);
  h.at(FIRST+900000);assert.equal((await h.make().run(metadata({scheduledAt:new Date(FIRST+900000),executionId:'run-two'}))).status,'not_armed');
- h.at(END);assert.equal((await h.make().stop()).status,'stopped');let s=await h.make().status();assert.ok(s.notifications.every(n=>n.state==='cancelled'));assert.equal(s.schedulerDisabled,false);
+ h.at(END);assert.equal((await h.make().stop()).status,'stopped');let s=await h.make().status();assert.ok(s.notifications.every(n=>n.state==='cancelled'));assert.equal(s.schedulerDisabled,true);
  await assert.rejects(()=>h.make().resume(),/PROOF_WINDOW_CLOSED/);
+});
+test('arming and dispatch reject unknown or indefinite platform schedules without admission; stop still attempts shutdown during control outage',async()=>{
+ const h=fixture();h.scheduler.bounded(false);await assert.rejects(()=>h.make().arm(),/PROOF_SCHEDULE_UNBOUNDED/);assert.equal(h.calls.length,0);
+ h.scheduler.state('inactive');await h.make().arm();h.at(FIRST);
+ await assert.rejects(()=>h.make().run(metadata()),/PROOF_SCHEDULE_UNBOUNDED/);assert.equal((await h.make().status()).runs.length,0);
+ h.scheduler.state('active');h.scheduler.bounded(true);h.scheduler.available(false);
+ await assert.rejects(()=>h.make().run(metadata()),/PROOF_SCHEDULE_UNBOUNDED/);h.scheduler.available(true);
+ h.rows.set([...h.rows.keys()].find(k=>k.includes('proof-control')),'corrupt');
+ const result=await h.make().stop();assert.equal(result.status,'reconcile_required');assert.equal(result.schedulerDisabled,true);assert.equal(result.tasksStopped,false);assert.equal(h.scheduler.stops(),1);
+});
+test('task cancellation cannot claim scheduler shutdown when the provider is unavailable or still active',async()=>{
+ const h=fixture();await h.make().arm();h.scheduler.available(false);let result=await h.make().stop();assert.equal(result.tasksStopped,true);assert.equal(result.schedulerDisabled,false);assert.equal(result.status,'reconcile_required');
+ h.scheduler.available(true);h.scheduler.stopWorks(false);result=await h.make().stop();assert.equal(result.scheduler.state,'active');assert.equal(result.status,'reconcile_required');
+ h.scheduler.stopWorks(true);result=await h.make().stop();assert.equal(result.status,'stopped');assert.equal(result.schedulerDisabled,true);
 });
 test('window expiry during execution stops further engine requests and preserves unavailable outcomes',async()=>{
  const h=fixture();await h.make().arm();h.at(FIRST);let engineCalls=0;

@@ -3,12 +3,12 @@ const test=require('node:test'),assert=require('node:assert/strict'),http=requir
 const {chromium}=require('playwright');
 test('isolated proof page reads results on a fresh client without dispatching tasks and labels undelivered updates honestly',{timeout:30000},async()=>{
  const now=Date.now();let down=false;
- const state={armed:false,stopped:false,window:{start:now-1000,end:now+1800000},tasks:[],notifications:[],runs:[],schedulerDisabled:false},actions=[];
+ const state={armed:false,stopped:false,window:{start:now-1000,end:now+1800000},tasks:[],notifications:[],runs:[],schedulerDisabled:false,scheduler:{state:'active',bounded:true,activeUntil:now+1800000}},actions=[];
  const server=http.createServer((req,res)=>{
   if(req.url==='/api/james/hosted-proof'){
    res.setHeader('Content-Type','application/json');
    if(req.method==='GET'){res.statusCode=down?503:200;res.end(JSON.stringify(down?{error:'unavailable'}:state));return;}
-   let raw='';req.on('data',c=>raw+=c);req.on('end',()=>{const body=JSON.parse(raw);actions.push(body);if(body.action==='arm')state.armed=true;if(body.action==='stop'){state.stopped=true;state.armed=false;}res.end(JSON.stringify({status:body.action==='stop'?'stopped':'armed'}));});return;
+   let raw='';req.on('data',c=>raw+=c);req.on('end',()=>{const body=JSON.parse(raw);actions.push(body);if(body.action==='arm')state.armed=true;if(body.action==='stop'){state.stopped=true;state.armed=false;state.scheduler={state:'unknown',bounded:false,activeUntil:null};}res.end(JSON.stringify({status:body.action==='stop'?'reconcile_required':'armed',schedulerDisabled:false}));});return;
   }
   if(req.url==='/hosted-proof'||req.url==='/hosted-proof-ui.js'){res.setHeader('Content-Type',req.url.endsWith('.js')?'application/javascript':'text/html');res.end(fs.readFileSync(path.join(__dirname,'..',req.url.endsWith('.js')?'hosted-proof-ui.js':'hosted-proof.html')));return;}
   res.statusCode=404;res.end();
@@ -28,7 +28,9 @@ test('isolated proof page reads results on a fresh client without dispatching ta
   assert.match(await second.locator('#notices').innerText(),/delivery has not been tested/);assert.equal(actions.length,1);
   assert.equal(await second.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
   down=true;await second.locator('#refresh').click();await second.locator('#error').getByText(/Results are unavailable/).waitFor();assert.match(await second.locator('#tasks').innerText(),/Agenda: prepared/);
-  down=false;await second.locator('#stop').click();await second.waitForFunction(()=>document.getElementById('state').textContent.includes('shutdown still needs verification'));
+  down=false;await second.locator('#stop').click();await second.waitForFunction(()=>document.getElementById('state').textContent.includes('schedule status needs verification'));
+  assert.match(await second.locator('#message').innerText(),/Stop needs reconciliation/);
+  state.schedulerDisabled=true;state.scheduler={state:'inactive',bounded:false,activeUntil:null};await second.locator('#refresh').click();await second.waitForFunction(()=>document.getElementById('state').textContent.includes('verified inactive'));
   assert.deepEqual(actions,[{action:'arm'},{action:'stop'}]);assert.equal(await second.locator('#arm').isEnabled(),false);await secondContext.close();
  }finally{await browser?.close();server.closeAllConnections();await new Promise(resolve=>server.close(resolve));}
 });
