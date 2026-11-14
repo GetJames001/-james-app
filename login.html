@@ -101,6 +101,11 @@
 
         mark('authResponse');
         if (!response.ok) throw new Error('Sign-in failed');
+        if (location.search === '?device-check=1') {
+          const hash = /^#[0-9a-f-]{36}$/.test(location.hash) ? location.hash : '';
+          location.replace('/device-check/' + hash);
+          return;
+        }
         // Keep playback continuous across authentication; welcome owns cleanup.
         try { sessionStorage.removeItem('jamesIntroDate'); } catch (_) {}
         // Load the authenticated application into this document without discarding
