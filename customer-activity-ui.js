@@ -108,6 +108,8 @@ function mount({navigate,initialMode='saved'}={}) {
  }
  $('companyAddContact').onclick=()=>{const c=doc?.customers.find(c=>c.id===selected);if(!c)return;const draft=companyDraft(c);if(draft.contacts.length>=50){announce('This company already has 50 contacts.');return;}companyDirty.add(c.id);draft.contacts.push({id:uuid(),name:'',phone:'',email:''});renderCompany(c);controls();$('companyContacts').lastElementChild?.querySelector('input')?.focus();};
  $('companySave').onclick=()=>{
+  if(busy||savingAll||uncertain||!doc)return;
+  remember();
   const draft=companyDrafts.get(selected);if(!draft)return;
   if(!draft.name.trim()||draft.contacts.some(c=>!c.name.trim())){announce('Enter a company name and a name for each contact before saving.');return;}
   const customer={...draft,name:draft.name.trim(),phone:draft.phone.trim(),address:draft.address.trim(),contacts:draft.contacts.map(c=>({...c,name:c.name.trim(),phone:c.phone.trim(),email:c.email.trim()}))};
