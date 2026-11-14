@@ -3,12 +3,12 @@ on:
   push:
     branches: [fix/calendar-refresh-diagnosis-20261031, work/mail-reader-content-20261114]
   pull_request:
-    branches: [integration/recovered-entrance-20261031]
+    branches: [integration/recovered-entrance-20261031, fix/calendar-refresh-diagnosis-20261031]
 permissions:
   contents: read
 jobs:
   calendar-regressions:
-    if: github.event_name == 'push' || github.head_ref == 'fix/calendar-refresh-diagnosis-20261031'
+    if: github.event_name == 'push' || github.head_ref == 'fix/calendar-refresh-diagnosis-20261031' || github.head_ref == 'work/mail-reader-content-20261114'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:

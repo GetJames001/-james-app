@@ -1002,6 +1002,7 @@ emailFrame.style.borderRadius = "8px";
 
 let body = message.body || "";
 let bodyType = message.bodyType;
+let bodyStatus = "Loading message content…";
 const attachmentList = document.createElement("div");
 const inlineImages = new Map();
 const picturesButton = document.createElement("button");
@@ -1044,7 +1045,7 @@ function renderEmailBody() {
     const text = parsed.createElement("div");
     text.style.whiteSpace = "pre-wrap";
     text.style.overflowWrap = "anywhere";
-    text.textContent = body || message.preview || "No message content.";
+    text.textContent = body.trim() ? body : [message.preview, bodyStatus].filter(Boolean).join("\n\n");
     template.content.append(text);
   }
   if (hasDeferredPictures) mailActions.append(picturesButton);
@@ -1063,13 +1064,19 @@ renderEmailBody();
 if (!body.trim()) {
   const original = "/api/microsoft/mail?account=personal&readMessageId=" + encodeURIComponent(message.id);
   fetch(original, { cache: "no-store" }).then(async response => {
-    if (!response.ok) return;
+    if (!response.ok) throw Error("Message unavailable");
     const { message: full } = await response.json();
-    if (!emailFrame.isConnected || full?.id !== message.id || !full.body?.trim()) return;
-    body = full.body;
+    if (!emailFrame.isConnected) return;
+    if (full?.id !== message.id) throw Error("Message unavailable");
+    bodyStatus = "No message body was provided.";
+    body = full.body || "";
     bodyType = full.bodyType;
     renderEmailBody();
-  }).catch(() => {});
+  }).catch(() => {
+    if (!emailFrame.isConnected) return;
+    bodyStatus = "Full message could not be loaded.";
+    renderEmailBody();
+  });
 }
 const attachmentUrl = "/api/microsoft/mail?account=personal&messageId=" + encodeURIComponent(message.id);
 async function getAttachment(id) {
