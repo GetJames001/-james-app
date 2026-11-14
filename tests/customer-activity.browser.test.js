@@ -224,10 +224,22 @@ test('retained form component: Five-company practice template explains fields, s
  }finally{await browser?.close();h.server.closeAllConnections();await new Promise(r=>h.server.close(r));}
 });
 
-test('retained form component: Top save-and-close detects company autofill and activity values without input events',async()=>{
- const h=createFixtureServer();await new Promise(r=>h.server.listen(0,'127.0.0.1',r));let browser;
+// A bounded diagnostic run repeats this exact journey without retrying failures.
+const autofillRuns=Number(process.env.JAMES_CUSTOMER_AUTOFILL_RUNS||1);
+assert.ok(Number.isInteger(autofillRuns)&&autofillRuns>=1&&autofillRuns<=20,'autofill runs must be 1–20');
+for(let round=1;round<=autofillRuns;round++)test('retained form component: Top save-and-close detects company autofill and activity values without input events'+(autofillRuns>1?' / diagnostic '+round:''),async t=>{
+ const h=createFixtureServer();await new Promise(r=>h.server.listen(0,'127.0.0.1',r));let browser,page;const pageErrors=[];
  try{
-  browser=await chromium.launch({headless:true});const page=await browser.newPage();
+  browser=await chromium.launch({headless:true});page=await browser.newPage();
+  page.on('pageerror',error=>pageErrors.push(String(error.message).slice(0,500)));
+  await page.addInitScript(()=>{
+   window.customerDiagnosticClicks=[];
+   document.addEventListener('click',event=>{
+    if(!event.target.closest('#customerActivityOverlay'))return;
+    window.customerDiagnosticClicks.push({target:event.target.id,at:Math.round(performance.now()),status:document.getElementById('customerDraftStatus')?.textContent});
+    if(window.customerDiagnosticClicks.length>30)window.customerDiagnosticClicks.shift();
+   },{capture:true,passive:true});
+  });
   await page.route('https://**',r=>r.abort());await page.addInitScript(()=>sessionStorage.setItem('jamesIntroDate',new Date().toDateString()));
   await page.goto('http://127.0.0.1:'+h.server.address().port);await page.locator('#customerActivityOpen').click();await page.waitForFunction(()=>document.querySelectorAll('#customerDemoList button').length===5);
   await page.evaluate(()=>{document.getElementById('companyPhone').value='702-555-0198';});
@@ -235,6 +247,18 @@ test('retained form component: Top save-and-close detects company autofill and a
   await page.evaluate(()=>{document.getElementById('customerNextKind').value='No follow-up needed';document.getElementById('customerOutcomeKind').value='attempted';document.getElementById('customerOccurredAt').value='2026-10-20T12:00';document.getElementById('customerDemoOutcome').value='Dictation fixture';});
   await page.locator('#customerActivityClose').click();await page.locator('#customerCloseSave').click();await page.locator('#customerActivityOverlay').waitFor({state:'hidden'});
   await page.locator('#customerActivityOpen').click();await page.waitForFunction(()=>document.getElementById('customerDemoHistory').textContent.includes('Dictation fixture'));assert.equal(await page.locator('#companyPhone').inputValue(),'702-555-0198');assert.equal(h.counts().mutations,0);
+ }catch(error){
+  // Fictional fixture only: enough state to distinguish validation, lost clicks and exceptions.
+  const state=await page?.evaluate(()=>({
+   overlayHidden:document.getElementById('customerActivityOverlay')?.hidden,
+   promptHidden:document.getElementById('customerClosePrompt')?.hidden,
+   status:document.getElementById('customerDraftStatus')?.textContent,
+   focused:document.activeElement?.id,
+   fields:Object.fromEntries(['companyName','companyPhone','customerOutcomeKind','customerOccurredAt','customerNextKind','customerDemoOutcome'].map(id=>[id,document.getElementById(id)?.value])),
+   history:document.getElementById('customerDemoHistory')?.textContent,
+   clicks:window.customerDiagnosticClicks
+  })).catch(()=>({unavailable:true}));
+  t.diagnostic(JSON.stringify({round,state,pageErrors,counts:h.counts()}));throw error;
  }finally{await browser?.close();h.server.closeAllConnections();await new Promise(r=>h.server.close(r));}
 });
 

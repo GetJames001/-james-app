@@ -1,0 +1,27 @@
+name: Customer save diagnosis
+on:
+  push:
+    branches: [work/customer-save-diagnosis-20261113]
+  pull_request:
+    branches: [fix/calendar-refresh-diagnosis-20261031]
+permissions:
+  contents: read
+jobs:
+  customer-autofill:
+    if: github.event_name == 'push' || github.head_ref == 'work/customer-save-diagnosis-20261113'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: npx playwright install --with-deps chromium
+      - name: Repeat the original save journey without retries
+        env:
+          JAMES_CUSTOMER_AUTOFILL_RUNS: 20
+        run: node --test tests/customer-activity.browser.test.js
