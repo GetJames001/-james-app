@@ -21,6 +21,8 @@ const workbench = require('../lib/routes/workbench.js');
 const conversation = require("../lib/routes/conversation.js");
 
 const exactHandlers = new Map([
+  ["hosted-proof", require("../lib/routes/hosted-proof.js").page],
+  ["hosted-proof-ui.js", require("../lib/routes/hosted-proof.js").page],
   ["api/health", health],
   ["api/weather", require("../lib/routes/weather.js")],
   ["api/james/routing", require("../lib/routes/routing.js")],
@@ -31,6 +33,7 @@ const exactHandlers = new Map([
   ["api/james/workbench", workbench],
   ["api/james/conversation", conversation],
   ["api/james/task-execution", require("../lib/routes/task-execution.js")],
+  ["api/james/hosted-proof", require("../lib/routes/hosted-proof.js")],
   ["api/james/voice", require("../lib/routes/voice.js")],
   ["api/james/files", require("../lib/routes/files.js")],
   ["api/auth/login", login],
