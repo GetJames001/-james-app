@@ -16,8 +16,10 @@ test('collection persists uncertain evidence without inventing obligations or wh
 test('rechecks compact envelopes but retain earlier unseen candidates and ignore read-state changes',()=>{
  const old=snapshot(collectReview(null,'owner',[bill],at));
  const next=collectReview(old,'owner',[{...bill,isRead:true},{id:'new',subject:'Your flight confirmation'}],later),view=projectReview(snapshot(next));
- assert.equal(next.state.scans.length,1);assert.equal(view.inventoryCount,2);assert.equal(view.items.length,2);
- const empty=collectReview(snapshot(next),'owner',[],later);assert.equal(projectReview(snapshot(empty)).items.length,2,'an empty latest page cannot resolve previously observed items');
+ assert.equal(next.state.scans.length,1);assert.equal(view.inventoryCount,2);assert.deepEqual(view.items.map(item=>item.id),[bill.id]);
+ const empty=collectReview(snapshot(next),'owner',[],later);const restored=projectReview(snapshot(empty));
+ assert.equal(restored.inventoryCount,2,'retain the confirmation as a source record');
+ assert.deepEqual(restored.items.map(item=>item.id),[bill.id],'show only the outstanding bill after reloading saved mail');
 });
 test('existing other sources and unresolved state are preserved through collector updates',()=>{
  const previous=snapshot(collectReview(null,'owner',[bill],at));

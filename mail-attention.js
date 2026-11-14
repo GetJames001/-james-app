@@ -1,17 +1,53 @@
 (function(root){
  'use strict';
+ const travelRecord=/\b(?:itinerary|e-ticket|boarding pass|flight confirmation|hotel confirmation|reservation confirmed|booking confirmation)\b/i;
+ const advertised=/\b(?:special offer|pre[- ]?approved|shop now|flash sale|coupon|promo code|job alerts?|interview tips)\b/i;
+ const due=/\b(?:payment|bill|balance|invoice)\s+(?:(?:is|now|is now)\s+)?(?:due|overdue|past due)\b|\b(?:past due|overdue)\s+(?:payment|bill|balance|invoice)\b|\bpayment reminder\b/i;
+ const paymentFailed=/\b(?:payment|autopay)\s+(?:(?:has|was|is)\s+)?(?:failed|declined|returned)\b/i;
+ const request=/\b(?:please|we (?:need|ask) you to|(?:can|could|would) you)\s+(?:confirm|respond|reply|send|provide|submit|sign|complete|schedule|choose|select|reschedule|approve|verify|update|return|let (?:me|us) know)\b/i;
+ const subjectRequest=/^(?:(?:re|fw|fwd):\s*)*(?:action (?:is )?required|response (?:is )?required|rsvp (?:is )?required|please respond)\b/i;
+ const nextStep=/^(?:schedule|reschedule|confirm|complete|sign|accept) (?:your |the |an? )?(?:interview|assessment|offer letter|appointment)\b|^rsvp by\b/i;
+ const optional=/\bif (?:you(?:'d| would) like|you (?:wish|have (?:any )?questions|need to (?:change|cancel)))\b|\b(?:manage|update|confirm) your (?:email|marketing|subscription) preferences\b|\b(?:please )?(?:send|provide) (?:us )?(?:your )?feedback\b/i;
+ const informational=/^(?:(?:how to|learn how to|understanding|tips (?:for|to)|a guide to)\b)|\b(?:no (?:further )?action (?:is )?(?:needed|required)|nothing (?:you )?need to do)\b/i;
+
+ function attentionReasons(message,subject,preview){
+  if(message.flagStatus==='flagged')return ['Flagged in your mailbox'];
+  if(advertised.test(subject)||informational.test(subject))return [];
+  const lines=[subject,...preview.split(/(?:[.!?]\s+|[\r\n]+)/)].map(line=>line.trim()).filter(Boolean);
+  const actionable=lines.filter(line=>!optional.test(line)&&!informational.test(line));
+  if(actionable.some(line=>request.test(line)||nextStep.test(line))||subjectRequest.test(subject)){
+   return ['The message asks you to respond or take a specific step'];
+  }
+  if(lines.some(line=>informational.test(line)))return [];
+  if(/^(?:interview invitation\b|invitation to interview\b)|\b(?:assessment|offer letter) (?:is due|expires|deadline)\b/i.test(subject)){
+   return ['An interview invitation or career deadline needs review'];
+  }
+  if(actionable.some(line=>paymentFailed.test(line)))return ['A payment was reported unsuccessful'];
+  if(actionable.some(line=>due.test(line)))return ['Possible bill or payment reminder — verify in the original message'];
+  if(actionable.some(line=>/\b(?:your|the) (?:flight|booking|reservation) (?:was |is |has been )?(?:cancelled|canceled)\b/i.test(line))){
+   return ['Your flight or reservation was reported cancelled'];
+  }
+  return [];
+ }
+
+ // Keep the existing source inventory independent of what merits attention.
+ // A routine confirmation can remain available for a later Travel workflow.
+ function retainForReview(message){
+  const subject=String(message.subject||''),preview=String(message.preview||''),text=subject+' '+preview;
+  if(message.importance==='high'||message.flagStatus==='flagged')return true;
+  if(travelRecord.test(text)&&!/\b(?:special offer|sale|save \d|discount|deals)\b/i.test(subject))return true;
+  if(/\b(?:payment (?:is )?due|minimum payment|bill (?:is )?due|past due|payment reminder)\b/i.test(text)&&!/\b(?:pre.?approved|apply now|special offer)\b/i.test(subject))return true;
+  if(/\b(?:interview|assessment|offer letter)\b/i.test(text)&&/\b(?:schedule|confirm|complete|invitation|deadline|expires|respond|action required)\b/i.test(text))return true;
+  if(/\b(?:action required|response required|please respond|rsvp required)\b/i.test(subject))return true;
+  return attentionReasons(message,subject,preview).length>0;
+ }
  function candidates(messages){
   const seen=new Set(),result=[];
   for(const message of messages||[]){
-   if(typeof message?.id!=='string'||!message.id||seen.has(message.id))continue;seen.add(message.id);
-   const subject=String(message.subject||'(No subject)').slice(0,300),preview=String(message.preview||'').slice(0,1200),text=subject+' '+preview;
-   const reasons=[];
-   if(message.flagStatus==='flagged')reasons.push('Flagged in your mailbox');
-   if(message.importance==='high')reasons.push('Sender marked this important');
-   if(/\b(?:payment (?:is )?due|minimum payment|bill (?:is )?due|past due|payment reminder)\b/i.test(text)&&!/\b(?:pre.?approved|apply now|special offer)\b/i.test(subject))reasons.push('Possible bill or payment reminder — verify in the original message');
-   if(/\b(?:interview|assessment|offer letter)\b/i.test(text)&&/\b(?:schedule|confirm|complete|invitation|deadline|expires|respond|action required)\b/i.test(text))reasons.push('Possible career response or deadline');
-   if(/\b(?:action required|response required|please respond|rsvp required)\b/i.test(subject))reasons.push('Message explicitly requests a response');
-   if(/\b(?:itinerary|e-ticket|boarding pass|flight confirmation|hotel confirmation|reservation confirmed|booking confirmation)\b/i.test(text)&&!/\b(?:special offer|sale|save \d|discount|deals)\b/i.test(subject))reasons.push('Possible itinerary or reservation — review before adding to Travel or Calendar');
+   if(typeof message?.id!=='string'||!message.id||seen.has(message.id))continue;
+   seen.add(message.id);
+   const subject=String(message.subject||'(No subject)').slice(0,300),preview=String(message.preview||'').slice(0,1200);
+   const reasons=attentionReasons(message,subject,preview);
    if(!reasons.length)continue;
    result.push({id:message.id,subject,sender:String(message.sender||'Unknown sender').slice(0,200),received:message.receivedDateTime||null,preview,reasons});
   }
@@ -91,5 +127,5 @@
   if(event.target?.id!=='gmailReadConnect')return;
   event.preventDefault();void connectGmail(event.target);
  });
- const api={candidates,mount,connectGmail};if(typeof module!=='undefined')module.exports=api;else root.JamesMailAttention=api;
+ const api={candidates,retainForReview,mount,connectGmail};if(typeof module!=='undefined')module.exports=api;else root.JamesMailAttention=api;
 })(typeof window==='undefined'?globalThis:window);
