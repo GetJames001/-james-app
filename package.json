@@ -11,7 +11,8 @@
     "playwright": "1.62.1"
   },
   "dependencies": {
-    "exceljs": "4.4.0"
+    "exceljs": "4.4.0",
+    "web-push": "^3.6.7"
   },
   "overrides": {
     "exceljs": {

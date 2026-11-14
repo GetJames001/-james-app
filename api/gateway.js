@@ -49,6 +49,7 @@ const exactHandlers = new Map([
   ["api/microsoft/triage", microsoftTriage],
   ["api/tasks", tasks],
   ["api/attention", attention],
+  ["api/attention/alert", require("../lib/routes/review-alert.js")],
   ["api/attention/decision", require("../lib/routes/attention-decision.js")],
   ["api/attention/scan", require("../lib/routes/attention-scan.js")],
   ["api/customer-activity", customerActivity],

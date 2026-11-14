@@ -134,3 +134,66 @@
  });
  const api={candidates,retainForReview,mount,connectGmail};if(typeof module!=='undefined')module.exports=api;else root.JamesMailAttention=api;
 })(typeof window==='undefined'?globalThis:window);
+
+if(typeof window!=='undefined')document.addEventListener('DOMContentLoaded',()=>{
+ const controls=document.getElementById('reviewAlertControls');
+ if(!controls||location.hostname!=='james-app-git-fix-calendar-refresh-diagnosis-fe3b3a-james-cb7a.vercel.app')return;
+ const enable=document.getElementById('reviewAlertEnable'),stop=document.getElementById('reviewAlertStop'),status=document.getElementById('reviewAlertStatus');
+ const supported='serviceWorker' in navigator&&'PushManager' in window&&'Notification' in window;
+ const scope='/review/alerts/';
+ async function api(body){
+  const options=body?{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}:{};
+  const r=await fetch('/api/attention/alert',{...options,credentials:'same-origin',cache:'no-store',redirect:'error'});
+  if(!r.ok)throw Error('James could not verify alert enrollment. Reopen Mail settings to check.');
+  return r.json();
+ }
+ function render(s){
+  enable.hidden=!supported||!['off','pairing'].includes(s.state);
+  stop.hidden=s.state==='off';
+  status.textContent=s.receipt==='opened'?'The saved review alert was opened.':s.receipt==='shown'?'The browser reported displaying the alert.':({
+   off:supported?'Alerts are off.':'Open in Android Chrome to enable an alert.',pairing:'Enrollment has started. Tap Enable to finish.',armed:'Waiting for a newly received actionable item.',sending:'An alert send was started. Delivery is unconfirmed.',accepted:'The push service accepted the alert. Waiting for the device.',rejected:'The push service rejected this alert.',unconfirmed:'The send outcome is unconfirmed.'
+  }[s.state]||'Alert status unavailable.');
+ }
+ let busy=false,readGeneration=0;
+ async function action(run){
+  if(busy)return;
+  busy=true;++readGeneration;enable.disabled=stop.disabled=true;
+  try{render(await run());}catch(e){status.textContent=e.message;}
+  finally{busy=false;enable.disabled=stop.disabled=false;}
+ }
+ controls.hidden=false;
+ controls.closest('details').addEventListener('toggle',async e=>{
+  if(!e.target.open||busy)return;
+  const generation=++readGeneration;
+  try{const state=await api();if(generation===readGeneration)render(state);}catch(err){if(generation===readGeneration)status.textContent=err.message;}
+ });
+ enable.onclick=()=>action(async()=>{
+  if(await Notification.requestPermission()!=='granted')throw Error('Allow notifications for this James site to finish enrollment.');
+  const {publicKey}=await api({action:'prepare'});
+  const bytes=Uint8Array.from(atob(publicKey.replace(/-/g,'+').replace(/_/g,'/')),c=>c.charCodeAt(0));
+  const reg=await navigator.serviceWorker.register(scope+'worker.js',{scope});
+  if(!reg.active){
+   const worker=reg.installing||reg.waiting;
+   if(!worker)throw Error('The alert receiver is unavailable.');
+   await new Promise((resolve,reject)=>{
+    const timer=setTimeout(()=>finish(false),15000);
+    function finish(ok){clearTimeout(timer);worker.removeEventListener('statechange',check);ok?resolve():reject(Error('The alert receiver could not start. Try again.'));}
+    function check(){if(worker.state==='activated')finish(true);else if(worker.state==='redundant')finish(false);}
+    worker.addEventListener('statechange',check);check();
+   });
+  }
+  let sub=await reg.pushManager.getSubscription();
+  const oldKey=sub?.options.applicationServerKey;
+  if(sub&&(!oldKey||oldKey.byteLength!==bytes.length||!bytes.every((v,i)=>new Uint8Array(oldKey)[i]===v))){
+   if(!await sub.unsubscribe())throw Error('Could not replace the previous subscription.');sub=null;
+  }
+  sub||=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:bytes});
+  return api({action:'pair',publicKey,subscription:sub.toJSON()});
+ });
+ stop.onclick=()=>action(async()=>{
+  const state=await api({action:'stop'});
+  const reg=await navigator.serviceWorker?.getRegistration(scope);
+  if(reg?.scope===new URL(scope,location.origin).href){await (await reg.pushManager.getSubscription())?.unsubscribe();await reg.unregister();}
+  return state;
+ });
+});
