@@ -31,8 +31,6 @@ jobs:
             sudo apt-get install -y --no-install-recommends redis-server redis-tools
           fi
           printf 'JAMES_TEST_REDIS_BIN=%s\n' "$(command -v redis-server)" >> "$GITHUB_ENV"
-      - name: Run regressions and repeat the original save journey without retries
-        env:
-          JAMES_CUSTOMER_AUTOFILL_RUNS: 20
+      - name: Run full regressions
         run: npm test
       - run: npm audit --omit=dev

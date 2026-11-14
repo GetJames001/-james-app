@@ -24,6 +24,12 @@ const privateSignatures = [
 ];
 
 const unauthorizedCases = [
+  { name: "Customer Activity form", target: "/customer-activity-ui.js" },
+  { name: "encoded Customer Activity form", target: "/%63ustomer-activity-ui.js" },
+  { name: "Customer Information UI", target: "/customer-database-ui.js" },
+  { name: "Customer Activity API", target: "/api/customer-activity" },
+  { name: "Customer Information API", target: "/api/customer-database" },
+  { name: "queried Customer Information API", target: "/api/customer-database?cache=security-review" },
   { name: "trailing-slash index", target: "/index.html/" },
   { name: "encoded internal calendar page", target: "/%63alendar-test.html" },
   { name: "encoded internal council page", target: "/%63ouncil-test.html" },
@@ -344,6 +350,12 @@ test("authorized automation reaches both protected Preview application gateways"
       );
     }
 
+    for (const target of ["/api/customer-activity", "/api/customer-database"]) {
+      for (const method of ["HEAD", "POST", "PUT", "DELETE"]) {
+        assertUnauthorized(authorizedRequest(baseUrl,target,{method}),`${baseUrl}: ${method} ${target}`,{head:method==="HEAD"});
+      }
+    }
+
     const forwardedHeaders = authorizedRequest(baseUrl, "/api/auth/session", {
       headers: {
         "X-Forwarded-Host": "attacker.example",
@@ -376,7 +388,7 @@ test("authorized automation reaches both protected Preview application gateways"
       assert.match(cookie, /Path=\//);
       assert.match(cookie, /HttpOnly/);
       assert.match(cookie, /Secure/);
-      assert.match(cookie, /SameSite=Lax/);
+      assert.match(cookie, /SameSite=Strict/);
       assert.match(cookie, /Max-Age=0/);
     }
 
