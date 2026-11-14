@@ -2,10 +2,10 @@ const test=require('node:test'),assert=require('node:assert/strict');
 const config=require('../vercel.json');
 const handler=require('../api/proof-schedule.js');
 
-test('private schedule compatibility target has no registered schedule or public route',()=>{
+test('pilot declares only the quarter-hour private function and no public worker route',()=>{
   assert.deepEqual(config.functions['api/proof-schedule.js'].experimentalTriggers,[{type:'schedule/v1beta'}]);
   assert.equal(config.functions['api/proof-schedule.js'].maxDuration,15);
-  assert.equal(config.schedules,undefined);assert.equal(config.crons,undefined);
+  assert.deepEqual(config.schedules,{'james-fictional-proof':{schedule:'*/15 * * * *',timezone:'UTC',jitter:1,function:'api/proof-schedule'}});assert.equal(config.crons,undefined);
   assert.deepEqual(config.routes,[{src:'^/(.*)$',dest:'/api/gateway?path=$1'}]);
 });
 

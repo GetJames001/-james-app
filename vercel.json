@@ -1,4 +1,12 @@
 {
+  "schedules": {
+    "james-fictional-proof": {
+      "schedule": "*/15 * * * *",
+      "timezone": "UTC",
+      "jitter": 1,
+      "function": "api/proof-schedule"
+    }
+  },
   "functions": {
     "api/proof-schedule.js": {
       "experimentalTriggers": [{ "type": "schedule/v1beta" }],
