@@ -263,11 +263,8 @@ test("authorized requests preserve app, session, health, and stored Tasks behavi
   assert.match(res.body, /James — Daily Briefing/);
 
   const originalFetch = global.fetch;
-  global.fetch = async () => ({
-    ok: true,
-    async json() {
-      return { result: JSON.stringify([{ id: "existing", title: "Preserved task" }]) };
-    }
+  global.fetch = async () => Response.json({
+    result: JSON.stringify([{ id: "existing", title: "Preserved task" }])
   });
   try {
     res = mockRes();

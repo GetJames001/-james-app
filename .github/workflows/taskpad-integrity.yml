@@ -1,0 +1,30 @@
+name: Task Pad integrity candidate
+on:
+  push:
+    branches: [work/taskpad-integrity-20261113]
+permissions:
+  contents: read
+jobs:
+  regressions:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: npx playwright install --with-deps chromium
+      - name: Prepare disposable local Redis
+        run: |
+          set -euo pipefail
+          if ! command -v redis-server >/dev/null || ! command -v redis-cli >/dev/null; then
+            sudo apt-get update -qq
+            sudo apt-get install -y --no-install-recommends redis-server redis-tools
+          fi
+          printf 'JAMES_TEST_REDIS_BIN=%s\n' "$(command -v redis-server)" >> "$GITHUB_ENV"
+      - run: npm test
+      - run: npm audit --omit=dev
