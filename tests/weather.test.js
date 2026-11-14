@@ -12,3 +12,12 @@ test('weather reports API failure without changing the location controller',asyn
 test('cached weather is explicitly last known and never treated as current location',async()=>{const h=harness({saved:{latitude:36,longitude:-115,savedAt:Date.now()-60000}});await h.load();assert.equal(h.nodes['#weatherDetail'].textContent,'Last known location · Clear');assert.equal(vm.runInContext('readJamesWeather().location.status',h.context),'last_known');assert.equal(h.requests(),0);});
 test('expired cached coordinates do not trigger weather or permission requests',async()=>{const h=harness({saved:{latitude:36,longitude:-115,savedAt:Date.now()-8*86400000}});await h.load();assert.equal(h.calls.length,0);assert.equal(h.requests(),0);});
 test('late weather from a previous location cannot overwrite the newer location',async()=>{let release;const h=harness({point:{latitude:36,longitude:-115,observedAt:Date.now()},response:async url=>{if(url.includes('latitude=36'))await new Promise(r=>release=r);return {ok:true,json:async()=>({current:{temperature_2m:url.includes('latitude=36')?90:50,weather_code:0}})};}});await h.load();h.setPoint({latitude:44,longitude:-123,observedAt:Date.now()});await h.load();release();await new Promise(r=>setImmediate(r));assert.equal(h.nodes['#weatherTemp'].textContent,'50°');});
+
+test('repeated weather refreshes share a pending request for the same rounded area',async()=>{
+ let complete;
+ const h=harness({point:{latitude:36,longitude:-115,observedAt:Date.now()},response:()=>new Promise(resolve=>complete=resolve)});
+ await h.load();await h.load();
+ assert.equal(h.calls.length,1);
+ complete({ok:true,json:async()=>({current:{temperature_2m:80,weather_code:0}})});
+ await h.load();assert.equal(h.calls.length,1);assert.equal(h.nodes['#weatherTemp'].textContent,'80°');
+});

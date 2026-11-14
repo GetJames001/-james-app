@@ -32,11 +32,12 @@ test('Next Appointment uses selected origin, handles unconfigured provider and r
 });
 
 test('opted-in live location fills departure fields without clicking another route control',async()=>{
- let routeCalls=0;
+ let routeCalls=0,weatherCalls=0;
  const server=http.createServer(async(req,res)=>{
   const url=new URL(req.url,'http://localhost');
   if(url.pathname.startsWith('/api/')){
    res.setHeader('Content-Type','application/json');
+   if(url.pathname==='/api/weather'){weatherCalls++;return res.end(JSON.stringify({current:{temperature_2m:75,weather_code:0}}));}
    if(url.pathname==='/api/james/routing'){
     let raw='';for await(const chunk of req)raw+=chunk;const body=JSON.parse(raw);routeCalls++;
     assert.equal(body.origin.kind,'device');assert.equal(body.origin.latitude,36);assert.equal(body.destination,'456 Example Avenue');
@@ -49,11 +50,15 @@ test('opted-in live location fills departure fields without clicking another rou
   const file=path.join(__dirname,'..',url.pathname==='/'?'index.html':url.pathname.slice(1));try{res.setHeader('Content-Type',/\.m?js$/.test(file)?'text/javascript':file.endsWith('.css')?'text/css':'text/html');res.end(fs.readFileSync(file));}catch{res.statusCode=404;res.end();}
  });await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));let browser;
  try{
-  browser=await chromium.launch({headless:true});const context=await browser.newContext({permissions:['geolocation'],geolocation:{latitude:36,longitude:-115,accuracy:10}}),page=await context.newPage();
+  browser=await chromium.launch({headless:true});const context=await browser.newContext({permissions:['geolocation'],geolocation:{latitude:36,longitude:-115,accuracy:4500}}),page=await context.newPage();
   await page.route('https://**',r=>r.abort());await page.goto('http://127.0.0.1:'+server.address().port);
   await page.evaluate(()=>{calendarSyncState.hasData=true;calendarSyncState.state='ready';events=[['12:00','13:00','James routing test','456 Example Avenue',null,{id:'auto-test',start:new Date(Date.now()+3600000).toISOString(),end:new Date(Date.now()+7200000).toISOString(),location:'456 Example Avenue'}]];updateHero();});
   assert.equal(routeCalls,0);await page.locator('#jamesLiveLocation').click();
-  await page.waitForFunction(()=>document.querySelector('#driveTime').textContent==='20 min');assert.equal(await page.locator('#traffic').textContent(),'+5 min');assert.notEqual(await page.locator('#leaveBy').textContent(),'—');assert.equal(routeCalls,1);
+  await page.waitForFunction(()=>document.querySelector('#weatherTemp').textContent==='75°');
+  assert.match(await page.locator('#routeStatus').textContent(),/precise location or enter a departure address/);
+  assert.equal(await page.locator('#driveTime').textContent(),'—');assert.equal(routeCalls,0);
+  await context.setGeolocation({latitude:36,longitude:-115,accuracy:10});
+  await page.waitForFunction(()=>document.querySelector('#driveTime').textContent==='20 min');assert.equal(weatherCalls,1);assert.equal(await page.locator('#traffic').textContent(),'+5 min');assert.notEqual(await page.locator('#leaveBy').textContent(),'—');assert.equal(routeCalls,1);
   await page.evaluate(()=>{updateHero();updateHero();});assert.equal(routeCalls,1);
   await page.locator('#jamesLiveLocation').click();await page.waitForFunction(()=>document.querySelector('#driveTime').textContent==='—');
  }finally{await browser?.close();server.closeAllConnections();await new Promise(resolve=>server.close(resolve));}

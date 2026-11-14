@@ -10,7 +10,7 @@ test('nearby search uses fresh current point only; expired/unknown point never f
  await searchPlaces({query:'Dairy Queen',area:'nearby',location:point},{env,now,fetchImpl});assert.equal(body.locationBias.circle.center.latitude,44.05);assert.equal(body.regionCode,undefined);
  for(const location of [null,{...point,observedAt:now-300001},{...point,accuracy:2000},{...point,observedAt:now+1}])assert.equal((await searchPlaces({query:'Dairy Queen',area:'nearby',location},{env,now,fetchImpl})).status,'location_required');assert.equal(calls,1);
 });
-function harness(saved=false,permissionState='granted'){const states=[],events={},docEvents={},memory=new Map(saved?[['james:live-location:v1','enabled']]:[]);let callback,onError,clears=0,watches=0;const doc={hidden:false,addEventListener:(n,fn)=>docEvents[n]=fn},button={setAttribute(){}},status={};const context=vm.createContext({window:{navigator:{},addEventListener:(n,fn)=>events[n]=fn},module:{exports:{}},Date});vm.runInContext(fs.readFileSync('location-context.js','utf8'),context);const controller=context.window.JamesLocation.mount({button,status,document:doc,now:()=>now,onState:state=>states.push(state),storage:{getItem:k=>memory.get(k),setItem:(k,v)=>memory.set(k,v),removeItem:k=>memory.delete(k)},permissions:{query:async()=>{if(permissionState===null)throw Error('unsupported');return {state:permissionState};}},geolocation:{watchPosition:(cb,error)=>{callback=cb;onError=error;watches++;return watches;},clearWatch:()=>clears++}});return {controller,states,memory,events,docEvents,doc,button,status,deny:()=>onError({code:1}),send:()=>callback({coords:point,timestamp:point.observedAt}),watches:()=>watches,clears:()=>clears};}
+function harness(saved=false,permissionState='granted'){const weatherPoints=[],routePoints=[],states=[],events={},docEvents={},memory=new Map(saved?[['james:live-location:v1','enabled']]:[]);let callback,onError,fallback,clears=0,watches=0;const doc={hidden:false,addEventListener:(n,fn)=>docEvents[n]=fn},button={setAttribute(){}},status={};const context=vm.createContext({window:{navigator:{},addEventListener:(n,fn)=>events[n]=fn},module:{exports:{}},Date});vm.runInContext(fs.readFileSync('location-context.js','utf8'),context);const controller=context.window.JamesLocation.mount({button,status,document:doc,now:()=>now,onWeatherPoint:p=>weatherPoints.push(p),onPoint:p=>routePoints.push(p),onState:state=>states.push(state),storage:{getItem:k=>memory.get(k),setItem:(k,v)=>memory.set(k,v),removeItem:k=>memory.delete(k)},permissions:{query:async()=>{if(permissionState===null)throw Error('unsupported');return {state:permissionState};}},geolocation:{getCurrentPosition:cb=>fallback=cb,watchPosition:(cb,error)=>{callback=cb;onError=error;watches++;return watches;},clearWatch:()=>clears++}});return {controller,weatherPoints,routePoints,fail:()=>onError({code:3}),fallback:(accuracy)=>fallback({coords:{...point,accuracy},timestamp:now}),states,memory,events,docEvents,doc,button,status,deny:()=>onError({code:1}),send:(accuracy=point.accuracy,timestamp=now)=>callback({coords:{...point,accuracy},timestamp}),watches:()=>watches,clears:()=>clears};}
 test('live location is explicit opt-in, in memory only, pauses hidden and resumes granted permission',async()=>{const h=harness();assert.equal(h.watches(),0);await h.controller.toggle();h.send();assert.equal(h.controller.snapshot().status,'ready');assert.equal(h.controller.point().latitude,44.05);assert.deepEqual([...h.memory.values()],['enabled']);assert.doesNotMatch(JSON.stringify(h.controller.snapshot()),/44.05|-123.09/);h.doc.hidden=true;h.docEvents.visibilitychange();assert.equal(h.controller.point(),null);assert.equal(h.clears(),1);h.doc.hidden=false;h.docEvents.visibilitychange();await new Promise(resolve=>setImmediate(resolve));assert.equal(h.watches(),2);await h.controller.toggle();assert.equal(h.controller.point(),null);assert.equal(h.memory.size,0);});
 test('typed chat executes the same Places tool, keeps coordinates out of model requests, and honors explicit city',async()=>{
  const auth=require('../lib/auth'),handler=require('../api/fast');const previous=global.fetch;
@@ -45,4 +45,40 @@ test('Enable location starts a new watch after an earlier permission denial', as
  assert.equal(h.watches(),2);
  h.send();
  assert.equal(h.controller.snapshot().status,'ready');
+});
+
+
+test('approximate location updates weather and precise location enables routing on the same watch',async()=>{
+ const h=harness();
+ await h.controller.toggle();
+ h.send(4500);
+ assert.equal(h.controller.snapshot().status,'approximate');
+ assert.equal(h.controller.weatherPoint().accuracy,4500);
+ assert.equal(h.controller.point(),null);
+ assert.deepEqual(h.routePoints,[]);
+ h.send(15);
+ assert.equal(h.controller.point().accuracy,15);
+ assert.equal(h.watches(),1);
+ assert.deepEqual(h.weatherPoints.map(p=>p.accuracy),[4500,15]);
+ assert.equal(h.routePoints.length,1);
+ for(const [accuracy,timestamp] of [[4500,now-300001],[100000,now]]){
+  h.send(accuracy,timestamp);
+  assert.equal(h.controller.weatherPoint(),null);
+  assert.equal(h.controller.point(),null);
+  assert.match(h.status.textContent,/Try again/);
+ }
+ await h.controller.toggle();
+ assert.equal(h.watches(),2);
+});
+test('a GPS timeout can recover weather and late fallback cannot override a fix or a revoked grant',async()=>{
+ for(const ending of ['fallback','precise','denied','hidden']){
+  const h=harness();
+  await h.controller.toggle();h.fail();
+  if(ending==='precise')h.send(10);
+  if(ending==='denied')h.deny();
+  if(ending==='hidden'){h.doc.hidden=true;h.docEvents.visibilitychange();}
+  h.fallback(4000);
+  assert.deepEqual(h.weatherPoints.map(p=>p.accuracy),ending==='fallback'?[4000]:ending==='precise'?[10]:[]);
+  assert.equal(h.controller.point()?.accuracy,ending==='precise'?10:undefined);
+ }
 });

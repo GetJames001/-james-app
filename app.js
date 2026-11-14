@@ -881,9 +881,17 @@ function readJamesWeather(){
  return copy;
 }
 async function loadWeatherForCoordinates({ latitude, longitude, savedAt }, tempEl, detailEl, locationLabel = "") {
-  const requestGeneration=++weatherRequestGeneration;
   const approximate={latitude:Number(Number(latitude).toFixed(2)),longitude:Number(Number(longitude).toFixed(2))};
   const location={status:locationLabel?'last_known':'current_approximate',observedAt:savedAt||Date.now(),approximateCoordinates:approximate,departureAddressVerified:false,precision:'Rounded for weather; not a verified routing origin'};
+  const previous=jamesWeatherState.location;
+  const sameArea=previous?.approximateCoordinates?.latitude===approximate.latitude&&
+    previous.approximateCoordinates.longitude===approximate.longitude&&previous.status===location.status;
+  if(sameArea&&(jamesWeatherState.status==='loading'||
+      (jamesWeatherState.status==='ready'&&Date.now()-Date.parse(jamesWeatherState.checkedAt)<900000))){
+    previous.observedAt=location.observedAt;
+    return;
+  }
+  const requestGeneration=++weatherRequestGeneration;
   jamesWeatherState={status:'loading',location};
   try {
     const url =
@@ -924,7 +932,7 @@ async function loadWeatherForCoordinates({ latitude, longitude, savedAt }, tempE
 // The live-location controller is the sole permission and position owner.
 function loadLiveWeather() {
  const tempEl=$('#weatherTemp'),detailEl=$('#weatherDetail');if(!tempEl||!detailEl)return;
- const point=window.jamesLocation?.point();
+ const point=window.jamesLocation?.weatherPoint?.()||window.jamesLocation?.point();
  if(point){void loadWeatherForCoordinates({...point,savedAt:point.observedAt},tempEl,detailEl);return;}
  let saved;try{saved=JSON.parse(localStorage.getItem('jamesWeatherLocation')||sessionStorage.getItem('jamesWeatherLocation'));}catch{}
  if(saved&&Number.isFinite(saved.latitude)&&Math.abs(saved.latitude)<=90&&Number.isFinite(saved.longitude)&&Math.abs(saved.longitude)<=180&&Number.isFinite(saved.savedAt)&&Date.now()-saved.savedAt>=0&&Date.now()-saved.savedAt<=7*86400000){void loadWeatherForCoordinates(saved,tempEl,detailEl,'Last known location');return;}
@@ -1509,10 +1517,11 @@ if (personalMailDetailBack) {
       nextDriveOrigin=point;if(moved){nextDriveResult=null;nextDriveGeneration++;nextDriveController?.abort();updateHero();}
     }
     refreshNextDriveIfNeeded();
+  },onWeatherPoint:point=>{
     const savedWeather={latitude:Number(point.latitude.toFixed(2)),longitude:Number(point.longitude.toFixed(2)),savedAt:point.observedAt};
     try{localStorage.setItem('jamesWeatherLocation',JSON.stringify(savedWeather));}catch{}
     const weatherPoint=jamesWeatherState.location?.approximateCoordinates;
-    if(!jamesWeatherState.checkedAt||Date.now()-Date.parse(jamesWeatherState.checkedAt)>900000||!weatherPoint||Math.hypot(point.latitude-weatherPoint.latitude,point.longitude-weatherPoint.longitude)>.05)void loadWeatherForCoordinates({...point,savedAt:point.observedAt},$('#weatherTemp'),$('#weatherDetail'));
+    if(!jamesWeatherState.checkedAt||Date.now()-Date.parse(jamesWeatherState.checkedAt)>900000||jamesWeatherState.location.status==='last_known'||!weatherPoint||Math.hypot(point.latitude-weatherPoint.latitude,point.longitude-weatherPoint.longitude)>.05)void loadWeatherForCoordinates({...point,savedAt:point.observedAt},$('#weatherTemp'),$('#weatherDetail'));
 
   },onClear:()=>{if(nextDriveOrigin?.kind==='device'){nextDriveOrigin=null;nextDriveResult=null;nextDriveGeneration++;nextDriveController?.abort();updateHero();}}});
   const findJamesPlaces=async(query,area='explicit')=>{
@@ -1974,7 +1983,7 @@ document.addEventListener('DOMContentLoaded',()=>{
   if(nextDriveOrigin)return 'Waiting for a fresh location to update your drive estimate.';
   const location=window.jamesLocation?.snapshot();
   if(location?.enabled===false)return 'Use my location to enable automatic drive estimates.';
-  return {permission_required:'Allow location to update your drive estimate.',denied:'Location is blocked in browser settings.',inaccurate:'Waiting for a more precise location…',unavailable:'Current location is unavailable. Try Use current location.'}[location?.status]||'Waiting for your current location…';
+  return {permission_required:'Allow location to update your drive estimate.',denied:'Location is blocked in browser settings.',approximate:'For drive time, allow precise location or enter a departure address.',inaccurate:'Try again for a more precise location or enter a departure address.',unavailable:'Current location is unavailable. Try Use current location.'}[location?.status]||'Waiting for your current location…';
  };
  refreshNextDriveIfNeeded=()=>{
   // Adopt the shared fresh fix even if it arrived before this controller mounted.
@@ -1992,7 +2001,11 @@ document.addEventListener('DOMContentLoaded',()=>{
   const generation=++locationGeneration;invalidate();nextDriveOrigin=null;
   if(!navigator.geolocation){status.textContent='Location is unavailable. Enter a departure address.';return;}
   status.textContent='Waiting for your location permission…';
-  navigator.geolocation.getCurrentPosition(position=>{if(generation!==locationGeneration)return;choose({kind:'device',latitude:position.coords.latitude,longitude:position.coords.longitude,accuracy:position.coords.accuracy,observedAt:position.timestamp});},()=>{if(generation===locationGeneration)status.textContent='Location could not be verified. Enter a departure address instead.';},{enableHighAccuracy:true,maximumAge:0,timeout:15000});
+  navigator.geolocation.getCurrentPosition(position=>{if(generation!==locationGeneration)return;
+   if(!Number.isFinite(position.coords.accuracy)||position.coords.accuracy>1000){
+    status.textContent='For drive time, allow precise location or enter a departure address.';return;
+   }
+   choose({kind:'device',latitude:position.coords.latitude,longitude:position.coords.longitude,accuracy:position.coords.accuracy,observedAt:position.timestamp});},()=>{if(generation===locationGeneration)status.textContent='Location could not be verified. Enter a departure address instead.';},{enableHighAccuracy:true,maximumAge:0,timeout:15000});
  };
  estimateButton.onclick=async()=>{
   if(!nextDriveOrigin)nextDriveOrigin=window.jamesLocation?.point();
