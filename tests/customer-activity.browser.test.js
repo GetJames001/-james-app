@@ -224,6 +224,40 @@ test('retained form component: Five-company practice template explains fields, s
  }finally{await browser?.close();h.server.closeAllConnections();await new Promise(r=>h.server.close(r));}
 });
 
+test('retained form component: Company details save captures autofill before validation and preserves activity drafts',async()=>{
+ const h=createFixtureServer();await new Promise(r=>h.server.listen(0,'127.0.0.1',r));let browser;
+ try{
+  browser=await chromium.launch({headless:true});const page=await browser.newPage();
+  await page.route('https://**',r=>r.abort());await page.addInitScript(()=>sessionStorage.setItem('jamesCustomerMode','saved'));
+  await page.goto('http://127.0.0.1:'+h.server.address().port);await page.locator('#customerActivityOpen').click();await page.waitForFunction(()=>!document.getElementById('customerAdd').disabled);
+  await page.locator('#customerNewName').fill('Fictional Autofill');await page.locator('#customerAdd').click();await page.waitForFunction(()=>document.getElementById('customerDemoName').textContent==='Fictional Autofill');
+  await page.locator('#companyAddContact').click();await page.locator('#companyContacts input').first().fill('Original Example');
+  // Browser autofill/dictation may set values without input/change events.
+  await page.evaluate(()=>{
+   document.getElementById('companyName').value='Fictional Updated';document.getElementById('companyPhone').value='702-555-0188';document.getElementById('companyAddress').value='Fictional test address';
+   const inputs=document.querySelectorAll('#companyContacts input');inputs[0].value='Autofill Example';inputs[1].value='702-555-0177';inputs[2].value='fictional@example.com';
+   document.getElementById('customerDemoOutcome').value='Unfinished activity draft';
+  });
+  await page.locator('#companySave').click();await page.waitForFunction(()=>document.getElementById('customerDraftStatus').textContent==='Saved.');
+  assert.equal(await page.locator('#companyPhone').inputValue(),'702-555-0188','company autofill must be read before the save payload is built');
+  assert.equal(await page.locator('#companyName').inputValue(),'Fictional Updated');assert.equal(await page.locator('#companyAddress').inputValue(),'Fictional test address');
+  assert.deepEqual(await page.locator('#companyContacts input').evaluateAll(els=>els.map(el=>el.value)),['Autofill Example','702-555-0177','fictional@example.com']);
+  assert.equal(await page.locator('#customerDemoOutcome').inputValue(),'Unfinished activity draft');assert.equal(await page.locator('#customerActivityOverlay').isVisible(),true);
+  assert.equal(await page.locator('#customerDemoHistory').textContent(),'No recorded contact.');
+  const before=h.counts().mutations;
+  await page.evaluate(()=>document.querySelector('#companyContacts input').value='');await page.locator('#companySave').click();
+  assert.match(await page.locator('#customerDraftStatus').textContent(),/name for each contact/);assert.equal(h.counts().mutations,before,'invalid autofill must not write');
+  await page.evaluate(()=>{document.querySelector('#companyContacts input').value='Recovered Example';document.getElementById('companyPhone').value='702-555-0166';});
+  h.loseReply();await page.locator('#companySave').click();await page.waitForFunction(()=>document.getElementById('customerDraftStatus').textContent.includes('Save not confirmed'));
+  assert.equal(await page.locator('#companyPhone').inputValue(),'702-555-0166');
+  await page.locator('#customerReload').click();await page.waitForFunction(()=>document.getElementById('customerDraftStatus').textContent.includes('Previous save confirmed'));
+  assert.equal(h.counts().mutations,before+1,'readback must not repeat the confirmed write');assert.equal(await page.locator('#customerDemoOutcome').inputValue(),'Unfinished activity draft');
+  await page.reload();await page.locator('#customerActivityOpen').click();await page.waitForFunction(()=>document.getElementById('customerDemoName').textContent==='Fictional Updated');
+  assert.equal(await page.locator('#companyPhone').inputValue(),'702-555-0166');assert.equal(await page.locator('#companyContacts input').first().inputValue(),'Recovered Example');
+  assert.equal(await page.locator('#customerDemoHistory').textContent(),'No recorded contact.');
+ }finally{await browser?.close();h.server.closeAllConnections();await new Promise(r=>h.server.close(r));}
+});
+
 // A bounded diagnostic run repeats this exact journey without retrying failures.
 const autofillRuns=Number(process.env.JAMES_CUSTOMER_AUTOFILL_RUNS||1);
 assert.ok(Number.isInteger(autofillRuns)&&autofillRuns>=1&&autofillRuns<=20,'autofill runs must be 1–20');

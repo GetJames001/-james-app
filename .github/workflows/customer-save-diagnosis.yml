@@ -1,4 +1,4 @@
-name: Customer save diagnosis
+name: Customer save integrity
 on:
   push:
     branches: [work/customer-save-diagnosis-20261113]
@@ -21,7 +21,18 @@ jobs:
           cache: npm
       - run: npm ci --ignore-scripts
       - run: npx playwright install --with-deps chromium
-      - name: Repeat the original save journey without retries
+      - name: Prove the autofill regression fails on accepted source
+        run: node tools/verify-customer-autofill-regression.cjs
+      - name: Prepare disposable Redis
+        run: |
+          set -euo pipefail
+          if ! command -v redis-server >/dev/null || ! command -v redis-cli >/dev/null; then
+            sudo apt-get update -qq
+            sudo apt-get install -y --no-install-recommends redis-server redis-tools
+          fi
+          printf 'JAMES_TEST_REDIS_BIN=%s\n' "$(command -v redis-server)" >> "$GITHUB_ENV"
+      - name: Run regressions and repeat the original save journey without retries
         env:
           JAMES_CUSTOMER_AUTOFILL_RUNS: 20
-        run: node --test tests/customer-activity.browser.test.js
+        run: npm test
+      - run: npm audit --omit=dev
