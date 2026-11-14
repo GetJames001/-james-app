@@ -80,6 +80,49 @@ test('Mail keeps known messages through failed refresh and accepts a later verif
     await page.evaluate(()=>applyPersonalMicrosoftMail({connected:true,unreadCount:null,totalCount:null,countStatus:'unavailable',messages:[{id:'count-safe',subject:'Count unavailable, message confirmed',isRead:false}]}));
     assert.equal(await page.locator('#personalEmailCount').textContent(),'Mail connected');
     assert.match(await page.locator('#personalMailMessages').textContent(),/Count unavailable, message confirmed/);
+    await page.locator('nav [data-page="personalMail"]').click();
+    const refresh = page.getByRole('button', { name: 'Refresh inbox', exact: true });
+    const status = page.locator('#personalMailRefreshStatus');
+    const waitForStatus = text => page.waitForFunction(value =>
+      document.querySelector('#personalMailRefreshStatus').textContent === value, text);
+    await page.clock.install();
+    await refresh.click();
+    await waitForStatus('Inbox refreshed.');
+    await page.clock.fastForward(2000);
+    assert.equal(await status.textContent(), 'Inbox refreshed.');
+
+    let holdRefresh;
+    const nextRequest = new Promise(resolve => { holdRefresh = resolve; });
+    await page.route('**/api/microsoft/mail?account=personal', route => holdRefresh(route), { times: 1 });
+    await refresh.click();
+    const pending = await nextRequest;
+    await page.clock.fastForward(1100);
+    assert.equal(await status.textContent(), 'Refreshing now…', 'an older timer cannot clear the next refresh');
+    assert.equal(await refresh.isDisabled(), true);
+    await pending.fulfill({ json: { connected: true, unreadCount: 0, messages: [] } });
+    await waitForStatus('Inbox refreshed.');
+    await page.clock.fastForward(3100);
+    assert.equal(await status.textContent(), '');
+    assert.equal(await refresh.isEnabled(), true);
+    mode = 'failed';
+    await refresh.click();
+    await waitForStatus('Mail unavailable. See Settings → Connections.');
+    await page.clock.fastForward(3100);
+    assert.match(await status.textContent(), /Mail unavailable/);
+    // A weather provider failure may recover while the owner is reading Mail.
+    let weatherReady = false;
+    await page.route('**/api/weather?**', route => route.fulfill(weatherReady
+      ? { json: { current: { temperature_2m: 74, weather_code: 0 } } }
+      : { status: 502, json: { error: 'Weather unavailable' } }));
+    await page.evaluate(() => {
+      localStorage.setItem('jamesWeatherLocation', JSON.stringify({ latitude: 36, longitude: -115, savedAt: Date.now() }));
+      loadLiveWeather();
+    });
+    await page.waitForFunction(() => document.querySelector('#weatherDetail').textContent === 'Weather unavailable');
+    weatherReady = true;
+    await page.locator('nav [data-page="briefing"]').click();
+    await page.waitForFunction(() => document.querySelector('#weatherTemp').textContent === '74°');
+    assert.match(await page.locator('#weatherDetail').textContent(), /Last known location/);
     assert.equal(writes, 0, 'refresh never changes read state or sends mail');
   } finally {
     await browser?.close();

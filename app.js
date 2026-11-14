@@ -89,6 +89,7 @@ let calendarRelayoutFrame;
 let calendarRelayoutForced = false;
 let lastCalendarGeometry = '';
 let personalMailRefreshController;
+let inboxRefreshNoticeTimer;
 let personalMailStateVersion = 0;
 let personalMailMutationPending = 0;
 let personalMailMutationQueue = Promise.resolve();
@@ -659,7 +660,10 @@ function pageNow(id){
   $$('nav button').forEach(b => {const active=b.dataset.page === (id==='tasks'?'attention':id==='files'?'workbench':id==='personalMailDetail'?'personalMail':id);b.classList.toggle('active',active);if(active)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current');});
   $$('.page').forEach(p => p.classList.toggle('active', p.id === id));
   window.dispatchEvent(new Event('james:page-changed'));
-  if(id === 'briefing') scheduleCalendarRelayout(true);
+  if(id === 'briefing') {
+    scheduleCalendarRelayout(true);
+    if (jamesWeatherState.status === 'unavailable') loadLiveWeather();
+  }
   if(id === 'appointments')renderAppointmentView();
   if(id === 'files')document.dispatchEvent(new Event('james:files-opened'));
   if(personalMailRefreshController) personalMailRefreshController.pageChanged();
@@ -1343,8 +1347,9 @@ function loadPersonalMicrosoftMail(reason = 'manual') {
 async function refreshPersonalInbox(event) {
   const button = event.currentTarget;
   const status = $('#personalMailRefreshStatus');
+  clearTimeout(inboxRefreshNoticeTimer);
   button.disabled = true;
-  status.textContent = 'Refreshing inbox…';
+  status.textContent = 'Refreshing now…';
   try {
     const data = await loadPersonalMicrosoftMail('inbox-button');
     if (data.error) {
@@ -1357,6 +1362,7 @@ async function refreshPersonalInbox(event) {
       olderMailLoaded = false;
       applyPersonalMicrosoftMail(data);
       status.textContent = 'Inbox refreshed.';
+      inboxRefreshNoticeTimer = setTimeout(() => { status.textContent = ''; }, 3000);
     } else {
       status.textContent = '';
     }

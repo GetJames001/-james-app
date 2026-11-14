@@ -24,7 +24,16 @@
    const ticket=++generation;state=permissionPrompt?'permission_required':'locating';render();
    watch=geolocation.watchPosition(position=>{if(ticket!==generation||!enabled||document.hidden)return;const c=position.coords,at=position.timestamp;if(!Number.isFinite(c.latitude)||Math.abs(c.latitude)>90||!Number.isFinite(c.longitude)||Math.abs(c.longitude)>180||!Number.isFinite(c.accuracy)||c.accuracy<0||c.accuracy>1000||!Number.isFinite(at)||now()-at<0||now()-at>300000){point=null;state='inaccurate';onClear();render();return;}point={kind:'device',latitude:c.latitude,longitude:c.longitude,accuracy:c.accuracy,observedAt:at};state='ready';onPoint({...point});render();},error=>{if(ticket!==generation)return;point=null;state=error.code===1?'denied':'unavailable';onClear();render();},{enableHighAccuracy:true,maximumAge:30000,timeout:15000});
   }
-  async function toggle(){if(enabled&&!['permission_required','denied','unavailable'].includes(state)){enabled=false;try{storage?.removeItem(key)}catch{}stop();}else{enabled=true;try{storage?.setItem(key,'enabled')}catch{}await start(true);}render();}
+  async function toggle(){
+   const retry=enabled&&['permission_required','denied','unavailable'].includes(state);
+   if(enabled&&!retry){enabled=false;try{storage?.removeItem(key)}catch{}stop();}
+   else{
+    // An errored watch still has an ID. Release it before retrying from the button.
+    if(retry&&watch!==null)stop();
+    enabled=true;try{storage?.setItem(key,'enabled')}catch{}await start(true);
+   }
+   render();
+  }
   if(button)button.onclick=toggle;
   document.addEventListener('visibilitychange',()=>{if(document.hidden)stop();else void start();});
   root.addEventListener('pagehide',stop);root.addEventListener('pageshow',()=>void start());

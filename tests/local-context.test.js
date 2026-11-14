@@ -10,7 +10,7 @@ test('nearby search uses fresh current point only; expired/unknown point never f
  await searchPlaces({query:'Dairy Queen',area:'nearby',location:point},{env,now,fetchImpl});assert.equal(body.locationBias.circle.center.latitude,44.05);assert.equal(body.regionCode,undefined);
  for(const location of [null,{...point,observedAt:now-300001},{...point,accuracy:2000},{...point,observedAt:now+1}])assert.equal((await searchPlaces({query:'Dairy Queen',area:'nearby',location},{env,now,fetchImpl})).status,'location_required');assert.equal(calls,1);
 });
-function harness(saved=false,permissionState='granted'){const states=[],events={},docEvents={},memory=new Map(saved?[['james:live-location:v1','enabled']]:[]);let callback,clears=0,watches=0;const doc={hidden:false,addEventListener:(n,fn)=>docEvents[n]=fn},button={setAttribute(){}},status={};const context=vm.createContext({window:{navigator:{},addEventListener:(n,fn)=>events[n]=fn},module:{exports:{}},Date});vm.runInContext(fs.readFileSync('location-context.js','utf8'),context);const controller=context.window.JamesLocation.mount({button,status,document:doc,now:()=>now,onState:state=>states.push(state),storage:{getItem:k=>memory.get(k),setItem:(k,v)=>memory.set(k,v),removeItem:k=>memory.delete(k)},permissions:{query:async()=>{if(permissionState===null)throw Error('unsupported');return {state:permissionState};}},geolocation:{watchPosition:cb=>{callback=cb;watches++;return watches;},clearWatch:()=>clears++}});return {controller,states,memory,events,docEvents,doc,button,status,send:()=>callback({coords:point,timestamp:point.observedAt}),watches:()=>watches,clears:()=>clears};}
+function harness(saved=false,permissionState='granted'){const states=[],events={},docEvents={},memory=new Map(saved?[['james:live-location:v1','enabled']]:[]);let callback,onError,clears=0,watches=0;const doc={hidden:false,addEventListener:(n,fn)=>docEvents[n]=fn},button={setAttribute(){}},status={};const context=vm.createContext({window:{navigator:{},addEventListener:(n,fn)=>events[n]=fn},module:{exports:{}},Date});vm.runInContext(fs.readFileSync('location-context.js','utf8'),context);const controller=context.window.JamesLocation.mount({button,status,document:doc,now:()=>now,onState:state=>states.push(state),storage:{getItem:k=>memory.get(k),setItem:(k,v)=>memory.set(k,v),removeItem:k=>memory.delete(k)},permissions:{query:async()=>{if(permissionState===null)throw Error('unsupported');return {state:permissionState};}},geolocation:{watchPosition:(cb,error)=>{callback=cb;onError=error;watches++;return watches;},clearWatch:()=>clears++}});return {controller,states,memory,events,docEvents,doc,button,status,deny:()=>onError({code:1}),send:()=>callback({coords:point,timestamp:point.observedAt}),watches:()=>watches,clears:()=>clears};}
 test('live location is explicit opt-in, in memory only, pauses hidden and resumes granted permission',async()=>{const h=harness();assert.equal(h.watches(),0);await h.controller.toggle();h.send();assert.equal(h.controller.snapshot().status,'ready');assert.equal(h.controller.point().latitude,44.05);assert.deepEqual([...h.memory.values()],['enabled']);assert.doesNotMatch(JSON.stringify(h.controller.snapshot()),/44.05|-123.09/);h.doc.hidden=true;h.docEvents.visibilitychange();assert.equal(h.controller.point(),null);assert.equal(h.clears(),1);h.doc.hidden=false;h.docEvents.visibilitychange();await new Promise(resolve=>setImmediate(resolve));assert.equal(h.watches(),2);await h.controller.toggle();assert.equal(h.controller.point(),null);assert.equal(h.memory.size,0);});
 test('typed chat executes the same Places tool, keeps coordinates out of model requests, and honors explicit city',async()=>{
  const auth=require('../lib/auth'),handler=require('../api/fast');const previous=global.fetch;
@@ -33,4 +33,16 @@ test('location observers receive permission, ready and paused states without pre
  h.send();assert.equal(h.states.at(-1).status,'ready');
  h.doc.hidden=true;h.docEvents.visibilitychange();assert.equal(h.states.at(-1).status,'paused');
  assert.doesNotMatch(JSON.stringify(h.states),/44\.05|-123\.09|latitude|longitude/);
+});
+
+test('Enable location starts a new watch after an earlier permission denial', async()=>{
+ const h=harness();
+ await h.controller.toggle();
+ h.deny();
+ assert.equal(h.button.textContent,'Enable location');
+ await h.controller.toggle();
+ assert.equal(h.clears(),1);
+ assert.equal(h.watches(),2);
+ h.send();
+ assert.equal(h.controller.snapshot().status,'ready');
 });
