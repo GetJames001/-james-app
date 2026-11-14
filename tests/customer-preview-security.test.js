@@ -25,6 +25,7 @@ test('customer probe secret is isolated behind the exact reviewed head and manua
  assert.match(workflow,/ref: \$\{\{ needs.authorize.outputs.head \}\}/);
  assert.equal((workflow.match(/secrets\.JAMES_VERCEL_AUTOMATION_BYPASS/g)||[]).length,1);
  assert.match(workflow,/vars.JAMES_CUSTOMER_REVIEW/);assert.match(workflow,/persist-credentials: false/);
+ assert.match(workflow,/JAMES_SECURITY_CUSTOMER_DATABASE_DISABLED: '1'/);
  assert.match(workflow,/::add-mask::\$VERCEL_AUTOMATION_BYPASS_SECRET/);
  assert.ok(workflow.indexOf('authorize.cjs validate')<workflow.indexOf('gh api'));
 });

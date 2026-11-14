@@ -54,6 +54,7 @@ test('combined diagnostic Preview enables customer access while other environmen
    ['preview','fix/calendar-refresh-diagnosis-20261031',true],
    ['production','fix/calendar-refresh-diagnosis-20261031',false],
    ['development','fix/calendar-refresh-diagnosis-20261031',false],
+   ['preview','work/customer-save-diagnosis-20261113',false],
    ['preview','unrelated-branch',false],['preview','',false]
   ]){
    process.env.VERCEL_ENV=env;process.env.VERCEL_GIT_COMMIT_REF=ref;

@@ -69,6 +69,7 @@ jobs:
         env:
           EXPECTED_HEAD: ${{ needs.authorize.outputs.head }}
           JAMES_SECURITY_USE_AUTOMATION_BYPASS: '1'
+          JAMES_SECURITY_CUSTOMER_DATABASE_DISABLED: '1'
           JAMES_SECURITY_PREVIEW_URLS: ${{ needs.authorize.outputs.urls }}
           VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.JAMES_VERCEL_AUTOMATION_BYPASS }}
         run: |
