@@ -24,7 +24,7 @@ test('typed chat executes the same Places tool, keeps coordinates out of model r
  finally{global.fetch=previous;}
 });
 
-test('remembered location resumes through browser permission request; denied permission stays stopped',async()=>{const h=harness(true,null);await new Promise(r=>setImmediate(r));assert.equal(h.watches(),1);h.send();assert.equal(h.status.textContent,'');assert.equal(h.button.textContent,'Live location on');const p=harness(true,'prompt');await new Promise(r=>setImmediate(r));assert.equal(p.watches(),1);assert.equal(p.button.textContent,'Enable location');p.send();assert.equal(p.controller.snapshot().status,'ready');const denied=harness(true,'denied');await new Promise(r=>setImmediate(r));assert.equal(denied.watches(),0);assert.equal(denied.button.textContent,'Enable location');await denied.controller.toggle();assert.equal(denied.watches(),1);});
+test('remembered location resumes through browser permission request; denied permission stays stopped',async()=>{const h=harness(true,null);await new Promise(r=>setImmediate(r));assert.equal(h.watches(),1);h.send();assert.equal(h.status.textContent,'');assert.equal(h.button.textContent,'Live location on');const p=harness(true,'prompt');await new Promise(r=>setImmediate(r));assert.equal(p.watches(),1);assert.equal(p.button.textContent,'Enable location');p.send();assert.equal(p.controller.snapshot().status,'ready');const denied=harness(true,'denied');await new Promise(r=>setImmediate(r));assert.equal(denied.watches(),0);assert.equal(denied.button.textContent,'Check location access');await denied.controller.toggle();assert.equal(denied.watches(),0);});
 
 
 test('location observers receive permission, ready and paused states without precise coordinates',async()=>{
@@ -39,7 +39,7 @@ test('Enable location starts a new watch after an earlier permission denial', as
  const h=harness();
  await h.controller.toggle();
  h.deny();
- assert.equal(h.button.textContent,'Enable location');
+ assert.equal(h.button.textContent,'Check location access');
  await h.controller.toggle();
  assert.equal(h.clears(),1);
  assert.equal(h.watches(),2);
@@ -62,13 +62,15 @@ test('approximate location updates weather and precise location enables routing 
  assert.deepEqual(h.weatherPoints.map(p=>p.accuracy),[4500,15]);
  assert.equal(h.routePoints.length,1);
  for(const [accuracy,timestamp] of [[4500,now-300001],[100000,now]]){
-  h.send(accuracy,timestamp);
-  assert.equal(h.controller.weatherPoint(),null);
-  assert.equal(h.controller.point(),null);
-  assert.match(h.status.textContent,/Try again/);
+  const invalid=harness();
+  await invalid.controller.toggle();
+  invalid.send(accuracy,timestamp);
+  assert.equal(invalid.controller.weatherPoint(),null);
+  assert.equal(invalid.controller.point(),null);
+  assert.match(invalid.status.textContent,/Try again/);
+  await invalid.controller.toggle();
+  assert.equal(invalid.watches(),2);
  }
- await h.controller.toggle();
- assert.equal(h.watches(),2);
 });
 test('a GPS timeout can recover weather and late fallback cannot override a fix or a revoked grant',async()=>{
  for(const ending of ['fallback','precise','denied','hidden']){
@@ -81,4 +83,34 @@ test('a GPS timeout can recover weather and late fallback cannot override a fix 
   assert.deepEqual(h.weatherPoints.map(p=>p.accuracy),ending==='fallback'?[4000]:ending==='precise'?[10]:[]);
   assert.equal(h.controller.point()?.accuracy,ending==='precise'?10:undefined);
  }
+});
+
+test('an unusable first GPS reading also tries the regional location source',async()=>{
+ const h=harness();
+ await h.controller.toggle();
+ h.send(80000);
+ h.fallback(4500);
+ assert.deepEqual(h.weatherPoints.map(p=>p.accuracy),[4500]);
+ assert.equal(h.controller.point(),null);
+ h.send(12);
+ assert.equal(h.controller.point().accuracy,12);
+});
+
+test('a stale reading cannot erase a fresh observation while the phone is still finding its location',async()=>{
+ const h=harness();
+ await h.controller.toggle();
+ h.send(4500);
+ h.send(80000,now-300001);
+ assert.equal(h.controller.weatherPoint()?.accuracy,4500);
+ assert.equal(h.controller.point(),null);
+});
+
+test('checking a persistent browser denial keeps the instruction visible without restarting the watch',async()=>{
+ const h=harness(true,'denied');
+ await new Promise(resolve=>setImmediate(resolve));
+ const message=h.status.textContent;
+ assert.match(message,/browser/i);
+ await h.controller.toggle();
+ assert.equal(h.status.textContent,message);
+ assert.equal(h.watches(),0);
 });

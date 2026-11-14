@@ -50,10 +50,25 @@ test('opted-in live location fills departure fields without clicking another rou
   const file=path.join(__dirname,'..',url.pathname==='/'?'index.html':url.pathname.slice(1));try{res.setHeader('Content-Type',/\.m?js$/.test(file)?'text/javascript':file.endsWith('.css')?'text/css':'text/html');res.end(fs.readFileSync(file));}catch{res.statusCode=404;res.end();}
  });await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));let browser;
  try{
-  browser=await chromium.launch({headless:true});const context=await browser.newContext({permissions:['geolocation'],geolocation:{latitude:36,longitude:-115,accuracy:4500}}),page=await context.newPage();
+  browser=await chromium.launch({headless:true});const context=await browser.newContext({isMobile:true,hasTouch:true,viewport:{width:393,height:851},permissions:['geolocation'],geolocation:{latitude:36,longitude:-115,accuracy:4500}}),page=await context.newPage();
+  // The high-accuracy watch gets an unusable first reading. The browser's
+  // regional lookup can still supply weather while the same watch improves.
+  await context.addInitScript(()=>{
+   const geo=navigator.geolocation;
+   const watch=geo.watchPosition.bind(geo);
+   geo.watchPosition=(receive,fail,options)=>{
+    let first=true;
+    return watch(position=>{
+     if(first){
+      first=false;
+      receive({coords:{latitude:36,longitude:-115,accuracy:80000},timestamp:position.timestamp});
+     }else receive(position);
+    },fail,options);
+   };
+  });
   await page.route('https://**',r=>r.abort());await page.goto('http://127.0.0.1:'+server.address().port);
   await page.evaluate(()=>{calendarSyncState.hasData=true;calendarSyncState.state='ready';events=[['12:00','13:00','James routing test','456 Example Avenue',null,{id:'auto-test',start:new Date(Date.now()+3600000).toISOString(),end:new Date(Date.now()+7200000).toISOString(),location:'456 Example Avenue'}]];updateHero();});
-  assert.equal(routeCalls,0);await page.locator('#jamesLiveLocation').click();
+  assert.equal(routeCalls,0);await page.locator('#jamesLiveLocation').tap();
   await page.waitForFunction(()=>document.querySelector('#weatherTemp').textContent==='75°');
   assert.match(await page.locator('#routeStatus').textContent(),/precise location or enter a departure address/);
   assert.equal(await page.locator('#driveTime').textContent(),'—');assert.equal(routeCalls,0);
