@@ -13,7 +13,7 @@ async function showReview(key){
   const tag='james-review-'+key;
   if((await self.registration.getNotifications({tag})).length)return;
   await self.registration.showNotification('James',{
-    body:'A saved item needs your review.',tag,renotify:false,data:{key}
+    body:response.headers.get('X-James-Review-Category')==='reservation'?'A reservation confirmation arrived.':'A saved item needs your review.',tag,renotify:false,data:{key}
   });
   await receipt('shown',key);
 }

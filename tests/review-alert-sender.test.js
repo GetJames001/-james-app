@@ -17,8 +17,8 @@ function fixture(send){
   if(next)db.set(key,next);else db.delete(key);return 1;
  }
  const service=create('fixture@example.test',{secret:'fictional-testing-secret-32-bytes-or-more',redis,send,now:()=>timestamp});
- async function arm(){
-  const {publicKey}=await service.prepare();const sub=sample();
+ async function arm(ongoing=false){
+  const {publicKey}=await service.prepare(ongoing);const sub=sample();
   await service.pair(sub,publicKey);
   assert.ok(![...db.values()].some(v=>v.includes(sub.endpoint)||v.includes(sub.keys.auth)));
  }
@@ -55,4 +55,28 @@ test('sender prepares encrypted Web Push only for the approved Android endpoint'
  });
  assert.equal(await transmit({subscription:sub,keys},key),'accepted');
  assert.equal(enabled({headers:{host:'www.getjames.ai'}},{VERCEL_ENV:'production'}),false);
+});
+
+test('ongoing enrollment sends distinct mail and lodging receipts without putting routine travel in Needs Attention',async()=>{
+ const sent=[],f=fixture(async (state,key)=>{sent.push(key);return 'accepted';});
+ await f.arm(true);
+ const at=new Date(timestamp).toISOString();
+ const messages=[
+  {id:'hotel',subject:'Hotel reservation confirmation',receivedDateTime:at},
+  {id:'interview',subject:'Interview invitation',receivedDateTime:at},
+  {id:'promo',subject:'Special offer: hotel booking confirmation',receivedDateTime:at}
+ ];
+ const snapshot={revision:1,...collectReview(null,'owner',messages,at)};
+ assert.deepEqual(projectReview(snapshot).items.map(m=>m.id),['interview']);
+ assert.deepEqual(projectReview(snapshot,{includeReceipts:true}).items.map(m=>m.id),['interview','hotel']);
+ await Promise.all([f.service.deliver(snapshot),f.service.deliver(snapshot)]);
+ await f.service.deliver(snapshot);
+ assert.equal(sent.length,2);
+ assert.equal(new Set(sent).size,2);
+ await f.service.acknowledge(sent[0],'opened');
+ assert.equal((await f.service.status()).state,'active');
+ assert.equal((await f.service.status()).expires,null);
+ await f.service.stop();
+ await f.service.deliver(snapshot);
+ assert.equal(sent.length,2);
 });

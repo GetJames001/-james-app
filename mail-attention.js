@@ -148,10 +148,10 @@ if(typeof window!=='undefined')document.addEventListener('DOMContentLoaded',()=>
   return r.json();
  }
  function render(s){
-  enable.hidden=!supported||!['off','pairing'].includes(s.state);
+  enable.hidden=!supported||s.state==='active';
   stop.hidden=s.state==='off';
   status.textContent=s.receipt==='opened'?'The saved review alert was opened.':s.receipt==='shown'?'The browser reported displaying the alert.':({
-   off:supported?'Alerts are off.':'Open in Android Chrome to enable an alert.',pairing:'Enrollment has started. Tap Enable to finish.',armed:'Waiting for a newly received actionable item.',sending:'An alert send was started. Delivery is unconfirmed.',accepted:'The push service accepted the alert. Waiting for the device.',rejected:'The push service rejected this alert.',unconfirmed:'The send outcome is unconfirmed.'
+   active:'Ongoing alerts are on for new actionable mail and hotel confirmations.',expired:'Chrome ended this subscription. Enable alerts to reconnect.',off:supported?'Alerts are off.':'Open in Android Chrome to enable an alert.',pairing:'Enrollment has started. Tap Enable to finish.',armed:'Waiting for a newly received actionable item.',sending:'An alert send was started. Delivery is unconfirmed.',accepted:'The push service accepted the alert. Waiting for the device.',rejected:'The push service rejected this alert.',unconfirmed:'The send outcome is unconfirmed.'
   }[s.state]||'Alert status unavailable.');
  }
  let busy=false,readGeneration=0;
@@ -169,7 +169,7 @@ if(typeof window!=='undefined')document.addEventListener('DOMContentLoaded',()=>
  });
  enable.onclick=()=>action(async()=>{
   if(await Notification.requestPermission()!=='granted')throw Error('Allow notifications for this James site to finish enrollment.');
-  const {publicKey}=await api({action:'prepare'});
+  const {publicKey}=await api({action:'prepare',mode:'ongoing'});
   const bytes=Uint8Array.from(atob(publicKey.replace(/-/g,'+').replace(/_/g,'/')),c=>c.charCodeAt(0));
   const reg=await navigator.serviceWorker.register(scope+'worker.js',{scope});
   if(!reg.active){
