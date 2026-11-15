@@ -27,7 +27,7 @@ box-shadow:0 0 18px rgba(255,180,60,.6),0 0 55px rgba(255,120,30,.55),0 0 110px 
 /* Recommendation cue: noticeable when useful, quiet otherwise. */
 .james-nav{padding-right:31px}
 .james-nav.has-recommendation{color:var(--gd);border-color:rgba(185,145,61,.28);background:linear-gradient(90deg,rgba(185,145,61,.035),rgba(185,145,61,.095),rgba(185,145,61,.035));animation:jamesAttention 4.8s ease-in-out infinite}
-.recommendation-cue{display:none;position:absolute;right:7px;top:50%;transform:translateY(-50%);min-width:16px;height:16px;padding:0 4px;border-radius:999px;background:linear-gradient(180deg,#d5ac57,#a97723);color:white;font-size:.62rem;line-height:16px;text-align:center;box-shadow:0 0 0 1px rgba(255,255,255,.45),0 0 13px rgba(185,145,61,.38)}
+.recommendation-cue{display:none;position:absolute;right:7px;top:50%;transform:translateY(-50%);min-width:16px;height:16px;padding:0 4px;border-radius:999px;background:linear-gradient(180deg,#d5ac57,#a97723);color:white;font-size:.67rem;line-height:16px;text-align:center;box-shadow:0 0 0 1px rgba(255,255,255,.45),0 0 13px rgba(185,145,61,.38)}
 .james-nav.has-recommendation .recommendation-cue{display:block}
 
 /* Slightly calmer spacing for the final briefing pass. */
@@ -1116,13 +1116,12 @@ html[data-theme=light] .james-shell .intel-strip>.briefing-wardrobe{background:#
 @media(max-width:600px){
  .james-shell .intel-strip{gap:4px}
  .james-shell .intel-strip>.intel-card{padding:8px 4px}
- .james-shell .intel-strip>.intel-card>span{font-size:.62rem;letter-spacing:0}
+ .james-shell .intel-strip>.intel-card>span{font-size:.67rem;letter-spacing:0}
  .james-shell .intel-strip>.briefing-wardrobe{align-self:start;min-height:54px;text-align:center}
  .james-shell .intel-strip>.briefing-wardrobe strong,.james-shell .intel-strip>.briefing-wardrobe small{display:none}
  .james-shell .intel-strip .weather-location button{max-width:100%;white-space:normal;padding:3px}
  .james-shell .intel-strip .mail-row{grid-template-columns:minmax(0,1fr);gap:2px}
- .james-shell .intel-strip .mail-envelope{display:none}
- .james-shell .intel-strip .mail-row>span{letter-spacing:0;font-size:.62rem}
+ .james-shell .intel-strip .mail-row>span{letter-spacing:0;font-size:.67rem}
  .james-shell .intel-strip .weather-location small{overflow-wrap:anywhere}
 }
 #briefingTrips{margin:0 0 18px}
