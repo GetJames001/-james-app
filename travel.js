@@ -42,9 +42,7 @@ function mountTravel({list, read, save}) {
   function card(trip) {
     const item = document.createElement('article');
     item.append(tag('h4', trip.title), tag('p', displayDate(trip.start) + ' – ' + (trip.end ? displayDate(trip.end) : 'End date open')));
-    const stops = document.createElement('ol');
-    trip.stops.forEach(stop => stops.append(tag('li', stop)));
-    item.append(stops);
+    trip.stops.forEach(stop => item.append(tag('p', stop)));
     if (trip.route) {
       const link = tag('a', 'Open original Drive Weather route');
       link.href = trip.route;
