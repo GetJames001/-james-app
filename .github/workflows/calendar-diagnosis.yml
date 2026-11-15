@@ -8,7 +8,7 @@ permissions:
   contents: read
 jobs:
   calendar-regressions:
-    if: github.event_name == 'push' || github.head_ref == 'fix/calendar-refresh-diagnosis-20261031' || github.head_ref == 'work/mail-reader-content-20261114' || github.head_ref == 'fix/briefing-location-20261114' || github.head_ref == 'fix/android-location-recovery-20261114' || github.head_ref == 'fix/attention-relevance-20261114' || github.head_ref == 'feature/saved-mail-review-20261114' || github.head_ref == 'feature/review-alert-receiver-20261114' || github.head_ref == 'feature/review-alert-enrollment-20261114' || github.head_ref == 'fix/customer-save-combined-20261114'
+    if: github.event_name == 'push' || github.head_ref == 'fix/calendar-refresh-diagnosis-20261031' || github.head_ref == 'work/mail-reader-content-20261114' || github.head_ref == 'fix/briefing-location-20261114' || github.head_ref == 'fix/android-location-recovery-20261114' || github.head_ref == 'fix/attention-relevance-20261114' || github.head_ref == 'feature/saved-mail-review-20261114' || github.head_ref == 'feature/review-alert-receiver-20261114' || github.head_ref == 'feature/review-alert-enrollment-20261114' || github.head_ref == 'fix/customer-save-combined-20261114' || github.head_ref == 'feature/background-mail-combined-20261114'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
