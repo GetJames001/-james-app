@@ -20,7 +20,7 @@ require('node:test')('Travel opens a private link, saves and restores a dated it
  const stop = 'Leave the hotel after breakfast and continue along the river for an afternoon stop before reaching the last town.';
  await page.goto('https://test.invalid/#trip?title=Fixture&start=2099-01-01&end=2099-01-02&stop='+encodeURIComponent(stop)+'&stop=The+original+Drive+Weather+route+shows+A+and+omits+B.');
  await page.getByRole('button',{name:'Save trip',exact:true}).click();
- await page.getByText('Upcoming trips',{exact:true}).waitFor({state:'attached',timeout:4000});
+ await page.locator('#travelCards').getByText('Upcoming trips',{exact:true}).waitFor({state:'attached',timeout:4000});
  await page.reload();
  await page.getByText('Fixture',{exact:true}).waitFor({state:'attached',timeout:4000});
  const paragraph=page.getByText(stop,{exact:true});
