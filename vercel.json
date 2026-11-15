@@ -1,14 +1,1 @@
-{
-  "functions": {
-    "api/gateway.js": {
-      "includeFiles": "{*.html,*.js,*.mjs,*.css,*.png,assets/**/*.png,assets/orb/*.svg,assets/scenes/*.mp4,assets/scenes/*.jpg,workbench/**/*.js,workbench/**/*.mjs,workbench/**/*.css,workbench/**/*.svg}",
-      "maxDuration": 120
-    }
-  },
-  "routes": [
-    {
-      "src": "^/(.*)$",
-      "dest": "/api/gateway?path=$1"
-    }
-  ]
-}
+cat: james-send/mail-monitor-worker/vercel.json: No such file or directory
