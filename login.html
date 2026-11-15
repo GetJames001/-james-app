@@ -113,7 +113,7 @@
         const appResponse = await fetch('/', { credentials: 'same-origin', cache: 'no-store' });
         if (!appResponse.ok) throw new Error('Unable to open James');
         const html = await appResponse.text();
-        const launchHash = (location.hash === '#talk-to-james' || location.hash === '#travel' || (location.hash.startsWith('#trip?') && location.hash.length < 20000)) ? location.hash : '';
+        const launchHash = (location.hash === '#talk-to-james' || location.hash === '#travel' || /^#travel\/[a-f0-9]{64}$/.test(location.hash) || (location.hash.startsWith('#trip?') && location.hash.length < 20000)) ? location.hash : '';
         history.replaceState(null,'','/'+launchHash);
         mark('protectedHtml');
         const parsed = new DOMParser().parseFromString(html, 'text/html');

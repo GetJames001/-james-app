@@ -1103,7 +1103,7 @@ html[data-theme=light] #app.james-shell .briefing-sheet{background:transparent}
 .james-shell .intel-icon{color:var(--muted);stroke:currentColor}
 
 /* Morning summaries: compact information plus a clear, optional outfit shortcut. */
-.james-shell .intel-strip{grid-template-columns:repeat(3,minmax(0,1fr))}
+.james-shell .intel-strip{grid-template-columns:repeat(4,minmax(0,1fr))}
 .james-shell .intel-card{padding:16px 18px;min-height:0}
 .james-shell .intel-card>.intel-icon{width:20px;height:20px;margin-bottom:8px}
 .james-shell .intel-card>span{margin-bottom:7px}
@@ -1113,7 +1113,23 @@ html[data-theme=light] #app.james-shell .briefing-sheet{background:transparent}
 .james-shell .intel-strip>.briefing-wardrobe:hover{border-color:var(--gold);background:var(--gs)}
 .james-shell .intel-strip>.briefing-wardrobe:focus-visible{outline:2px solid var(--gold);outline-offset:3px}
 html[data-theme=light] .james-shell .intel-strip>.briefing-wardrobe{background:#f3efe7}
-@media(max-width:600px){.james-shell .intel-strip{grid-template-columns:repeat(2,minmax(0,1fr))}.james-shell .intel-strip>.briefing-wardrobe{grid-column:1/-1}.james-shell .intel-strip>.briefing-wardrobe>.intel-icon{float:left;margin:3px 14px 0 0}.james-shell .intel-strip>.briefing-wardrobe strong{font-size:1.3rem}}
+@media(max-width:600px){
+ .james-shell .intel-strip{gap:4px}
+ .james-shell .intel-strip>.intel-card{padding:8px 4px}
+ .james-shell .intel-strip>.intel-card>span{font-size:.62rem;letter-spacing:0}
+ .james-shell .intel-strip>.briefing-wardrobe{align-self:start;min-height:54px;text-align:center}
+ .james-shell .intel-strip>.briefing-wardrobe strong,.james-shell .intel-strip>.briefing-wardrobe small{display:none}
+ .james-shell .intel-strip .weather-location button{max-width:100%;white-space:normal;padding:3px}
+ .james-shell .intel-strip .mail-row{grid-template-columns:minmax(0,1fr);gap:2px}
+ .james-shell .intel-strip .mail-envelope{display:none}
+ .james-shell .intel-strip .mail-row>span{letter-spacing:0;font-size:.62rem}
+ .james-shell .intel-strip .weather-location small{overflow-wrap:anywhere}
+}
+#briefingTrips{margin:0 0 18px}
+#briefingTrips h4{margin:0 0 6px}
+#briefingTripLinks a,#todayTripLinks a,.appointment-day .trip-link{display:block;padding:6px 0;color:var(--ink);text-decoration:underline;text-underline-offset:3px}
+.quick-calendar-days .trip-day{box-shadow:inset 0 -2px var(--gold)}
+
 
 /* The narrower summary cards keep complete Mail counts inside their own row. */
 .james-shell .mail-row{display:grid;grid-template-columns:auto minmax(0,1fr);gap:3px 6px;min-width:0}

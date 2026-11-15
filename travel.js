@@ -32,6 +32,12 @@ function mountTravel({list, read, save}) {
   const section = document.getElementById('travel');
   const suffix = '.james-trip.json';
   let request = 0;
+  let savedTrips = [];
+  let cache = new Map();
+  const tripEnd = trip => trip.end || trip.start;
+  function tripsOn(date) {
+    return savedTrips.filter(trip => trip.start <= date && tripEnd(trip) >= date);
+  }
   const tag = (name, text) => {
     const node = document.createElement(name);
     node.textContent = text;
@@ -42,7 +48,11 @@ function mountTravel({list, read, save}) {
   function card(trip) {
     const item = document.createElement('article');
     item.append(tag('h4', trip.title), tag('p', displayDate(trip.start) + ' – ' + (trip.end ? displayDate(trip.end) : 'End date open')));
-    trip.stops.forEach(stop => item.append(tag('p', stop)));
+    if (trip.id) item.id = 'trip-' + trip.id;
+    for (const stop of trip.stops) {
+      if (/^The original Drive Weather route shows .+ and omits .+\.$/i.test(stop.trim())) continue;
+      item.append(tag('p', stop));
+    }
     if (trip.route) {
       const link = tag('a', 'Open original Drive Weather route');
       link.href = trip.route;
@@ -51,10 +61,27 @@ function mountTravel({list, read, save}) {
     }
     return item;
   }
+  function tripLink(trip) {
+    const link = tag('a', trip.title + (trip.route ? ' · Driving' : '') + ' · ' + displayDate(trip.start));
+    link.href = '#travel/' + trip.id;
+    link.className = 'trip-link';
+    link.onclick = event => {
+      if (event.button || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
+      event.preventDefault();
+      history.pushState(null, '', link.hash);
+      window.jamesPageNow('travel');
+    };
+    return link;
+  }
+  window.jamesTripCalendar = {tripsOn, tripLink};
   async function show() {
-    if (!section.classList.contains('active')) return;
+    const travelOpen = section.classList.contains('active');
+    const briefing = document.getElementById('briefing');
+    const summary = document.getElementById('briefingTripLinks');
+    if (!travelOpen && !briefing?.classList.contains('active') &&
+        !document.getElementById('appointments')?.classList.contains('active')) return;
     const seq = ++request;
-    if (location.hash.startsWith('#trip?')) {
+    if (travelOpen && location.hash.startsWith('#trip?')) {
       const fields = new URLSearchParams(location.hash.slice(5));
       const trip = {title:fields.get('title'), start:fields.get('start'), end:fields.get('end') || '',
         stops:fields.getAll('stop'), route:fields.get('route') || ''};
@@ -73,38 +100,52 @@ function mountTravel({list, read, save}) {
       panel.replaceChildren(card(trip), button, status);
       return;
     }
-    panel.replaceChildren(tag('p','Loading trips…'));
+    if (travelOpen) panel.replaceChildren(tag('p','Loading trips…'));
     try {
       const {files} = await list();
       const trips = await Promise.all(files.filter(f => f.name.endsWith(suffix)).map(async f => {
+        if (cache.has(f.id)) return cache.get(f.id);
         const file = await read(f.id);
         const trip = JSON.parse(await file.text());
         if (!validTrip(trip)) throw Error('Invalid saved trip');
-        return trip;
+        return {...trip, id:f.id};
       }));
       if (seq !== request) return;
       const now = new Date();
       const today = [now.getFullYear(), String(now.getMonth()+1).padStart(2,'0'), String(now.getDate()).padStart(2,'0')].join('-');
-      panel.replaceChildren();
       trips.sort((a,b) => a.start.localeCompare(b.start));
+      savedTrips = trips;
+      cache = new Map(trips.map(trip => [trip.id,trip]));
+      const weekEnd = new Date(now.getFullYear(),now.getMonth(),now.getDate()+7);
+      const cutoff = localAppointmentDate(weekEnd);
+      const upcoming = trips.filter(trip => tripEnd(trip) >= today && trip.start <= cutoff);
+      if (summary) summary.replaceChildren(...(upcoming.length ? upcoming.map(tripLink) : [tag('p','No trips in the next seven days.')]));
+      document.getElementById('todayTripLinks')?.replaceChildren(...tripsOn(today).map(tripLink));
+      renderQuickCalendar();
+      renderAppointmentView();
+      if (!travelOpen) return;
+      panel.replaceChildren();
       for (const group of ['Current trips','Upcoming trips','Started · end date open','Past trips']) {
         const items = trips.filter(trip => tripGroup(trip,today) === group);
         if (group === 'Past trips') items.reverse();
         if (items.length) panel.append(tag('h3',group), ...items.map(card));
       }
+      if (location.hash.startsWith('#travel/')) document.getElementById('trip-' + location.hash.slice(8))?.scrollIntoView({block:'start'});
       if (!trips.length) panel.append(tag('p','No trips saved yet.'));
     } catch {
-      if (seq === request) panel.replaceChildren(tag('p','James could not load your trips. Reopen Travel to retry.'));
+      if (seq !== request) return;
+      if (summary) summary.textContent = 'Could not refresh trips.';
+      if (travelOpen) panel.replaceChildren(tag('p','James could not load your trips. Reopen Travel to retry.'));
     }
   }
   function launch() {
-    if (location.hash === '#travel' || location.hash.startsWith('#trip?')) window.jamesPageNow('travel');
+    if (location.hash === '#travel' || location.hash.startsWith('#travel/') || location.hash.startsWith('#trip?')) window.jamesPageNow('travel');
   }
   window.addEventListener('james:page-changed', show);
   window.addEventListener('hashchange', launch);
   window.addEventListener('pageshow', show);
   document.addEventListener('visibilitychange', () => { if (!document.hidden) show(); });
-  if (location.hash === '#travel' || location.hash.startsWith('#trip?')) setTimeout(launch,0);
+  if (location.hash === '#travel' || location.hash.startsWith('#travel/') || location.hash.startsWith('#trip?')) setTimeout(launch,0);
   else show();
 }
 if (typeof module !== 'undefined') module.exports = {tripDate, validTrip, tripGroup};

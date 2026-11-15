@@ -599,6 +599,10 @@ function renderQuickCalendar(){
     const verified=calendarSyncState.hasData&&calendarSyncState.complete&&calendarSyncState.state==='fresh';
     const label=new Date(date+'T12:00:00').toLocaleDateString(undefined,{weekday:'long',month:'long',day:'numeric',year:'numeric'});
     button.setAttribute('aria-label',label+(button.disabled?' · Outside available dates':hasEvents?' · Appointments'+(verified?'':' · Data may be incomplete or stale'):verified?' · No appointments returned':' · Schedule not verified'));
+    if(window.jamesTripCalendar?.tripsOn(date).length){
+      button.classList.add('trip-day');
+      button.setAttribute('aria-label',button.getAttribute('aria-label')+' · Trip');
+    }
     if(date===today){button.classList.add('is-today');button.setAttribute('aria-current','date');}
     if(hasEvents&&!button.disabled){const dot=document.createElement('i');dot.className='appointment-dot';dot.setAttribute('aria-hidden','true');button.append(dot);}
     button.onclick=()=>openAppointmentDate(date);grid.append(button);
@@ -623,10 +627,12 @@ function renderAppointmentView(){
   for(const day of days){
     const group=document.createElement('section');group.className='appointment-day';group.dataset.date=day.date;list.append(group);
     const heading=document.createElement('h4');heading.id='appointment-day-'+day.date;group.setAttribute('aria-labelledby',heading.id);heading.className='appointment-day-heading';heading.textContent=label(day.day);group.append(heading);
+    const trips=window.jamesTripCalendar?.tripsOn(day.date) || [];
+    for(const trip of trips) group.append(window.jamesTripCalendar.tripLink(trip));
     const result=JamesCalendarSync.eventsForDay(liveEvents,day.day);
     for(const event of result.allDay){const article=document.createElement('article'),time=document.createElement('div'),details=document.createElement('div'),title=document.createElement('h4'),source=document.createElement('p');time.textContent='All day';title.textContent=event.title;source.textContent=event.calendarName||'Google Calendar';details.append(title,source);const button=document.createElement('button');button.type='button';button.textContent='Open';button.onclick=()=>openCalendarEvent(event);article.append(time,details,button);group.append(article);}
     for(const event of result.timed){const article=document.createElement('article'),time=document.createElement('div'),details=document.createElement('div'),title=document.createElement('h4'),location=document.createElement('p'),button=document.createElement('button');time.textContent=pretty(event[0]);title.textContent=event[2];location.textContent=event[3];details.append(title,location);button.textContent='Open';button.onclick=()=>openCalendarEvent(event);article.append(time,details,button);group.append(article);}
-    if(!result.timed.length&&!result.allDay.length){const empty=document.createElement('p');empty.textContent=calendarSyncState.hasData&&calendarSyncState.complete&&calendarSyncState.state==='fresh'?'No events returned for this date from the selected Google calendars.':'No events available for this date; the schedule is not verified.';group.append(empty);}
+    if(!trips.length&&!result.timed.length&&!result.allDay.length){const empty=document.createElement('p');empty.textContent=calendarSyncState.hasData&&calendarSyncState.complete&&calendarSyncState.state==='fresh'?'No events returned for this date from the selected Google calendars.':'No events available for this date; the schedule is not verified.';group.append(empty);}
   }
 }
 function buildCalendar(){

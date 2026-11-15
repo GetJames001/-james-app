@@ -159,7 +159,16 @@
     <strong>Today’s outfit</strong>
     <small>Get dressed for your day</small>
   </button>
+  <button type="button" class="intel-card briefing-wardrobe" data-action-page="travel">
+    <svg class="intel-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="7" width="18" height="14" rx="2"/><path d="M8 7V4h8v3M8 8v12m8-12v12"/></svg>
+    <span>TRAVEL</span>
+    <strong>Your trips</strong>
+  </button>
 </div>
+      <section id="briefingTrips" aria-labelledby="briefingTripsHeading">
+        <h4 id="briefingTripsHeading">Upcoming trips</h4>
+        <div id="briefingTripLinks" aria-live="polite"></div>
+      </section>
       <div class="briefing-outlook">
       <section class="next-card" aria-label="Next appointment">
         <div class="next-label">NEXT APPOINTMENT</div>
@@ -214,6 +223,7 @@
           <small>TODAY’S CALENDAR · 7:00 AM–7:00 PM</small>
           <div class="calendar-actions"><button id="calendarRefreshButton" type="button">Refresh calendar</button><a id="googleCalendarConnectLink" href="/api/google/connect" hidden>Connect Google Calendar</a></div>
           <p id="calendarVisibleWarning" role="status" aria-live="polite" hidden></p>
+          <div id="todayTripLinks"></div>
           <div id="allDayStrip" hidden></div>
           <div id="allDayRibbon" hidden>ALL DAY</div>
           <div id="calendar" class="calendar"></div>
