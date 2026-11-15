@@ -375,15 +375,11 @@
       <div class="sheet-head">
         <div>
           <small>TRAVEL</small>
-          <h3>Trips beyond today’s route.</h3>
+          <h3>Your trips</h3>
         </div>
       </div>
 
-      <div class="cards one compact-cards">
-        <article>
-          <h4>No upcoming travel booked</h4>
-          <p>Flights, hotels, rental cars, boarding details, and business trips will appear here.</p>
-        </article>
+      <div id="travelCards" class="cards one compact-cards" aria-live="polite">
       </div>
     </div>
   </section>
@@ -559,6 +555,7 @@
 <script src="wake-listener.js"></script>
 <script src="wall-display.js"></script>
 <script src="customer-activity-ui.js"></script>
+<script src="travel.js"></script>
 <script src="app.js"></script>
 <link rel="stylesheet" href="/customer-database.css">
 <script src="/customer-database-ui.js"></script>

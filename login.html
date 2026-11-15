@@ -113,7 +113,7 @@
         const appResponse = await fetch('/', { credentials: 'same-origin', cache: 'no-store' });
         if (!appResponse.ok) throw new Error('Unable to open James');
         const html = await appResponse.text();
-        const launchHash = location.hash === '#talk-to-james' ? location.hash : '';
+        const launchHash = (location.hash === '#talk-to-james' || location.hash === '#travel' || (location.hash.startsWith('#trip?') && location.hash.length < 20000)) ? location.hash : '';
         history.replaceState(null,'','/'+launchHash);
         mark('protectedHtml');
         const parsed = new DOMParser().parseFromString(html, 'text/html');
@@ -127,7 +127,7 @@
         // Hosting instrumentation is optional and may be forbidden by the login CSP.
         const appScriptPaths = new Set([
           '/mail-refresh.js','/calendar-sync.js','/welcome.js',
-          '/conversation-runtime.js','/conversation-ui.js','/voice-session.js','/mail-attention.js',
+          '/conversation-runtime.js','/conversation-ui.js','/voice-session.js','/mail-attention.js','/travel.js',
           '/appointments-ui.js','/location-context.js','/reminders-ui.js','/wake-listener.js','/wall-display.js','/customer-activity-ui.js','/app.js',
           '/customer-database-ui.js','/workbench/host.mjs'
         ]);

@@ -126,7 +126,7 @@ module.exports = async function handler(req, res) {
     route === "appointments-ui.js" || route === "location-context.js" || route === "reminders-ui.js" || route === "wake-listener.js" || route === "wall-display.js" ||
     route === "customer-activity-ui.js" || route === "customer-database.css" || route === "customer-database-ui.js" ||
     ["realtime-coordinator.mjs","turn-timing.mjs","voice-session.js","conversation-ui.js","conversation-runtime.js","conversation-identity.mjs","conversation-bridge.mjs"].includes(route) ||
-    route === "mail-refresh.js" || route === "mail-attention.js" ||
+    route === "mail-refresh.js" || route === "mail-attention.js" || route === "travel.js" ||
     route === "calendar-sync.js" ||
     route === "styles.css" ||
     route === "welcome.css" ||

@@ -1702,6 +1702,7 @@ document.addEventListener('DOMContentLoaded',()=>{
   const bytes=Uint8Array.from(atob(file.content), character=>character.charCodeAt(0));
   return new File([bytes],file.name,{type:file.type,lastModified:file.lastModified});
  }
+ if (typeof mountTravel === 'function') mountTravel({list:filesRequest,read:readAccountFile,save:saveAccountFile});
  function renderSavedFiles(){
   savedList.replaceChildren();
   const query=searchFiles.value.trim().toLowerCase();
