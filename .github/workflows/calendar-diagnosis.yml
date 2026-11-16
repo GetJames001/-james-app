@@ -83,7 +83,7 @@ jobs:
            const profiles=[];
            for(const [name,lat,lon] of cities.slice(0,3)){
             const url=new URL('https://api.open-meteo.com/v1/elevation');
-            url.search=new URLSearchParams({latitude:Array(17).fill((lat+.07).toFixed(3)).join(','),longitude:Array.from({length:17},(_,i)=>((((lon+(i-8)*.014/Math.cos(lat*Math.PI/180)+540)%360)-180).toFixed(3)).join(',')});
+            url.search=new URLSearchParams({latitude:Array(17).fill((lat+.07).toFixed(3)).join(','),longitude:Array.from({length:17},(_,i)=>(((lon+(i-8)*.014/Math.cos(lat*Math.PI/180)+540)%360)-180).toFixed(3)).join(',')});
             const r=await fetch(url);if(!r.ok)throw Error(name+' '+r.status);
             const {elevation}=await r.json();if(elevation.length!==17)throw Error(name);
             profiles.push(elevation);
