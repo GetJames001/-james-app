@@ -44,6 +44,7 @@ function mountMagazine({list,read,save}){
   host.textContent='Loading stories…';
   try{
    const data=await entry.promise;
+   if(host.dataset.feed!==key)return;
    const nodes=data.items.map(item=>{
     const row=tag('div','');row.className='mag-story';row.append(link(item.title,item.url));
     if(key==='recipes'){
@@ -62,10 +63,31 @@ function mountMagazine({list,read,save}){
     }return row;
    });
    host.replaceChildren(tag('small',data.publisher),...nodes);
-  }catch{if(feeds.get(key)===entry)feeds.delete(key);const retry=tag('button','Retry feed');retry.onclick=()=>refreshFeed(host);host.replaceChildren(tag('p','The publisher feed is unavailable.'),retry);}
+  }catch{if(host.dataset.feed!==key)return;if(feeds.get(key)===entry)feeds.delete(key);const retry=tag('button','Retry feed');retry.onclick=()=>refreshFeed(host);host.replaceChildren(tag('p','The publisher feed is unavailable.'),retry);}
  }
  for(const b of document.querySelectorAll('[data-career]'))b.onclick=()=>{
   page('files');const search=el('searchJamesFiles');search.value=b.dataset.career;search.dispatchEvent(new Event('input'));search.focus();
+ };
+ for(const button of document.querySelectorAll('[data-scroll]')){
+  button.onclick=()=>el(button.dataset.scroll)?.scrollIntoView({block:'start'});
+ }
+ for(const button of document.querySelectorAll('[data-topic]')){
+  button.onclick=()=>{
+   document.querySelectorAll('[data-topic]').forEach(b=>b.setAttribute('aria-pressed',String(b===button)));
+   const host=el('growthReading');
+   host.dataset.feed=button.dataset.topic==='business'?'business':'life';
+   if(button.dataset.topic==='work'){host.hidden=true;}else{host.hidden=false;refreshFeed(host);}
+   el('growth').querySelector('.pair').hidden=button.dataset.topic!=='work';
+  };
+ }
+ const savePractice=el('savePractice');
+ savePractice.onclick=async()=>{
+  savePractice.disabled=true;
+  try{
+   const body='Listen before responding\nhttps://ggia.berkeley.edu/practice/active_listening';
+   await save(new File([body],'Listen before responding.txt',{type:'text/plain',lastModified:0}));
+   savePractice.textContent='Saved to Files';
+  }catch{savePractice.disabled=false;savePractice.textContent='Retry save';}
  };
  const workouts = [
   {title:'Full-body strength', gear:'Chair and wall', moves:['Sit to stand','Wall press-up','Calf raise'], guide:'strength-exercises', photo:'health'},

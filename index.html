@@ -120,7 +120,7 @@
   <section id="briefing" class="page active">
     <div class="sheet briefing-sheet">
 
-      <div class="sheet-head compact-head">
+      <div class="brief-lead"><div class="sheet-head compact-head">
         <div>
           <h3>Your Daily Briefing</h3>
         </div>
@@ -133,7 +133,7 @@
             <span id="perspectiveBriefAuthor"></span>
           </div>
         </div>
-      </section>
+      </section></div>
 <div class="intel-strip">
   <div class="intel-card">
     <svg class="intel-icon" viewBox="0 0 24 24" aria-hidden="true">
@@ -391,11 +391,11 @@
 <h2>Lifestyle</h2>
 <div class="mag-grid">
 <button type="button" class="mag-tile" data-action-page="recipes">
-<img src="assets/lifestyle/recipe.jpg" alt="" loading="lazy">
-<span>Cooking &amp; Recipes</span>
+<img src="assets/lifestyle/salmon.jpg" alt="" loading="lazy">
+<span>Cooking &amp; Recipes<em>Mad Food Son!!!</em><small>Explore recipes →</small></span>
 </button>
 <a class="mag-tile" href="https://aaru-working-review.aglow-ox-8353.chatgpt.site/wardrobe" target="_blank" rel="noopener noreferrer">
-<img src="assets/lifestyle/wardrobe.jpg" alt="" loading="lazy">
+<img src="assets/lifestyle/tailoring.jpg" alt="" loading="lazy">
 <span>Wardrobe</span>
 </a>
 <button type="button" class="mag-tile" data-action-page="garage">
@@ -407,11 +407,11 @@
 <span>Finance</span>
 </button>
 <button type="button" class="mag-tile" data-action-page="growth">
-<img src="assets/lifestyle/development.jpg" alt="" loading="lazy">
+<img src="assets/lifestyle/books.jpg" alt="" loading="lazy">
 <span>Personal Development</span>
 </button>
 <button type="button" class="mag-tile" data-action-page="fitness">
-<img src="assets/lifestyle/health.jpg" alt="" loading="lazy">
+<img src="assets/lifestyle/shoes.jpg" alt="" loading="lazy">
 <span>Health &amp; Fitness</span>
 </button>
 <button type="button" class="mag-tile" data-action-page="travel">
@@ -422,17 +422,8 @@
 </div>
 </section>
 <section class="page" id="recipes">
-<div class="sheet magazine">
-<button class="mag-back" data-action-page="lifestyle">‹ Lifestyle</button>
-<div class="mag-cover" style="--photo:url(assets/lifestyle/recipe.jpg)">
-<h2>Cooking &amp; Recipes</h2>
-</div>
-<div class="mag-bar">
-<button id="recipeAsk">Ask James what to cook</button>
-<a href="#recipeDiscover" onclick="document.getElementById('recipeDiscover').scrollIntoView();return false">Discover</a>
-</div>
-<h3>My recipe book</h3>
-<p id="bookNotice" role="status">
+<div class="sheet magazine edition">
+<div class="edition-crumb"><b>James</b><button data-action-page="lifestyle">‹ Lifestyle</button><span>Cooking &amp; Recipes</span></div><div class="book-tools"><button id="recipeAsk">Ask James what to cook</button><button data-scroll="recipeDiscover">Discover</button><button data-scroll="bookPage">My recipe book</button></div><p id="bookNotice" role="status">
 </p>
 <div class="mag-book">
 <div id="bookPage" aria-live="polite">
@@ -510,64 +501,23 @@
 </div>
 </div>
 </section>
-<section class="page" id="growth">
-<div class="sheet magazine">
-<button class="mag-back" data-action-page="lifestyle">‹ Lifestyle</button>
-<div class="mag-cover" style="--photo:url(assets/lifestyle/development.jpg)">
-<h2>Personal Development</h2>
-</div>
-<div class="mag-columns">
-<section>
-<h3>Listen before responding</h3>
-<p>A short practice for your next conversation.</p>
-<a href="https://ggia.berkeley.edu/practice/active_listening" target="_blank" rel="noopener noreferrer">Read Active Listening · UC Berkeley</a>
-</section>
-<section>
-<h3>Career folder</h3>
-<button data-career="resume">Current résumé</button> <button data-career="cover">Cover letter</button>
-</section>
-</div>
-<h3>Life &amp; work</h3>
-<div data-feed="life">
-</div>
-<h3>Business</h3>
-<div data-feed="business">
-</div>
-<h3>Prepare for an interview</h3>
-<p>Choose one recent win. Write down the situation, the action you took and the result.</p>
-<details>
-<summary>Take time for reflection</summary>
-<p>What worked this week? What would you try differently next time?</p>
-</details>
-</div>
-</section>
+<section class="page" id="growth"><div class="sheet magazine edition"><div class="edition-crumb"><b>James</b><button data-action-page="lifestyle">‹ Lifestyle</button><span>Personal Development</span></div><div class="edition-title"><h2>Personal Development</h2><div class="edition-tabs" aria-label="Reading topics">
+<button data-topic="work" aria-pressed="true">Work</button><button data-topic="life" aria-pressed="false">Life</button><button data-topic="business" aria-pressed="false">Business</button></div></div>
+<div class="growth-top"><article class="photo-panel lead-panel" style="--photo:url(assets/lifestyle/development.jpg)"><div><h3><a href="https://ggia.berkeley.edu/practice/active_listening" target="_blank" rel="noopener noreferrer">Listen before responding</a></h3><button id="savePractice">Save for later</button></div></article>
+<aside class="career-box"><h3>Career folder</h3><button data-career="resume">Current résumé ›</button><button data-career="cover">Cover letter ›</button></aside></div>
+<h3 class="rule-title">Reading &amp; practice</h3>
+<div class="pair"><details class="photo-panel" style="--photo:url(assets/lifestyle/interview.jpg)"><summary>Prepare for an interview</summary><p>Choose one recent win. Write down the situation, your action and the result.</p></details>
+<details class="photo-panel" style="--photo:url(assets/lifestyle/reflection.jpg)"><summary>Make time for reflection</summary><p>What worked this week? What would you try differently next time?</p></details></div>
+<div id="growthReading" data-feed="life"></div></div></section>
 <section class="page" id="fitness">
 <div class="sheet magazine">
-<button class="mag-back" data-action-page="lifestyle">‹ Lifestyle</button>
-<div class="mag-cover" style="--photo:url(assets/lifestyle/health.jpg)">
-<h2>Health &amp; Fitness</h2>
-</div>
-<div class="mag-columns">
-<section>
-<h3>Workout of the day</h3>
-<p id="dailyWorkout">
-</p>
-<div class="mag-bar">
-<button data-action-page="workout-detail">View workout</button>
-<button data-action-page="workouts">Swap workout</button>
-</div>
-</section>
-<section>
-<h3>Health appointments</h3>
-<div id="healthMeetings">
-</div>
-<button data-action-page="appointments">Open calendar</button>
-</section>
-</div>
-<h3>My goals</h3>
-<button data-action-page="tasks">Open my tasks and goals</button>
-<h3 class="evidence-cover">Supplements &amp; peptides</h3>
-<details>
+<div class="edition-crumb"><b>James</b><button data-action-page="lifestyle">‹ Lifestyle</button><span>Health &amp; Fitness</span></div><div class="fitness-layout"><div><h2>Health &amp; Fitness</h2>
+<section class="photo-panel lead-panel" style="--photo:url(assets/lifestyle/health.jpg)"><div><small>Workout of the day</small><h3 id="dailyWorkout"></h3>
+<div class="mag-bar"><button data-action-page="workout-detail">View workout</button><button data-action-page="workouts">Swap workout</button></div></div></section>
+<div class="pair"><button class="photo-panel" data-action-page="workouts" style="--photo:url(assets/lifestyle/mobility.jpg)">Mobility reset</button><button class="photo-panel" data-scroll="fitnessEvidence" style="--photo:url(assets/lifestyle/journal-open.jpg)">Supplements &amp; peptides</button></div></div>
+<aside class="fitness-side"><section><h3>My goals</h3><button data-action-page="tasks">View goals</button></section>
+<section><h3>Health appointments</h3><div id="healthMeetings"></div><button data-action-page="appointments">Open calendar</button></section></aside></div>
+<h3 id="fitnessEvidence" class="rule-title">Supplements &amp; peptides</h3><details>
 <summary>Exercise, strength and supplements</summary>
 <p>Browse the NIH guide to evidence, safety and interactions for individual ingredients. <a href="https://ods.od.nih.gov/factsheets/ExerciseAndAthleticPerformance-Consumer/" target="_blank" rel="noopener noreferrer">Read the NIH guide</a>
 </p>
@@ -602,36 +552,16 @@
     <div class="mag-bar"><button id="chooseWorkout">Use this workout today</button><button data-action-page="fitness">Health &amp; Fitness</button></div>
   </div>
 </section>
-<section class="page" id="garage">
-<div class="sheet magazine">
-<button class="mag-back" data-action-page="lifestyle">‹ Lifestyle</button>
-<div class="mag-cover" style="--photo:url(assets/lifestyle/auto.jpg)">
-<h2>My garage</h2>
-</div>
-<h3>2015 Jaguar F‑TYPE S</h3>
-<a href="https://www.jaguarusa.com/owners/index.html" target="_blank" rel="noopener noreferrer">Jaguar owner resources</a>
-<div class="mag-cover" style="--photo:url(assets/lifestyle/mercedes.jpg)">
-<h3>2019 Mercedes-AMG GLC 63 S</h3>
-</div>
-<a href="https://www.mbusa.com/en/owners" target="_blank" rel="noopener noreferrer">Mercedes-Benz owner resources</a>
-<h3>Maintenance &amp; alerts</h3>
-<p>Check recalls by VIN and add your next service to Tasks.</p>
-<a href="https://www.nhtsa.gov/recalls" target="_blank" rel="noopener noreferrer">Check a recall · NHTSA</a> <button data-action-page="tasks">Add a service task</button>
-</div>
-</section>
-  <section id="travel" class="page">
-    <div class="sheet magazine">
-<div class="sheet-head">
-<div>
-<h2>Travel</h2>
-        </div>
-      </div>
-
-      <div id="travelCards" class="cards one compact-cards" aria-live="polite">
-</div>
-<section>
-<h3>Places to see</h3>
-<div class="mag-places" id="tripPlaces">
+<section class="page" id="garage"><div class="sheet magazine edition"><div class="edition-crumb"><b>James</b><button data-action-page="lifestyle">‹ Lifestyle</button><span>Auto</span></div><h2>Auto</h2><h3 class="rule-title">My garage</h3><div class="garage-car" style="--photo:url(assets/lifestyle/auto.jpg)"><div><h3>2015 Jaguar F-TYPE S</h3><a href="https://www.jaguarusa.com/owners/index.html" target="_blank" rel="noopener noreferrer">Owner resources ↗</a>
+<button data-action-page="tasks">Add maintenance schedule</button></div></div>
+<div class="garage-car" style="--photo:url(assets/lifestyle/mercedes.jpg)"><div><h3>2019 Mercedes-AMG GLC 63 S</h3><a href="https://www.mbusa.com/en/owners" target="_blank" rel="noopener noreferrer">Owner resources ↗</a></div></div>
+<div class="pair"><details class="photo-panel" style="--photo:url(assets/lifestyle/weekend.jpg)"><summary>Keeping the weekend car ready</summary><p>Review your service record and upcoming maintenance.</p><a href="https://www.nhtsa.gov/recalls" target="_blank" rel="noopener noreferrer">Check recalls by VIN</a></details>
+<button class="photo-panel" style="--photo:url(assets/lifestyle/road.jpg)" data-action-page="travel">Before the drive to Oregon</button></div></div></section>
+<section id="travel" class="page">
+    <div class="sheet magazine edition"><div class="edition-crumb"><b>James</b><button data-action-page="lifestyle">‹ Lifestyle</button><span>Travel</span></div><div class="travel-feature"><h2>Travel</h2><div class="edition-tabs">
+<button data-trip-group="Current trips">Current trips</button><button data-trip-group="Upcoming trips">Planned trips</button><button data-scroll="tripPlaces">Places to see</button></div>
+<div id="travelCards" class="cards one compact-cards" aria-live="polite"></div></div>
+<section><h3 class="rule-title">Places to see</h3><div class="mag-places" id="tripPlaces">
 <a class="mag-tile" href="https://www.eugenecascadescoast.org/" target="_blank" rel="noopener noreferrer">
 <img src="assets/lifestyle/eugene.jpg" alt="" loading="lazy">
 <span>Eugene</span>

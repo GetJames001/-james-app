@@ -34,6 +34,14 @@ function mountTravel({list, read, save}) {
   const suffix = '.james-trip.json';
   let request = 0;
   let savedTrips = [];
+  let selectedGroup = '';
+  for(const button of section.querySelectorAll('[data-trip-group]')){
+    button.onclick=()=>{
+      selectedGroup=button.dataset.tripGroup;
+      history.replaceState(null,'','#travel');
+      show();
+    };
+  }
   let cache = new Map();
   const tripEnd = trip => trip.end || trip.start;
   function tripsOn(date) {
@@ -151,13 +159,19 @@ function mountTravel({list, read, save}) {
       renderAppointmentView();
       if (!travelOpen) return;
       panel.replaceChildren();
+      const groups=trips.map(trip=>tripGroup(trip,today));
+      const opened=trips.find(trip=>location.hash==='#travel/'+trip.id);
+      const chosen=opened?tripGroup(opened,today):selectedGroup||(groups.includes('Current trips')?'Current trips':groups.includes('Upcoming trips')?'Upcoming trips':'');
+      section.querySelectorAll('[data-trip-group]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.tripGroup===chosen)));
+      if(selectedGroup&&!opened&&!groups.includes(selectedGroup))panel.append(tag('p',selectedGroup==='Current trips'?'No trip in progress.':'No upcoming trips.'));
       for (const group of ['Current trips','Upcoming trips','Started · end date open','Past trips']) {
         const items = trips.filter(trip => tripGroup(trip,today) === group);
+        if(chosen && group!==chosen && (selectedGroup || ['Current trips','Upcoming trips'].includes(group)))continue;
         if (group === 'Past trips') items.reverse();
         if (items.length) panel.append(tag('h3',group), ...items.map(trip => location.hash === "#travel/" + trip.id ? card(trip) : cover(trip)));
       }
       if (location.hash.startsWith('#travel/')) document.getElementById('trip-' + location.hash.slice(8))?.scrollIntoView({block:'start'});
-      if (!trips.length) panel.append(tag('p','No trips saved yet.'));
+      if (!trips.length && !selectedGroup) panel.append(tag('p','No trips saved yet.'));
     } catch {
       if (seq !== request) return;
       if (tileStatus) {

@@ -1212,20 +1212,6 @@ html[data-theme=light] .james-shell .intel-strip>.briefing-wardrobe{background:#
 .mag-book {position:relative}
 .mag-book:not(.source-only)::after {content:"";position:absolute;right:0;bottom:0;width:22px;height:22px;background:linear-gradient(135deg,transparent 45%,#d0bfa3 49%,#fff3d9 80%,#372d25 100%);pointer-events:none}
 
-/* Give the space between panels the same photographic treatment as their covers. */
-#app.james-shell {
- --scene:url(assets/lifestyle/briefing.jpg);
- --scene-shade:linear-gradient(90deg,#07121bd1,#07121b6b 65%,#07121b7d);
- background:var(--scene-shade),var(--scene) center top/cover;
-}
-html[data-theme=light] #app.james-shell {--scene-shade:linear-gradient(90deg,#faf3e5d9,#fff6e89c)}
-#app:has(#travel.active) {--scene:url(assets/lifestyle/travel.jpg)}
-#app:has(#wardrobe.active) {--scene:url(assets/lifestyle/wardrobe.jpg)}
-#app:has(#fitness.active,#workouts.active,#workout-detail.active) {--scene:url(assets/lifestyle/health.jpg)}
-#app:has(#recipes.active) {--scene:url(assets/lifestyle/recipe.jpg)}
-#app:has(#garage.active) {--scene:url(assets/lifestyle/auto.jpg)}
-#app:has(#growth.active) {--scene:url(assets/lifestyle/development.jpg)}
-#app:has(#finance.active) {--scene:url(assets/lifestyle/finance.jpg)}
 #app #briefing .intel-card {
  --tile-scene:url(assets/lifestyle/eugene.jpg);
  --ink:#fff8ef;--muted:#f8eddf;
@@ -1238,3 +1224,82 @@ html[data-theme=light] #app.james-shell {--scene-shade:linear-gradient(90deg,#fa
 .magazine .workout-choices .workout-choice {display:flex;flex-direction:column;justify-content:flex-end;align-items:start;gap:.4rem;text-align:left;min-height:170px;padding:1.25rem;color:#fff6e9;background:linear-gradient(0deg,#071019ee,transparent),var(--photo) center/cover}
 .workout-choice strong {font-size:1.6rem}
 #workoutMoves {line-height:1.9}
+
+/* The editorial spread sits on the ordinary James page. Each frame owns its photograph. */
+#app .magazine {background:transparent;border:0;box-shadow:none;padding:0}
+#app .edition-crumb {display:flex;align-items:center;gap:.85rem;border-bottom:1px solid var(--gs);padding:.3rem 0 .5rem;margin-bottom:.65rem;font:1rem Georgia,serif}
+#app .edition-crumb b {font:italic 1.6rem Georgia,serif;color:var(--gold)}
+#app .edition-crumb button {background:none;border:none;padding:.2rem .6rem;color:var(--gold);min-height:36px;border-inline:1px solid var(--gs);border-radius:0}
+#app .magazine h2 {font:400 clamp(2rem,4.2vw,4.2rem)/1.04 Georgia,serif;margin:.2rem 0 .55rem}
+#app .mag-grid {grid-template-columns:repeat(6,minmax(0,1fr));gap:8px}
+#app .mag-grid>.mag-tile {grid-column:span 2;min-height:0;aspect-ratio:1.5;border-radius:6px}
+#app .mag-grid>.mag-tile:first-child {grid-column:span 4;aspect-ratio:2.05}
+#app .mag-grid>.mag-tile:nth-child(2) {aspect-ratio:auto}
+#app .mag-grid>.mag-tile:nth-last-child(-n+2) {grid-column:span 3;aspect-ratio:2.05}
+.mag-tile span em,.mag-tile span small {display:block;font-size:.58em;margin-top:.25em}
+.mag-tile span small {color:#efd29a}
+#app:has(#briefing.active) .greeting {border-radius:6px;background:linear-gradient(90deg,#051829bf,transparent),url(assets/scenes/evening.jpg) center 51%/cover;padding:clamp(16px,3vw,35px);color:#fff7e9}
+#app:has(#briefing.active) .greeting :is(h2,p) {color:#fff7e9}
+#app .brief-lead .compact-head,#app .brief-lead .perspective-revisit {background:transparent;min-height:0;border:0;padding:0;margin:.2rem 0 .55rem}
+#app .brief-lead .compact-head h3 {font-size:1.5rem;color:var(--ink)}
+#app .brief-lead .perspective-revisit blockquote {font:1.15rem/1.35 Georgia,serif;color:var(--ink)}
+#app .brief-lead .perspective-credit {color:var(--gold)}
+#app .brief-lead {margin:0 0 1rem}
+#app .travel-feature {background:linear-gradient(90deg,#08111ee6,rgba(8,17,30,.53) 52%,transparent),url(assets/lifestyle/travel.jpg) center/cover;border-radius:6px;padding:clamp(18px,3vw,45px);min-height:clamp(240px,32vw,420px);color:#fff6e6}
+#app .travel-feature h2,#app .travel-feature h3 {color:#fff7e9}
+#app .edition-tabs {display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+#app .edition-tabs button {padding:.35em .7em;min-height:36px}
+#app .edition-tabs [aria-pressed=true] {border-color:#cbad72;color:#f6d8a5;background:#312b22}
+#app #travelCards {margin:.8rem 0 0;gap:.3rem}
+#app #travelCards>h3 {font:600 .72rem system-ui;letter-spacing:.08em;text-transform:uppercase;color:#edd1a2;margin:0}
+#app #travelCards>a.trip-link {background:none;padding:.35rem 0;border:0;min-height:0;gap:.5rem}
+#app .rule-title {display:flex;gap:12px;align-items:center;margin:.65rem 0 .45rem}
+.rule-title::after {content:'';flex:1;background:#a08046;height:1px}
+#app .mag-places {gap:7px}
+#app .mag-places .mag-tile {min-height:0;aspect-ratio:1.3;padding:12px;border-radius:5px}
+.edition-title,.book-tools {display:flex;align-items:center;justify-content:space-between;gap:.5rem;flex-wrap:wrap}
+.growth-top,.fitness-layout {display:grid;grid-template-columns:minmax(0,2.65fr) minmax(145px,1fr);gap:8px}
+#app .magazine .photo-panel,#app .garage-car {display:flex;justify-content:flex-end;flex-direction:column;align-items:flex-start;border:1px solid #99784755;border-radius:5px;background:linear-gradient(0deg,#071019e8,transparent 75%),var(--photo) center/cover;color:#fff6e6;text-align:left;padding:clamp(12px,2vw,26px);min-height:155px;overflow:hidden}
+#app .magazine .lead-panel {min-height:clamp(230px,29vw,415px);background:linear-gradient(90deg,#08121cd1,transparent 85%),var(--photo) center/cover}
+#app .lead-panel h3 {font:400 clamp(2rem,4vw,3.8rem)/1.05 Georgia,serif;max-width:12ch;margin:.25em 0;color:#fff7e9}
+#app .lead-panel h3 a,#app .photo-panel p {color:inherit;text-decoration:none}
+#app .pair {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:.5rem 0}
+#app .pair[hidden] {display:none}
+#app .pair .photo-panel {min-height:clamp(155px,16vw,255px);font:400 clamp(1.2rem,2vw,2rem)/1.12 Georgia,serif}
+#app details.photo-panel:not([open]) {align-content:end;display:block}
+#app details.photo-panel[open] {display:block}
+#app .photo-panel p,#app .photo-panel a:not(h3 a) {font-size:1rem;line-height:1.4}
+#app .career-box,#app .fitness-side>section {background:#132334;border:1px solid #99784755;color:#fff5e4;border-radius:6px;padding:clamp(12px,2vw,24px)}
+#app .career-box h3,#app .fitness-side h3 {margin:0 0 .6rem;color:#fff5e4}
+#app .career-box button {display:block;width:100%;margin:.6rem 0;min-height:70px;text-align:left}
+#app .fitness-side {display:grid;align-content:start;gap:8px}
+#app .fitness-side p {color:#e7e0d8}
+#app .garage-car {min-height:clamp(185px,21vw,310px);align-items:end;margin:.4rem 0;background:linear-gradient(270deg,#060f1beb,transparent 68%),var(--photo) 30% center/cover}
+#app .garage-car>div {width:min(36%,22rem)}
+#app .garage-car h3 {color:white;margin:0}
+#app .garage-car button {display:block;margin-top:.5rem}
+#app .book-tools {justify-content:end;margin:.4rem 0}
+#app .mag-book {border:5px solid #60452e;border-radius:10px 15px 15px 10px;grid-template-columns:1fr 1fr;box-shadow:0 4px #d2bd96,0 6px #6d503b,0 10px 16px #0005}
+#app .mag-book #bookPage {background:linear-gradient(90deg,#ddcaa4,#f8eed6 5%,#f7efd9 91%,#bda57f);padding:clamp(18px,3vw,44px)}
+#app .mag-book #bookPhoto {height:100%;min-height:260px;max-height:none}
+#app .mag-book.source-only {background:linear-gradient(90deg,#e1ccaa,#f5e9d0)}
+#app #growthReading,#app #recipeDiscover [data-feed] {display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,200px),1fr));gap:8px;margin-top:.65rem}
+#app #growthReading[hidden] {display:none}
+#app [data-feed]>small {grid-column:1/-1}
+#app #growthReading .mag-story,#app #recipeDiscover .mag-story {display:flex;position:relative;isolation:isolate;align-items:end;align-content:end;border-radius:5px;overflow:hidden;min-height:130px;padding:12px;background:linear-gradient(0deg,#071019ec,#08111c99),url(assets/lifestyle/books.jpg) center/cover;color:white}
+#app #recipeDiscover .mag-story {background-image:linear-gradient(0deg,#071019ee,#09152366),url(assets/lifestyle/salmon.jpg)}
+#app .mag-story img {position:absolute;inset:0;z-index:-1;width:100%;height:100%;object-fit:cover;filter:brightness(.55)}
+#app .mag-story a {color:#fff6e9}
+@media(max-width:600px){
+ #app .mag-grid {grid-template-columns:repeat(2,minmax(0,1fr))}
+ #app .mag-grid>.mag-tile,#app .mag-grid>.mag-tile:nth-last-child(-n+2) {grid-column:span 1;aspect-ratio:1.25}
+ #app .mag-grid>.mag-tile:first-child {grid-column:1/-1;aspect-ratio:2}
+ .growth-top,.fitness-layout {grid-template-columns:1fr}
+ #app .career-box button {display:inline-block;width:auto;min-height:44px;margin:0 .25rem .25rem 0}
+ #app .mag-places {grid-template-columns:repeat(3,minmax(0,1fr))}
+ #app .mag-places .mag-tile {aspect-ratio:.85;padding:7px}
+ #app .mag-places .mag-tile span {font-size:1rem}
+ #app .garage-car>div {width:55%}
+ #app .mag-book #bookPage {padding:12px}
+ #app .mag-book h3 {font-size:1.25rem}
+}
