@@ -61,6 +61,7 @@ test('intro and briefing show same daily perspective, no navigation regression, 
   assert.equal(await page.locator('#briefing').evaluate(el=>el.classList.contains('active')),true);
   const revisit=page.locator('section[aria-labelledby="perspectiveBriefHeading"]');
   assert.equal(await revisit.isVisible(),true,'Perspective is visible without an extra click');
+  assert.equal(await revisit.locator('a, cite').count(),0);
   assert.equal(await revisit.locator('blockquote').isVisible(),true);
   assert.equal(await revisit.locator('blockquote').textContent(),today);
   await page.locator('nav [data-page="attention"]').click();

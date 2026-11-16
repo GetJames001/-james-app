@@ -513,15 +513,15 @@ function applyNextDrive(){
  $('#traffic').textContent=nextDriveResult.trafficDelaySeconds>=60?'+'+Math.ceil(nextDriveResult.trafficDelaySeconds/60)+' min':'No added delay';
 }
 function updateHero(){
-  const online=calendarSyncState.hasData&&isOnlineAppointment(nextAppointment()?.[5]);
-  for(const selector of ['.next-meta','.routing-controls']){const controls=$(selector);if(controls)controls.hidden=!!online;}
+  const appt=calendarSyncState.hasData?nextAppointment():null;
+  const online=isOnlineAppointment(appt?.[5]);
+  $('#appointmentTravel').hidden=!appt?.[5]?.location?.trim()||!!online;
   if(online&&nextDriveController&&!nextDriveController.signal.aborted){nextDriveGeneration++;nextDriveController.abort();nextDriveResult=null;}
   if(!calendarSyncState.hasData) {
     $('#nextTitle').textContent=calendarSyncState.state==='loading'?'Checking calendar…':'Calendar unavailable';
     $('#nextType').textContent='No verified calendar result yet.';
     ['countdown','leaveBy','driveTime','traffic'].forEach(id=>$('#'+id).textContent='—');return;
   }
-  const appt = nextAppointment();
  if (!appt) {
   $('#nextTitle').textContent = calendarSyncState.complete && calendarSyncState.state!=='stale' ? 'No more timed appointments today' : 'No more timed appointments in available data';
   $('#nextType').textContent = calendarSyncState.complete && calendarSyncState.state!=='stale' ? 'No remaining timed events in the selected Google calendars.' : 'Coverage is incomplete or stale; your calendar may contain more events.';
@@ -728,15 +728,12 @@ function jamesPerspectiveForDate(date=new Date()){
 function renderJamesPerspective(date=new Date()){
   const item=jamesPerspectiveForDate(date);
   const fields=[['perspectiveIntroText','text'],['perspectiveIntroAuthor','author'],['perspectiveIntroSource','source'],
-    ['perspectiveBriefText','text'],['perspectiveBriefAuthor','author'],['perspectiveBriefSource','source']];
+    ['perspectiveBriefText','text'],['perspectiveBriefAuthor','author']];
   for(const [id,key] of fields){
     const node=document.getElementById(id);
     if(!node)continue;
     node.textContent=item[key];
-    if(id==='perspectiveBriefSource' && item.url){
-      const link=document.createElement('a');link.href=item.url;link.textContent=item.source;
-      link.target='_blank';link.rel='noopener noreferrer';node.replaceChildren(link);
-    }
+
   }
 }
 

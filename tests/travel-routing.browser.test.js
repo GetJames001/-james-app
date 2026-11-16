@@ -20,14 +20,15 @@ test('Next Appointment uses selected origin, handles unconfigured provider and r
   const file=path.join(__dirname,'..',url.pathname==='/'?'index.html':url.pathname.slice(1));try{res.setHeader('Content-Type',/\.m?js$/.test(file)?'text/javascript':file.endsWith('.css')?'text/css':'text/html');res.end(fs.readFileSync(file));}catch{res.statusCode=404;res.end();}
  });await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));let browser;
  try{
-  browser=await chromium.launch({headless:true});const page=await browser.newPage();await page.route('https://**',r=>r.abort());await page.goto('http://127.0.0.1:'+server.address().port);
+  browser=await chromium.launch({headless:true});const page=await browser.newPage({viewport:{width:820,height:1180}});await page.route('https://**',r=>r.abort());await page.goto('http://127.0.0.1:'+server.address().port);
+  assert.equal(await page.locator('#appointmentTravel').isVisible(),false);
   await page.evaluate(()=>{calendarSyncState.hasData=true;calendarSyncState.state='ready';events=[['12:00','13:00','James routing test','456 Example Avenue',null,{id:'test',start:new Date(Date.now()+3600000).toISOString(),end:new Date(Date.now()+7200000).toISOString(),location:'456 Example Avenue'}]];updateHero();});
   assert.equal(await page.locator('#routeOriginAddress').isVisible(),true);await page.locator('#routeEstimate').click();assert.match(await page.locator('#routeStatus').textContent(),/Choose a departure/);assert.equal(calls,0);
   await page.locator('#routeOriginAddress').fill('123 Example Street');await page.locator('#routeUseAddress').click();await page.waitForFunction(()=>document.querySelector('#routeStatus').textContent.includes('not configured'));assert.equal(await page.locator('#driveTime').textContent(),'—');
   configured=true;await page.locator('#routeEstimate').click();await page.waitForFunction(()=>document.querySelector('#driveTime').textContent==='20 min');assert.equal(await page.locator('#traffic').textContent(),'+5 min');
   await page.locator('#routeEstimate').click();await page.waitForFunction(()=>document.querySelector('#routeEstimate').disabled);while(!release)await new Promise(resolve=>setTimeout(resolve,10));
   await page.evaluate(()=>{events[0][5].location='789 Changed Avenue';updateHero();});release();await page.waitForFunction(()=>!document.querySelector('#routeEstimate').disabled);assert.equal(await page.locator('#driveTime').textContent(),'—');
-  await page.evaluate(()=>{events[0][5].location='Microsoft Teams Meeting';updateHero();});
+  await page.evaluate(()=>{events[0][5].location='Microsoft Teams';updateHero();});
   assert.match(await page.locator('#nextType').textContent(),/Online meeting/);
   assert.equal(await page.locator('.routing-controls').isVisible(),false);
   assert.equal(await page.locator('.next-meta').isVisible(),false);
