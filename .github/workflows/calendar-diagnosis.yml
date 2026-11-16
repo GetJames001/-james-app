@@ -64,3 +64,65 @@ jobs:
             }
           })().catch(error=>{console.error(error.message);process.exitCode=1});
           NODE
+  render-weather-comparison:
+    if: github.head_ref == 'review/weather-city-comparison'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 22
+      - run: npm ci --ignore-scripts
+      - name: Render the four card comparison
+        run: |
+          cat > review.cjs <<'NODE'
+          const fs=require('fs'),{chromium}=require('playwright');
+          (async()=>{
+           const cities=[['Portland',45.5,-122.7],['San Francisco',37.8,-122.4],['Los Angeles',34.1,-118.2],['Las Vegas',36.2,-115.1]];
+           const profiles=JSON.parse(fs.readFileSync('terrain.json','utf8'));
+           console.log('ELEVATIONS '+JSON.stringify(profiles));
+           const css=fs.readFileSync('styles.css','utf8');
+           const card=fs.readFileSync('index.html','utf8').match(/<div id="weatherSquare"[\s\S]+?(?=\s*<div class="intel-card mail-card")/)[0];
+           const sheets=cities.map(([name],i)=>{
+            const h=profiles[i];
+            const profile=h?'--local-horizon:polygon(0 100%, '+h.map((v,i)=>100*i/16+'% '+(72-Math.min(46,(v-Math.min(...h))/22))+'%').join(', ')+', 100% 100%)':'';
+            return '<section><h2>'+name+'</h2>'+card.replace('id="weatherSquare"','id="weatherSquare" data-scene="rain" data-place="'+(h?'local':'las-vegas')+'" style="'+profile+'"').replace('>WEATHER<',h?'>Weather<':'>Weather · Las Vegas<').replace('id="weatherTemp">—','id="weatherTemp">58°').replace('id="weatherDetail">—','id="weatherDetail">Rain')+'</section>';
+           }).join('');
+           const html='<style>'+css+'</style><style>html,body{margin:0!important;background:#081525;color:#fff6df;}#review{padding:18px 24px;}#app{display:block!important;position:static!important;padding:0!important;opacity:1!important;}#briefing{display:grid;grid-template-columns:repeat(2,1fr);gap:12px 18px}#review h2{font:500 21px Georgia;color:#f4e9d7;margin:0 0 5px}#review h1{font:500 27px Georgia;margin:0 0 4px}#review p{font:14px Arial;color:#d5c8b1;margin:0 0 12px}#app #briefing #weatherSquare{box-sizing:border-box;width:100%;height:178px;display:flex;flex-flow:column;align-items:start;justify-content:center;gap:3px;padding:13px 16px;color:white}#review .intel-icon{width:20px;height:20px}#review #weatherHeading{font:600 11px Arial;letter-spacing:2px}#review #weatherTemp{font:600 33px Georgia}#review #weatherDetail,#review .weather-location{font:14px Arial}#review .weather-location{margin:0}</style><div id="review"><h1>Rain in the Weather square</h1><p>Same sample conditions in all four cities</p><div id="app"><div id="briefing">'+sheets+'</div></div></div>';
+           fs.writeFileSync('weather-comparison.html',html);
+           const browser=await chromium.launch({executablePath:'/usr/bin/google-chrome',args:['--no-sandbox']});
+           const page=await browser.newPage({viewport:{width:690,height:530}});
+           await page.goto('file://'+process.cwd()+'/weather-comparison.html');await page.waitForTimeout(250);
+           fs.mkdirSync('frames');
+           for(let i=0;i<32;i++){await page.evaluate(ms=>{for(const a of document.getAnimations()){a.pause();a.currentTime=ms;}},i*80);await page.screenshot({path:'frames/'+String(i).padStart(2,'0')+'.png'});}
+           await browser.close();
+          })().catch(e=>{console.error(e);process.exitCode=1});
+          NODE
+          python3 -m venv /tmp/weather-review-env
+          /tmp/weather-review-env/bin/pip -q install Pillow
+          /tmp/weather-review-env/bin/python - <<'PY'
+          import math,json,io,urllib.request
+          from PIL import Image
+          cache={}
+          out=[]
+          for lat,lon in [(45.5,-122.7),(37.8,-122.4),(34.1,-118.2)]:
+           heights=[]
+           for i in range(-8,9):
+            x=(lon+i*.014/math.cos(math.radians(lat))+180)/360*2048
+            y=(1-math.asinh(math.tan(math.radians(lat+.07)))/math.pi)*1024
+            tile=(int(x),int(y))
+            if tile not in cache:
+             url='https://s3.amazonaws.com/elevation-tiles-prod/terrarium/11/%d/%d.png'%tile
+             cache[tile]=Image.open(io.BytesIO(urllib.request.urlopen(url,timeout=12).read())).convert('RGB')
+            r,g,b=cache[tile].getpixel((int(x*256)%256,int(y*256)%256))
+            heights.append(round(r*256+g+b/256-32768,1))
+           out.append(heights)
+          open('terrain.json','w').write(json.dumps(out))
+          PY
+          node review.cjs
+          if ! command -v ffmpeg >/dev/null; then sudo apt-get -qq update && sudo apt-get -yqq install ffmpeg; fi
+          ffmpeg -loglevel error -framerate 12.5 -i frames/%02d.png -c:v libx264 -preset fast -crf 26 -pix_fmt yuv420p -movflags +faststart weather.mp4
+          echo REVIEW_BEGIN
+          base64 -w 2500 weather.mp4
+          echo REVIEW_END
