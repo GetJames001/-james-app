@@ -120,7 +120,7 @@
   <section id="briefing" class="page active">
     <div class="sheet briefing-sheet">
 
-      <div class="brief-lead"><div class="sheet-head compact-head">
+      <div class="sheet-head compact-head">
         <div>
           <h3>Your Daily Briefing</h3>
         </div>
@@ -133,7 +133,7 @@
             <span id="perspectiveBriefAuthor"></span>
           </div>
         </div>
-      </section></div>
+      </section>
 <div class="intel-strip">
   <div class="intel-card">
     <svg class="intel-icon" viewBox="0 0 24 24" aria-hidden="true">
@@ -447,31 +447,15 @@
 </div>
 </section>
 <section class="page" id="finance">
-<div class="sheet magazine">
-<button class="mag-back" data-action-page="lifestyle">‹ Lifestyle</button>
-<div class="mag-cover" style="--photo:url(assets/lifestyle/finance.jpg)">
-<h2>Finance</h2>
-</div>
-<div class="mag-columns">
-<section>
-<h3>Accounts</h3>
-<p>Bank connections are planned.</p>
-<details>
-<summary>Preview accounts &amp; transactions</summary>
-<p>Example checking · $2,450<br>Example savings · $6,200</p>
-<p>Payroll +$1,250 · Groceries −$48 · Coffee −$6</p>
-</details>
-</section>
-<section>
-<h3>Credit cards</h3>
-<p>Card connections are planned.</p>
-<details>
-<summary>Preview a card statement</summary>
-<p>Example card · $180 statement balance · Due Dec 4</p>
-</details>
-</section>
-</div>
-<h3>Investing basics</h3>
+<div class="sheet magazine edition">
+<div class="edition-crumb"><b>James</b><button data-action-page="lifestyle">‹ Lifestyle</button><span>Finance</span></div>
+<header class="money-cover"><h2>Finance</h2><p>Your accounts, upcoming payments<br>and spending, in one clear view.</p><small>Sample data · Accounts aren’t connected</small></header>
+<div class="money-grid">
+<section><h3>Accounts</h3><dl><div><dt>Checking</dt><dd>$2,450</dd></div><div><dt>Savings</dt><dd>$6,200</dd></div></dl></section>
+<section><h3>Upcoming credit card payment</h3><dl><div><dt>Everyday card</dt><dd>$180</dd></div></dl><div class="bill-meta"><em>Statement balance</em><span>Due Dec 4</span></div></section>
+<section><h3>Recent transactions</h3><dl><div><dt>Coffee</dt><dd>−$6</dd></div><div><dt>Groceries</dt><dd>−$48</dd></div><div><dt>Payroll</dt><dd>+$1,250</dd></div></dl></section>
+<section><h3>Spending at a glance</h3><div class="spend-breakdown"><div class="spend-wheel"><strong>$742<small>Total spending</small></strong></div><ul><li>Groceries <b>39%</b></li><li>Dining &amp; coffee <b>20%</b></li><li>Home <b>18%</b></li><li>Other <b>23%</b></li></ul></div></section>
+</div><details class="finance-reading"><summary>Investing basics</summary>
 <details>
 <summary>Where should I start?</summary>
 <p>Write down the purpose of the money and when you expect to need it. Then compare services using the same balance. Ask what happens in a market decline, whether you can withdraw, and which decisions need your approval.</p>
@@ -496,15 +480,15 @@
 <p>Ask who makes the decisions, what the tool can access and who holds your money. Verify the firm’s registration independently. FINRA flags unregistered auto-trading services promising predictable high returns. <a href="https://brokercheck.finra.org/" target="_blank" rel="noopener noreferrer">Check a firm</a> · <a href="https://syndication.finra.org/content/know-risks-auto-trading-services-offered-unregistered-entities" target="_blank" rel="noopener noreferrer">Read the FINRA alert</a>
 </p>
 </details>
-<h3>Business headlines</h3>
+</details><details class="finance-reading"><summary>Business headlines</summary>
 <div data-feed="business">
-</div>
+</div></details>
 </div>
 </section>
 <section class="page" id="growth"><div class="sheet magazine edition"><div class="edition-crumb"><b>James</b><button data-action-page="lifestyle">‹ Lifestyle</button><span>Personal Development</span></div><div class="edition-title"><h2>Personal Development</h2><div class="edition-tabs" aria-label="Reading topics">
 <button data-topic="work" aria-pressed="true">Work</button><button data-topic="life" aria-pressed="false">Life</button><button data-topic="business" aria-pressed="false">Business</button></div></div>
-<div class="growth-top"><article class="photo-panel lead-panel" style="--photo:url(assets/lifestyle/development.jpg)"><div><h3><a href="https://ggia.berkeley.edu/practice/active_listening" target="_blank" rel="noopener noreferrer">Listen before responding</a></h3><button id="savePractice">Save for later</button></div></article>
-<aside class="career-box"><h3>Career folder</h3><button data-career="resume">Current résumé ›</button><button data-career="cover">Cover letter ›</button></aside></div>
+<div class="growth-top"><article class="photo-panel lead-panel" style="--photo:url(assets/lifestyle/development.jpg)"><div><h3><a href="https://ggia.berkeley.edu/practice/active_listening" target="_blank" rel="noopener noreferrer">Listen before responding</a></h3><button id="savePractice"><svg viewBox="0 0 16 19" width="14" height="16" aria-hidden="true"><path d="M2 1h12v16l-6-4-6 4z" fill="none" stroke="currentColor"/></svg> Save for later</button></div></article>
+<aside class="career-box"><h3>Career folder</h3><button data-career="resume"><span class="doc-paper" aria-hidden="true">Résumé</span><span>Current résumé</span><span aria-hidden="true">›</span></button><button data-career="cover"><span class="doc-paper" aria-hidden="true">Cover letter</span><span>Cover letter</span><span aria-hidden="true">›</span></button></aside></div>
 <h3 class="rule-title">Reading &amp; practice</h3>
 <div class="pair"><details class="photo-panel" style="--photo:url(assets/lifestyle/interview.jpg)"><summary>Prepare for an interview</summary><p>Choose one recent win. Write down the situation, your action and the result.</p></details>
 <details class="photo-panel" style="--photo:url(assets/lifestyle/reflection.jpg)"><summary>Make time for reflection</summary><p>What worked this week? What would you try differently next time?</p></details></div>
@@ -565,15 +549,15 @@
 <section><h3 class="rule-title">Places to see</h3><div class="mag-places" id="tripPlaces">
 <a class="mag-tile" href="https://www.eugenecascadescoast.org/" target="_blank" rel="noopener noreferrer">
 <img src="assets/lifestyle/eugene.jpg" alt="" loading="lazy">
-<span>Eugene</span>
+<span>Eugene<small>Riverside trails, local food and a gateway to Oregon’s outdoors.</small></span><i aria-hidden="true">→</i>
 </a>
 <a class="mag-tile" href="https://stateofwatourism.com/" target="_blank" rel="noopener noreferrer">
 <img src="assets/lifestyle/washington.jpg" alt="" loading="lazy">
-<span>Washington</span>
+<span>Washington<small>Evergreen forests, alpine lakes and Northwest mountain views.</small></span><i aria-hidden="true">→</i>
 </a>
 <a class="mag-tile" href="https://www.visitlasvegas.com/" target="_blank" rel="noopener noreferrer">
 <img src="assets/lifestyle/vegas.jpg" alt="" loading="lazy">
-<span>Las Vegas</span>
+<span>Las Vegas<small>Red rock trails and desert scenery just beyond the Strip.</small></span><i aria-hidden="true">→</i>
 </a>
 </div>
 </section>

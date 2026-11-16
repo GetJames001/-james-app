@@ -1150,14 +1150,6 @@ html[data-theme=light] .james-shell .intel-strip>.briefing-wardrobe{background:#
 #jamesGuide p { line-height:1.5; }
 
 /* Magazine covers use live HTML text above independently cropped photographs. */
-.james-shell .perspective-revisit {
- background:linear-gradient(90deg,rgba(4,14,23,.92),rgba(4,14,23,.45) 67%,rgba(4,14,23,.07)),url(assets/lifestyle/travel.jpg) center 50%/cover;
- border:0; border-radius:14px; padding:clamp(20px,3.8vw,48px); min-height:175px;
- display:flex; flex-direction:column; justify-content:end; align-items:start; color:#fff7e8;
-}
-.james-shell .perspective-revisit h3,.james-shell .perspective-credit {color:#efd3a4}
-.james-shell .perspective-revisit-body {border:0;padding:0;max-width:44rem}
-.james-shell .perspective-revisit-body blockquote {color:#fff7e8;font:400 clamp(1.35rem,2.8vw,2.4rem)/1.18 Georgia,serif}
 .james-shell .magazine {max-width:1180px;width:100%;margin-inline:auto;padding:clamp(14px,2.7vw,34px);box-sizing:border-box}
 .magazine h2,.magazine h3,.magazine strong {font-family:Georgia,serif;font-weight:400}
 .magazine h2 {font-size:clamp(2.3rem,5vw,4.6rem);line-height:1.05;margin:0 0 .4em}
@@ -1200,26 +1192,15 @@ html[data-theme=light] .james-shell .intel-strip>.briefing-wardrobe{background:#
  .magazine .mag-tile,.mag-grid .mag-tile:nth-child(2){min-height:140px}
  .mag-book {grid-template-columns:1fr}
  .mag-book img {min-height:0;max-height:210px}
- .james-shell .perspective-revisit {min-height:145px}
 }
 .mag-story img {width:80px;height:60px;object-fit:cover;border-radius:6px}
 .mag-story>a {flex:1;min-width:min(12rem,100%)}
 #fitness .mag-columns>section:first-child {background:linear-gradient(90deg,#07111bef,#07111b75),url(assets/lifestyle/mobility.jpg) center/cover;color:#fff5e8;padding:1rem;border-radius:10px}
 #fitness .mag-columns>section:first-child h3,#fitness .mag-columns>section:first-child p {color:#fff5e8}
 #fitness .evidence-cover {background:linear-gradient(90deg,#07111bec,#07111b55),url(assets/lifestyle/journal.jpg) center/cover;color:#fff5e8;padding:2rem 1rem;border-radius:10px}
-.james-shell .briefing-sheet .compact-head {background:linear-gradient(90deg,#06121be6,#06121b36),url(assets/lifestyle/briefing.jpg) center/cover;padding:clamp(18px,3.2vw,40px);border-radius:12px}
-.james-shell .briefing-sheet .compact-head h3 {color:#fff5df;font:400 clamp(2rem,4vw,3.6rem)/1.1 Georgia,serif}
 .mag-book {position:relative}
 .mag-book:not(.source-only)::after {content:"";position:absolute;right:0;bottom:0;width:22px;height:22px;background:linear-gradient(135deg,transparent 45%,#d0bfa3 49%,#fff3d9 80%,#372d25 100%);pointer-events:none}
 
-#app #briefing .intel-card {
- --tile-scene:url(assets/lifestyle/eugene.jpg);
- --ink:#fff8ef;--muted:#f8eddf;
- background:linear-gradient(0deg,#061019f0,#07131da8 55%,#07131d60),var(--tile-scene) center/cover;color:var(--ink)
-}
-#app #briefing .mail-card {--tile-scene:url(assets/lifestyle/journal.jpg)}
-#app #briefing .intel-card[data-action-page=wardrobe] {--tile-scene:url(assets/lifestyle/wardrobe.jpg)}
-#app #briefing .intel-card[data-action-page=travel] {--tile-scene:url(assets/lifestyle/travel.jpg)}
 .workout-choices {display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,220px),1fr));gap:1rem;margin:1rem 0}
 .magazine .workout-choices .workout-choice {display:flex;flex-direction:column;justify-content:flex-end;align-items:start;gap:.4rem;text-align:left;min-height:170px;padding:1.25rem;color:#fff6e9;background:linear-gradient(0deg,#071019ee,transparent),var(--photo) center/cover}
 .workout-choice strong {font-size:1.6rem}
@@ -1238,13 +1219,6 @@ html[data-theme=light] .james-shell .intel-strip>.briefing-wardrobe{background:#
 #app .mag-grid>.mag-tile:nth-last-child(-n+2) {grid-column:span 3;aspect-ratio:2.05}
 .mag-tile span em,.mag-tile span small {display:block;font-size:.58em;margin-top:.25em}
 .mag-tile span small {color:#efd29a}
-#app:has(#briefing.active) .greeting {border-radius:6px;background:linear-gradient(90deg,#051829bf,transparent),url(assets/lifestyle/terrace.jpg) center 55%/cover;padding:clamp(16px,3vw,35px);color:#fff7e9}
-#app:has(#briefing.active) .greeting :is(h2,p) {color:#fff7e9}
-#app .brief-lead .compact-head,#app .brief-lead .perspective-revisit {background:transparent;min-height:0;border:0;padding:0;margin:.2rem 0 .55rem}
-#app .brief-lead .compact-head h3 {font-size:1.5rem;color:var(--ink)}
-#app .brief-lead .perspective-revisit blockquote {font:1.15rem/1.35 Georgia,serif;color:var(--ink)}
-#app .brief-lead .perspective-credit {color:var(--gold)}
-#app .brief-lead {margin:0 0 1rem}
 #app .travel-feature {background:linear-gradient(90deg,#08111ee6,rgba(8,17,30,.53) 52%,transparent),url(assets/lifestyle/travel.jpg) center/cover;border-radius:6px;padding:clamp(18px,3vw,45px);min-height:clamp(240px,32vw,420px);color:#fff6e6}
 #app .travel-feature h2,#app .travel-feature h3 {color:#fff7e9}
 #app .edition-tabs {display:flex;gap:8px;flex-wrap:wrap;align-items:center}
@@ -1303,3 +1277,38 @@ html[data-theme=light] .james-shell .intel-strip>.briefing-wardrobe{background:#
  #app .mag-book #bookPage {padding:12px}
  #app .mag-book h3 {font-size:1.25rem}
 }
+#app #briefing .intel-card,#app .edition .photo-panel,#app .magazine .mag-tile {box-sizing:border-box;border:1px solid #ab8c59;border-radius:6px;overflow:hidden;background-clip:padding-box}
+#app #briefing .intel-card {background:var(--panel,#122336)}
+#app #briefing .intel-card[data-action-page=wardrobe],#app #briefing .intel-card[data-action-page=travel] {background:linear-gradient(0deg,#071421ef,rgba(7,20,33,.58)),var(--card-art) center/cover padding-box;color:#fff7ed;--ink:#fff7ed;--muted:#f3eadb}
+#app #briefing [data-action-page=wardrobe]{--card-art:url(assets/lifestyle/wardrobe.jpg)}
+#app #briefing [data-action-page=travel]{--card-art:url(assets/lifestyle/travel.jpg)}
+#app .edition .money-cover {display:block;border:0;border-radius:5px;min-height:clamp(175px,21vw,285px);padding:clamp(18px,3vw,38px);color:#fff5e5;background:linear-gradient(90deg,#081420 13%,#081420b3 42%,transparent 72%),url(assets/lifestyle/finance.jpg) right 56%/cover}
+#app .money-cover h2,#app .money-cover p {color:inherit}
+.money-cover small {font-style:italic;color:#ebd3a8}
+.money-grid {display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:8px 0 14px}
+#app .money-grid section {background:linear-gradient(120deg,#152431,#0b1726);color:#fff4e4;border:1px solid #857450;border-radius:6px;padding:clamp(12px,1.6vw,24px)}
+#app .money-grid h3 {color:inherit;font-size:clamp(1.1rem,2vw,1.65rem);margin:0 0 .55em}
+.money-grid dl {margin:0}
+.money-grid dl div,.bill-meta,.spend-breakdown li {display:flex;align-items:center;justify-content:space-between;gap:.45rem}
+.money-grid dl div {padding:.48rem 0;border-top:1px solid #79674466}
+.money-grid dd {margin:0;font:1.3rem Georgia,serif}.bill-meta {font-size:.88rem}.bill-meta span {border-radius:1em;background:#dabb7b;color:#1e1a12;padding:.15em .65em}
+.spend-breakdown {display:flex;align-items:center;gap:clamp(8px,2vw,24px)}
+.spend-wheel {display:grid;place-items:center;flex:0 0 auto;width:clamp(72px,8vw,120px);aspect-ratio:1;border-radius:50%;background:conic-gradient(#d5af6c 0 39%,#929c76 39% 59%,#aa7e72 59% 77%,#7f8ea1 77%)}
+.spend-wheel strong {display:grid;place-content:center;text-align:center;width:71%;height:71%;border-radius:50%;background:#112031;color:#fff4dc!important;font-size:1.14rem}.spend-wheel small {font:italic .55rem Georgia}
+.spend-breakdown ul {flex:1;margin:0;padding:0;font-size:.85rem}.spend-breakdown li {margin:.25em 0}.spend-breakdown li b {margin-left:auto}
+.spend-breakdown li::before {content:'';width:7px;height:7px;border-radius:50%;background:#d5af6c}.spend-breakdown li:nth-child(2)::before {background:#929c76}.spend-breakdown li:nth-child(3)::before {background:#aa7e72}.spend-breakdown li:nth-child(4)::before {background:#7f8ea1}
+#app #growth .lead-panel {background-color:#17201e;background-image:linear-gradient(90deg,#101b1af5 0%,#101b1adb 18%,transparent 55%),var(--photo);background-size:100% 100%,auto 100%;background-position:left,right center;background-repeat:no-repeat;min-height:clamp(210px,25vw,360px)}
+#app #growth .lead-panel h3 {margin:0 0 clamp(15px,3vw,52px);font-size:clamp(1.8rem,3.5vw,3.2rem);max-width:10ch}
+#app #savePractice {border:1px solid #c5a065;background:#111a1cdf;color:#fbeed6;display:inline-flex;align-items:center;gap:6px}
+#app #growth .edition-tabs {display:grid;grid-template-columns:repeat(3,1fr);gap:4px}
+#app #growth .edition-tabs button {min-width:4.5rem;border-radius:6px;border:1px solid #89724a}
+#app #growth .edition-tabs [aria-pressed=true] {background:#ad8447;color:#fff}
+#app .career-box button {display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:.6rem;border:1px solid #877450;background:#142432;color:#f6ead6}
+.doc-paper {box-sizing:border-box;display:block;width:38px;height:51px;padding:5px 3px;background:repeating-linear-gradient(0deg,#b9ad96 0 1px,transparent 1px 4px) center 68%/68% 40% no-repeat,#e4d8bc;color:#383325;font:7px Georgia;text-align:left}
+#app #tripPlaces .mag-tile {aspect-ratio:1.25;align-items:end;padding:clamp(9px,1.4vw,20px);border-radius:3px}
+#app #tripPlaces .mag-tile span {width:100%;font-size:clamp(1.25rem,2.8vw,2.25rem)}
+#app #tripPlaces small {font:italic clamp(.8rem,1.2vw,1.05rem)/1.3 Georgia,serif;display:block;padding-right:1.25rem;color:#fff3dd;margin-top:5px}
+#tripPlaces i {position:absolute;bottom:10px;right:8px;font-style:normal;color:#e8c685;border:1px solid #c6a56a;border-radius:50%;padding:0 .18rem}
+.route-stops {padding:.38rem 0;border-block:1px solid #af96616b;font:1.05rem Georgia,serif}
+#app #travelCards a.trip-link small {background:#c09858;color:#191b19;border-radius:4px;padding:.42em .9em}
+@media(max-width:600px){.money-grid {grid-template-columns:1fr}#app #tripPlaces {grid-template-columns:1fr}#app #tripPlaces .mag-tile {aspect-ratio:2.8}#app .career-box button {width:100%}}

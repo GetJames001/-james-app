@@ -98,6 +98,16 @@ function mountTravel({list, read, save}) {
       if(overnight)notes.push('Overnight in '+overnight[1]);
       if(pause)notes.push(pause[2]+' in '+pause[1]);
     }
+    const routeTitle=trip.title.match(/^(.+?)\s+to\s+(.+?)(?:\s+[·–-]\s+driving)?$/i);
+    if(routeTitle && trip.route){
+      const stops=[routeTitle[1]];
+      for(const stop of trip.stops){
+        const city=stop.match(/overnight\b[^.]{0,75}?\bin ([A-Z][a-z]+(?: [A-Z][a-z]+)*)/) || stop.match(/stop in ([A-Z][a-z]+(?: [A-Z][a-z]+)*) for \d+ hours?/i);
+        if(city && !stops.includes(city[1]))stops.push(city[1]);
+      }
+      if(!stops.includes(routeTitle[2]))stops.push(routeTitle[2]);
+      const route=tag('span',stops.join('  →  '));route.className='route-stops';link.append(route);
+    }
     if(notes.length)link.append(tag('span',notes.slice(0,2).join(' · ')));
     link.append(tag('small','Open itinerary →'));return link;
   }

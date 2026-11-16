@@ -52,5 +52,20 @@ test('Lifestyle on iPad opens existing Wardrobe, saves a recipe across refresh, 
   assert.equal(await page.locator('#dailyWorkout').textContent(),'Mobility reset');
   await page.getByRole('button',{name:'View workout'}).click();
   assert.equal(await page.locator('#workoutMoves li').count(),3);
+  await page.setViewportSize({width:1180,height:820});
+  await page.evaluate(()=>window.jamesPageNow('finance'));
+  const financeCards=page.locator('#finance .money-grid > section');
+  assert.equal(await financeCards.count(),4);
+  const boxes=await financeCards.evaluateAll(cards=>cards.map(card=>card.getBoundingClientRect().top));
+  assert.equal(boxes[0],boxes[1]);
+  assert.ok(boxes[2]>boxes[1]);
+  assert.equal(boxes[2],boxes[3]);
+  if(process.env.JAMES_CARD_PREVIEWS){
+   fs.mkdirSync('card-previews',{recursive:true});
+   for(const screen of ['finance','growth','briefing','travel']){
+    await page.evaluate(screen=>window.jamesPageNow(screen),screen);
+    await page.locator('#'+screen).screenshot({path:'card-previews/'+screen+'.jpg',quality:70});
+   }
+  }
  }finally{await browser.close();}
 });
