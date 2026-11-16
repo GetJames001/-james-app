@@ -87,15 +87,26 @@
   </nav>
 
   <dialog id="jamesGuide" aria-labelledby="guideTitle">
-    <h2 id="guideTitle">James Guide</h2>
-    <details><summary>To Do and reminders</summary><p>Needs Attention shows mail that may need a response. Choose Draft a task to add a next step, or Mark handled to dismiss a suggestion. The email stays in your inbox.</p><p>Set a time here for an in-app reminder. Overdue reminders appear when you return.</p><div id="guideReminders"></div></details>
-    <details class="saved-attention"><summary>Mail settings &amp; review details</summary>
-      <p>Personal Mail checks Outlook about every 30 seconds while James is visible. Refresh inbox reloads the newest messages and clears previously loaded older pages. Connected Gmail is for reading.</p>
+    <header class="guide-heading"><h2 id="guideTitle">James Guide</h2><form method="dialog"><button>Close guide</button></form></header>
+    <details><summary>Daily Briefing</summary><p>Start here for the weather, your next appointment and today’s perspective. Tap a tile to open Mail, Wardrobe or your trips. Choose Briefing in the sidebar to return.</p></details>
+    <details><summary>Appointments</summary><p>Choose a date to see its appointments. Tap a meeting for details and any joining link. The Briefing shows drive estimates for appointments with a destination.</p></details>
+    <details class="saved-attention"><summary>Mail</summary>
+      <p>Open Mail to read recent messages, compose an email or return to saved drafts. Refresh inbox checks Outlook for changes, including messages you deleted there.</p>
+      <details><summary>Mail settings &amp; review details</summary>
       <div id="reviewAlertControls" hidden><p>Get Android alerts for newly received actionable mail and hotel confirmations. Alerts stay on until you stop them.</p><button type="button" id="reviewAlertEnable">Enable ongoing Android alerts</button> <button type="button" id="reviewAlertStop" hidden>Stop alert</button><p role="status" id="reviewAlertStatus"></p></div>
       <details><summary>Connect or reconnect Gmail</summary><form id="gmailReadConnect" action="/api/google/gmail/connect" method="post"><button type="submit">Enable Gmail reading</button><span role="status" data-gmail-status></span></form><p>Use this only if Gmail needs connecting. Existing Calendar access is preserved.</p></details>
-      <details><summary>Saved review history &amp; coverage</summary><p>These are retained review records and coverage details, not another task list.</p><div id="attentionView" aria-label="Attention List"></div></details>
+      <details><summary>Saved review history &amp; coverage</summary><p>See which mail James checked and when.</p><div id="attentionView" aria-label="Attention List"></div></details>
     </details>
-    <form method="dialog"><button>Close guide</button></form>
+    </details>
+    <details><summary>Needs Attention</summary><p>Open To Do to review mail James flagged. Each item shows why it surfaced. Choose Draft a task to create a next step or Mark handled to dismiss the suggestion. The original email stays in its folder.</p></details>
+    <details><summary>Tasks</summary><p>Open To Do and choose Tasks to add something you want to do. Check it off when you finish. For a timed reminder while James is open, use the reminder controls below.</p><details><summary>Reminders</summary><div id="guideReminders"></div></details></details>
+    <details><summary>Travel</summary><p>Open Travel from the sidebar or the Briefing tile. Choose an upcoming trip to see its dates, stops and itinerary.</p></details>
+    <details><summary>Workbench and Files</summary><p>Open Workbench to return to a project. Open Files to find an upload or add a file for James to use.</p></details>
+    <details><summary>Customer Information</summary><p>Use the Customer Vault to find a company or import a customer file. Add a company to today’s list, then open it in Customer Activity to record a visit, call or follow-up.</p></details>
+    <details><summary>Wardrobe</summary><p>Choose Wardrobe, then Open Wardrobe. Your closet, inspiration and saved looks open in a separate tab.</p></details>
+    <details><summary>Lifestyle</summary><p>Open Lifestyle for Wardrobe, Travel and Cooking &amp; Recipes. Under Cooking &amp; Recipes, open your Pinterest boards to browse your saved ideas.</p></details>
+    <details><summary>James and voice</summary><p>Choose James in the sidebar to type a question, or tap the James orb to speak. Open Settings and choose Voice to change your voice preferences.</p></details>
+    <details><summary>Settings</summary><p>Open Settings at the top of James for Connections, Voice, your entrance scene, the light or dark theme and Wall display.</p></details>
   </dialog>
   <dialog id="connectionSettings" aria-labelledby="connectionSettingsTitle">
     <h2 id="connectionSettingsTitle">Connections</h2>

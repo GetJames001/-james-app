@@ -1142,3 +1142,9 @@ html[data-theme=light] .james-shell .intel-strip>.briefing-wardrobe{background:#
 }
 
 #appointmentTravel[hidden] { display: none; }
+
+#jamesGuide { box-sizing:border-box; width:min(38rem,94vw); max-height:85vh; overflow:auto; background:var(--panel,#132438); color:var(--ink,#f3f3f3); border:1px solid var(--gs,#756c55); border-radius:16px; padding:1rem 1.25rem; }
+#jamesGuide .guide-heading { position:static; display:flex; align-items:center; justify-content:space-between; gap:1rem; margin-bottom:.5rem; }
+#jamesGuide > details { border-top:1px solid var(--gs,#756c55); }
+#jamesGuide > details > summary { padding:.85rem 0; cursor:pointer; font-weight:600; }
+#jamesGuide p { line-height:1.5; }

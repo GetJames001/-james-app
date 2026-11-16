@@ -2062,4 +2062,4 @@ document.addEventListener('DOMContentLoaded',()=>{
 
 document.addEventListener('DOMContentLoaded',()=>{const dialog=$('#connectionSettings');$('#connectionsSettingsOpen').onclick=()=>dialog.showModal();});
 
-document.addEventListener('DOMContentLoaded',()=>{const guide=$('#jamesGuide');$('#guideOpen').onclick=()=>{guide.showModal();openAttentionSavedView();};});
+document.addEventListener('DOMContentLoaded',()=>{const guide=$('#jamesGuide');$('#guideOpen').onclick=()=>{for(const chapter of guide.querySelectorAll('details[open]'))chapter.open=false;guide.showModal();guide.scrollTop=0;openAttentionSavedView();};});
