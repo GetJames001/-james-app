@@ -903,6 +903,28 @@ function readJamesWeather(){
  if(copy.location?.status==='unknown'||copy.location?.status==='denied')copy.nextStep='Use the location button in Weather. Once permitted, weather follows your location while James is open.';
  return copy;
 }
+function clearWeatherImage(){
+ const square=$('#weatherSquare'), caption=$('#weatherSatellite');
+ if(!square||!caption)return;
+ square.style.removeProperty('--weather-image');square.classList.remove('satellite-ready');caption.hidden=true;
+}
+async function loadWeatherImage(latitude,longitude,generation){
+ const square=$('#weatherSquare'), caption=$('#weatherSatellite');
+ if(!square||!caption||longitude < -125||longitude > -113||latitude < 32||latitude > 49)return;
+ const region=latitude>=42?'pnw':'psw';
+ try{
+  const response=await fetch('/api/weather-image?region='+region);
+  if(!response.ok)return;
+  const frame=await response.json();
+  if(generation!==weatherRequestGeneration||!Number.isFinite(frame.taken)||Date.now()-frame.taken>3600000)return;
+  const image=new Image();image.referrerPolicy='no-referrer';image.src=frame.url;await image.decode();
+  if(generation!==weatherRequestGeneration)return;
+  square.style.setProperty('--weather-image','url("'+image.src+'")');
+  square.classList.add('satellite-ready');
+  caption.textContent='NOAA satellite · '+new Date(frame.taken).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'});
+  caption.hidden=false;
+ }catch{/* Temperature and conditions stay usable without imagery. */}
+}
 async function loadWeatherForCoordinates({ latitude, longitude, savedAt }, tempEl, detailEl, locationLabel = "") {
   const approximate={latitude:Number(Number(latitude).toFixed(2)),longitude:Number(Number(longitude).toFixed(2))};
   const location={status:locationLabel?'last_known':'current_approximate',observedAt:savedAt||Date.now(),approximateCoordinates:approximate,departureAddressVerified:false,precision:'Rounded for weather; not a verified routing origin'};
@@ -915,6 +937,7 @@ async function loadWeatherForCoordinates({ latitude, longitude, savedAt }, tempE
     return;
   }
   const requestGeneration=++weatherRequestGeneration;
+  clearWeatherImage();
   jamesWeatherState={status:'loading',location};
   try {
     const url =
@@ -928,6 +951,7 @@ async function loadWeatherForCoordinates({ latitude, longitude, savedAt }, tempE
     if (!response.ok || !data.current) throw new Error('Weather unavailable');
 
     jamesWeatherState={status:'ready',checkedAt:new Date().toISOString(),location,temperatureF:data.current.temperature_2m,daylight:data.daylight||{status:'unavailable'}};
+    void loadWeatherImage(approximate.latitude,approximate.longitude,requestGeneration);
     tempEl.textContent = `${Math.round(data.current.temperature_2m)}°`;
     const code = data.current.weather_code;
 
@@ -960,6 +984,7 @@ function loadLiveWeather() {
  let saved;try{saved=JSON.parse(localStorage.getItem('jamesWeatherLocation')||sessionStorage.getItem('jamesWeatherLocation'));}catch{}
  if(saved&&Number.isFinite(saved.latitude)&&Math.abs(saved.latitude)<=90&&Number.isFinite(saved.longitude)&&Math.abs(saved.longitude)<=180&&Number.isFinite(saved.savedAt)&&Date.now()-saved.savedAt>=0&&Date.now()-saved.savedAt<=7*86400000){void loadWeatherForCoordinates(saved,tempEl,detailEl,'Last known location');return;}
  weatherRequestGeneration++;
+ clearWeatherImage();
  jamesWeatherState={status:'unavailable',location:{status:'unknown',departureAddressVerified:false}};
  tempEl.textContent='—';detailEl.textContent='Location needed';
 }
