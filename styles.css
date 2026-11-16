@@ -1238,7 +1238,7 @@ html[data-theme=light] .james-shell .intel-strip>.briefing-wardrobe{background:#
 #app .mag-grid>.mag-tile:nth-last-child(-n+2) {grid-column:span 3;aspect-ratio:2.05}
 .mag-tile span em,.mag-tile span small {display:block;font-size:.58em;margin-top:.25em}
 .mag-tile span small {color:#efd29a}
-#app:has(#briefing.active) .greeting {border-radius:6px;background:linear-gradient(90deg,#051829bf,transparent),url(assets/scenes/evening.jpg) center 51%/cover;padding:clamp(16px,3vw,35px);color:#fff7e9}
+#app:has(#briefing.active) .greeting {border-radius:6px;background:linear-gradient(90deg,#051829bf,transparent),url(assets/lifestyle/terrace.jpg) center 55%/cover;padding:clamp(16px,3vw,35px);color:#fff7e9}
 #app:has(#briefing.active) .greeting :is(h2,p) {color:#fff7e9}
 #app .brief-lead .compact-head,#app .brief-lead .perspective-revisit {background:transparent;min-height:0;border:0;padding:0;margin:.2rem 0 .55rem}
 #app .brief-lead .compact-head h3 {font-size:1.5rem;color:var(--ink)}
