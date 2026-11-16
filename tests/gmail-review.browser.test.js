@@ -26,7 +26,7 @@ test('Gmail saved review opens plain source without Hotmail mutations, survives 
  try{
   browser=await chromium.launch({headless:true});const page=await browser.newPage({viewport:{width:1024,height:768}});await page.route('https://**',route=>route.abort());
   await page.goto('http://127.0.0.1:'+server.address().port);await page.locator('#mailAttentionView article').waitFor({state:'attached'});await page.evaluate(()=>window.page('attention'));
-  assert.match(await page.locator('#mailAttentionView article').textContent(),/Gmail · Fixture/);await page.waitForFunction(()=>!document.querySelector('#mailAttentionView button').disabled);const initialScans=scans;assert.ok(initialScans>=1,'opening James automatically checks mail');
+  assert.match(await page.locator('#mailAttentionView article').textContent(),/Gmail · Inbox · Fixture/);await page.waitForFunction(()=>!document.querySelector('#mailAttentionView button').disabled);const initialScans=scans;assert.ok(initialScans>=1,'opening James automatically checks mail');
   await page.locator('#mailAttentionView').getByRole('button',{name:'Check recent mail'}).click();await page.waitForFunction(()=>!document.querySelector('#mailAttentionView button').disabled);assert.ok(scans>=initialScans+1);
   await page.locator('#mailAttentionView').getByRole('button',{name:'Review in Mail'}).click();await page.locator('#personalMailDetailBody pre').waitFor();assert.match(await page.locator('#personalMailDetailMeta').textContent(),/Gmail.*Read only/);
   assert.equal(await page.locator('#personalMailReplyButton').count(),0);assert.equal(await page.locator('#personalMailReadButton').count(),0);assert.equal(await page.evaluate(()=>window.injected),undefined);assert.equal(mutations,0);

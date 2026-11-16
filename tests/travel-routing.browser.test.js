@@ -27,6 +27,12 @@ test('Next Appointment uses selected origin, handles unconfigured provider and r
   configured=true;await page.locator('#routeEstimate').click();await page.waitForFunction(()=>document.querySelector('#driveTime').textContent==='20 min');assert.equal(await page.locator('#traffic').textContent(),'+5 min');
   await page.locator('#routeEstimate').click();await page.waitForFunction(()=>document.querySelector('#routeEstimate').disabled);while(!release)await new Promise(resolve=>setTimeout(resolve,10));
   await page.evaluate(()=>{events[0][5].location='789 Changed Avenue';updateHero();});release();await page.waitForFunction(()=>!document.querySelector('#routeEstimate').disabled);assert.equal(await page.locator('#driveTime').textContent(),'—');
+  await page.evaluate(()=>{events[0][5].location='Microsoft Teams Meeting';updateHero();});
+  assert.match(await page.locator('#nextType').textContent(),/Online meeting/);
+  assert.equal(await page.locator('.routing-controls').isVisible(),false);
+  assert.equal(await page.locator('.next-meta').isVisible(),false);
+  await page.evaluate(()=>{events[0][5].location='789 Changed Avenue';events[0][5].onlineMeeting=true;updateHero();});
+  assert.equal(await page.locator('.routing-controls').isVisible(),true);
   await page.evaluate(()=>window.dispatchEvent(new Event('pagehide')));assert.equal(await page.locator('#routeOriginAddress').inputValue(),'');
  }finally{release?.();await browser?.close();server.closeAllConnections();await new Promise(resolve=>server.close(resolve));}
 });
