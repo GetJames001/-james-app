@@ -18,9 +18,11 @@ require('node:test')('Travel opens a private link, saves and restores a dated it
  return r.fulfill({json:{}});
  });
  const stop = 'Leave the hotel after breakfast and continue along the river for an afternoon stop before reaching the last town.';
- await page.goto('https://test.invalid/#trip?title=Fixture&start=2099-01-01&end=2099-01-02&stop='+encodeURIComponent(stop)+'&stop=The+original+Drive+Weather+route+shows+A+and+omits+B.');
+ await page.goto('https://test.invalid/#trip?title=Las+Vegas+to+Eugene&route=https%3A%2F%2Fdriveweatherapp.com%2Fdownload%3Fdata%3Dfixture&stop=Stay+overnight+in+Reno.&stop=Then+stop+in+Bend+for+three+hours.&start=2099-01-01&end=2099-01-02&stop='+encodeURIComponent(stop)+'&stop=The+original+Drive+Weather+route+shows+A+and+omits+B.');
  await page.getByRole('button',{name:'Save trip',exact:true}).click();
  await page.locator('#travelCards').getByText('Upcoming trips',{exact:true}).waitFor({state:'attached',timeout:4000});
+ await page.locator('#tripPlaces a').first().waitFor();
+ assert.deepEqual(await page.locator('#tripPlaces a').evaluateAll(nodes=>nodes.map(n=>n.querySelector('span').firstChild.textContent)),['Reno','Bend','Eugene']);
  await page.reload();
  await page.locator('#travelCards .trip-link').click();
  const paragraph=page.getByText(stop,{exact:true});

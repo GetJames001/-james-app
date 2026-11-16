@@ -40,3 +40,27 @@ jobs:
           path: card-previews/
           retention-days: 3
       - run: npm audit --omit=dev
+      - name: Verify public lifestyle feed access
+        if: github.head_ref == 'feature/lifestyle-content-entrances'
+        run: |
+          node <<'NODE'
+          const handler = require('./lib/routes/lifestyle-feed');
+          const auth = require('./lib/auth');
+          process.env.JAMES_AUTH_EMAIL = 'fixture@example.test';
+          process.env.JAMES_SESSION_SECRET = 'public-source-check-fixture-only';
+          const headers = {host:'www.getjames.ai',cookie:auth.SESSION_COOKIE+'='+auth.createSessionToken(process.env.JAMES_AUTH_EMAIL)};
+          (async()=>{
+            for (const source of ['business','sales-books','business-books','life-books']) {
+              const res = {setHeader(){},status(code){this.code=code;return this},json(data){this.data=data}};
+              await handler({method:'GET',headers,query:{source}},res);
+              const first = res.data?.items?.[0];
+              console.log(source, res.code || 200, res.data?.items?.length || 0, first?.url || '');
+              if (source === 'business') {
+                if (!first) throw Error('No live public release');
+                const page = await fetch(first.url);
+                if (!page.ok || !page.headers.get('content-type')?.includes('text/html')) throw Error('Release unavailable');
+                console.log('Public article opens',page.status);
+              }
+            }
+          })().catch(error=>{console.error(error.message);process.exitCode=1});
+          NODE

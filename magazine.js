@@ -103,7 +103,18 @@ function mountMagazine({list,read,save}){
     }return row;
    });
    host.replaceChildren(tag('small',data.publisher),...nodes);
-  }catch{if(host.dataset.feed!==key)return;if(feeds.get(key)===entry)feeds.delete(key);const retry=tag('button','Retry feed');retry.onclick=()=>refreshFeed(host);host.replaceChildren(tag('p','The publisher feed is unavailable.'),retry);}
+  }catch{if(host.dataset.feed!==key)return;if(feeds.get(key)===entry)feeds.delete(key);const retry=tag('button','Retry feed');retry.onclick=()=>refreshFeed(host);const picks={
+    'sales-books':['To Sell Is Human','Daniel Pink','https://www.danpink.com/books/to-sell-is-human/','Ask a customer what would make their decision easier. Summarize their answer before you pitch.'],
+    'business-books':['The Mom Test','Rob Fitzpatrick','https://www.momtestbook.com/','Ask about the last time a customer faced the problem you want to solve.'],
+    'life-books':['The 7 Habits of Highly Effective People','Stephen R. Covey','https://www.franklincovey.com/the-7-habits/','Choose a time today to renew one skill and set aside ten minutes to practice.']
+   };
+   if(picks[key]){
+    const [title,author,url,practice]=picks[key],card=tag('article','');card.className='book-pick';
+    const cover=link('',url),image=document.createElement('img');image.alt='';image.src='assets/lifestyle/books.jpg';
+    const caption=tag('span','');caption.append(tag('strong',title),tag('small','James pick · '+author));cover.append(image,caption);
+    const action=tag('details','');action.append(tag('summary','Put it into practice'),tag('p',practice));
+    card.append(cover,action);host.replaceChildren(card,retry);
+   }else host.replaceChildren(tag('p','The publisher feed is unavailable.'),retry);}
  }
  for(const b of document.querySelectorAll('[data-career]'))b.onclick=()=>{
   page('files');const search=el('searchJamesFiles');search.value=b.dataset.career;search.dispatchEvent(new Event('input'));search.focus();
