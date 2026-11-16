@@ -135,7 +135,7 @@ module.exports = async function handler(req, res) {
 if (req.method === "GET" && req.query.readMessageId !== undefined) {
   const id=req.query.readMessageId;
   if(account!=="personal"||typeof id!=="string"||!/^[A-Za-z0-9_+=/-]{1,2048}$/.test(id))return res.status(400).json({error:"INVALID_MESSAGE_ID"});
-  const result=await readStateRequest("https://graph.microsoft.com/v1.0/me/messages/"+encodeURIComponent(id)+"?$select=id,subject,from,receivedDateTime,isRead,bodyPreview,body,webLink,importance,flag",{headers:{Authorization:"Bearer "+tokens.access_token}},Date.now()+10000);
+  const result=await readStateRequest("https://graph.microsoft.com/v1.0/me/messages/"+encodeURIComponent(id)+"?$select=id,internetMessageId,subject,from,receivedDateTime,isRead,bodyPreview,body,webLink,importance,flag",{headers:{Authorization:"Bearer "+tokens.access_token}},Date.now()+10000);
   if(!result.ok)return res.status(result.status===404?404:502).json({error:"MESSAGE_UNAVAILABLE"});
   const message=result.data;
   if(message.id!==id)return res.status(502).json({error:"MESSAGE_UNAVAILABLE"});
@@ -208,7 +208,11 @@ if (req.method === "POST") {
         return result.ok?result.data:null;
       }catch{return null;}
     })();
-const inboxMessages = new URL("https://graph.microsoft.com/v1.0/me/mailFolders/inbox/messages?$top=25&$select=id,subject,from,receivedDateTime,isRead,bodyPreview,body,webLink,importance,flag&$orderby=receivedDateTime%20desc");
+const inboxMessages = new URL("https://graph.microsoft.com/v1.0/me/mailFolders/inbox/messages?$top=25&$select=id,internetMessageId,subject,from,receivedDateTime,isRead,bodyPreview,body,webLink,importance,flag&$orderby=receivedDateTime%20desc");
+if (account === 'personal' && req.query.reviewFolder === 'junkemail') {
+  inboxMessages.pathname = '/v1.0/me/mailFolders/junkemail/messages';
+  inboxMessages.searchParams.set('$select','id,internetMessageId,subject,from,receivedDateTime,bodyPreview,importance,flag');
+}
 const cursor = req.query.cursor;
 if (cursor !== undefined) {
   if (account !== "personal" || typeof cursor !== "string" || !/^\d{1,12}$/.test(cursor)) {
@@ -247,7 +251,7 @@ if (!messagesData || !Array.isArray(messagesData.value)) return messageFailure("
 const nextLink = messagesData["@odata.nextLink"];
 const nextCursor = typeof nextLink === "string" ? new URL(nextLink, inboxMessages).searchParams.get("$skip") : null;
 const messages = messagesData.value.map(message => ({
-      id: message.id,
+      id: message.id, internetMessageId:message.internetMessageId,
       subject: message.subject || "(No subject)",
       sender:
         message.from?.emailAddress?.name ||
@@ -269,11 +273,16 @@ const messages = messagesData.value.map(message => ({
       const checked=await verifyChecks(ids,async id=>{
         const current=messages.find(message=>message.id===id);
         if(current)return {message:current};
-        const result=await readStateRequest("https://graph.microsoft.com/v1.0/me/mailFolders/inbox/messages/"+encodeURIComponent(id)+"?$select=id,subject,from,receivedDateTime,bodyPreview,importance,flag",{headers:{Authorization:"Bearer "+tokens.access_token}},Date.now()+10000);
+        let result=await readStateRequest("https://graph.microsoft.com/v1.0/me/mailFolders/inbox/messages/"+encodeURIComponent(id)+"?$select=id,internetMessageId,subject,from,receivedDateTime,bodyPreview,importance,flag",{headers:{Authorization:"Bearer "+tokens.access_token}},Date.now()+10000);
+        let sourceFolder;
+        if(result.status===404 && req.query.includeJunkCheck==='1'){
+          result=await readStateRequest("https://graph.microsoft.com/v1.0/me/mailFolders/junkemail/messages/"+encodeURIComponent(id)+"?$select=id,internetMessageId,subject,from,receivedDateTime,bodyPreview,importance,flag",{headers:{Authorization:"Bearer "+tokens.access_token}},Date.now()+10000);
+          sourceFolder='Junk';
+        }
         if(result.status===404)return {absent:true};
         if(!result.ok||result.data?.id!==id)throw Error("MAIL_RECONCILIATION_UNAVAILABLE");
         const message=result.data;
-        return {message:{id,subject:message.subject||"(No subject)",sender:message.from?.emailAddress?.name||message.from?.emailAddress?.address||"Unknown sender",receivedDateTime:message.receivedDateTime,preview:message.bodyPreview||"",importance:message.importance||"normal",flagStatus:message.flag?.flagStatus||"notFlagged"}};
+        return {message:{id,internetMessageId:message.internetMessageId,...(sourceFolder?{sourceFolder}:{}),subject:message.subject||"(No subject)",sender:message.from?.emailAddress?.name||message.from?.emailAddress?.address||"Unknown sender",receivedDateTime:message.receivedDateTime,preview:message.bodyPreview||"",importance:message.importance||"normal",flagStatus:message.flag?.flagStatus||"notFlagged"}};
       });
       reconciliation={...checked,cursor:ids.at(-1)||null};
     }

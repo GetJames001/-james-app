@@ -11,3 +11,11 @@ test('a timed-out message request never reports a previous successful HTTP statu
 test('a stalled count read is bounded while confirmed inbox messages survive',async()=>{const {res}=await run([reply({result:'synthetic-refresh'}),reply({access_token:'synthetic-access'}),()=>new Promise(()=>{}),reply({value:[{id:'fixture',subject:'Messages survive count timeout'}]})]);assert.equal(res.code,200);assert.equal(res.body.messages[0].id,'fixture');assert.equal(res.body.countStatus,'unavailable');assert.equal(res.body.unreadCount,null);});
 
 for(const matches of [true,false])test('explicit account check returns only identity-match metadata: '+matches,async()=>{const {res,calls}=await run([reply({result:'synthetic-refresh'}),reply({access_token:'synthetic-access'}),reply({mail:matches?'allproactive@hotmail.com':'another-private@example.test',id:'PRIVATE_ID'})],{profileCheck:'1'});assert.equal(res.code,200);assert.equal(res.body.matchesExpectedMailbox,matches);assert.equal(calls.length,3);assert.equal(calls[2].url,'https://graph.microsoft.com/v1.0/me?$select=mail,userPrincipalName');assert.doesNotMatch(JSON.stringify(res.body),/allproactive|another-private|PRIVATE_ID|synthetic/);});
+
+test('Junk review reads only mail metadata and preview text',async()=>{
+ const {res,calls}=await run([reply({result:'synthetic-refresh'}),reply({access_token:'synthetic-access'}),reply({}),reply({value:[{id:'decision',subject:'Interview invitation'}]})],{reviewFolder:'junkemail'});
+ assert.equal(res.body.messages[0].subject,'Interview invitation');
+ const call=calls.find(call=>new URL(call.url).pathname.endsWith('/junkemail/messages'));
+ assert.ok(call);assert.equal(call.options.method,undefined);
+ assert.ok(!new URL(call.url).searchParams.get('$select').split(',').includes('body'));
+});

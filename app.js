@@ -497,7 +497,14 @@ function nextAppointment(){
 
 let nextDriveOrigin=null,nextDriveResult=null,nextDriveGeneration=0,nextDriveController=null;
 let refreshNextDriveIfNeeded=()=>{};
-function nextDriveKey(){const e=nextAppointment();return calendarSyncState.hasData&&calendarSyncState.state!=='stale'&&e?.[5]?JSON.stringify([e[5].id,e[5].start,e[5].location]):null;}
+function isOnlineAppointment(event){
+ if(!event)return false;
+ const location=(event.location||'').trim();
+ const meetingUrl=value=>{try{return /(^|\.)(teams\.(microsoft|live)\.com|teams\.cloud\.microsoft|meet\.google\.com|zoom\.us|webex\.com)$/i.test(new URL(value).hostname);}catch{return false;}};
+ if(location)return meetingUrl(location)||/^(?:(?:microsoft )?teams(?: meeting| call)?|zoom(?: meeting)?|google meet|webex(?: meeting)?|online(?: meeting)?|virtual(?: meeting)?)$/i.test(location);
+ return event.onlineMeeting===true||event.links?.some(link=>['Join meeting','Join video meeting'].includes(link.label)||meetingUrl(link.url));
+}
+function nextDriveKey(){const e=nextAppointment();return calendarSyncState.hasData&&calendarSyncState.state!=='stale'&&e?.[5]&&!isOnlineAppointment(e[5])?JSON.stringify([e[5].id,e[5].start,e[5].location]):null;}
 function applyNextDrive(){
  if(!nextDriveResult)return;
  if(nextDriveResult.key!==nextDriveKey()||Date.parse(nextDriveResult.expiresAt)<=Date.now()){nextDriveResult=null;const status=$('#routeStatus');if(status)status.textContent='Drive estimate expired or appointment changed. Estimate again before leaving.';return;}
@@ -506,6 +513,9 @@ function applyNextDrive(){
  $('#traffic').textContent=nextDriveResult.trafficDelaySeconds>=60?'+'+Math.ceil(nextDriveResult.trafficDelaySeconds/60)+' min':'No added delay';
 }
 function updateHero(){
+  const online=calendarSyncState.hasData&&isOnlineAppointment(nextAppointment()?.[5]);
+  for(const selector of ['.next-meta','.routing-controls']){const controls=$(selector);if(controls)controls.hidden=!!online;}
+  if(online&&nextDriveController&&!nextDriveController.signal.aborted){nextDriveGeneration++;nextDriveController.abort();nextDriveResult=null;}
   if(!calendarSyncState.hasData) {
     $('#nextTitle').textContent=calendarSyncState.state==='loading'?'Checking calendar…':'Calendar unavailable';
     $('#nextType').textContent='No verified calendar result yet.';
@@ -530,11 +540,12 @@ const drive = travel ? (parseInt(travel[3], 10) || 0) : 0;
   const hrs = Math.floor(diff / 3600000);
   const min = Math.floor((diff % 3600000) / 60000);
   $('#nextTitle').textContent = appt[2];
-  $('#nextType').textContent = `${appt[3]} · ${pretty(appt[0])}`;
+  $('#nextType').textContent = `${online?"Online meeting":appt[3]} · ${pretty(appt[0])}`;
   $('#countdown').textContent = start <= now ? 'In progress' : hrs ? `${hrs} hr ${min} min` : `${min} min`;
  $('#leaveBy').textContent = travel ? leave.toLocaleTimeString([], {hour:'numeric', minute:'2-digit'}) : '—';
 $('#driveTime').textContent = travel ? `${drive} min` : '—';
   $('#traffic').textContent = '—';
+  if(online)return;
   applyNextDrive();
   refreshNextDriveIfNeeded();
 }
@@ -1554,7 +1565,12 @@ if (personalMailDetailBack) {
     refresh:async()=>{},
     onCount:count=>setToDoCount('mail',count),
     decide:async(reviewKey,action)=>{const response=await fetch('/api/attention/decision',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify({reviewKey,action})});if(!response.ok)throw Error('Review change could not be saved');},
-    readSaved:async()=>{const response=await fetch('/api/attention',{credentials:'same-origin',cache:'no-store'});if(!response.ok)throw Error('Saved review unavailable');const data=await response.json();setToDoCount('other',data.attentionItems?.length||0);return data.mailReview?{...data.mailReview,revision:data.revision}:null;},
+    readSaved:async()=>{const response=await fetch('/api/attention',{credentials:'same-origin',cache:'no-store'});if(!response.ok)throw Error('Saved review unavailable');const data=await response.json();setToDoCount('other',data.attentionItems?.length||0);
+      const folderMail=$('#importantFolderMail');folderMail.replaceChildren();
+      for(const item of data.mailReview?.items||[])if(item.sourceFolder&&/^[a-f0-9]{64}$/.test(item.reviewKey)){
+       const row=document.createElement('p'),link=document.createElement('a');link.textContent=(item.sourceFolder==='Spam'?'Gmail Spam':'Hotmail Junk')+' · '+item.subject;link.href='/review/mail/'+item.reviewKey;row.append(link);folderMail.append(row);
+      }
+      return data.mailReview?{...data.mailReview,revision:data.revision}:null;},
     saveReview:async()=>{const response=await fetch('/api/attention/scan',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:'{}'});if(!response.ok)throw Object.assign(Error('Mail review could not be saved'),{conflict:response.status===409});},
     review:async id=>{if(id.startsWith('gmail:')){
       const version=personalMailStateVersion,generation=++gmailReviewGeneration;sessionStorage.removeItem('jamesOpenPersonalMailId');

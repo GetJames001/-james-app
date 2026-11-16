@@ -13,6 +13,10 @@
  function attentionReasons(message,subject,preview){
   if(message.flagStatus==='flagged')return ['Flagged in your mailbox'];
   if(advertised.test(subject)||informational.test(subject))return [];
+  const text=subject+' '+preview;
+  const hiring=/\b(?:application|applicant|candidate|interview|recruit(?:er|ment)|position|role)\b/i;
+  const decision=/\b(?:not (?:be )?(?:moving|proceeding|selected|advancing)|(?:other|another) candidate|(?:application|candidacy) (?:was |has been )?(?:declined|unsuccessful)|(?:unable|decided not) to (?:proceed|move forward)|invite you to (?:an? )?interview|offer you the (?:role|position))\b/i;
+  if(hiring.test(text)&&decision.test(text))return ['Hiring decision or interview update'];
   const lines=[subject,...preview.split(/(?:[.!?]\s+|[\r\n]+)/)].map(line=>line.trim()).filter(Boolean);
   const actionable=lines.filter(line=>!optional.test(line)&&!informational.test(line));
   if(actionable.some(line=>request.test(line)||nextStep.test(line))||subjectRequest.test(subject)){
@@ -49,7 +53,7 @@
    const subject=String(message.subject||'(No subject)').slice(0,300),preview=String(message.preview||'').slice(0,1200);
    const reasons=attentionReasons(message,subject,preview);
    if(!reasons.length)continue;
-   result.push({id:message.id,subject,sender:String(message.sender||'Unknown sender').slice(0,200),received:message.receivedDateTime||null,preview,reasons});
+   result.push({id:message.id,subject,sender:String(message.sender||'Unknown sender').slice(0,200),received:message.receivedDateTime||null,preview,reasons,...(message.sourceFolder?{sourceFolder:message.sourceFolder}:{})});
   }
   return result;
  }
@@ -80,8 +84,8 @@
    // bring a handled suggestion back without a new saved message version.
    const displayed=new Map((hasSaved?savedItems:items).map(item=>[item.id,item]));
    for(const item of displayed.values()){
-    const article=node('article'),title=node('h3',item.subject),sender=node('p',(item.id.startsWith('gmail:')?'Gmail · ':'Hotmail · ')+item.sender),reason=node('p',item.reasons.join(' · ')),preview=node('p',item.preview),open=node('button','Review in Mail'),task=node('button','Draft a task');
-    open.type=task.type='button';open.dataset.reviewAction='review';task.dataset.reviewAction='draft';open.dataset.reviewId=task.dataset.reviewId=item.id;open.onclick=()=>review(item.id);task.onclick=()=>draft(item);article.append(title,sender,reason,preview,open,task);
+    const article=node('article'),title=node('h3',item.subject),sender=node('p',(item.id.startsWith('gmail:')?'Gmail · ':'Hotmail · ')+(item.sourceFolder||'Inbox')+' · '+item.sender),reason=node('p',item.reasons.join(' · ')),preview=node('p',item.preview),open=node('button','Review in Mail'),task=node('button','Draft a task');
+    open.type=task.type='button';open.dataset.reviewAction='review';task.dataset.reviewAction='draft';open.dataset.reviewId=task.dataset.reviewId=item.id;open.onclick=()=>item.sourceFolder&&item.reviewKey?root.location.assign('/review/mail/'+item.reviewKey):review(item.id);task.onclick=()=>draft(item);article.append(title,sender,reason,preview,open,task);
     if(decide){const handled=node('button','Mark handled');handled.type='button';handled.dataset.reviewAction='handled';handled.dataset.reviewId=item.id;handled.disabled=loading||!item.reviewKey;handled.title=item.reviewKey?'Remove this suggestion from Needs attention; keep the email and tasks.':'Check recent mail first to save this suggestion.';handled.onclick=()=>void decision(item,'handled');article.append(handled);}
     if(/^[a-f0-9]{64}$/.test(item.reviewKey)){
      const link=node('a','Open saved review');
