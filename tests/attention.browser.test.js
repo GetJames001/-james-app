@@ -40,9 +40,11 @@ test('Attention saved view fits devices, retains items/focus on failure and clea
   }
   await page.getByRole('button',{name:'Close guide'}).click();await page.locator('nav [data-page="briefing"]').click();assert.equal(await page.locator('#attentionView h2').count(),0);
   await page.locator('nav [data-page="attention"]').click();
+  await page.locator('#guideOpen').evaluate(button=>button.click());
   assert.equal(await page.getByRole('button',{name:'Refresh saved view'}).count(),1,'navigation must not accumulate refresh controls');
   await page.getByRole('button',{name:'Close guide'}).click();await page.locator('nav [data-page="briefing"]').click();
   await page.locator('nav [data-page="attention"]').click();
+  await page.locator('#guideOpen').evaluate(button=>button.click());
   assert.equal(await page.getByRole('button',{name:'Refresh saved view'}).count(),1,'repeated visits must keep one control');
   await page.getByRole('button',{name:'Close guide'}).click();await page.locator('nav [data-page="briefing"]').click();
   mode='missing';await page.locator('nav [data-page="attention"]').click();await page.waitForFunction(()=>document.querySelector('#attentionView').textContent.includes('Email coverage has not been established'));

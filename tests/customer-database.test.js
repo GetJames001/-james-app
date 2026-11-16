@@ -137,3 +137,13 @@ test('duplicate business names are rejected without altering existing records; o
  assert.equal((await m.store.createWorkspace('owner-a',{name:'Fictional studio',operationId:'create-1'})).id,workspace);
  assert.ok((await m.store.createWorkspace('different-owner',{name:'Fictional studio',operationId:'create-1'})).id);
 });
+
+test('removing a daily entry preserves the customer and replays safely',async()=>{
+ const doc=accept(await staged()).document, company=doc.companies[0];
+ const selected=linked.select(doc,{date:dailyDate,ids:[company.id],operationId:'choose'},now);
+ const command={date:dailyDate,companyId:company.id,operationId:'remove-entry'};
+ const result=linked.removeDaily(selected.document,command,now);
+ assert.equal(linked.view(result.document,dailyDate).items.length,0);
+ assert.deepEqual(result.document.companies,doc.companies);
+ assert.ok(linked.removeDaily(result.document,command,now).replayed);
+});

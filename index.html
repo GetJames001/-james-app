@@ -89,7 +89,7 @@
     <h2 id="guideTitle">James Guide</h2>
     <details><summary>To Do and reminders</summary><p>Needs Attention shows mail that may need a response. Choose Draft a task to add a next step, or Mark handled to dismiss a suggestion. The email stays in your inbox.</p><p>Set a time in My tasks for an in-app reminder. Overdue reminders appear when you return.</p></details>
     <details class="saved-attention"><summary>Mail settings &amp; review details</summary>
-      <p>Hotmail is your primary sending address. Connected Gmail is for reading.</p>
+      <p>Personal Mail checks Outlook about every 30 seconds while James is visible. Refresh inbox reloads the newest messages and clears previously loaded older pages. Connected Gmail is for reading.</p>
       <div id="reviewAlertControls" hidden><p>Get Android alerts for newly received actionable mail and hotel confirmations. Alerts stay on until you stop them.</p><button type="button" id="reviewAlertEnable">Enable ongoing Android alerts</button> <button type="button" id="reviewAlertStop" hidden>Stop alert</button><p role="status" id="reviewAlertStatus"></p></div>
       <details><summary>Connect or reconnect Gmail</summary><form id="gmailReadConnect" action="/api/google/gmail/connect" method="post"><button type="submit">Enable Gmail reading</button><span role="status" data-gmail-status></span></form><p>Use this only if Gmail needs connecting. Existing Calendar access is preserved.</p></details>
       <details><summary>Saved review history &amp; coverage</summary><p>These are retained review records and coverage details, not another task list.</p><div id="attentionView" aria-label="Attention List"></div></details>

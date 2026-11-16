@@ -695,13 +695,13 @@ const JAMES_PERSPECTIVES = Object.freeze([
   Object.freeze({
     text: 'Seek first to understand, then to be understood.',
     author: 'Stephen R. Covey',
-    source: 'The 7 Habits of Highly Effective People · Habit 5'
+    source:'The 7 Habits of Highly Effective People · Habit 5',url:'https://www.franklincovey.com/courses/the-7-habits/habit-5/'
   }),
   Object.freeze({text:'A clear next step beats a crowded to-do list.',author:'James',source:'Original reflection'}),
-  Object.freeze({text:'Never mistake activity for achievement.',author:'John Wooden',source:'UCLA basketball coach'}),
-  Object.freeze({text:'And the only way to do great work is to love what you do.',author:'Steve Jobs',source:'Stanford commencement address, 2005'}),
-  Object.freeze({text:'They call it coaching, but it is teaching.',author:'Vince Lombardi',source:'Run to Daylight!'}),
-  Object.freeze({text:'You can have everything in life you want if you will just help enough other people get what they want.',author:'Zig Ziglar',source:'Ziglar · Two Kinds of Breakthroughs'})
+  Object.freeze({text:'Never mistake activity for achievement.',author:'John Wooden',source:'UCLA basketball coach',url:'https://www.pearsonhighered.com/assets/samplechapter/0/3/2/1/0321332059.pdf'}),
+  Object.freeze({text:'And the only way to do great work is to love what you do.',author:'Steve Jobs',source:'Stanford commencement address, 2005',url:'https://news.stanford.edu/stories/2005/06/youve-got-find-love-jobs-says'}),
+  Object.freeze({text:'They call it coaching, but it is teaching.',author:'Vince Lombardi',source:'Run to Daylight!',url:'https://www.packers.com/news/lombardi-sure-had-a-way-with-words-12817147'}),
+  Object.freeze({text:'You can have everything in life you want if you will just help enough other people get what they want.',author:'Zig Ziglar',source:'Ziglar · Two Kinds of Breakthroughs',url:'https://www.ziglar.com/articles/two-kinds-breakthroughs/'})
 ]);
 function jamesPerspectiveForDate(date=new Date()){
   // UTC construction from LOCAL calendar parts ensures that the selection is
@@ -725,7 +725,12 @@ function renderJamesPerspective(date=new Date()){
     ['perspectiveBriefText','text'],['perspectiveBriefAuthor','author'],['perspectiveBriefSource','source']];
   for(const [id,key] of fields){
     const node=document.getElementById(id);
-    if(node)node.textContent=item[key];
+    if(!node)continue;
+    node.textContent=item[key];
+    if(id==='perspectiveBriefSource' && item.url){
+      const link=document.createElement('a');link.href=item.url;link.textContent=item.source;
+      link.target='_blank';link.rel='noopener noreferrer';node.replaceChildren(link);
+    }
   }
 }
 
