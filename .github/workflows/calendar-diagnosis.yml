@@ -64,3 +64,28 @@ jobs:
             }
           })().catch(error=>{console.error(error.message);process.exitCode=1});
           NODE
+  weather-assets:
+    if: github.head_ref == 'feature/briefing-meteocons'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify published weather artwork
+        run: |
+          set -eu
+          for pkg in svg svg-static; do
+            mkdir -p "$pkg"
+            archive=$(npm pack "@meteocons/$pkg" --silent)
+            tar -xzf "$archive" -C "$pkg"
+          done
+          ls svg/package/fill | grep -E '^(clear|partly-cloudy|overcast|fog|drizzle|sleet|rain|snow|thunderstorms|hail)' | head -130
+          mkdir -p selected
+          for style in svg svg-static; do
+            mkdir -p "selected/$style"
+            for name in clear-day clear-night partly-cloudy-day partly-cloudy-night overcast fog drizzle sleet rain snow thunderstorms-rain thunderstorms-day-rain thunderstorms-night-rain hail overcast-rain overcast-snow overcast-drizzle; do
+              if test -f "$style/package/fill/$name.svg"; then cp "$style/package/fill/$name.svg" "selected/$style/"; fi
+            done
+          done
+          node -p 'require("./svg/package/package.json").version'
+          tar czf icons.tgz -C selected .
+          echo ICONSET_BEGIN
+          base64 -w 2000 icons.tgz
+          echo ICONSET_END
