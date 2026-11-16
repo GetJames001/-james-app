@@ -148,14 +148,25 @@ function mountTravel({list, read, save}) {
       if (travelOpen) panel.replaceChildren(tag('p','James could not load your trips. Reopen Travel to retry.'));
     }
   }
-  function launch() {
-    if (location.hash === '#travel' || location.hash.startsWith('#travel/') || location.hash.startsWith('#trip?')) window.jamesPageNow('travel');
+  function isTravelLink() {
+    return location.hash === '#travel' || location.hash.startsWith('#travel/') || location.hash.startsWith('#trip?');
   }
-  window.addEventListener('james:page-changed', show);
+  function launch() {
+    if (isTravelLink()) window.jamesPageNow('travel');
+  }
+  let wasInTravel = section.classList.contains('active');
+  window.addEventListener('james:page-changed', () => {
+    const inTravel = section.classList.contains('active');
+    if (wasInTravel && !inTravel && isTravelLink()) {
+      history.replaceState(history.state, '', location.pathname + location.search);
+    }
+    wasInTravel = inTravel;
+    show();
+  });
   window.addEventListener('hashchange', launch);
   window.addEventListener('pageshow', show);
   document.addEventListener('visibilitychange', () => { if (!document.hidden) show(); });
-  if (location.hash === '#travel' || location.hash.startsWith('#travel/') || location.hash.startsWith('#trip?')) setTimeout(launch,0);
+  if (isTravelLink()) setTimeout(launch,0);
   else show();
 }
 if (typeof module !== 'undefined') module.exports = {tripDate, validTrip, tripGroup};

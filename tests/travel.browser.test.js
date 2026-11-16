@@ -56,5 +56,12 @@ require('node:test')('Travel opens a private link, saves and restores a dated it
  await dates.last().click();
  await page.locator('#apptList a.trip-link').click();
  await page.locator('#travel.active article').waitFor();
+ await page.reload();
+ await page.locator('#travel.active article').waitFor();
+ await page.locator('nav [data-page="briefing"]').click();
+ assert.equal(new URL(page.url()).hash,'');
+ await page.reload();
+ await page.locator('#briefing.active .intel-strip button.has-trip').waitFor({state:'visible'});
+ assert.equal(await page.locator('#travel.active').count(),0);
  }finally{await b.close();}
 });
