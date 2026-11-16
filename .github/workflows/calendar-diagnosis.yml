@@ -80,14 +80,7 @@ jobs:
           const fs=require('fs'),{chromium}=require('playwright');
           (async()=>{
            const cities=[['Portland',45.5,-122.7],['San Francisco',37.8,-122.4],['Los Angeles',34.1,-118.2],['Las Vegas',36.2,-115.1]];
-           const profiles=[];
-           for(const [name,lat,lon] of cities.slice(0,3)){
-            const url=new URL('https://api.open-meteo.com/v1/elevation');
-            url.search=new URLSearchParams({latitude:Array(17).fill((lat+.07).toFixed(3)).join(','),longitude:Array.from({length:17},(_,i)=>(((lon+(i-8)*.014/Math.cos(lat*Math.PI/180)+540)%360)-180).toFixed(3)).join(',')});
-            const r=await fetch(url);if(!r.ok)throw Error(name+' '+r.status);
-            const {elevation}=await r.json();if(elevation.length!==17)throw Error(name);
-            profiles.push(elevation);
-           }
+           const profiles=JSON.parse(fs.readFileSync('terrain.json','utf8'));
            console.log('ELEVATIONS '+JSON.stringify(profiles));
            const css=fs.readFileSync('styles.css','utf8');
            const card=fs.readFileSync('index.html','utf8').match(/<div id="weatherSquare"[\s\S]+?(?=\s*<div class="intel-card mail-card")/)[0];
@@ -106,6 +99,25 @@ jobs:
            await browser.close();
           })().catch(e=>{console.error(e);process.exitCode=1});
           NODE
+          python3 - <<'PY'
+          import math,json,io,urllib.request
+          from PIL import Image
+          cache={}
+          out=[]
+          for lat,lon in [(45.5,-122.7),(37.8,-122.4),(34.1,-118.2)]:
+           heights=[]
+           for i in range(-8,9):
+            x=(lon+i*.014/math.cos(math.radians(lat))+180)/360*2048
+            y=(1-math.asinh(math.tan(math.radians(lat+.07)))/math.pi)*1024
+            tile=(int(x),int(y))
+            if tile not in cache:
+             url='https://s3.amazonaws.com/elevation-tiles-prod/terrarium/11/%d/%d.png'%tile
+             cache[tile]=Image.open(io.BytesIO(urllib.request.urlopen(url,timeout=12).read())).convert('RGB')
+            r,g,b=cache[tile].getpixel((int(x*256)%256,int(y*256)%256))
+            heights.append(round(r*256+g+b/256-32768,1))
+           out.append(heights)
+          open('terrain.json','w').write(json.dumps(out))
+          PY
           node review.cjs
           if ! command -v ffmpeg >/dev/null; then sudo apt-get -qq update && sudo apt-get -yqq install ffmpeg; fi
           ffmpeg -loglevel error -framerate 12.5 -i frames/%02d.png -c:v libx264 -preset fast -crf 26 -pix_fmt yuv420p -movflags +faststart weather.mp4
