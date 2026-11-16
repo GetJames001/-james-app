@@ -35,7 +35,7 @@ test('rotation excludes the last favorite when possible and handles one or no fa
 test('poster routes serve only known scene bytes and reject methods and unknown assets',async()=>{
   const gateway=require('../api/gateway.js');
   function response(){return {statusCode:200,headers:{},setHeader(k,v){this.headers[k]=v;},status(n){this.statusCode=n;return this;},send(v){this.body=v;return this;},json(v){this.body=v;return this;},end(){return this;}};}
-  for(const name of ['morning','oceanfront','strip-terrace','moonlit-forest','aurora-from-orbit']){
+  for(const name of ['christmas-lodge','firelit-ocean','glass-coast','morning','oceanfront','strip-terrace','moonlit-forest','aurora-from-orbit']){
     const out=response();await gateway({method:'GET',headers:{host:'www.getjames.ai'},query:{path:'login-poster-'+name+'.jpg'}},out);
     assert.equal(out.statusCode,200);assert.equal(out.headers['Content-Type'],'image/jpeg');
     assert.deepEqual(out.body,fs.readFileSync('assets/scenes/'+name+'.jpg'));

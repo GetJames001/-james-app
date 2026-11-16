@@ -3,7 +3,7 @@ function mountMagazine({list,read,save}){
  const el=id=>document.getElementById(id);
  const tag=(name,text)=>{const node=document.createElement(name);node.textContent=text;return node;};
  const link=(title,url)=>{const a=tag('a',title);a.href=url;a.target='_blank';a.rel='noopener noreferrer';return a;};
- const gumbo={title:'Cajun chicken & sausage gumbo',url:'https://www.seriouseats.com/cajun-gumbo-with-chicken-and-andouille-recipe',publisher:'Serious Eats'};
+ const gumbo={title:'Cajun chicken & sausage gumbo',url:'#james-gumbo',publisher:'James kitchen · Serves 4 · Recipe illustration'};
  const safeRecipe=row=>{try{return typeof row.title==='string'&&row.title.trim()&&row.title.length<=200&&typeof row.publisher==='string'&&row.publisher.length<=100&&new URL(row.url).protocol==='https:';}catch{return false;}};
  let pages=[gumbo],current=0,bookRequest=0;
  const suffix='.james-recipe.json';
@@ -11,12 +11,17 @@ function mountMagazine({list,read,save}){
   const recipe=pages[current],isGumbo=recipe.url===gumbo.url,paper=el('bookPage');
   paper.replaceChildren(tag('small',recipe.publisher),tag('h3',recipe.title));
   if(isGumbo){
-   paper.append(tag('h4','Ingredients'),tag('p','Chicken, andouille, roux, onion, celery, bell pepper and stock.'),tag('h4','Method'),tag('p','Build the dark roux, soften the vegetables, then simmer the meat in stock. Serve over rice.'));
-  }else paper.append(tag('p','Open the publisher’s recipe for ingredients, quantities and directions.'));
-  paper.append(link('Open full recipe',recipe.url));
+   const ingredients=tag('ul','');
+   for(const line of ['⅓ cup neutral oil + ⅓ cup all-purpose flour','1 onion, 1 green pepper and 2 celery stalks, diced','3 cloves garlic, minced','8 oz smoked andouille, sliced','1 lb boneless chicken thighs, cut into chunks','4 cups low-sodium chicken stock','1 bay leaf, 1 tsp paprika and ½ tsp dried thyme','Salt and pepper to taste · 3 cups hot cooked rice'])ingredients.append(tag('li',line));
+   const steps=tag('ol','');
+   for(const line of ['In a heavy pot, whisk oil and flour over medium-low heat until deep brown, stirring constantly, about 20–30 minutes.','Stir in the diced vegetables for 5 minutes, then garlic for 1 minute. Slowly whisk in stock.','Add sausage, chicken, bay leaf, paprika and thyme. Simmer gently for about 30 minutes, until chicken reaches 165°F.','Remove bay leaf, season to taste and serve over rice.'])steps.append(tag('li',line));
+   paper.append(tag('h4','Ingredients'),ingredients,tag('h4','Method'),steps);
+  }else{
+   paper.append(tag('p','Ingredients and directions from '+recipe.publisher+'.'),link('Open full recipe',recipe.url));
+  }
   const photo=el('bookPhoto');
   let publisherPhoto=false;try{const u=new URL(recipe.photo);publisherPhoto=u.protocol==='https:'&&u.hostname==='www.budgetbytes.com';}catch{}
-  photo.hidden=!isGumbo&&!publisherPhoto;photo.src=publisherPhoto?recipe.photo:'assets/lifestyle/recipe.jpg';photo.alt=isGumbo?'Chicken and sausage gumbo':recipe.title;
+  photo.hidden=!isGumbo&&!publisherPhoto;photo.src=publisherPhoto?recipe.photo:'assets/lifestyle/recipe.jpg';photo.alt=isGumbo?'Illustration of chicken and sausage gumbo':recipe.title;
   paper.parentElement.classList.toggle('source-only',photo.hidden);
   el('bookPosition').textContent=(current+1)+' / '+pages.length;el('bookPrev').disabled=current===0;el('bookNext').disabled=current===pages.length-1;
  }
@@ -54,20 +59,31 @@ function mountMagazine({list,read,save}){
   try{
    const data=await entry.promise;
    if(host.dataset.feed!==key)return;
-   if(key!=='recipes'){
-    const stories=data.items.filter(item=>item.photo).slice(0,2);
-    const nodes=stories.map(item=>{
-     const card=link('',item.url);card.className='headline-card';
-     const image=document.createElement('img');
-     image.alt='';image.referrerPolicy='no-referrer';image.src=item.photo;
-     image.onerror=()=>{image.hidden=true;};
-     const caption=tag('span','');
-     caption.append(tag('small',data.publisher),tag('strong',item.title));
-     card.append(image,caption);
+   if(key==='business'){
+    const cards=data.items.slice(0,2).map((item,index)=>{
+     const card=tag('details','');card.className='news-reader';
+     const cover=tag('summary','');cover.className='headline-card';
+     const image=document.createElement('img');image.alt='';image.src=item.photo||'assets/lifestyle/'+(index?'journal':'finance')+'.jpg';
+     const caption=tag('span','');caption.append(tag('small',data.publisher),tag('strong',item.title));
+     cover.append(image,caption);
+     card.append(cover);
+     if(item.summary && item.summary!==item.title)card.append(tag('p',item.summary));
+     card.append(link('Read the public release',item.url));
      return card;
     });
-    host.replaceChildren(...(nodes.length?nodes:[tag('p','No photo stories available.')]));
-    return;
+    host.replaceChildren(...cards);return;
+   }
+   if(key.endsWith('-books')){
+    const practice={'sales-books':'Choose one question from your reading and try it in your next customer conversation.','life-books':'Pick one habit to try for five minutes today. Note what made it easier.','business-books':'Choose one idea and test it on a small decision at work.'}[key];
+    const cards=data.items.map(book=>{
+     const card=tag('article','');card.className='book-pick';
+     const cover=link('',book.url),image=document.createElement('img');image.alt='';image.loading='lazy';image.referrerPolicy='no-referrer';image.src=book.photo||'assets/lifestyle/books.jpg';
+     const caption=tag('span','');caption.append(tag('strong',book.title),tag('small',[book.author,book.year].filter(Boolean).join(' · ')));
+     cover.append(image,caption);card.append(cover);
+     const action=tag('details','');action.append(tag('summary','Put it into practice'),tag('p',practice));
+     card.append(action);return card;
+    });
+    host.replaceChildren(...cards);return;
    }
    const nodes=data.items.map(item=>{
     const row=tag('div','');row.className='mag-story';row.append(link(item.title,item.url));
@@ -99,9 +115,7 @@ function mountMagazine({list,read,save}){
   button.onclick=()=>{
    document.querySelectorAll('[data-topic]').forEach(b=>b.setAttribute('aria-pressed',String(b===button)));
    const host=el('growthReading');
-   host.dataset.feed=button.dataset.topic==='business'?'business':'life';
-   if(button.dataset.topic==='work'){host.hidden=true;}else{host.hidden=false;refreshFeed(host);}
-   el('growth').querySelector('.pair').hidden=button.dataset.topic!=='work';
+   host.dataset.feed=button.dataset.topic;refreshFeed(host);
   };
  }
  const savePractice=el('savePractice');

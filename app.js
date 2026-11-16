@@ -1529,6 +1529,7 @@ if (personalMailDetailBack) {
   $('#appointmentSavingSetup').onclick=()=>window.jamesAppointments.setup();
   window.jamesReminders=window.JamesReminders.mount({host:$('#guideReminders')});
   window.jamesLocation=window.JamesLocation.mount({button:$('#jamesLiveLocation'),status:$('#jamesLocationStatus'),onState:()=>refreshNextDriveIfNeeded(),onPoint:point=>{
+    window.dispatchEvent(new Event('james:trip-location'));
     if(!nextDriveOrigin||nextDriveOrigin.kind==='device'){
       const previous=nextDriveOrigin,moved=!previous||Math.hypot((point.latitude-previous.latitude)*111000,(point.longitude-previous.longitude)*111000*Math.cos(point.latitude*Math.PI/180))>100;
       nextDriveOrigin=point;if(moved){nextDriveResult=null;nextDriveGeneration++;nextDriveController?.abort();updateHero();}
@@ -1540,7 +1541,7 @@ if (personalMailDetailBack) {
     const weatherPoint=jamesWeatherState.location?.approximateCoordinates;
     if(!jamesWeatherState.checkedAt||Date.now()-Date.parse(jamesWeatherState.checkedAt)>900000||jamesWeatherState.location.status==='last_known'||!weatherPoint||Math.hypot(point.latitude-weatherPoint.latitude,point.longitude-weatherPoint.longitude)>.05)void loadWeatherForCoordinates({...point,savedAt:point.observedAt},$('#weatherTemp'),$('#weatherDetail'));
 
-  },onClear:()=>{if(nextDriveOrigin?.kind==='device'){nextDriveOrigin=null;nextDriveResult=null;nextDriveGeneration++;nextDriveController?.abort();updateHero();}}});
+  },onClear:()=>{window.dispatchEvent(new Event('james:trip-location'));if(nextDriveOrigin?.kind==='device'){nextDriveOrigin=null;nextDriveResult=null;nextDriveGeneration++;nextDriveController?.abort();updateHero();}}});
   const findJamesPlaces=async(query,area='explicit')=>{
     try{const response=await fetch('/api/james/places',{method:'POST',headers:{'Content-Type':'application/json'},cache:'no-store',body:JSON.stringify({query,area,...(area==='nearby'?{location:window.jamesLocation.point()}: {})})}),data=await response.json();return response.ok?data:{status:'unavailable',reason:'request_failed',places:[]};}catch{return {status:'unavailable',reason:'request_failed',places:[]};}
   };

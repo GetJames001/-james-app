@@ -62,13 +62,6 @@ function mountTravel({list, read, save}) {
       if (/^The original Drive Weather route shows .+ and omits .+\.$/i.test(stop.trim())) continue;
       item.append(tag('p', stop.replace(/Leave Sunstone, Las Vegas\b/i,'Leave Northwest Las Vegas')));
     }
-    const stops=trip.stops.join(' ');
-    const places=[['Reno','https://www.visitrenotahoe.com/'],['Bend','https://visitbend.com/'],['Eugene','https://www.eugenecascadescoast.org/'],['Chicago','https://www.choosechicago.com/']].filter(([name])=>new RegExp('\\b'+name+'\\b','i').test(trip.title+' '+stops));
-    if(places.length){
-      const aside=tag('section','');aside.className='trip-guides';aside.append(tag('h4',trip.route?'Along the way':'While you’re in town'));
-      for(const [name,url] of places){const link=tag('a',name);link.href=url;link.target='_blank';link.rel='noopener noreferrer';aside.append(link);}
-      item.append(aside);
-    }
     if (trip.route) {
       const link = tag('a', 'Open original Drive Weather route');
       link.href = trip.route;
@@ -77,6 +70,66 @@ function mountTravel({list, read, save}) {
     }
     return item;
   }
+  const stopsGuide={
+    Reno:{name:'Truckee Riverwalk',image:'road',coords:[39.52,-119.81]},
+    Bend:{name:'Drake Park & Mirror Pond',image:'travel',coords:[44.06,-121.32]},
+    Eugene:{name:'Fifth Street Public Market',image:'eugene',coords:[44.05,-123.09]}
+  };
+  const mapLink=query=>'https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(query);
+  let guideTrip=null,guideDay='',guideSequence=0;
+  const sightsCache=new Map();
+  function makeGuideCard(title,description,image,query,nearby=false){
+    const link=tag('a','');link.className='mag-tile';link.href=mapLink(query);link.target='_blank';link.rel='noopener noreferrer';
+    const img=document.createElement('img');img.src='assets/lifestyle/'+image+'.jpg';img.alt='';img.loading='lazy';
+    const label=tag('span',title);label.append(tag('small',description));
+    if(nearby)label.prepend(tag('small','Near you'));
+    link.append(img,label,tag('i','→'));return link;
+  }
+  async function renderGuide(trip,today){
+    const generation=++guideSequence;
+    guideTrip=trip;guideDay=today;
+    const host=document.getElementById('tripPlaces'),wrap=document.getElementById('tripGuide'),jump=document.getElementById('tripGuideJump');
+    const end=trip?.destination||trip?.title?.match(/(?:^|\s)to\s+(.+?)(?:\s+[·–-]\s+driving)?$/i)?.[1];
+    const road=Boolean(trip?.route||trip?.mode==='driving');
+    wrap.hidden=jump.hidden=!trip||(!road&&!end);
+    if(wrap.hidden){host.replaceChildren();return;}
+    jump.textContent=road?'Along the way':'In town';
+    document.getElementById('tripGuideTitle').textContent=road?'Along the way':'While in '+end;
+    if(road){
+      const stops=[];
+      for(const line of trip.stops){
+        for(const match of line.matchAll(/(?:overnight[^.]{0,90}? in |stop in )([A-Z][a-z]+(?: [A-Z][a-z]+)*)/g)){
+          if(!stops.includes(match[1]))stops.push(match[1]);
+        }
+      }
+      if(end&&!stops.includes(end))stops.push(end);
+      const pos=tripGroup(trip,today)==='Current trips'?window.jamesLocation?.point():null;
+      const cards=stops.map(city=>{
+        const known=stopsGuide[city];
+        const close=pos&&known&&Math.hypot((pos.latitude-known.coords[0])*111,(pos.longitude-known.coords[1])*111*Math.cos(pos.latitude*Math.PI/180))<20;
+        return makeGuideCard(city,known?.name||'Explore this stop',known?.image||'road',(known?.name||'Things to see')+' in '+city,close);
+      });
+      host.replaceChildren(...cards);wrap.hidden=jump.hidden=!cards.length;return;
+    }
+    let names;
+    if(/^Chicago(?:,|$)/i.test(end))names=['Millennium Park','Art Institute of Chicago','Chicago Riverwalk'];
+    else{
+      host.replaceChildren(tag('p','Finding sights…'));
+      try{
+        if(!sightsCache.has(end)){
+          const response=await fetch('/api/lifestyle/feed?source=sights&city='+encodeURIComponent(end));
+          if(!response.ok)throw Error();
+          const data=await response.json();
+          if(data.items.length)sightsCache.set(end,data.items);
+        }
+        names=sightsCache.get(end)||[];
+      }catch{names=[];}
+    }
+    if(generation!==guideSequence)return;
+    host.replaceChildren(...names.slice(0,3).map((name,i)=>makeGuideCard(name,end,['travel','eugene','road'][i],name+' in '+end)));
+    if(!names.length)host.replaceChildren(makeGuideCard('Explore '+end,'Find local attractions','travel','attractions in '+end));
+  }
+  window.addEventListener('james:trip-location',()=>{if(section.classList.contains('active')&&guideTrip?.route)void renderGuide(guideTrip,guideDay);});
   function tripLink(trip) {
     const link = tag('a', trip.title + (trip.route ? ' · Driving' : '') + ' · ' + displayDate(trip.start));
     link.href = '#travel/' + trip.id;
@@ -119,6 +172,7 @@ function mountTravel({list, read, save}) {
         !document.getElementById('appointments')?.classList.contains('active')) return;
     const seq = ++request;
     if (travelOpen && location.hash.startsWith('#trip?')) {
+      void renderGuide(null,'');
       const fields = new URLSearchParams(location.hash.slice(5));
       const trip = {title:fields.get('title'), start:fields.get('start'), end:fields.get('end') || '',
         stops:fields.getAll('stop'), route:fields.get('route') || ''};
@@ -172,6 +226,7 @@ function mountTravel({list, read, save}) {
       const groups=trips.map(trip=>tripGroup(trip,today));
       const opened=trips.find(trip=>location.hash==='#travel/'+trip.id);
       const chosen=opened?tripGroup(opened,today):selectedGroup||(groups.includes('Current trips')?'Current trips':groups.includes('Upcoming trips')?'Upcoming trips':'');
+      void renderGuide(opened||trips.find(t=>tripGroup(t,today)===chosen)||(!chosen?trips[0]:null),today);
       section.querySelectorAll('[data-trip-group]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.tripGroup===chosen)));
       if(selectedGroup&&!opened&&!groups.includes(selectedGroup))panel.append(tag('p',selectedGroup==='Current trips'?'No trip in progress.':'No upcoming trips.'));
       for (const group of ['Current trips','Upcoming trips','Started · end date open','Past trips']) {
@@ -188,6 +243,7 @@ function mountTravel({list, read, save}) {
         tileStatus.textContent = 'Trips unavailable';
         tileStatus.closest('button').classList.remove('has-trip');
       }
+      if(travelOpen)void renderGuide(null,'');
       if (travelOpen) panel.replaceChildren(tag('p','James could not load your trips. Reopen Travel to retry.'));
     }
   }

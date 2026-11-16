@@ -2,7 +2,7 @@
  'use strict';
  const scenes={
   evening:'Waterfront evening',morning:'Waterfront morning',noon:'Waterfront noon',night:'Waterfront night',
-  oceanfront:'Oceanfront Twilight', 'moonlit-forest':'Moonlit Forest Retreat', 'aurora-from-orbit':'Aurora from Orbit',
+  oceanfront:'Oceanfront Twilight', 'firelit-ocean':'Firelit Ocean', 'glass-coast':'Glass Coast', 'christmas-lodge':'Christmas Lodge', 'moonlit-forest':'Moonlit Forest Retreat', 'aurora-from-orbit':'Aurora from Orbit',
   beach:'Beach', 'corner-penthouse':'Corner Penthouse', 'fontainebleau-penthouse':'Fontainebleau Penthouse',
   'red-rock-terrace':'Red Rock Terrace', 'red-rock-snow':'Red Rock Snow', 'strip-terrace':'Strip Terrace',
   'winter-lodge':'Winter Lodge', 'winter-storm-penthouse':'Winter Storm Penthouse'

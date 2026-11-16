@@ -1331,3 +1331,13 @@ html[data-theme=light] .james-shell .intel-strip>.briefing-wardrobe{background:#
 .headline-card small,.headline-card strong {display:block}
 .headline-card strong {font:400 clamp(1.15rem,2vw,1.75rem)/1.12 Georgia,serif;margin-top:.25rem}
 @media(max-width:600px){#app .headline-grid,#app #growthReading.headline-grid {grid-template-columns:1fr}}
+#app .headline-grid .news-reader {padding:0;border:0}
+#app .news-reader summary {width:100%;box-sizing:border-box}
+#app .news-reader p,#app .news-reader>a {margin:.6rem}
+#app .book-pick {border:1px solid #89734c;border-radius:6px;padding:10px;background:var(--panel,#132335)}
+.book-pick>a {display:grid;grid-template-columns:32% 1fr;gap:12px;align-items:center;text-decoration:none}
+.book-pick img {width:100%;height:126px;object-fit:contain}
+.book-pick small,.book-pick strong {display:block}
+.book-pick strong {font-size:1.2rem}.book-pick small {margin-top:.45rem;color:var(--muted)}
+#bookPage li {margin-bottom:.35em;line-height:1.36}
+#bookPage ul,#bookPage ol {padding-left:1.3em}

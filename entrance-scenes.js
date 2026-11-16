@@ -8,7 +8,8 @@
     'fontainebleau-penthouse':['left','57%'],'moonlit-forest':['lower-left','55%'],
     'winter-lodge':['lower-left','69%'],beach:['lower-right','62%'],
     'red-rock-snow':['lower-right','28%'],'winter-storm-penthouse':['lower-right','51%'],
-    'aurora-from-orbit':['upper-right','42%']
+    'aurora-from-orbit':['upper-right','42%'],
+    'firelit-ocean':['left','50%'],'glass-coast':['lower-left','54%'],'christmas-lodge':['upper-right','52%']
   };
   const ids=['waterfront',...Object.keys(layouts).filter(id=>!['morning','noon','evening','night'].includes(id))];
   const read=(store,key)=>{try{return root[store].getItem(key);}catch{return null;}};

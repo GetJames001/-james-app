@@ -104,7 +104,10 @@
       ['beach','Beach'],
       ['red-rock-snow','Red Rock Snow'],
       ['winter-storm-penthouse','Winter Storm Penthouse'],
-      ['aurora-from-orbit','Aurora from Orbit']
+      ['aurora-from-orbit','Aurora from Orbit'],
+      ['firelit-ocean', 'Firelit Ocean'],
+      ['glass-coast', 'Glass Coast'],
+      ['christmas-lodge', 'Christmas Lodge']
     ];
     const defaults={mode:'automatic',scene:'waterfront',favorites:[]};
     let prefs=defaults;

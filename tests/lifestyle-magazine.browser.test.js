@@ -12,7 +12,7 @@ test('Lifestyle on iPad opens existing Wardrobe, saves a recipe across refresh, 
    const url=new URL(route.request().url()),path=url.pathname.slice(1)||'index.html';
    if(path==='api/lifestyle/feed'){
     if(url.searchParams.get('source')==='recipes')return route.fulfill({json:{publisher:'Budget Bytes',items:[{title:'Roasted peppers',url:'https://www.budgetbytes.com/roasted-peppers/'}]}});
-    if(url.searchParams.get('source')==='business')return route.fulfill({json:{publisher:'BBC Business',items:[1,2,3].map(n=>({title:'Sample story '+n,url:'https://www.bbc.com/news/'+n,photo:'https://test.invalid/assets/lifestyle/finance.jpg'}))}});
+    if(url.searchParams.get('source')==='business')return route.fulfill({json:{publisher:'Federal Reserve',items:[1,2,3].map(n=>({title:'Sample story '+n,url:'https://www.federalreserve.gov/newsevents/'+n,photo:'https://test.invalid/assets/lifestyle/finance.jpg'}))}});
     return route.fulfill({status:503,json:{}});
    }
    if(path==='api/james/files'){
@@ -26,6 +26,8 @@ test('Lifestyle on iPad opens existing Wardrobe, saves a recipe across refresh, 
   const cards=page.locator('#lifestyle .mag-tile');assert.equal(await cards.count(),7);
   assert.equal(await page.locator('#lifestyle a.mag-tile').getAttribute('href'),await page.locator('.wardrobe-launch').getAttribute('href'));
   await page.locator('#lifestyle [data-action-page=recipes]').click();
+  assert.equal(await page.locator('#bookPage ul li').count(),8);
+  assert.equal(await page.locator('#bookPage ol li').count(),4);
   await page.getByRole('button',{name:'Save to book'}).click();
   await page.waitForFunction(()=>document.querySelector('#bookPage h3').textContent==='Roasted peppers');
   await page.reload();await page.waitForFunction(()=>document.querySelector('#bookPosition').textContent.endsWith('/ 2'));
@@ -40,7 +42,7 @@ test('Lifestyle on iPad opens existing Wardrobe, saves a recipe across refresh, 
   assert.ok(!visual.canvas.includes('url('));
   assert.ok(visual.feature.includes('development.jpg'));
   assert.ok(visual.featureWidth>visual.folderWidth);
-  await page.getByRole('button',{name:'Life',exact:true}).click();
+  await page.getByRole('button',{name:'Personal growth',exact:true}).click();
   await page.locator('#growth').getByRole('button',{name:'Retry feed'}).first().waitFor();
   assert.equal(await page.locator('#growth a').first().getAttribute('href'),'https://ggia.berkeley.edu/practice/active_listening');
   await page.locator('nav [data-page=lifestyle]').click();
@@ -63,6 +65,8 @@ test('Lifestyle on iPad opens existing Wardrobe, saves a recipe across refresh, 
   assert.equal(boxes[2],boxes[3]);
   await page.locator('#financeToday .headline-card').first().waitFor();
   assert.equal(await page.locator('#financeToday .headline-card').count(),2);
+  await page.locator('#financeToday summary').first().click();
+  assert.match(await page.getByRole('link',{name:'Read the public release'}).first().getAttribute('href'),/^https:\/\/www\.federalreserve\.gov\//);
   await page.getByRole('button',{name:'Investments',exact:true}).click();
   assert.equal(await page.locator('#financeOverview').isVisible(),false);
   assert.equal(await page.locator('#financeInvestments').isVisible(),true);

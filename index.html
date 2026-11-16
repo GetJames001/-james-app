@@ -428,7 +428,7 @@
 <div class="mag-book">
 <div id="bookPage" aria-live="polite">
 </div>
-<img id="bookPhoto" alt="Chicken and sausage gumbo" src="assets/lifestyle/recipe.jpg">
+<img id="bookPhoto" alt="Illustration of chicken and sausage gumbo" src="assets/lifestyle/recipe.jpg">
 </div>
 <div class="mag-bar">
 <button id="bookPrev">Previous recipe</button>
@@ -465,13 +465,10 @@
 </div>
 </section>
 <section class="page" id="growth"><div class="sheet magazine edition"><div class="edition-crumb"><b>James</b><button data-action-page="lifestyle">‹ Lifestyle</button><span>Personal Development</span></div><div class="edition-title"><h2>Personal Development</h2><div class="edition-tabs" aria-label="Reading topics">
-<button data-topic="work" aria-pressed="true">Work</button><button data-topic="life" aria-pressed="false">Life</button><button data-topic="business" aria-pressed="false">Business</button></div></div>
+<button data-topic="sales-books" aria-pressed="true">Sales</button><button data-topic="life-books" aria-pressed="false">Personal growth</button><button data-topic="business-books" aria-pressed="false">Business</button></div></div>
 <div class="growth-top"><article class="photo-panel lead-panel" style="--photo:url(assets/lifestyle/development.jpg)"><div><h3><a href="https://ggia.berkeley.edu/practice/active_listening" target="_blank" rel="noopener noreferrer">Listen before responding</a></h3><button id="savePractice"><svg viewBox="0 0 16 19" width="14" height="16" aria-hidden="true"><path d="M2 1h12v16l-6-4-6 4z" fill="none" stroke="currentColor"/></svg> Save for later</button></div></article>
 <aside class="career-box"><h3>Career folder</h3><button data-career="resume"><span class="doc-paper" aria-hidden="true">Résumé</span><span>Current résumé</span><span aria-hidden="true">›</span></button><button data-career="cover"><span class="doc-paper" aria-hidden="true">Cover letter</span><span>Cover letter</span><span aria-hidden="true">›</span></button></aside></div>
-<h3 class="rule-title">Reading &amp; practice</h3>
-<div class="pair"><details class="photo-panel" style="--photo:url(assets/lifestyle/interview.jpg)"><summary>Prepare for an interview</summary><p>Choose one recent win. Write down the situation, your action and the result.</p></details>
-<details class="photo-panel" style="--photo:url(assets/lifestyle/reflection.jpg)"><summary>Make time for reflection</summary><p>What worked this week? What would you try differently next time?</p></details></div>
-<div id="growthReading" class="headline-grid" data-feed="life" hidden></div></div></section>
+<h3 class="rule-title">Sharpen the saw</h3><div id="growthReading" class="headline-grid" data-feed="sales-books">Loading books…</div></div></section>
 <section class="page" id="fitness">
 <div class="sheet magazine">
 <div class="edition-crumb"><b>James</b><button data-action-page="lifestyle">‹ Lifestyle</button><span>Health &amp; Fitness</span></div><div class="fitness-layout"><div><h2>Health &amp; Fitness</h2>
@@ -523,23 +520,9 @@
 <button class="photo-panel" style="--photo:url(assets/lifestyle/road.jpg)" data-action-page="travel">Before the drive to Oregon</button></div></div></section>
 <section id="travel" class="page">
     <div class="sheet magazine edition"><div class="edition-crumb"><b>James</b><button data-action-page="lifestyle">‹ Lifestyle</button><span>Travel</span></div><div class="travel-feature"><h2>Travel</h2><div class="edition-tabs">
-<button data-trip-group="Current trips">Current trips</button><button data-trip-group="Upcoming trips">Planned trips</button><button data-scroll="tripPlaces">Places to see</button></div>
+<button data-trip-group="Current trips">Current trips</button><button data-trip-group="Upcoming trips">Planned trips</button><button id="tripGuideJump" data-scroll="tripPlaces" hidden>Places to see</button></div>
 <div id="travelCards" class="cards one compact-cards" aria-live="polite"></div></div>
-<section><h3 class="rule-title">Places to see</h3><div class="mag-places" id="tripPlaces">
-<a class="mag-tile" href="https://www.eugenecascadescoast.org/" target="_blank" rel="noopener noreferrer">
-<img src="assets/lifestyle/eugene.jpg" alt="" loading="lazy">
-<span>Eugene<small>Riverside trails, local food and a gateway to Oregon’s outdoors.</small></span><i aria-hidden="true">→</i>
-</a>
-<a class="mag-tile" href="https://stateofwatourism.com/" target="_blank" rel="noopener noreferrer">
-<img src="assets/lifestyle/washington.jpg" alt="" loading="lazy">
-<span>Washington<small>Evergreen forests, alpine lakes and Northwest mountain views.</small></span><i aria-hidden="true">→</i>
-</a>
-<a class="mag-tile" href="https://www.visitlasvegas.com/" target="_blank" rel="noopener noreferrer">
-<img src="assets/lifestyle/vegas.jpg" alt="" loading="lazy">
-<span>Las Vegas<small>Red rock trails and desert scenery just beyond the Strip.</small></span><i aria-hidden="true">→</i>
-</a>
-</div>
-</section>
+<section id="tripGuide" hidden><h3 class="rule-title" id="tripGuideTitle"></h3><div class="mag-places" id="tripPlaces"></div></section>
     </div>
   </section>
 

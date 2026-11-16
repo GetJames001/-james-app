@@ -11,8 +11,8 @@ test('publisher feed returns safe titled recipe links and preserves the source',
   assert.equal(res.data.publisher,'Budget Bytes');assert.equal(res.data.items.length,1);
   assert.equal(res.data.items[0].photo,'https://www.budgetbytes.com/peppers.jpg');
   assert.deepEqual(calls,['https://www.budgetbytes.com/feed/']);
-  global.fetch=async()=>new Response('<rss xmlns:media="http://search.yahoo.com/mrss/"><channel><item><title>Sample headline</title><link>https://www.bbc.co.uk/news/test</link><media:thumbnail url="http://ichef.bbci.co.uk/news/test.jpg" /></item></channel></rss>');
+  global.fetch=async()=>new Response('<rss xmlns:media="http://search.yahoo.com/mrss/"><channel><item><title>Sample headline</title><link>https://www.federalreserve.gov/newsevents/test</link><media:thumbnail url="http://www.federalreserve.gov/news/test.jpg" /></item></channel></rss>');
   await handler({method:'GET',headers:{host:'www.getjames.ai',cookie:auth.SESSION_COOKIE+'='+auth.createSessionToken(process.env.JAMES_AUTH_EMAIL)},query:{source:'business'}},res);
-  assert.equal(res.data.items[0].photo,'https://ichef.bbci.co.uk/news/test.jpg');
+  assert.equal(res.data.items[0].photo,'https://www.federalreserve.gov/news/test.jpg');
  }finally{global.fetch=original;}
 });
