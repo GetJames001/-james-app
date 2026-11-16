@@ -1148,3 +1148,59 @@ html[data-theme=light] .james-shell .intel-strip>.briefing-wardrobe{background:#
 #jamesGuide > details { border-top:1px solid var(--gs,#756c55); }
 #jamesGuide > details > summary { padding:.85rem 0; cursor:pointer; font-weight:600; }
 #jamesGuide p { line-height:1.5; }
+
+/* Magazine covers use live HTML text above independently cropped photographs. */
+.james-shell .perspective-revisit {
+ background:linear-gradient(90deg,rgba(4,14,23,.92),rgba(4,14,23,.45) 67%,rgba(4,14,23,.07)),url(assets/lifestyle/travel.jpg) center 50%/cover;
+ border:0; border-radius:14px; padding:clamp(20px,3.8vw,48px); min-height:175px;
+ display:flex; flex-direction:column; justify-content:end; align-items:start; color:#fff7e8;
+}
+.james-shell .perspective-revisit h3,.james-shell .perspective-credit {color:#efd3a4}
+.james-shell .perspective-revisit-body {border:0;padding:0;max-width:44rem}
+.james-shell .perspective-revisit-body blockquote {color:#fff7e8;font:400 clamp(1.35rem,2.8vw,2.4rem)/1.18 Georgia,serif}
+.james-shell .magazine {max-width:1180px;width:100%;margin-inline:auto;padding:clamp(14px,2.7vw,34px);box-sizing:border-box}
+.magazine h2,.magazine h3,.magazine strong {font-family:Georgia,serif;font-weight:400}
+.magazine h2 {font-size:clamp(2.3rem,5vw,4.6rem);line-height:1.05;margin:0 0 .4em}
+.magazine h3 {font-size:clamp(1.45rem,2.4vw,2rem);margin:1em 0 .45em}
+.magazine a {color:var(--gold,#d8bc89)}
+.mag-grid,.mag-places,.mag-columns {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:clamp(8px,1.2vw,16px)}
+.mag-grid>:first-child,.mag-grid>:last-child {grid-column:span 2}
+.mag-grid>:nth-last-child(2){grid-column:span 1}
+.mag-grid .mag-tile:first-child,.mag-grid .mag-tile:nth-child(2) {min-height:clamp(170px,24vw,345px)}
+.magazine .mag-tile {display:flex;align-items:end;position:relative;isolation:isolate;min-height:clamp(135px,17vw,245px);overflow:hidden;border-radius:10px;padding:clamp(12px,2vw,25px);border:0;text-align:left;cursor:pointer;text-decoration:none;color:#fff8ea;background:#101921}
+.mag-tile img {position:absolute;inset:0;z-index:-2;width:100%;height:100%;object-fit:cover}
+.mag-tile:before {content:'';position:absolute;inset:0;background:linear-gradient(0deg,#071018e8,transparent 75%);z-index:-1}
+.mag-tile span {font:400 clamp(1.2rem,2.5vw,2.5rem)/1.08 Georgia,serif}
+.mag-cover,#travelCards>a.trip-link,#wardrobe .sheet {background:linear-gradient(90deg,#09121ce8,transparent),var(--photo) center/cover;color:#fff7e9;border-radius:12px;padding:clamp(20px,4vw,48px);min-height:clamp(140px,21vw,280px);display:flex;flex-direction:column;justify-content:end;align-items:start}
+.mag-cover h2,.mag-cover h3,#wardrobeHeading {color:#fff7e9;margin:0}
+.mag-columns {grid-template-columns:repeat(2,minmax(0,1fr))}
+.magazine details,.mag-story {border-bottom:1px solid var(--gs,#70634e);padding:.75em 0}
+.magazine summary,.magazine button {cursor:pointer}
+.magazine button:not(.mag-tile) {border:1px solid var(--gs,#746647);border-radius:8px;padding:9px 15px;background:var(--panel,#132336);color:var(--ink,#f6ecda);min-height:44px}
+.mag-back {margin-bottom:.7rem}
+.mag-bar,.mag-story {display:flex;flex-wrap:wrap;align-items:center;gap:.8rem}
+.mag-story {justify-content:space-between}
+.mag-bar {margin:1em 0}
+.mag-book {display:grid;grid-template-columns:1fr 1fr;background:#f2e4c8;color:#30291e;overflow:hidden;border-radius:7px;box-shadow:0 12px 25px #0004}
+.mag-book #bookPage {padding:clamp(18px,3.4vw,44px);background:linear-gradient(90deg,transparent 96%,#90795540)}
+.mag-book h3,.mag-book h4,.mag-book p,.mag-book small,.mag-book a {color:#30291e}
+.mag-book img {width:100%;height:100%;object-fit:cover;min-height:230px}
+.mag-book.source-only {grid-template-columns:1fr}
+#travelCards>a.trip-link {--photo:url(assets/lifestyle/travel.jpg);text-decoration:none;color:#fff7e9;gap:.6rem}
+#travelCards>a.trip-link strong {font:400 clamp(1.8rem,4vw,3.5rem)/1.05 Georgia,serif}
+#travelCards>a.trip-link small {color:#ffdc9c}
+.trip-guides a {display:inline-block;margin-right:1rem}
+#wardrobe .sheet {--photo:url(assets/lifestyle/wardrobe.jpg);background-position:center 38%;min-height:300px}
+#wardrobe .sheet a {color:#ffe1ad}
+@media(max-width:650px){
+ .mag-grid,.mag-places {grid-template-columns:repeat(2,minmax(0,1fr))}
+ .mag-grid>:first-child {grid-column:1/-1}
+ .mag-grid>:last-child {grid-column:auto}
+ .mag-columns {grid-template-columns:1fr}
+ .magazine .mag-tile,.mag-grid .mag-tile:nth-child(2){min-height:140px}
+ .mag-book {grid-template-columns:1fr}
+ .mag-book img {min-height:0;max-height:210px}
+ .james-shell .perspective-revisit {min-height:145px}
+}
+.mag-story img {width:80px;height:60px;object-fit:cover;border-radius:6px}
+.mag-story>a {flex:1;min-width:min(12rem,100%)}

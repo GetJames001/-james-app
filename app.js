@@ -669,7 +669,7 @@ function pageNow(id){
   if(id === "attention") openAttentionSavedView();
   else clearAttentionSavedView();
   sessionStorage.setItem('jamesCurrentPage', id);
-  $$('nav button').forEach(b => {const active=b.dataset.page === (id==='tasks'?'attention':id==='files'?'workbench':id==='personalMailDetail'?'personalMail':id);b.classList.toggle('active',active);if(active)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current');});
+  $$('nav button').forEach(b => {const active=b.dataset.page === (['recipes','garage','fitness','finance','growth'].includes(id)?'lifestyle':id==='tasks'?'attention':id==='files'?'workbench':id==='personalMailDetail'?'personalMail':id);b.classList.toggle('active',active);if(active)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current');});
   $$('.page').forEach(p => p.classList.toggle('active', p.id === id));
   window.dispatchEvent(new Event('james:page-changed'));
   if(id === 'briefing') {
@@ -845,7 +845,7 @@ if (highConsequenceShouldI) return true;
 function renderCalendarDay() {
   const selected=JamesCalendarSync.eventsForDay(liveEvents,new Date());
   displayedCalendarDate=selected.date;briefingEvents=selected.timed;events=briefingEvents;
-  window.liveEvents=liveEvents;window.briefingEvents=briefingEvents;window.allDayEvents=selected.allDay;
+  window.liveEvents=liveEvents;window.dispatchEvent(new Event("james:calendar-updated"));window.briefingEvents=briefingEvents;window.allDayEvents=selected.allDay;
   if(selected.invalidCount)calendarSyncState.complete=false;
   const strip=$('#allDayStrip'),ribbon=$('#allDayRibbon');
   if(strip){strip.hidden=!selected.allDay.length;strip.textContent=selected.allDay.length?'ALL DAY — '+selected.allDay.map(e=>e.title).join(' · '):'';}
@@ -1724,11 +1724,12 @@ document.addEventListener('DOMContentLoaded',()=>{
   const bytes=Uint8Array.from(atob(file.content), character=>character.charCodeAt(0));
   return new File([bytes],file.name,{type:file.type,lastModified:file.lastModified});
  }
+ if (typeof mountMagazine === 'function') mountMagazine({list:filesRequest,read:readAccountFile,save:saveAccountFile});
  if (typeof mountTravel === 'function') mountTravel({list:filesRequest,read:readAccountFile,save:saveAccountFile});
  function renderSavedFiles(){
   savedList.replaceChildren();
   const query=searchFiles.value.trim().toLowerCase();
-  const matches=savedFiles.filter(entry=>entry.name.toLowerCase().includes(query));
+  const matches=savedFiles.filter(entry=>entry.name.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().includes(query.normalize('NFD').replace(/[\u0300-\u036f]/g,'')));
   if(filesLoaded&&!matches.length){
    const empty=document.createElement('p');
    empty.textContent=savedFiles.length?'No files match your search.':'No files available';
@@ -1749,7 +1750,12 @@ document.addEventListener('DOMContentLoaded',()=>{
      await refreshSavedFiles();
     }catch{filesStatus.textContent='Could not remove the saved file.';}
    };
-   row.append(name,remove);savedList.append(row);
+   const download=document.createElement('button');download.type='button';download.textContent='Download';
+   download.onclick=async()=>{
+    try{const saved=await readAccountFile(id);const url=URL.createObjectURL(saved);const a=document.createElement('a');a.href=url;a.download=saved.name;a.click();setTimeout(()=>URL.revokeObjectURL(url),60000);}
+    catch{filesStatus.textContent='Could not download this file.';}
+   };
+   row.append(name,download,remove);savedList.append(row);
   }
  }
  async function refreshSavedFiles(){

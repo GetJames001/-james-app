@@ -54,6 +54,13 @@ function mountTravel({list, read, save}) {
       if (/^The original Drive Weather route shows .+ and omits .+\.$/i.test(stop.trim())) continue;
       item.append(tag('p', stop.replace(/Leave Sunstone, Las Vegas\b/i,'Leave Northwest Las Vegas')));
     }
+    const stops=trip.stops.join(' ');
+    const places=[['Reno','https://www.visitrenotahoe.com/'],['Bend','https://visitbend.com/'],['Eugene','https://www.eugenecascadescoast.org/'],['Chicago','https://www.choosechicago.com/']].filter(([name])=>new RegExp('\\b'+name+'\\b','i').test(trip.title+' '+stops));
+    if(places.length){
+      const aside=tag('section','');aside.className='trip-guides';aside.append(tag('h4',trip.route?'Along the way':'While you’re in town'));
+      for(const [name,url] of places){const link=tag('a',name);link.href=url;link.target='_blank';link.rel='noopener noreferrer';aside.append(link);}
+      item.append(aside);
+    }
     if (trip.route) {
       const link = tag('a', 'Open original Drive Weather route');
       link.href = trip.route;
@@ -73,6 +80,10 @@ function mountTravel({list, read, save}) {
       window.jamesPageNow('travel');
     };
     return link;
+  }
+  function cover(trip){
+    const link=tripLink(trip);link.replaceChildren(tag('strong',trip.title),tag('span',displayDate(trip.start)+(trip.end?' – '+displayDate(trip.end):'')));
+    link.append(tag('small','Open itinerary →'));return link;
   }
   window.jamesTripCalendar = {tripsOn, tripLink};
   async function show() {
@@ -135,7 +146,7 @@ function mountTravel({list, read, save}) {
       for (const group of ['Current trips','Upcoming trips','Started · end date open','Past trips']) {
         const items = trips.filter(trip => tripGroup(trip,today) === group);
         if (group === 'Past trips') items.reverse();
-        if (items.length) panel.append(tag('h3',group), ...items.map(trip => location.hash === "#travel/" + trip.id ? card(trip) : tripLink(trip)));
+        if (items.length) panel.append(tag('h3',group), ...items.map(trip => location.hash === "#travel/" + trip.id ? card(trip) : cover(trip)));
       }
       if (location.hash.startsWith('#travel/')) document.getElementById('trip-' + location.hash.slice(8))?.scrollIntoView({block:'start'});
       if (!trips.length) panel.append(tag('p','No trips saved yet.'));
