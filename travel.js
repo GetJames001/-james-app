@@ -83,6 +83,14 @@ function mountTravel({list, read, save}) {
   }
   function cover(trip){
     const link=tripLink(trip);link.replaceChildren(tag('strong',trip.title),tag('span',displayDate(trip.start)+(trip.end?' – '+displayDate(trip.end):'')));
+    const notes=[];
+    for(const stop of trip.stops){
+      const overnight=stop.match(/overnight\b[^.]{0,75}?\bin ([A-Z][a-z]+(?: [A-Z][a-z]+)*)/);
+      const pause=stop.match(/stop in ([A-Z][a-z]+(?: [A-Z][a-z]+)*) for (\d+ hours?)/i);
+      if(overnight)notes.push('Overnight in '+overnight[1]);
+      if(pause)notes.push(pause[2]+' in '+pause[1]);
+    }
+    if(notes.length)link.append(tag('span',notes.slice(0,2).join(' · ')));
     link.append(tag('small','Open itinerary →'));return link;
   }
   window.jamesTripCalendar = {tripsOn, tripLink};

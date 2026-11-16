@@ -1209,3 +1209,5 @@ html[data-theme=light] .james-shell .intel-strip>.briefing-wardrobe{background:#
 #fitness .evidence-cover {background:linear-gradient(90deg,#07111bec,#07111b55),url(assets/lifestyle/journal.jpg) center/cover;color:#fff5e8;padding:2rem 1rem;border-radius:10px}
 .james-shell .briefing-sheet .compact-head {background:linear-gradient(90deg,#06121be6,#06121b36),url(assets/lifestyle/briefing.jpg) center/cover;padding:clamp(18px,3.2vw,40px);border-radius:12px}
 .james-shell .briefing-sheet .compact-head h3 {color:#fff5df;font:400 clamp(2rem,4vw,3.6rem)/1.1 Georgia,serif}
+.mag-book {position:relative}
+.mag-book:not(.source-only)::after {content:"";position:absolute;right:0;bottom:0;width:22px;height:22px;background:linear-gradient(135deg,transparent 45%,#d0bfa3 49%,#fff3d9 80%,#372d25 100%);pointer-events:none}
