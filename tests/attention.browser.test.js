@@ -26,7 +26,7 @@ test('Attention saved view fits devices, retains items/focus on failure and clea
   browser=await chromium.launch({headless:true});const page=await browser.newPage({viewport:{width:390,height:844}});await page.route('https://**',r=>r.abort());
   await page.addInitScript(()=>sessionStorage.setItem('jamesIntroDate',new Date().toDateString()));
   await page.goto(`http://127.0.0.1:${server.address().port}`);
-  await page.locator('nav [data-page="attention"]').click();await page.getByText('Mail settings & review details',{exact:true}).click();await page.getByText('Saved review history & coverage',{exact:true}).click();await page.locator('#attentionView h2').waitFor();
+  await page.locator('nav [data-page="attention"]').click();await page.locator('.header-preferences > summary').click();await page.locator('#guideOpen').click();await page.getByText('Mail settings & review details',{exact:true}).click();await page.getByText('Saved review history & coverage',{exact:true}).click();await page.locator('#attentionView h2').waitFor();
   for(const width of [390,820,1180]){
    await page.setViewportSize({width,height:844});
    const size=await page.locator('#attentionView').evaluate(el=>({right:el.getBoundingClientRect().right,overflow:el.scrollWidth-el.clientWidth,buttons:[...el.querySelectorAll('button,a')].map(x=>x.getBoundingClientRect().height)}));
@@ -38,13 +38,13 @@ test('Attention saved view fits devices, retains items/focus on failure and clea
    assert.equal(await page.locator('#attentionView h2').count(),1);
    assert.equal(await page.getByRole('button',{name:'Refresh saved view'}).evaluate(el=>el===document.activeElement),true);
   }
-  await page.locator('nav [data-page="briefing"]').click();assert.equal(await page.locator('#attentionView h2').count(),0);
+  await page.getByRole('button',{name:'Close guide'}).click();await page.locator('nav [data-page="briefing"]').click();assert.equal(await page.locator('#attentionView h2').count(),0);
   await page.locator('nav [data-page="attention"]').click();
   assert.equal(await page.getByRole('button',{name:'Refresh saved view'}).count(),1,'navigation must not accumulate refresh controls');
-  await page.locator('nav [data-page="briefing"]').click();
+  await page.getByRole('button',{name:'Close guide'}).click();await page.locator('nav [data-page="briefing"]').click();
   await page.locator('nav [data-page="attention"]').click();
   assert.equal(await page.getByRole('button',{name:'Refresh saved view'}).count(),1,'repeated visits must keep one control');
-  await page.locator('nav [data-page="briefing"]').click();
+  await page.getByRole('button',{name:'Close guide'}).click();await page.locator('nav [data-page="briefing"]').click();
   mode='missing';await page.locator('nav [data-page="attention"]').click();await page.waitForFunction(()=>document.querySelector('#attentionView').textContent.includes('Email coverage has not been established'));
   assert.match(await page.locator('#attentionView').textContent(),/Not checked yet/);assert.doesNotMatch(await page.locator('#attentionView').textContent(),/No known items/);
   assert.ok(reads>=4);assert.equal(writes,0);

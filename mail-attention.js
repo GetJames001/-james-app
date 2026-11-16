@@ -73,7 +73,6 @@
    const openDetails=[...container.querySelectorAll('details')].filter(d=>d.open).map(d=>d.dataset.reviewDetails);
    const heading=node('h2','From connected Mail'),status=node('p');status.setAttribute('role','status');
    status.textContent=loading?'Updating mail review…':savedSources?(stale?'Latest mail check failed. Saved items may be out of date. ':'')+Object.entries(savedSources).map(([name,source])=>name+': '+(!source?'not checked':source.capacityLimited?'review capacity reached; mark handled items to free space':source.stale?'latest check failed; saved items retained':source.checkedAt?'checked '+new Date(source.checkedAt).toLocaleString()+(source.discovery?.failed?'; older-page check failed':source.discovery?.inProgress?'; reviewing older Inbox pages':''):'not checked')).join(' · '):stale?'Mail refresh failed. Any previously found items may be out of date.':!checkedAt?(connected?'Recent Inbox mail has not been checked.':'Mail has not been checked yet.'):`${scanned} loaded Inbox messages checked · ${new Date(checkedAt).toLocaleTimeString([], {hour:'numeric',minute:'2-digit'})}.`;
-   const help=node('p','These are email suggestions, not saved tasks. Updates automatically while James is open. Review the email, draft a task if action remains, or mark it handled.');help.className='action-help';
    const button=node('button',(loading||checking)?'Updating…':'Check recent mail');button.type='button';button.disabled=loading||checking;button.dataset.reviewAction='refresh';
    button.onclick=()=>void check();
    const list=node('div');list.className='mail-review-list';
@@ -92,13 +91,12 @@
     list.append(article);
    }
    onCount(displayed.size);
-   if((checkedAt||savedAt)&&!displayed.size)list.append(node('p',stale?'No retained review suggestions. The latest scan failed.':'No suggestions need your review from the mail checked.'));
+   if((checkedAt||savedAt)&&!displayed.size)list.append(node('p',stale?'No retained review suggestions. The latest scan failed.':'Nothing needs attention.'));
    const message=node('p',notice);message.setAttribute('role','status');
    const undo=node('button','Undo');undo.type='button';undo.disabled=loading;undo.dataset.reviewAction='undo';undo.onclick=()=>void decision(undoItem,'undo');
-   const details=node('details');details.className='action-help';details.dataset.reviewDetails='help';details.open=openDetails.includes('help');details.append(node('summary','How this review works'));
-   details.append(node('p',savedAt?'Saved review available across devices · last check '+new Date(savedAt).toLocaleString()+'.':'Checking connected mail automatically…'));
-   details.append(node('p','Automatically checks the newest 25 Inbox messages and works through older Inbox pages, up to 25 more per check, for Hotmail and connected Gmail. Saved suggestions are separately rechecked in rotating batches; provider-confirmed moves or deletions remove them. Replies do not automatically complete tasks. Mark handled records your decision for this saved message version; changed message content may appear again. It does not delete email or complete a task. Handled suggestions leave this screen immediately, with Undo for 10 seconds. Later checks remove their saved subject and preview, keeping a small fingerprint to avoid showing the same item again. Other folders, Sent review, full semantic review and closed-app monitoring are not connected here.'));
-   container.replaceChildren(heading,help,status,button,message,list,...(undoItem?[undo]:[]),details);
+   const warning = stale || (savedSources && Object.values(savedSources).some(source=>source?.stale || source?.capacityLimited));
+   status.hidden = !loading && !warning && !!(savedAt || checkedAt);
+   container.replaceChildren(status,button,message,list,...(undoItem?[undo]:[]));
    if(focused?.action){const target=[...container.querySelectorAll('[data-review-action]')].find(n=>n.dataset.reviewAction===focused.action&&n.dataset.reviewId===focused.id);target?.focus({preventScroll:true});}
   }
   function check({automatic=false}={}){

@@ -22,7 +22,7 @@ require('node:test')('Travel opens a private link, saves and restores a dated it
  await page.getByRole('button',{name:'Save trip',exact:true}).click();
  await page.locator('#travelCards').getByText('Upcoming trips',{exact:true}).waitFor({state:'attached',timeout:4000});
  await page.reload();
- await page.getByText('Fixture',{exact:true}).waitFor({state:'attached',timeout:4000});
+ await page.locator('#travelCards .trip-link').click();
  const paragraph=page.getByText(stop,{exact:true});
  for (const width of [360,390]) {
    await page.setViewportSize({width,height:844});
@@ -40,12 +40,12 @@ require('node:test')('Travel opens a private link, saves and restores a dated it
  }
  assert.equal(await page.getByText(/route shows A and omits B/i).count(),0);
  await page.evaluate(()=>window.jamesPageNow('briefing'));
- const summaryLink=page.locator('#briefingTripLinks a');
- await summaryLink.waitFor();
  const cards=await page.locator('.intel-strip > .intel-card').evaluateAll(nodes=>nodes.map(node=>node.getBoundingClientRect().top));
  assert.equal(cards.length,4);
  assert.ok(cards.every(y=>Math.abs(cards[0]-y)<2));
- await summaryLink.click();
+ await page.locator('.intel-strip [data-action-page=travel]').click();
+ await page.locator('#travelCards article, #travelCards a.trip-link').first().waitFor();
+ if (await page.locator('#travelCards a.trip-link').count()) await page.locator('#travelCards a.trip-link').click();
  await page.locator('#travel.active article').waitFor();
  await page.evaluate(()=>window.jamesPageNow('briefing'));
  await page.locator('#quickCalendarNext').click();

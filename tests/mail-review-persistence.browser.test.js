@@ -17,7 +17,7 @@ test('review restores across browser sessions, keeps saved candidates after fail
   browser=await chromium.launch();let page=await browser.newPage();const url='http://127.0.0.1:'+server.address().port;
   await page.goto(url);assert.equal(saves,0,'mount only reads saved state');
   await page.getByRole('button',{name:'Check recent mail'}).click();await page.getByText('Flight confirmation',{exact:true}).waitFor({state:'visible'});assert.equal(saves,1);
-  await page.close();page=await browser.newPage();await page.goto(url);await page.getByText('Flight confirmation',{exact:true}).waitFor({state:'visible'});assert.match(await page.locator('main').textContent(),/Saved review available across devices/);assert.equal(saves,1);
+  await page.close();page=await browser.newPage();await page.goto(url);await page.getByText('Flight confirmation',{exact:true}).waitFor({state:'visible'});assert.ok(await page.getByText('Flight confirmation',{exact:true}).isVisible());assert.equal(saves,1);
   broken=true;await page.getByRole('button',{name:'Check recent mail'}).click();await page.getByText(/may be out of date/).waitFor({state:'visible'});assert.equal(await page.locator('article').count(),1);
   await page.evaluate(()=>{window.resolveLate=null;window.late=JamesMailAttention.mount(document.querySelector('main'),{refresh:async()=>{},review:()=>{},draft:()=>{},readSaved:()=>new Promise(resolve=>window.resolveLate=resolve)});window.late.clear();window.resolveLate({checkedAt:'2026-11-05T20:00:00Z',inventoryCount:1,items:[{id:'private',subject:'Late account result',sender:'Fixture',preview:'',reasons:[]}]});});
   assert.equal(await page.getByText('Late account result',{exact:true}).count(),0);

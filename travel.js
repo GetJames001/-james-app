@@ -51,7 +51,7 @@ function mountTravel({list, read, save}) {
     if (trip.id) item.id = 'trip-' + trip.id;
     for (const stop of trip.stops) {
       if (/^The original Drive Weather route shows .+ and omits .+\.$/i.test(stop.trim())) continue;
-      item.append(tag('p', stop));
+      item.append(tag('p', stop.replace(/Leave Sunstone, Las Vegas\b/i,'Leave Northwest Las Vegas')));
     }
     if (trip.route) {
       const link = tag('a', 'Open original Drive Weather route');
@@ -77,7 +77,6 @@ function mountTravel({list, read, save}) {
   async function show() {
     const travelOpen = section.classList.contains('active');
     const briefing = document.getElementById('briefing');
-    const summary = document.getElementById('briefingTripLinks');
     if (!travelOpen && !briefing?.classList.contains('active') &&
         !document.getElementById('appointments')?.classList.contains('active')) return;
     const seq = ++request;
@@ -116,10 +115,6 @@ function mountTravel({list, read, save}) {
       trips.sort((a,b) => a.start.localeCompare(b.start));
       savedTrips = trips;
       cache = new Map(trips.map(trip => [trip.id,trip]));
-      const weekEnd = new Date(now.getFullYear(),now.getMonth(),now.getDate()+7);
-      const cutoff = localAppointmentDate(weekEnd);
-      const upcoming = trips.filter(trip => tripEnd(trip) >= today && trip.start <= cutoff);
-      if (summary) summary.replaceChildren(...(upcoming.length ? upcoming.map(tripLink) : [tag('p','No trips in the next seven days.')]));
       document.getElementById('todayTripLinks')?.replaceChildren(...tripsOn(today).map(tripLink));
       renderQuickCalendar();
       renderAppointmentView();
@@ -128,13 +123,12 @@ function mountTravel({list, read, save}) {
       for (const group of ['Current trips','Upcoming trips','Started · end date open','Past trips']) {
         const items = trips.filter(trip => tripGroup(trip,today) === group);
         if (group === 'Past trips') items.reverse();
-        if (items.length) panel.append(tag('h3',group), ...items.map(card));
+        if (items.length) panel.append(tag('h3',group), ...items.map(trip => location.hash === "#travel/" + trip.id ? card(trip) : tripLink(trip)));
       }
       if (location.hash.startsWith('#travel/')) document.getElementById('trip-' + location.hash.slice(8))?.scrollIntoView({block:'start'});
       if (!trips.length) panel.append(tag('p','No trips saved yet.'));
     } catch {
       if (seq !== request) return;
-      if (summary) summary.textContent = 'Could not refresh trips.';
       if (travelOpen) panel.replaceChildren(tag('p','James could not load your trips. Reopen Travel to retry.'));
     }
   }

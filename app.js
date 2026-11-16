@@ -698,17 +698,26 @@ const JAMES_PERSPECTIVES = Object.freeze([
     source: 'The 7 Habits of Highly Effective People · Habit 5'
   }),
   Object.freeze({text:'A clear next step beats a crowded to-do list.',author:'James',source:'Original reflection'}),
-  Object.freeze({text:'Ask a better question before choosing the answer.',author:'James',source:'Original reflection'}),
-  Object.freeze({text:'Progress often starts with one useful conversation.',author:'James',source:'Original reflection'}),
-  Object.freeze({text:'Protect the important, not just the urgent.',author:'James',source:'Original reflection'}),
-  Object.freeze({text:'Listen closely. Then act with intention.',author:'James',source:'Original reflection'}),
-  Object.freeze({text:'Make room today for what matters tomorrow.',author:'James',source:'Original reflection'})
+  Object.freeze({text:'Never mistake activity for achievement.',author:'John Wooden',source:'UCLA basketball coach'}),
+  Object.freeze({text:'And the only way to do great work is to love what you do.',author:'Steve Jobs',source:'Stanford commencement address, 2005'}),
+  Object.freeze({text:'They call it coaching, but it is teaching.',author:'Vince Lombardi',source:'Run to Daylight!'}),
+  Object.freeze({text:'You can have everything in life you want if you will just help enough other people get what they want.',author:'Zig Ziglar',source:'Ziglar · Two Kinds of Breakthroughs'})
 ]);
 function jamesPerspectiveForDate(date=new Date()){
   // UTC construction from LOCAL calendar parts ensures that the selection is
   // stable throughout the local day, even across DST and iPad reloads.
   const day=Math.floor(Date.UTC(date.getFullYear(),date.getMonth(),date.getDate())/86400000);
-  return JAMES_PERSPECTIVES[((day%JAMES_PERSPECTIVES.length)+JAMES_PERSPECTIVES.length)%JAMES_PERSPECTIVES.length];
+  // Shuffle named sources per block. The original between blocks prevents adjacent repeats.
+  const authors=JAMES_PERSPECTIVES.filter(item=>item.author!=='James');
+  const length=authors.length+1, position=((day%length)+length)%length;
+  if(position===authors.length)return JAMES_PERSPECTIVES.find(item=>item.author==='James');
+  let seed=(Math.floor(day/length)^0x9e3779b9)>>>0;
+  for(let i=authors.length-1;i>0;i--){
+    seed=(Math.imul(seed,1664525)+1013904223)>>>0;
+    const j=Math.floor((seed/4294967296)*(i+1));
+    [authors[i],authors[j]]=[authors[j],authors[i]];
+  }
+  return authors[position];
 }
 function renderJamesPerspective(date=new Date()){
   const item=jamesPerspectiveForDate(date);
@@ -2045,3 +2054,5 @@ document.addEventListener('DOMContentLoaded',()=>{
  document.addEventListener('DOMContentLoaded',()=>{const menu=document.querySelector('.header-preferences');if(!menu)return;menu.addEventListener('click',event=>{if(event.target.closest('button'))menu.open=false;});document.addEventListener('keydown',event=>{if(event.key==='Escape'&&menu.open){menu.open=false;menu.querySelector('summary').focus();}});document.addEventListener('click',event=>{if(!menu.contains(event.target))menu.open=false;});});
 
 document.addEventListener('DOMContentLoaded',()=>{const dialog=$('#connectionSettings');$('#connectionsSettingsOpen').onclick=()=>dialog.showModal();});
+
+document.addEventListener('DOMContentLoaded',()=>{const guide=$('#jamesGuide');$('#guideOpen').onclick=()=>{guide.showModal();openAttentionSavedView();};});
