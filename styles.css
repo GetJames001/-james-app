@@ -1353,3 +1353,43 @@ html[data-theme=light] .james-shell .intel-strip>.briefing-wardrobe{background:#
  color:#fff;--ink:#fff;--muted:#fff;
 }
 #weatherSquare[data-scene] :is(span,small,strong,button,svg){color:#fff}
+#app #briefing #weatherSquare{position:relative;isolation:isolate}
+#weatherSquare .weather-art{display:none}
+#app #briefing #weatherSquare[data-scene]{background:#223e54}
+#weatherSquare[data-scene] .weather-art{display:block;position:absolute;inset:0;z-index:-1;overflow:hidden;background:var(--weather-art) center/cover;pointer-events:none}
+#weatherSquare[data-place=reno]{--weather-art:url("assets/lifestyle/weather-reno.jpg")}
+#weatherSquare[data-place=bend]{--weather-art:url("assets/lifestyle/weather-bend.jpg")}
+#weatherSquare[data-place=eugene]{--weather-art:url("assets/lifestyle/weather-eugene.jpg")}
+#weatherSquare[data-place=chicago]{--weather-art:url("assets/lifestyle/weather-chicago.jpg")}
+#weatherSquare[data-place=local]{--weather-art:linear-gradient(#598ac1,#afd5de 66%,#7e9c89)}
+#weatherSquare[data-place=local] .weather-art::before{content:"";position:absolute;inset:0;background:linear-gradient(#57838a,#314c4e);clip-path:var(--local-horizon,polygon(0 77%,100% 77%,100% 100%,0 100%))}
+#weatherSquare .weather-art::after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,#071626b8,#07162621)}
+#weatherSquare.weather-night .weather-art{filter:brightness(.62) saturate(.8)}
+#weatherSquare:is([data-scene=rain],[data-scene=cloud],[data-scene=snow]) .weather-art i{position:absolute;inset:-12% -60% 27%;background:radial-gradient(ellipse at 38% 32%,#858c9dde 3%,#a1a9b7aa 25%,transparent 56%),radial-gradient(ellipse at 70% 36%,#8d98a7dd 6%,#c2c6d0ab 28%,transparent 55%);animation:weather-clouds 18s ease-in-out infinite alternate}
+#weatherSquare:is([data-scene=rain],[data-scene=snow]) .weather-art em{position:absolute;inset:-40px;background:linear-gradient(103deg,transparent 45%,#d3edff9e 49%,transparent 53%) 0 0/21px 32px;animation:weather-rain .64s linear infinite}
+#weatherSquare[data-scene=snow] .weather-art em{background:radial-gradient(circle,#fff 1px,transparent 2px) 0 0/23px 31px;animation:weather-snow 3s linear infinite}
+@keyframes weather-clouds{to{transform:translateX(15%)}}
+@keyframes weather-rain{to{background-position:-21px 32px}}
+@keyframes weather-snow{to{background-position:23px 31px}}
+@media(prefers-reduced-motion:reduce){#weatherSquare .weather-art :is(i,em){animation:none!important}}
+#app #recipes .mag-book{container-type:inline-size;grid-template-columns:minmax(0,1fr) minmax(0,.96fr)}
+#app #recipes .mag-book.source-only{grid-template-columns:1fr}
+#app #recipes #bookPage{min-width:0;padding:clamp(16px,2vw,32px);font-family:Georgia,serif}
+#app #recipes #bookPage h3{margin:0 0 .2em;font:600 clamp(1.5rem,3vw,2.5rem)/1.06 Georgia,serif;color:#322819}
+#app #recipes #bookPage small{font:italic .83rem/1.3 Georgia,serif}
+#bookPage .recipe-columns{border-top:1px solid #b59c71;margin-top:.75rem;padding-top:.75rem;display:grid;grid-template-columns:minmax(0,.9fr) minmax(0,1.1fr);gap:1rem}
+#bookPage .recipe-columns section{min-width:0;margin:0;padding:0}
+#bookPage .recipe-columns h4{font:600 1rem Georgia,serif;margin:0 0 .5rem}
+#bookPage .recipe-columns :is(ul,ol){display:block;margin:0;padding-left:1.22em}
+#bookPage .recipe-columns li{display:list-item;grid-template-columns:none;text-align:left;padding:0;margin:0 0 .38em;border:0;font:normal .9rem/1.35 Georgia,serif;color:#30291e}
+#bookPage .recipe-columns ul{list-style:disc}
+#bookPage .recipe-columns ol{list-style:decimal}
+#bookPage .recipe-columns li::marker{color:#8d641a;font-weight:bold}
+#app #recipes #bookPhoto{min-width:0;height:100%;min-height:0;align-self:stretch;object-fit:cover;object-position:center}
+@container(max-width:900px){#bookPage .recipe-columns{grid-template-columns:1fr;gap:.55rem}}
+@media(max-width:620px){
+ #app #recipes .mag-book{grid-template-columns:1fr}
+ #app #recipes #bookPhoto{height:auto;aspect-ratio:1.8;max-height:240px}
+}
+#weatherSquare[data-place=local][data-scene=sun]{--weather-art:radial-gradient(circle at 76% 23%,#fff4bf 0 5%,#ffdf8b70 7%,transparent 19%),linear-gradient(#4a9ad9,#a9dbef 70%,#81ab98)}
+#weatherSquare[data-place=local].weather-night{--weather-art:radial-gradient(circle at 75% 23%,#f2e7ca 0 4%,transparent 5%),linear-gradient(#17233e,#3e5276 70%,#3d5551)}

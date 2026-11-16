@@ -28,6 +28,16 @@ test('Lifestyle on iPad opens existing Wardrobe, saves a recipe across refresh, 
   await page.locator('#lifestyle [data-action-page=recipes]').click();
   assert.equal(await page.locator('#bookPage ul li').count(),8);
   assert.equal(await page.locator('#bookPage ol li').count(),4);
+  for(const width of [1180,820,390]){
+   await page.setViewportSize({width,height:900});
+   const layout=await page.locator('#bookPage ol li').first().evaluate(li=>{
+    const range=document.createRange();range.selectNodeContents(li);
+    return {display:getComputedStyle(li).display,width:li.getBoundingClientRect().width,line:range.getClientRects()[0].width};
+   });
+   assert.equal(layout.display,'list-item');
+   assert.ok(layout.width>130 && layout.line>layout.width*.6,'Method uses the available page width');
+  }
+  await page.setViewportSize({width:820,height:1180});
   await page.getByRole('button',{name:'Save to book'}).click();
   await page.waitForFunction(()=>document.querySelector('#bookPage h3').textContent==='Roasted peppers');
   await page.reload();await page.waitForFunction(()=>document.querySelector('#bookPosition').textContent.endsWith('/ 2'));

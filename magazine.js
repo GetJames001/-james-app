@@ -9,13 +9,16 @@ function mountMagazine({list,read,save}){
  const suffix='.james-recipe.json';
  function drawBook(){
   const recipe=pages[current],isGumbo=recipe.url===gumbo.url,paper=el('bookPage');
-  paper.replaceChildren(tag('small',recipe.publisher),tag('h3',recipe.title));
+  paper.replaceChildren(tag('h3',recipe.title),tag('small',recipe.publisher));
   if(isGumbo){
    const ingredients=tag('ul','');
    for(const line of ['⅓ cup neutral oil + ⅓ cup all-purpose flour','1 onion, 1 green pepper and 2 celery stalks, diced','3 cloves garlic, minced','8 oz smoked andouille, sliced','1 lb boneless chicken thighs, cut into chunks','4 cups low-sodium chicken stock','1 bay leaf, 1 tsp paprika and ½ tsp dried thyme','Salt and pepper to taste · 3 cups hot cooked rice'])ingredients.append(tag('li',line));
    const steps=tag('ol','');
    for(const line of ['In a heavy pot, whisk oil and flour over medium-low heat until deep brown, stirring constantly, about 20–30 minutes.','Stir in the diced vegetables for 5 minutes, then garlic for 1 minute. Slowly whisk in stock.','Add sausage, chicken, bay leaf, paprika and thyme. Simmer gently for about 30 minutes, until chicken reaches 165°F.','Remove bay leaf, season to taste and serve over rice.'])steps.append(tag('li',line));
-   paper.append(tag('h4','Ingredients'),ingredients,tag('h4','Method'),steps);
+   const columns=tag('div','');columns.className='recipe-columns';
+   const left=tag('section',''),right=tag('section','');
+   left.append(tag('h4','Ingredients'),ingredients);right.append(tag('h4','Method'),steps);
+   columns.append(left,right);paper.append(columns);
   }else{
    paper.append(tag('p','Ingredients and directions from '+recipe.publisher+'.'),link('Open full recipe',recipe.url));
   }

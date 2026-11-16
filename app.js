@@ -903,7 +903,32 @@ function readJamesWeather(){
  if(copy.location?.status==='unknown'||copy.location?.status==='denied')copy.nextStep='Use the location button in Weather. Once permitted, weather follows your location while James is open.';
  return copy;
 }
-function setWeatherScene(code, isDay){
+const weatherCities=[
+ ['Las Vegas',36.17,-115.14,36],['Reno',39.53,-119.81,21],['Bend',44.06,-121.31,17],
+ ['Eugene',44.05,-123.09,19],['Chicago',41.88,-87.63,32]
+];
+function weatherCity(latitude,longitude){
+ return weatherCities.find(([,lat,lon,km])=>Math.hypot((latitude-lat)*111,(longitude-lon)*111*Math.cos(lat*Math.PI/180))<=km)?.[0];
+}
+const weatherHorizons=new Map();
+async function paintLocalTerrain(square,latitude,longitude,generation){
+ const lat=Math.round(latitude*10)/10,lon=Math.round(longitude*10)/10,key=lat+','+lon;
+ try{
+  let polygon=weatherHorizons.get(key);
+  if(!polygon){
+   const response=await fetch('/api/weather-terrain?latitude='+lat+'&longitude='+lon);
+   if(!response.ok)return;
+   const {heights}=await response.json();
+   if(!Array.isArray(heights)||heights.length!==17||!heights.every(Number.isFinite))return;
+   const base=Math.min(...heights);
+   polygon='polygon(0 100%, '+heights.map((h,i)=>(100*i/16)+'% '+(72-Math.min(46,(h-base)/22))+'%').join(', ')+', 100% 100%)';
+   if(weatherHorizons.size>=24)weatherHorizons.clear();
+   weatherHorizons.set(key,polygon);
+  }
+  if(generation===weatherRequestGeneration)square.style.setProperty('--local-horizon',polygon);
+ }catch{/* The local weather illustration also works without terrain data. */}
+}
+function setWeatherScene(code, isDay,latitude,longitude,generation){
  const square=$('#weatherSquare');
  if(!square)return;
  let scene='';
@@ -914,6 +939,12 @@ function setWeatherScene(code, isDay){
  if(scene)square.dataset.scene=scene;
  else delete square.dataset.scene;
  square.classList.toggle('weather-night',isDay===0);
+ const city=weatherCity(latitude,longitude);
+ if(scene)square.dataset.place=city?city.toLowerCase().replace(' ','-'):'local';
+ else delete square.dataset.place;
+ const heading=$('#weatherHeading');if(heading)heading.textContent=scene&&city?'Weather · '+city:'Weather';
+ square.style?.removeProperty('--local-horizon');
+ if(scene&&!city&&Number.isFinite(latitude)&&Number.isFinite(longitude)&&square.style)void paintLocalTerrain(square,latitude,longitude,generation);
 }
 async function loadWeatherForCoordinates({ latitude, longitude, savedAt }, tempEl, detailEl, locationLabel = "") {
   const approximate={latitude:Number(Number(latitude).toFixed(2)),longitude:Number(Number(longitude).toFixed(2))};
@@ -941,7 +972,7 @@ async function loadWeatherForCoordinates({ latitude, longitude, savedAt }, tempE
     if (!response.ok || !data.current) throw new Error('Weather unavailable');
 
     jamesWeatherState={status:'ready',checkedAt:new Date().toISOString(),location,temperatureF:data.current.temperature_2m,daylight:data.daylight||{status:'unavailable'}};
-    setWeatherScene(data.current.weather_code,data.current.is_day);
+    setWeatherScene(data.current.weather_code,data.current.is_day,approximate.latitude,approximate.longitude,requestGeneration);
     tempEl.textContent = `${Math.round(data.current.temperature_2m)}°`;
     const code = data.current.weather_code;
 

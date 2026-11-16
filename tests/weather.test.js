@@ -34,3 +34,10 @@ test('the illustrated skyline follows reported weather and clears when unavailab
  }
  h.setPoint(null);await h.load();assert.equal(tile.dataset.scene,undefined);
 });
+test('the city scene follows device coordinates and falls back to local terrain elsewhere',()=>{
+ const h=harness(),tile={dataset:{},classList:{toggle(){}}};h.nodes['#weatherSquare']=tile;
+ for(const [lat,lon,city] of [[36.17,-115.14,'las-vegas'],[39.53,-119.81,'reno'],[44.06,-121.31,'bend'],[44.05,-123.09,'eugene'],[41.88,-87.63,'chicago'],[51.5,-.12,'local']]){
+  vm.runInContext('setWeatherScene(65,1,'+lat+','+lon+')',h.context);
+  assert.equal(tile.dataset.place,city);assert.equal(tile.dataset.scene,'rain');
+ }
+});
