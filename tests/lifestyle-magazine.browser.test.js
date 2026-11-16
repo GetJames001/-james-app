@@ -12,6 +12,7 @@ test('Lifestyle on iPad opens existing Wardrobe, saves a recipe across refresh, 
    const url=new URL(route.request().url()),path=url.pathname.slice(1)||'index.html';
    if(path==='api/lifestyle/feed'){
     if(url.searchParams.get('source')==='recipes')return route.fulfill({json:{publisher:'Budget Bytes',items:[{title:'Roasted peppers',url:'https://www.budgetbytes.com/roasted-peppers/'}]}});
+    if(url.searchParams.get('source')==='business')return route.fulfill({json:{publisher:'BBC Business',items:[1,2,3].map(n=>({title:'Sample story '+n,url:'https://www.bbc.com/news/'+n,photo:'https://test.invalid/assets/lifestyle/finance.jpg'}))}});
     return route.fulfill({status:503,json:{}});
    }
    if(path==='api/james/files'){
@@ -60,6 +61,12 @@ test('Lifestyle on iPad opens existing Wardrobe, saves a recipe across refresh, 
   assert.equal(boxes[0],boxes[1]);
   assert.ok(boxes[2]>boxes[1]);
   assert.equal(boxes[2],boxes[3]);
+  await page.locator('#financeToday .headline-card').first().waitFor();
+  assert.equal(await page.locator('#financeToday .headline-card').count(),2);
+  await page.getByRole('button',{name:'Investments',exact:true}).click();
+  assert.equal(await page.locator('#financeOverview').isVisible(),false);
+  assert.equal(await page.locator('#financeInvestments').isVisible(),true);
+  await page.getByRole('button',{name:'Overview',exact:true}).click();
   if(process.env.JAMES_CARD_PREVIEWS){
    fs.mkdirSync('card-previews',{recursive:true});
    for(const screen of ['finance','growth','briefing','travel']){

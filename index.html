@@ -450,39 +450,18 @@
 <div class="sheet magazine edition">
 <div class="edition-crumb"><b>James</b><button data-action-page="lifestyle">‹ Lifestyle</button><span>Finance</span></div>
 <header class="money-cover"><h2>Finance</h2><p>Your accounts, upcoming payments<br>and spending, in one clear view.</p><small>Sample data · Accounts aren’t connected</small></header>
-<div class="money-grid">
+<div class="edition-tabs finance-tabs" aria-label="Finance views"><button data-finance-view="overview" aria-pressed="true">Overview</button><button data-finance-view="investments" aria-pressed="false">Investments</button></div>
+<div class="money-grid" id="financeOverview">
 <section><h3>Accounts</h3><dl><div><dt>Checking</dt><dd>$2,450</dd></div><div><dt>Savings</dt><dd>$6,200</dd></div></dl></section>
-<section><h3>Upcoming credit card payment</h3><dl><div><dt>Everyday card</dt><dd>$180</dd></div></dl><div class="bill-meta"><em>Statement balance</em><span>Due Dec 4</span></div></section>
+<section><h3>Credit cards</h3><div class="credit-cards">
+<article><h4>Everyday card</h4><dl><div><dt>Balance</dt><dd>$680</dd></div><div><dt>Payment due</dt><dd>$180 · Dec 4</dd></div></dl></article>
+<article><h4>Travel card</h4><dl><div><dt>Balance</dt><dd>$320</dd></div><div><dt>Payment due</dt><dd>$65 · Dec 12</dd></div></dl></article>
+</div></section>
 <section><h3>Recent transactions</h3><dl><div><dt>Coffee</dt><dd>−$6</dd></div><div><dt>Groceries</dt><dd>−$48</dd></div><div><dt>Payroll</dt><dd>+$1,250</dd></div></dl></section>
 <section><h3>Spending at a glance</h3><div class="spend-breakdown"><div class="spend-wheel"><strong>$742<small>Total spending</small></strong></div><ul><li>Groceries <b>39%</b></li><li>Dining &amp; coffee <b>20%</b></li><li>Home <b>18%</b></li><li>Other <b>23%</b></li></ul></div></section>
-</div><details class="finance-reading"><summary>Investing basics</summary>
-<details>
-<summary>Where should I start?</summary>
-<p>Write down the purpose of the money and when you expect to need it. Then compare services using the same balance. Ask what happens in a market decline, whether you can withdraw, and which decisions need your approval.</p>
-</details>
-<details>
-<summary>AI research or automated investing?</summary>
-<p>Use an AI assistant to explain terms and help you read a prospectus. A robo-adviser manages a portfolio under an advisory agreement. An AI-themed fund invests in companies associated with AI. Its holdings and fees determine what you own and what you pay.</p>
-<a href="https://www.investor.gov/introduction-investing/general-resources/news-alerts/alerts-bulletins/characteristics-mutual-funds-exchange-traded-funds" target="_blank" rel="noopener noreferrer">Read the SEC fund guide</a>
-</details>
-<details>
-<summary>What can a robo-adviser do?</summary>
-<p>A digital adviser asks about your goals, time horizon and comfort with risk, then builds and manages a portfolio. Check whether you can reach a person when your circumstances change. <a href="https://www.investor.gov/introduction-investing/investing-basics/glossary/robo-adviser" target="_blank" rel="noopener noreferrer">Read the SEC overview</a>
-</p>
-</details>
-<details>
-<summary>What would it cost?</summary>
-<p>Compare advisory fees, fund expenses and any subscription charge. For example, $5 per month is $60 per year, or 6% of a $1,000 balance before other fees. <a href="https://www.investor.gov/introduction-investing/general-resources/news-alerts/alerts-bulletins/subscription-based-advisory-fees" target="_blank" rel="noopener noreferrer">Compare fee models</a>
-</p>
-</details>
-<details>
-<summary>How should I evaluate AI investing?</summary>
-<p>Ask who makes the decisions, what the tool can access and who holds your money. Verify the firm’s registration independently. FINRA flags unregistered auto-trading services promising predictable high returns. <a href="https://brokercheck.finra.org/" target="_blank" rel="noopener noreferrer">Check a firm</a> · <a href="https://syndication.finra.org/content/know-risks-auto-trading-services-offered-unregistered-entities" target="_blank" rel="noopener noreferrer">Read the FINRA alert</a>
-</p>
-</details>
-</details><details class="finance-reading"><summary>Business headlines</summary>
-<div data-feed="business">
-</div></details>
+</div>
+<section id="financeInvestments" hidden><div class="investment-panel"><h3>Investment portfolio</h3><p>No investment account connected.</p></div></section>
+<section id="financeToday"><h3 class="rule-title">Happening today</h3><div data-feed="business" class="headline-grid"></div></section>
 </div>
 </section>
 <section class="page" id="growth"><div class="sheet magazine edition"><div class="edition-crumb"><b>James</b><button data-action-page="lifestyle">‹ Lifestyle</button><span>Personal Development</span></div><div class="edition-title"><h2>Personal Development</h2><div class="edition-tabs" aria-label="Reading topics">
@@ -492,7 +471,7 @@
 <h3 class="rule-title">Reading &amp; practice</h3>
 <div class="pair"><details class="photo-panel" style="--photo:url(assets/lifestyle/interview.jpg)"><summary>Prepare for an interview</summary><p>Choose one recent win. Write down the situation, your action and the result.</p></details>
 <details class="photo-panel" style="--photo:url(assets/lifestyle/reflection.jpg)"><summary>Make time for reflection</summary><p>What worked this week? What would you try differently next time?</p></details></div>
-<div id="growthReading" data-feed="life" hidden></div></div></section>
+<div id="growthReading" class="headline-grid" data-feed="life" hidden></div></div></section>
 <section class="page" id="fitness">
 <div class="sheet magazine">
 <div class="edition-crumb"><b>James</b><button data-action-page="lifestyle">‹ Lifestyle</button><span>Health &amp; Fitness</span></div><div class="fitness-layout"><div><h2>Health &amp; Fitness</h2>

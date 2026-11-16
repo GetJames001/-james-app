@@ -33,6 +33,15 @@ function mountMagazine({list,read,save}){
  el('bookPrev').onclick=()=>{if(current>0){current--;drawBook();}};
  el('bookNext').onclick=()=>{if(current<pages.length-1){current++;drawBook();}};
  el('recipeAsk').onclick=()=>{page('insights');const q=el('jamesQuestion');q.value='Help me find a recipe using ';q.focus();q.setSelectionRange(q.value.length,q.value.length);};
+ for(const tab of document.querySelectorAll('[data-finance-view]')){
+  tab.onclick=()=>{
+   const investments=tab.dataset.financeView==='investments';
+   el('financeOverview').hidden=investments;
+   el('financeInvestments').hidden=!investments;
+   el('financeToday').hidden=investments;
+   document.querySelectorAll('[data-finance-view]').forEach(item=>item.setAttribute('aria-pressed',String(item===tab)));
+  };
+ }
  const feeds=new Map();
  async function refreshFeed(host){
   const key=host.dataset.feed;
@@ -45,6 +54,21 @@ function mountMagazine({list,read,save}){
   try{
    const data=await entry.promise;
    if(host.dataset.feed!==key)return;
+   if(key!=='recipes'){
+    const stories=data.items.filter(item=>item.photo).slice(0,2);
+    const nodes=stories.map(item=>{
+     const card=link('',item.url);card.className='headline-card';
+     const image=document.createElement('img');
+     image.alt='';image.referrerPolicy='no-referrer';image.src=item.photo;
+     image.onerror=()=>{image.hidden=true;};
+     const caption=tag('span','');
+     caption.append(tag('small',data.publisher),tag('strong',item.title));
+     card.append(image,caption);
+     return card;
+    });
+    host.replaceChildren(...(nodes.length?nodes:[tag('p','No photo stories available.')]));
+    return;
+   }
    const nodes=data.items.map(item=>{
     const row=tag('div','');row.className='mag-story';row.append(link(item.title,item.url));
     if(key==='recipes'){
