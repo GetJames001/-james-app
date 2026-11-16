@@ -173,8 +173,8 @@ test('external talk entry opens the foreground panel without requesting the micr
   assert.equal(await page.locator('#introScreenOpen').isVisible(),false);
   assert.equal(await page.locator('#voiceSettingsOpen').isVisible(),false);
   assert.equal(await page.locator('#jamesOrb').isVisible(),true);
-  assert.equal(await page.locator('#routeOriginAddress').isVisible(),true);
-  assert.equal(await page.locator('#routeUseLocation').isVisible(),true);
+  assert.equal(await page.locator('#routeOriginAddress').isVisible(),false);
+  assert.equal(await page.locator('#routeUseLocation').isVisible(),false);
   assert.equal(await page.locator('.weather-location button').count(),1);
   assert.equal(await page.locator('#jamesLiveLocation').isVisible(),true);
   assert.equal(await page.locator('.weather-status').count(),0);
