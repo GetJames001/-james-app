@@ -508,7 +508,7 @@
 <h3 class="rule-title">Reading &amp; practice</h3>
 <div class="pair"><details class="photo-panel" style="--photo:url(assets/lifestyle/interview.jpg)"><summary>Prepare for an interview</summary><p>Choose one recent win. Write down the situation, your action and the result.</p></details>
 <details class="photo-panel" style="--photo:url(assets/lifestyle/reflection.jpg)"><summary>Make time for reflection</summary><p>What worked this week? What would you try differently next time?</p></details></div>
-<div id="growthReading" data-feed="life"></div></div></section>
+<div id="growthReading" data-feed="life" hidden></div></div></section>
 <section class="page" id="fitness">
 <div class="sheet magazine">
 <div class="edition-crumb"><b>James</b><button data-action-page="lifestyle">‹ Lifestyle</button><span>Health &amp; Fitness</span></div><div class="fitness-layout"><div><h2>Health &amp; Fitness</h2>
@@ -553,9 +553,10 @@
   </div>
 </section>
 <section class="page" id="garage"><div class="sheet magazine edition"><div class="edition-crumb"><b>James</b><button data-action-page="lifestyle">‹ Lifestyle</button><span>Auto</span></div><h2>Auto</h2><h3 class="rule-title">My garage</h3><div class="garage-car" style="--photo:url(assets/lifestyle/auto.jpg)"><div><h3>2015 Jaguar F-TYPE S</h3><a href="https://www.jaguarusa.com/owners/index.html" target="_blank" rel="noopener noreferrer">Owner resources ↗</a>
-<button data-action-page="tasks">Add maintenance schedule</button></div></div>
-<div class="garage-car" style="--photo:url(assets/lifestyle/mercedes.jpg)"><div><h3>2019 Mercedes-AMG GLC 63 S</h3><a href="https://www.mbusa.com/en/owners" target="_blank" rel="noopener noreferrer">Owner resources ↗</a></div></div>
-<div class="pair"><details class="photo-panel" style="--photo:url(assets/lifestyle/weekend.jpg)"><summary>Keeping the weekend car ready</summary><p>Review your service record and upcoming maintenance.</p><a href="https://www.nhtsa.gov/recalls" target="_blank" rel="noopener noreferrer">Check recalls by VIN</a></details>
+<button data-service="2015 Jaguar F-TYPE S">Add maintenance schedule</button></div></div>
+<div class="garage-car" style="--photo:url(assets/lifestyle/mercedes.jpg)"><div><h3>2019 Mercedes-AMG GLC 63 S</h3><a href="https://www.mbusa.com/en/owners" target="_blank" rel="noopener noreferrer">Owner resources ↗</a><button data-service="2019 Mercedes-AMG GLC 63 S">Add maintenance schedule</button></div></div>
+<form id="serviceSchedule" hidden><h3 id="serviceVehicle"></h3><label>Service <input name="service" placeholder="Oil change" required maxlength="120"></label> <label>Due <input name="due" type="date" required></label><button>Save schedule</button> <button type="button" id="serviceCancel">Cancel</button></form>
+<div id="serviceDates" aria-live="polite"></div><div class="pair"><details class="photo-panel" style="--photo:url(assets/lifestyle/weekend.jpg)"><summary>Keeping the weekend car ready</summary><p>Review your service record and upcoming maintenance.</p><a href="https://www.nhtsa.gov/recalls" target="_blank" rel="noopener noreferrer">Check recalls by VIN</a></details>
 <button class="photo-panel" style="--photo:url(assets/lifestyle/road.jpg)" data-action-page="travel">Before the drive to Oregon</button></div></div></section>
 <section id="travel" class="page">
     <div class="sheet magazine edition"><div class="edition-crumb"><b>James</b><button data-action-page="lifestyle">‹ Lifestyle</button><span>Travel</span></div><div class="travel-feature"><h2>Travel</h2><div class="edition-tabs">

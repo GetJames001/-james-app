@@ -89,6 +89,36 @@ function mountMagazine({list,read,save}){
    savePractice.textContent='Saved to Files';
   }catch{savePractice.disabled=false;savePractice.textContent='Retry save';}
  };
+ const schedule=el('serviceSchedule');
+ for(const button of document.querySelectorAll('[data-service]')){
+  button.onclick=()=>{
+   schedule.reset();schedule.hidden=false;
+   el('serviceVehicle').textContent=button.dataset.service;
+   schedule.elements.service.focus();
+  };
+ }
+ el('serviceCancel').onclick=()=>{schedule.hidden=true;};
+ async function showServices(){
+  const host=el('serviceDates');
+  try{
+   const {files}=await list();
+   const entries=await Promise.all(files.filter(f=>f.name.endsWith('.james-service.json')).map(async f=>JSON.parse(await (await read(f.id)).text())));
+   entries.sort((a,b)=>String(a.due).localeCompare(String(b.due)));
+   host.replaceChildren(...entries.map(row=>tag('p',row.due+' · '+row.vehicle+' · '+row.service)));
+  }catch{host.textContent='Service dates could not be loaded.';}
+ }
+ schedule.onsubmit=async event=>{
+  event.preventDefault();
+  const button=schedule.querySelector('button');
+  const row={vehicle:el('serviceVehicle').textContent,service:schedule.elements.service.value.trim(),due:schedule.elements.due.value};
+  if(!row.service||!row.due)return;
+  button.disabled=true;
+  try{
+   await save(new File([JSON.stringify(row)],'maintenance.james-service.json',{type:'application/json',lastModified:0}));
+   schedule.hidden=true;await showServices();
+  }catch{el('serviceDates').textContent='Could not save. Try again.';}
+  finally{button.disabled=false;}
+ };
  const workouts = [
   {title:'Full-body strength', gear:'Chair and wall', moves:['Sit to stand','Wall press-up','Calf raise'], guide:'strength-exercises', photo:'health'},
   {title:'Mobility reset', gear:'Chair or standing space', moves:['Neck rotation','Sideways bend','Calf stretch'], guide:'flexibility-exercises', photo:'mobility'},
@@ -136,6 +166,7 @@ function mountMagazine({list,read,save}){
   const screen=document.querySelector('.page.active');if(!screen)return;
   screen.querySelectorAll('[data-feed]').forEach(refreshFeed);
   if(screen.id==='workout-detail')showWorkoutDetail();
+  if(screen.id==='garage')void showServices();
   if(screen.id==='recipes')void loadBook();
   if(screen.id==='fitness'){showWorkout();showHealth();}
  }

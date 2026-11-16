@@ -30,6 +30,16 @@ test('Lifestyle on iPad opens existing Wardrobe, saves a recipe across refresh, 
   await page.reload();await page.waitForFunction(()=>document.querySelector('#bookPosition').textContent.endsWith('/ 2'));
   await page.locator('#bookNext').click();assert.equal(await page.locator('#bookPage a').getAttribute('href'),'https://www.budgetbytes.com/roasted-peppers/');
   await page.locator('nav [data-page=lifestyle]').click();await page.locator('#lifestyle [data-action-page=growth]').click();
+  const visual=await page.evaluate(()=>({
+   canvas:getComputedStyle(document.getElementById('app')).backgroundImage,
+   feature:getComputedStyle(document.querySelector('#growth .lead-panel')).backgroundImage,
+   featureWidth:document.querySelector('#growth .lead-panel').getBoundingClientRect().width,
+   folderWidth:document.querySelector('.career-box').getBoundingClientRect().width
+  }));
+  assert.ok(!visual.canvas.includes('url('));
+  assert.ok(visual.feature.includes('development.jpg'));
+  assert.ok(visual.featureWidth>visual.folderWidth);
+  await page.getByRole('button',{name:'Life',exact:true}).click();
   await page.locator('#growth').getByRole('button',{name:'Retry feed'}).first().waitFor();
   assert.equal(await page.locator('#growth a').first().getAttribute('href'),'https://ggia.berkeley.edu/practice/active_listening');
   await page.locator('nav [data-page=lifestyle]').click();
