@@ -669,7 +669,7 @@ function pageNow(id){
   if(id === "attention") openAttentionSavedView();
   else clearAttentionSavedView();
   sessionStorage.setItem('jamesCurrentPage', id);
-  $$('nav button').forEach(b => {const active=b.dataset.page === (['recipes','garage','fitness','finance','growth'].includes(id)?'lifestyle':id==='tasks'?'attention':id==='files'?'workbench':id==='personalMailDetail'?'personalMail':id);b.classList.toggle('active',active);if(active)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current');});
+  $$('nav button').forEach(b => {const active=b.dataset.page === (['recipes','garage','fitness','workouts','workout-detail','finance','growth'].includes(id)?'lifestyle':id==='tasks'?'attention':id==='files'?'workbench':id==='personalMailDetail'?'personalMail':id);b.classList.toggle('active',active);if(active)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current');});
   $$('.page').forEach(p => p.classList.toggle('active', p.id === id));
   window.dispatchEvent(new Event('james:page-changed'));
   if(id === 'briefing') {

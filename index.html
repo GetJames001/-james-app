@@ -552,12 +552,10 @@
 <h3>Workout of the day</h3>
 <p id="dailyWorkout">
 </p>
-<button id="swapWorkout">Try another workout</button>
-<details>
-<summary>View workout</summary>
-<p id="workoutDetail">
-</p>
-</details>
+<div class="mag-bar">
+<button data-action-page="workout-detail">View workout</button>
+<button data-action-page="workouts">Swap workout</button>
+</div>
 </section>
 <section>
 <h3>Health appointments</h3>
@@ -585,6 +583,24 @@
 </p>
 </details>
 </div>
+</section>
+<section class="page" id="workouts" aria-labelledby="libraryTitle">
+  <div class="sheet magazine">
+    <button class="mag-back" data-action-page="fitness">‹ Health &amp; Fitness</button>
+    <div class="mag-cover" style="--photo:url(assets/lifestyle/health.jpg)"><h2 id="libraryTitle">Workout library</h2></div>
+    <div id="workoutChoices" class="workout-choices"></div>
+    <a href="https://www.nike.com/ntc-app" target="_blank" rel="noopener noreferrer">Explore Nike Training Club ↗</a>
+  </div>
+</section>
+<section class="page" id="workout-detail" aria-labelledby="workoutTitle">
+  <div class="sheet magazine">
+    <button class="mag-back" data-action-page="workouts">‹ Workout library</button>
+    <div class="mag-cover" id="workoutCover"><h2 id="workoutTitle"></h2></div>
+    <p id="workoutEquipment"></p>
+    <ol id="workoutMoves"></ol>
+    <div id="workoutGuide"></div>
+    <div class="mag-bar"><button id="chooseWorkout">Use this workout today</button><button data-action-page="fitness">Health &amp; Fitness</button></div>
+  </div>
 </section>
 <section class="page" id="garage">
 <div class="sheet magazine">

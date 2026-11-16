@@ -67,10 +67,45 @@ function mountMagazine({list,read,save}){
  for(const b of document.querySelectorAll('[data-career]'))b.onclick=()=>{
   page('files');const search=el('searchJamesFiles');search.value=b.dataset.career;search.dispatchEvent(new Event('input'));search.focus();
  };
- const workouts=[['Full-body strength','Explore muscle-strengthening activities for your major muscle groups.'],['Mobility reset','Choose a comfortable range of motion and move slowly through shoulders, hips and ankles.'],['Strength basics','Choose a familiar strength exercise and focus on a controlled movement.']];
- let workout=Math.floor(Date.now()/86400000)%workouts.length;
- function showWorkout(){el('dailyWorkout').textContent=workouts[workout][0];el('workoutDetail').replaceChildren(tag('span',workouts[workout][1]+' '),link('Activity guide · CDC','https://www.cdc.gov/physical-activity-basics/adding-adults/index.html'));}
- el('swapWorkout').onclick=()=>{workout=(workout+1)%workouts.length;showWorkout();};
+ const workouts = [
+  {title:'Full-body strength', gear:'Chair and wall', moves:['Sit to stand','Wall press-up','Calf raise'], guide:'strength-exercises', photo:'health'},
+  {title:'Mobility reset', gear:'Chair or standing space', moves:['Neck rotation','Sideways bend','Calf stretch'], guide:'flexibility-exercises', photo:'mobility'},
+  {title:'Seated movement', gear:'Sturdy chair', moves:['Chest stretch','Upper-body twist','Hip marching'], guide:'sitting-exercises', photo:'mobility'},
+  {title:'Balance practice', gear:'Space beside a wall', moves:['Sideways walking','Heel-to-toe walk','One-leg stand'], guide:'balance-exercises', photo:'health'}
+ ];
+ function dayKey(){return new Date().toLocaleDateString('en-CA');}
+ function dailyIndex(){
+  const stored=sessionStorage.getItem('jamesWorkout:'+dayKey());
+  if(stored!==null && workouts[Number(stored)])return Number(stored);
+  const now=new Date();
+  return Math.floor(Date.UTC(now.getFullYear(),now.getMonth(),now.getDate())/86400000)%workouts.length;
+ }
+ let selected=dailyIndex();
+ function showWorkout(){
+  const index=dailyIndex();
+  el('dailyWorkout').textContent=workouts[index].title;
+  el('fitness').querySelector('[data-action-page="workout-detail"]').onclick=()=>{selected=index;page('workout-detail');};
+ }
+ function showWorkoutDetail(){
+  const item=workouts[selected];
+  el('workoutTitle').textContent=item.title;
+  el('workoutCover').style.setProperty('--photo','url(assets/lifestyle/'+item.photo+'.jpg)');
+  el('workoutEquipment').textContent=item.gear;
+  el('workoutMoves').replaceChildren(...item.moves.map(move=>tag('li',move)));
+  el('workoutGuide').replaceChildren(link('Illustrated exercise guide · NHS','https://www.nhs.uk/live-well/exercise/'+item.guide+'/'));
+ }
+ workouts.forEach((item,index)=>{
+  const button=tag('button','');
+  button.className='workout-choice';
+  button.style.setProperty('--photo','url(assets/lifestyle/'+item.photo+'.jpg)');
+  button.append(tag('strong',item.title),tag('small',item.gear));
+  button.onclick=()=>{selected=index;page('workout-detail');};
+  el('workoutChoices').append(button);
+ });
+ el('chooseWorkout').onclick=()=>{
+  sessionStorage.setItem('jamesWorkout:'+dayKey(),String(selected));
+  page('fitness');
+ };
  function showHealth(){
   const items=(window.liveEvents||[]).filter(e=>Date.parse(e.end)>=Date.now()&&/\b(dentist|doctor|physical exam|annual physical|checkup|medical|clinic|cardiolog\w*|dermatolog\w*)\b/i.test(e.title||'')).sort((a,b)=>Date.parse(a.start)-Date.parse(b.start)).slice(0,4);
   el('healthMeetings').replaceChildren(...(items.length?items.map(e=>tag('p',e.title+' · '+new Date(e.start).toLocaleDateString())):[tag('p','No upcoming health visits identified in the loaded calendar.')]));
@@ -78,6 +113,7 @@ function mountMagazine({list,read,save}){
  function openMagazine(){
   const screen=document.querySelector('.page.active');if(!screen)return;
   screen.querySelectorAll('[data-feed]').forEach(refreshFeed);
+  if(screen.id==='workout-detail')showWorkoutDetail();
   if(screen.id==='recipes')void loadBook();
   if(screen.id==='fitness'){showWorkout();showHealth();}
  }

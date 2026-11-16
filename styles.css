@@ -1211,3 +1211,30 @@ html[data-theme=light] .james-shell .intel-strip>.briefing-wardrobe{background:#
 .james-shell .briefing-sheet .compact-head h3 {color:#fff5df;font:400 clamp(2rem,4vw,3.6rem)/1.1 Georgia,serif}
 .mag-book {position:relative}
 .mag-book:not(.source-only)::after {content:"";position:absolute;right:0;bottom:0;width:22px;height:22px;background:linear-gradient(135deg,transparent 45%,#d0bfa3 49%,#fff3d9 80%,#372d25 100%);pointer-events:none}
+
+/* Give the space between panels the same photographic treatment as their covers. */
+#app.james-shell {
+ --scene:url(assets/lifestyle/briefing.jpg);
+ --scene-shade:linear-gradient(90deg,#07121bd1,#07121b6b 65%,#07121b7d);
+ background:var(--scene-shade),var(--scene) center top/cover;
+}
+html[data-theme=light] #app.james-shell {--scene-shade:linear-gradient(90deg,#faf3e5d9,#fff6e89c)}
+#app:has(#travel.active) {--scene:url(assets/lifestyle/travel.jpg)}
+#app:has(#wardrobe.active) {--scene:url(assets/lifestyle/wardrobe.jpg)}
+#app:has(#fitness.active,#workouts.active,#workout-detail.active) {--scene:url(assets/lifestyle/health.jpg)}
+#app:has(#recipes.active) {--scene:url(assets/lifestyle/recipe.jpg)}
+#app:has(#garage.active) {--scene:url(assets/lifestyle/auto.jpg)}
+#app:has(#growth.active) {--scene:url(assets/lifestyle/development.jpg)}
+#app:has(#finance.active) {--scene:url(assets/lifestyle/finance.jpg)}
+#app #briefing .intel-card {
+ --tile-scene:url(assets/lifestyle/eugene.jpg);
+ --ink:#fff8ef;--muted:#f8eddf;
+ background:linear-gradient(0deg,#061019f0,#07131da8 55%,#07131d60),var(--tile-scene) center/cover;color:var(--ink)
+}
+#app #briefing .mail-card {--tile-scene:url(assets/lifestyle/journal.jpg)}
+#app #briefing .intel-card[data-action-page=wardrobe] {--tile-scene:url(assets/lifestyle/wardrobe.jpg)}
+#app #briefing .intel-card[data-action-page=travel] {--tile-scene:url(assets/lifestyle/travel.jpg)}
+.workout-choices {display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,220px),1fr));gap:1rem;margin:1rem 0}
+.magazine .workout-choices .workout-choice {display:flex;flex-direction:column;justify-content:flex-end;align-items:start;gap:.4rem;text-align:left;min-height:170px;padding:1.25rem;color:#fff6e9;background:linear-gradient(0deg,#071019ee,transparent),var(--photo) center/cover}
+.workout-choice strong {font-size:1.6rem}
+#workoutMoves {line-height:1.9}
