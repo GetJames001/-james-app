@@ -1204,3 +1204,8 @@ html[data-theme=light] .james-shell .intel-strip>.briefing-wardrobe{background:#
 }
 .mag-story img {width:80px;height:60px;object-fit:cover;border-radius:6px}
 .mag-story>a {flex:1;min-width:min(12rem,100%)}
+#fitness .mag-columns>section:first-child {background:linear-gradient(90deg,#07111bef,#07111b75),url(assets/lifestyle/mobility.jpg) center/cover;color:#fff5e8;padding:1rem;border-radius:10px}
+#fitness .mag-columns>section:first-child h3,#fitness .mag-columns>section:first-child p {color:#fff5e8}
+#fitness .evidence-cover {background:linear-gradient(90deg,#07111bec,#07111b55),url(assets/lifestyle/journal.jpg) center/cover;color:#fff5e8;padding:2rem 1rem;border-radius:10px}
+.james-shell .briefing-sheet .compact-head {background:linear-gradient(90deg,#06121be6,#06121b36),url(assets/lifestyle/briefing.jpg) center/cover;padding:clamp(18px,3.2vw,40px);border-radius:12px}
+.james-shell .briefing-sheet .compact-head h3 {color:#fff5df;font:400 clamp(2rem,4vw,3.6rem)/1.1 Georgia,serif}
