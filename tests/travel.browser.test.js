@@ -40,6 +40,8 @@ require('node:test')('Travel opens a private link, saves and restores a dated it
  }
  assert.equal(await page.getByText(/route shows A and omits B/i).count(),0);
  await page.evaluate(()=>window.jamesPageNow('briefing'));
+ await page.locator('.intel-strip button.has-trip #briefingTravelStatus').waitFor({state:'visible'});
+ assert.match(await page.locator('#briefingTravelStatus').textContent(),/Upcoming.*Jan 1/);
  const cards=await page.locator('.intel-strip > .intel-card').evaluateAll(nodes=>nodes.map(node=>node.getBoundingClientRect().top));
  assert.equal(cards.length,4);
  assert.ok(cards.every(y=>Math.abs(cards[0]-y)<2));

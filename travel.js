@@ -30,6 +30,7 @@ function mountTravel({list, read, save}) {
   const panel = document.getElementById('travelCards');
   if (!panel) return;
   const section = document.getElementById('travel');
+  const tileStatus = document.getElementById('briefingTravelStatus');
   const suffix = '.james-trip.json';
   let request = 0;
   let savedTrips = [];
@@ -113,6 +114,17 @@ function mountTravel({list, read, save}) {
       const now = new Date();
       const today = [now.getFullYear(), String(now.getMonth()+1).padStart(2,'0'), String(now.getDate()).padStart(2,'0')].join('-');
       trips.sort((a,b) => a.start.localeCompare(b.start));
+      if (tileStatus) {
+        const cutoff = shiftAppointmentDate(today,7);
+        const active = trips.filter(trip => trip.start <= today && tripEnd(trip) >= today);
+        const upcoming = trips.filter(trip => trip.start > today && trip.start <= cutoff);
+        const relevant = [...active,...upcoming];
+        const first = relevant[0];
+        const date = first && new Date(first.start+'T12:00:00').toLocaleDateString(undefined,{month:'short',day:'numeric'});
+        const label = active.length ? 'Traveling now' : first ? 'Upcoming · '+date : 'Your trips';
+        tileStatus.textContent = label + (relevant.length > 1 ? ' · +'+(relevant.length-1) : '');
+        tileStatus.closest('button').classList.toggle('has-trip',Boolean(first));
+      }
       savedTrips = trips;
       cache = new Map(trips.map(trip => [trip.id,trip]));
       document.getElementById('todayTripLinks')?.replaceChildren(...tripsOn(today).map(tripLink));
@@ -129,6 +141,10 @@ function mountTravel({list, read, save}) {
       if (!trips.length) panel.append(tag('p','No trips saved yet.'));
     } catch {
       if (seq !== request) return;
+      if (tileStatus) {
+        tileStatus.textContent = 'Trips unavailable';
+        tileStatus.closest('button').classList.remove('has-trip');
+      }
       if (travelOpen) panel.replaceChildren(tag('p','James could not load your trips. Reopen Travel to retry.'));
     }
   }
