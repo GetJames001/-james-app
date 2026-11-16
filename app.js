@@ -903,27 +903,17 @@ function readJamesWeather(){
  if(copy.location?.status==='unknown'||copy.location?.status==='denied')copy.nextStep='Use the location button in Weather. Once permitted, weather follows your location while James is open.';
  return copy;
 }
-function clearWeatherImage(){
- const square=$('#weatherSquare'), caption=$('#weatherSatellite');
- if(!square||!caption)return;
- square.style.removeProperty('--weather-image');square.classList.remove('satellite-ready');caption.hidden=true;
-}
-async function loadWeatherImage(latitude,longitude,generation){
- const square=$('#weatherSquare'), caption=$('#weatherSatellite');
- if(!square||!caption||longitude < -125||longitude > -113||latitude < 32||latitude > 49)return;
- const region=latitude>=42?'pnw':'psw';
- try{
-  const response=await fetch('/api/weather-image?region='+region);
-  if(!response.ok)return;
-  const frame=await response.json();
-  if(generation!==weatherRequestGeneration||!Number.isFinite(frame.taken)||Date.now()-frame.taken>3600000)return;
-  const image=new Image();image.referrerPolicy='no-referrer';image.src=frame.url;await image.decode();
-  if(generation!==weatherRequestGeneration)return;
-  square.style.setProperty('--weather-image','url("'+image.src+'")');
-  square.classList.add('satellite-ready');
-  caption.textContent='NOAA satellite · '+new Date(frame.taken).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'});
-  caption.hidden=false;
- }catch{/* Temperature and conditions stay usable without imagery. */}
+function setWeatherScene(code, isDay){
+ const square=$('#weatherSquare');
+ if(!square)return;
+ let scene='';
+ if(code===0||code===1)scene=isDay===0?'night':'sun';
+ else if([2,3,45,48].includes(code))scene='cloud';
+ else if([51,53,55,56,57,61,63,65,66,67,80,81,82,95,96,99].includes(code))scene='rain';
+ else if([71,73,75,77,85,86].includes(code))scene='snow';
+ if(scene)square.dataset.scene=scene;
+ else delete square.dataset.scene;
+ square.classList.toggle('weather-night',isDay===0);
 }
 async function loadWeatherForCoordinates({ latitude, longitude, savedAt }, tempEl, detailEl, locationLabel = "") {
   const approximate={latitude:Number(Number(latitude).toFixed(2)),longitude:Number(Number(longitude).toFixed(2))};
@@ -937,7 +927,7 @@ async function loadWeatherForCoordinates({ latitude, longitude, savedAt }, tempE
     return;
   }
   const requestGeneration=++weatherRequestGeneration;
-  clearWeatherImage();
+  setWeatherScene();
   jamesWeatherState={status:'loading',location};
   try {
     const url =
@@ -951,13 +941,15 @@ async function loadWeatherForCoordinates({ latitude, longitude, savedAt }, tempE
     if (!response.ok || !data.current) throw new Error('Weather unavailable');
 
     jamesWeatherState={status:'ready',checkedAt:new Date().toISOString(),location,temperatureF:data.current.temperature_2m,daylight:data.daylight||{status:'unavailable'}};
-    void loadWeatherImage(approximate.latitude,approximate.longitude,requestGeneration);
+    setWeatherScene(data.current.weather_code,data.current.is_day);
     tempEl.textContent = `${Math.round(data.current.temperature_2m)}°`;
     const code = data.current.weather_code;
 
     const condition =
       code === 0 ? 'Clear' :
-      code <= 3 ? 'Partly cloudy' :
+      code === 1 ? 'Mostly clear' :
+      code === 2 ? 'Partly cloudy' :
+      code === 3 ? 'Overcast' :
       code <= 48 ? 'Foggy' :
       code <= 67 ? 'Rain' :
       code <= 77 ? 'Snow' :
@@ -984,7 +976,7 @@ function loadLiveWeather() {
  let saved;try{saved=JSON.parse(localStorage.getItem('jamesWeatherLocation')||sessionStorage.getItem('jamesWeatherLocation'));}catch{}
  if(saved&&Number.isFinite(saved.latitude)&&Math.abs(saved.latitude)<=90&&Number.isFinite(saved.longitude)&&Math.abs(saved.longitude)<=180&&Number.isFinite(saved.savedAt)&&Date.now()-saved.savedAt>=0&&Date.now()-saved.savedAt<=7*86400000){void loadWeatherForCoordinates(saved,tempEl,detailEl,'Last known location');return;}
  weatherRequestGeneration++;
- clearWeatherImage();
+ setWeatherScene();
  jamesWeatherState={status:'unavailable',location:{status:'unknown',departureAddressVerified:false}};
  tempEl.textContent='—';detailEl.textContent='Location needed';
 }

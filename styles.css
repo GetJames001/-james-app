@@ -1342,9 +1342,14 @@ html[data-theme=light] .james-shell .intel-strip>.briefing-wardrobe{background:#
 #bookPage li {margin-bottom:.35em;line-height:1.36}
 #bookPage ul,#bookPage ol {padding-left:1.3em}
 
-#app #briefing #weatherSquare.satellite-ready {
- background:linear-gradient(90deg,rgba(5,16,29,.80),rgba(5,16,29,.25)),var(--weather-image) center/cover padding-box;
+#weatherSquare[data-scene=sun]{--weather-art:url("assets/lifestyle/strip-sun.jpg")}
+#weatherSquare[data-scene=cloud],#weatherSquare[data-scene=snow]{--weather-art:url("assets/lifestyle/strip-cloud.jpg")}
+#weatherSquare[data-scene=rain]{--weather-art:url("assets/lifestyle/strip-rain.jpg")}
+#weatherSquare[data-scene=night]{--weather-art:url("assets/lifestyle/strip-night.jpg")}
+#weatherSquare.weather-night{--weather-shade:rgba(7,17,40,.36)}
+#weatherSquare[data-scene=snow]{--weather-veil:radial-gradient(circle at 15% 25%,#fff9 .7px,transparent 1.8px) 0 0/19px 29px}
+#app #briefing #weatherSquare[data-scene]{
+ background:linear-gradient(90deg,rgba(4,14,28,.78),rgba(4,14,28,.16)),var(--weather-veil,linear-gradient(transparent,transparent)),linear-gradient(var(--weather-shade,transparent),var(--weather-shade,transparent)),var(--weather-art) center/cover padding-box;
  color:#fff;--ink:#fff;--muted:#fff;
 }
-#weatherSquare.satellite-ready :is(span,small,strong,button,svg){color:#fff}
-#weatherSquare #weatherSatellite{font-size:.68rem;line-height:1.15}
+#weatherSquare[data-scene] :is(span,small,strong,button,svg){color:#fff}

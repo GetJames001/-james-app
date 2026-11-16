@@ -21,3 +21,16 @@ test('repeated weather refreshes share a pending request for the same rounded ar
  complete({ok:true,json:async()=>({current:{temperature_2m:80,weather_code:0}})});
  await h.load();assert.equal(h.calls.length,1);assert.equal(h.nodes['#weatherTemp'].textContent,'80°');
 });
+
+test('the illustrated skyline follows reported weather and clears when unavailable',async()=>{
+ const h=harness({point:{latitude:36,longitude:-115,observedAt:Date.now()}});
+ const tile={dataset:{},classList:{toggle(){}}};
+ h.nodes['#weatherSquare']=tile;
+ await h.load();
+ assert.equal(tile.dataset.scene,'sun');
+ for(const [code,day,scene] of [[0,0,'night'],[3,1,'cloud'],[65,1,'rain'],[75,1,'snow'],[95,0,'rain']]){
+  vm.runInContext('setWeatherScene('+code+','+day+')',h.context);
+  assert.equal(tile.dataset.scene,scene);
+ }
+ h.setPoint(null);await h.load();assert.equal(tile.dataset.scene,undefined);
+});
