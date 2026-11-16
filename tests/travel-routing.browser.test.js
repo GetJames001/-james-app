@@ -35,6 +35,17 @@ test('Next Appointment uses selected origin, handles unconfigured provider and r
   await page.evaluate(()=>{events[0][5].location='789 Changed Avenue';events[0][5].onlineMeeting=true;updateHero();});
   assert.equal(await page.locator('.routing-controls').isVisible(),true);
   await page.evaluate(()=>window.dispatchEvent(new Event('pagehide')));assert.equal(await page.locator('#routeOriginAddress').inputValue(),'');
+  // Reload through the calendar API with the same provider location format as the iPad appointment.
+  await page.clock.setFixedTime(new Date('2026-11-16T18:30:00Z'));
+  await page.route('**/api/google/events',route=>route.fulfill({json:{connected:true,complete:true,
+   events:[{id:'virtual',calendarId:'primary',title:'Example interview',location:'Microsoft Teams',start:'2026-11-16T21:30:00Z',end:'2026-11-16T22:15:00Z'}]}}));
+  const beforeReload=calls;
+  await page.reload();
+  await page.waitForFunction(()=>document.querySelector('#nextTitle').textContent==='Example interview');
+  assert.match(await page.locator('#nextType').textContent(),/Online meeting/);
+  assert.equal(await page.locator('#appointmentTravel').isVisible(),false);
+  assert.equal(calls,beforeReload);
+
  }finally{release?.();await browser?.close();server.closeAllConnections();await new Promise(resolve=>server.close(resolve));}
 });
 
