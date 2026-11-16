@@ -32,5 +32,15 @@ test('Lifestyle on iPad opens existing Wardrobe, saves a recipe across refresh, 
   await page.locator('nav [data-page=lifestyle]').click();await page.locator('#lifestyle [data-action-page=growth]').click();
   await page.locator('#growth').getByRole('button',{name:'Retry feed'}).first().waitFor();
   assert.equal(await page.locator('#growth a').first().getAttribute('href'),'https://ggia.berkeley.edu/practice/active_listening');
+  await page.locator('nav [data-page=lifestyle]').click();
+  await page.locator('#lifestyle [data-action-page=fitness]').click();
+  await page.getByRole('button',{name:'Swap workout'}).click();
+  await page.getByRole('button',{name:/Mobility reset/}).click();
+  assert.equal(await page.locator('#workoutTitle').textContent(),'Mobility reset');
+  await page.getByRole('button',{name:'Use this workout today'}).click();
+  await page.reload();
+  assert.equal(await page.locator('#dailyWorkout').textContent(),'Mobility reset');
+  await page.getByRole('button',{name:'View workout'}).click();
+  assert.equal(await page.locator('#workoutMoves li').count(),3);
  }finally{await browser.close();}
 });
