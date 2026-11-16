@@ -910,41 +910,42 @@ const weatherCities=[
 function weatherCity(latitude,longitude){
  return weatherCities.find(([,lat,lon,km])=>Math.hypot((latitude-lat)*111,(longitude-lon)*111*Math.cos(lat*Math.PI/180))<=km)?.[0];
 }
-const weatherHorizons=new Map();
-async function paintLocalTerrain(square,latitude,longitude,generation){
- const lat=Math.round(latitude*10)/10,lon=Math.round(longitude*10)/10,key=lat+','+lon;
- try{
-  let polygon=weatherHorizons.get(key);
-  if(!polygon){
-   const response=await fetch('/api/weather-terrain?latitude='+lat+'&longitude='+lon);
-   if(!response.ok)return;
-   const {heights}=await response.json();
-   if(!Array.isArray(heights)||heights.length!==17||!heights.every(Number.isFinite))return;
-   const base=Math.min(...heights);
-   polygon='polygon(0 100%, '+heights.map((h,i)=>(100*i/16)+'% '+(72-Math.min(46,(h-base)/22))+'%').join(', ')+', 100% 100%)';
-   if(weatherHorizons.size>=24)weatherHorizons.clear();
-   weatherHorizons.set(key,polygon);
-  }
-  if(generation===weatherRequestGeneration)square.style.setProperty('--local-horizon',polygon);
- }catch{/* The local weather illustration also works without terrain data. */}
+function weatherAppearance(code,isDay){
+ const period=isDay===0?'night':'day';
+ switch(code){
+  case 0: return ['Clear','clear-'+period];
+  case 1: return ['Mostly clear','partly-cloudy-'+period];
+  case 2: return ['Partly cloudy','partly-cloudy-'+period];
+  case 3: return ['Overcast','overcast'];
+  case 45: return ['Fog','fog'];
+  case 48: return ['Freezing fog','fog'];
+  case 51: case 53: return ['Drizzle','drizzle'];
+  case 55: return ['Heavy drizzle','overcast-drizzle'];
+  case 56: case 57: return ['Freezing drizzle','sleet'];
+  case 61: return ['Light rain','rain'];
+  case 63: return ['Rain','rain'];
+  case 65: return ['Heavy rain','overcast-rain'];
+  case 66: case 67: return ['Freezing rain','sleet'];
+  case 71: case 73: case 77: return ['Snow','snow'];
+  case 75: return ['Heavy snow','overcast-snow'];
+  case 80: case 81: return ['Rain showers','rain'];
+  case 82: return ['Heavy rain showers','overcast-rain'];
+  case 85: return ['Snow showers','snow'];
+  case 86: return ['Heavy snow showers','overcast-snow'];
+  case 95: return ['Thunderstorms','thunderstorms-'+period+'-rain'];
+  case 96: case 99: return ['Thunderstorms with hail','hail'];
+  default: return ['Current conditions',''];
+ }
 }
-function setWeatherScene(code, isDay,latitude,longitude,generation){
- const square=$('#weatherSquare');
- if(!square)return;
- let scene='';
- if(code===0||code===1)scene=isDay===0?'night':'sun';
- else if([2,3,45,48].includes(code))scene='cloud';
- else if([51,53,55,56,57,61,63,65,66,67,80,81,82,95,96,99].includes(code))scene='rain';
- else if([71,73,75,77,85,86].includes(code))scene='snow';
- if(scene)square.dataset.scene=scene;
- else delete square.dataset.scene;
- square.classList.toggle('weather-night',isDay===0);
- const city=weatherCity(latitude,longitude);
- if(scene)square.dataset.place=city?city.toLowerCase().replace(' ','-'):'local';
- else delete square.dataset.place;
- const heading=$('#weatherHeading');if(heading)heading.textContent=scene&&city?'Weather · '+city:'Weather';
- square.style?.removeProperty('--local-horizon');
- if(scene&&!city&&Number.isFinite(latitude)&&Number.isFinite(longitude)&&square.style)void paintLocalTerrain(square,latitude,longitude,generation);
+function setWeatherIcon(icon,city){
+ const heading=$('#weatherHeading');
+ if(heading)heading.textContent=city?'Weather · '+city:'Weather';
+ const picture=$('#weatherGraphic');
+ if(!picture)return;
+ picture.hidden=!icon;
+ if(!icon)return;
+ picture.querySelector('source').srcset='/assets/meteocons/svg-static/'+icon+'.svg';
+ picture.querySelector('img').src='/assets/meteocons/svg/'+icon+'.svg';
 }
 async function loadWeatherForCoordinates({ latitude, longitude, savedAt }, tempEl, detailEl, locationLabel = "") {
   const approximate={latitude:Number(Number(latitude).toFixed(2)),longitude:Number(Number(longitude).toFixed(2))};
@@ -958,7 +959,7 @@ async function loadWeatherForCoordinates({ latitude, longitude, savedAt }, tempE
     return;
   }
   const requestGeneration=++weatherRequestGeneration;
-  setWeatherScene();
+  setWeatherIcon();
   jamesWeatherState={status:'loading',location};
   try {
     const url =
@@ -972,23 +973,9 @@ async function loadWeatherForCoordinates({ latitude, longitude, savedAt }, tempE
     if (!response.ok || !data.current) throw new Error('Weather unavailable');
 
     jamesWeatherState={status:'ready',checkedAt:new Date().toISOString(),location,temperatureF:data.current.temperature_2m,daylight:data.daylight||{status:'unavailable'}};
-    setWeatherScene(data.current.weather_code,data.current.is_day,approximate.latitude,approximate.longitude,requestGeneration);
+    const [condition,icon]=weatherAppearance(data.current.weather_code,data.current.is_day);
+    setWeatherIcon(icon,weatherCity(approximate.latitude,approximate.longitude));
     tempEl.textContent = `${Math.round(data.current.temperature_2m)}°`;
-    const code = data.current.weather_code;
-
-    const condition =
-      code === 0 ? 'Clear' :
-      code === 1 ? 'Mostly clear' :
-      code === 2 ? 'Partly cloudy' :
-      code === 3 ? 'Overcast' :
-      code <= 48 ? 'Foggy' :
-      code <= 67 ? 'Rain' :
-      code <= 77 ? 'Snow' :
-      code <= 82 ? 'Rain showers' :
-      code <= 86 ? 'Snow showers' :
-      code >= 95 ? 'Thunderstorms' :
-      'Current conditions';
-
     detailEl.textContent = locationLabel ? locationLabel + " · " + condition : condition;
   } catch (error) {
     if(requestGeneration!==weatherRequestGeneration)return;
@@ -1007,7 +994,7 @@ function loadLiveWeather() {
  let saved;try{saved=JSON.parse(localStorage.getItem('jamesWeatherLocation')||sessionStorage.getItem('jamesWeatherLocation'));}catch{}
  if(saved&&Number.isFinite(saved.latitude)&&Math.abs(saved.latitude)<=90&&Number.isFinite(saved.longitude)&&Math.abs(saved.longitude)<=180&&Number.isFinite(saved.savedAt)&&Date.now()-saved.savedAt>=0&&Date.now()-saved.savedAt<=7*86400000){void loadWeatherForCoordinates(saved,tempEl,detailEl,'Last known location');return;}
  weatherRequestGeneration++;
- setWeatherScene();
+ setWeatherIcon();
  jamesWeatherState={status:'unavailable',location:{status:'unknown',departureAddressVerified:false}};
  tempEl.textContent='—';detailEl.textContent='Location needed';
 }

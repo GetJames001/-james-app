@@ -22,22 +22,27 @@ test('repeated weather refreshes share a pending request for the same rounded ar
  await h.load();assert.equal(h.calls.length,1);assert.equal(h.nodes['#weatherTemp'].textContent,'80°');
 });
 
-test('the illustrated skyline follows reported weather and clears when unavailable',async()=>{
- const h=harness({point:{latitude:36,longitude:-115,observedAt:Date.now()}});
- const tile={dataset:{},classList:{toggle(){}}};
- h.nodes['#weatherSquare']=tile;
- await h.load();
- assert.equal(tile.dataset.scene,'sun');
- for(const [code,day,scene] of [[0,0,'night'],[3,1,'cloud'],[65,1,'rain'],[75,1,'snow'],[95,0,'rain']]){
-  vm.runInContext('setWeatherScene('+code+','+day+')',h.context);
-  assert.equal(tile.dataset.scene,scene);
+test('every supported report has bundled animated and reduced-motion artwork',()=>{
+ const h=harness();
+ for(const day of [0,1]){
+  for(const code of [0,1,2,3,45,48,51,53,55,56,57,61,63,65,66,67,71,73,75,77,80,81,82,85,86,95,96,99]){
+   const [,icon]=vm.runInContext('weatherAppearance('+code+','+day+')',h.context);
+   for(const mode of ['svg','svg-static']){
+    const file=fs.readFileSync(path.join(__dirname,'../assets/meteocons',mode,icon+'.svg'),'utf8');
+    assert.match(file,/<svg/);
+    assert.equal(/<animate(?:Transform)?\b/.test(file),mode==='svg',mode+' '+icon);
+   }
+  }
  }
- h.setPoint(null);await h.load();assert.equal(tile.dataset.scene,undefined);
+ assert.equal(vm.runInContext('weatherAppearance(0,0)[1]',h.context),'clear-night');
+ assert.equal(vm.runInContext('weatherAppearance(61,1)[1]',h.context),'rain');
+ assert.equal(vm.runInContext('weatherAppearance(999,1)[1]',h.context),'');
 });
-test('the city scene follows device coordinates and falls back to local terrain elsewhere',()=>{
- const h=harness(),tile={dataset:{},classList:{toggle(){}}};h.nodes['#weatherSquare']=tile;
- for(const [lat,lon,city] of [[36.17,-115.14,'las-vegas'],[39.53,-119.81,'reno'],[44.06,-121.31,'bend'],[44.05,-123.09,'eugene'],[41.88,-87.63,'chicago'],[51.5,-.12,'local']]){
-  vm.runInContext('setWeatherScene(65,1,'+lat+','+lon+')',h.context);
-  assert.equal(tile.dataset.place,city);assert.equal(tile.dataset.scene,'rain');
- }
+test('local report selects the icon and clearing location hides it',async()=>{
+ const h=harness({point:{latitude:36.17,longitude:-115.14}}),img={},source={};
+ const picture={querySelector:s=>s==='source'?source:img};h.nodes['#weatherGraphic']=picture;
+ await h.load();assert.equal(img.src,'/assets/meteocons/svg/clear-day.svg');
+ assert.equal(source.srcset,'/assets/meteocons/svg-static/clear-day.svg');
+ assert.equal(picture.hidden,false);
+ h.setPoint(null);await h.load();assert.equal(picture.hidden,true);
 });
