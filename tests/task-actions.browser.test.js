@@ -32,13 +32,18 @@ test('task deletion persists, undo preserves records, failures roll back and con
     await page.route('https://**',r=>r.abort());const address=`http://127.0.0.1:${server.address().port}`;
     async function open(){await page.goto(address);await page.waitForFunction(()=>document.querySelectorAll('.task-row').length===2);await page.evaluate(()=>{document.querySelectorAll('.intro,.intro-overlay').forEach(el=>el.remove());document.querySelector('nav [data-page=attention]').click();document.querySelector('[data-action-page=tasks]').click();document.body.classList.remove('frosted');});}
     await open();
+    assert.equal(await page.locator('#tasks select, #tasks .timed-reminders').count(),0);
+    assert.equal(await page.locator('.completed-tasks').getAttribute('open'),null);
+    await page.locator('.completed-tasks > summary').click();
     const row=id=>page.locator(`[data-task-id="${id}"]`);
     await row('test').locator('summary').click();await row('test').getByRole('button',{name:'Delete task'}).click();
     await page.getByText('Task deleted.',{exact:false}).waitFor();assert.deepEqual(records,[original[1]]);
     await page.locator('#taskUndoButton').click();await page.getByText('Task restored.',{exact:true}).waitFor();assert.deepEqual(records,original);
+    await page.locator('.completed-tasks > summary').click();
     fail=true;await row('test').locator('summary').click();await row('test').getByRole('button',{name:'Delete task'}).click();
     await page.getByText('Could not save the change.',{exact:false}).waitFor();assert.equal(await page.locator('.task-row').count(),2);assert.deepEqual(records,original);
     fail=false;hold=true;const before=posts;
+    if (!await row('test').isVisible()) await page.locator('.completed-tasks > summary').click();
     await row('test').locator('summary').click();await row('test').getByRole('button',{name:'Delete task'}).click();
     await page.waitForFunction(()=>document.querySelector('#taskAddButton').disabled);
     assert.equal(await row('real').locator('input').isDisabled(),true);

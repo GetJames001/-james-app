@@ -83,7 +83,7 @@ async function undoTaskDeletion() {
     if (!tasks.some(task => task.id === record.task.id)) tasks.splice(Math.min(record.index, tasks.length), 0, record.task);
   })) { removedTask = null; taskNotice("Task restored."); renderTaskPad(); }
 }
-let activeTaskFilter = "all";
+
 let calendarResizeObserver;
 let calendarRelayoutFrame;
 let calendarRelayoutForced = false;
@@ -324,30 +324,25 @@ function renderTaskPad() {
   if (add) add.disabled = taskSaving;
   const undo = $("#taskUndoButton");
   if (undo) { undo.hidden = !removedTask; undo.disabled = taskSaving; }
-  const visibleTasks = tasks.filter(task =>
-    activeTaskFilter === "all" || task.domain === activeTaskFilter
-  );
-
-  $$(".task-filter").forEach(button => {
-    button.classList.toggle(
-      "active",
-      button.dataset.taskFilter === activeTaskFilter
-    );
-  });
-
-  if (!visibleTasks.length) {
+  if (!tasks.length) {
     list.innerHTML = `
       <div id="taskEmpty" class="task-empty">
         <b>No tasks yet.</b>
-        <span>Tasks James is protecting will appear here.</span>
+
       </div>
     `;
     return;
   }
 
-  list.innerHTML = "";
-
-  visibleTasks.forEach(task => {
+  const wasOpen = list.querySelector(".completed-tasks")?.open || false;
+  list.replaceChildren();
+  const completed = document.createElement("details");
+  completed.className = "completed-tasks";
+  completed.open = wasOpen;
+  const summary = document.createElement("summary");
+  summary.textContent = "Completed";
+  completed.append(summary);
+  tasks.forEach(task => {
     const row = document.createElement("div");
     row.className = "task-row";
     row.dataset.taskId = task.id;
@@ -387,8 +382,9 @@ function renderTaskPad() {
     remove.addEventListener("click", () => deleteTask(task.id));
     actions.append(menu, remove);
     row.append(checkbox, title, meta, actions);
-    list.appendChild(row);
+    (checkbox.checked ? completed : list).appendChild(row);
   });
+  if (completed.childElementCount > 1) list.append(completed);
 }
 async function loadTasks() {
   try {
@@ -437,7 +433,7 @@ async function saveTasks() {
 async function createTask() {
   if (taskSaving) return;
   const titleInput = $("#taskTitleInput");
-  const domainInput = $("#taskDomainInput");
+
 
   const title = titleInput?.value.trim();
 
@@ -449,7 +445,6 @@ const now = new Date().toISOString();
   const newTask = {
   id: `task-${Date.now()}`,
   title,
-  domain: domainInput?.value === "personal" ? "personal" : "work",
   status: "open",
   dueLabel: "",
   createdAt: now,
@@ -1443,12 +1438,6 @@ document.addEventListener('DOMContentLoaded', () => {
   $('#personalMailRefresh').addEventListener('click', refreshPersonalInbox);
   renderTaskPad();
 
-$$(".task-filter").forEach(button => {
-  button.onclick = () => {
-    activeTaskFilter = button.dataset.taskFilter || "all";
-    renderTaskPad();
-  };
-});
   buildCalendar();
   observeCalendarLayout();
   $('#quickCalendarPrevious').onclick=()=>{const day=new Date(quickCalendarMonth+'-01T12:00:00');day.setMonth(day.getMonth()-1);quickCalendarMonth=localAppointmentDate(day).slice(0,7);renderQuickCalendar();};
@@ -1530,7 +1519,7 @@ if (personalMailDetailBack) {
   };
   window.jamesAppointments=window.JamesAppointments.mount({onCreated:async()=>{try{applyGoogleEvents(await JamesCalendarSync.readCalendar(fetch));await refreshHotmailCalendar();}catch{calendarSyncState.state=calendarSyncState.hasData?'stale':'unavailable';}}});
   $('#appointmentSavingSetup').onclick=()=>window.jamesAppointments.setup();
-  window.jamesReminders=window.JamesReminders.mount({host:$('#tasks'),onCount:count=>setToDoCount('reminders',count)});
+  window.jamesReminders=window.JamesReminders.mount({host:$('#guideReminders')});
   window.jamesLocation=window.JamesLocation.mount({button:$('#jamesLiveLocation'),status:$('#jamesLocationStatus'),onState:()=>refreshNextDriveIfNeeded(),onPoint:point=>{
     if(!nextDriveOrigin||nextDriveOrigin.kind==='device'){
       const previous=nextDriveOrigin,moved=!previous||Math.hypot((point.latitude-previous.latitude)*111000,(point.longitude-previous.longitude)*111000*Math.cos(point.latitude*Math.PI/180))>100;
@@ -1582,7 +1571,7 @@ if (personalMailDetailBack) {
       }catch{if(version!==personalMailStateVersion||generation!==gmailReviewGeneration||!$('#personalMailDetail').classList.contains('active'))return;page('personalMail');mailStateNotice('The Gmail source could not be opened. Its saved review item is retained.');}
       return;
     }page('personalMail');let row=[...document.querySelectorAll('#personalMailMessages [data-message-id]')].find(node=>node.dataset.messageId===id);if(!row){try{const response=await fetch('/api/microsoft/mail?account=personal&readMessageId='+encodeURIComponent(id),{credentials:'same-origin',cache:'no-store'});const data=await response.json();if(!response.ok||data.message?.id!==id)throw Error();window.personalMicrosoftMessages=[...(window.personalMicrosoftMessages||[]),data.message];renderPersonalMicrosoftMail(window.personalMicrosoftMessages,{restoreDetail:false});row=[...document.querySelectorAll('#personalMailMessages [data-message-id]')].find(node=>node.dataset.messageId===id);}catch{mailStateNotice('The source email could not be opened. Its saved review item is retained.');return;}}if(row)row.click();},
-    draft:item=>{page('tasks');const field=$('#taskTitleInput');if(field.value.trim()){taskNotice('Your unsaved task is retained. Finish it before drafting another.');field.focus();return;}field.value='Review email: '+item.subject;$('#taskDomainInput').value='personal';taskNotice('Task draft only. Review the original email, then choose Add task to save.');field.focus();}
+    draft:item=>{page('tasks');const field=$('#taskTitleInput');if(field.value.trim()){taskNotice('Your unsaved task is retained. Finish it before drafting another.');field.focus();return;}field.value='Review email: '+item.subject;taskNotice('Task draft only. Review the original email, then choose Add task to save.');field.focus();}
   });
   if(window.personalMicrosoftMessages?.length)mailAttentionView.update(window.personalMicrosoftMessages);
   void mailAttentionView.check({automatic:true});
