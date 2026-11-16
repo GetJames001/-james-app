@@ -1366,10 +1366,11 @@ html[data-theme=light] .james-shell .intel-strip>.briefing-wardrobe{background:#
 #weatherSquare .weather-art::after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,#071626b8,#07162621)}
 #weatherSquare.weather-night .weather-art{filter:brightness(.62) saturate(.8)}
 #weatherSquare:is([data-scene=rain],[data-scene=cloud],[data-scene=snow]) .weather-art i{position:absolute;inset:-12% -60% 27%;background:radial-gradient(ellipse at 38% 32%,#858c9dde 3%,#a1a9b7aa 25%,transparent 56%),radial-gradient(ellipse at 70% 36%,#8d98a7dd 6%,#c2c6d0ab 28%,transparent 55%);animation:weather-clouds 18s ease-in-out infinite alternate}
-#weatherSquare:is([data-scene=rain],[data-scene=snow]) .weather-art em{position:absolute;inset:-40px;background:linear-gradient(103deg,transparent 45%,#d3edff9e 49%,transparent 53%) 0 0/21px 32px;animation:weather-rain .64s linear infinite}
+#weatherSquare[data-scene=snow] .weather-art em{position:absolute;inset:-40px}
 #weatherSquare[data-scene=snow] .weather-art em{background:radial-gradient(circle,#fff 1px,transparent 2px) 0 0/23px 31px;animation:weather-snow 3s linear infinite}
 @keyframes weather-clouds{to{transform:translateX(15%)}}
-@keyframes weather-rain{to{background-position:-21px 32px}}
+#weatherSquare[data-place=las-vegas][data-scene=rain] .weather-art i{opacity:.28}
+#weatherSquare[data-place=local][data-scene=rain]{--weather-art:linear-gradient(#465668,#8997a1 62%,#748989)}
 @keyframes weather-snow{to{background-position:23px 31px}}
 @media(prefers-reduced-motion:reduce){#weatherSquare .weather-art :is(i,em){animation:none!important}}
 #app #recipes .mag-book{container-type:inline-size;grid-template-columns:minmax(0,1fr) minmax(0,.96fr)}
