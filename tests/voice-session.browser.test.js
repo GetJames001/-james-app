@@ -103,7 +103,7 @@ test('Archer uses text tool continuation and speaks final reply once; setup fail
   const page=await browser.newPage();await page.goto('http://127.0.0.1:'+server.address().port);
   await page.evaluate(()=>{
    const scope={accountId:'account-fixture',conversationId:'conversation-fixture',generation:1};window.sent=[];window.spoken=[];window.micStarts=0;window.archerReady=false;window.opened=[];
-   HTMLMediaElement.prototype.play=async function(){window.playedAudio=this;};
+   const createElement=document.createElement.bind(document);document.createElement=(tag,...args)=>tag==='audio'?{muted:true,setAttribute(){},removeAttribute(){},pause(){},async play(){window.playedAudio=this;}}:createElement(tag,...args);
    class Peer{createDataChannel(){return window.channel={readyState:'open',send:data=>window.sent.push(JSON.parse(data)),close(){}};}addTrack(){}async createOffer(){return {sdp:'v=0 fixture'};}async setLocalDescription(){}async setRemoteDescription(){}close(){}}
    const track={enabled:true,stop(){}},stream={getTracks:()=>[track],getAudioTracks:()=>[track]};
    const ui={prepareVoice:async()=>({scope,history:[],identityOwner:{current:()=>scope,snapshotIdentity:async()=>scope}}),verifyVoice:async()=>true,detachVoice(){},context:()=>({page:'recipes'}),navigate:async page=>{window.opened.push(page);return {status:'ready'};},interruptVoiceReply(){},rememberVoice:async()=>{}};
