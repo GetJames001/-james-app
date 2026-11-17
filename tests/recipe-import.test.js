@@ -21,3 +21,11 @@ test('follows one explicit recipe destination and refuses ambiguous recipes',()=
  assert.equal(article(block([dish,{...dish,name:'Another gumbo'}]),base),null);
  assert.equal(article(block({'@type':'ItemList',itemListElement:[dish]}),base),null);
 });
+
+test('WP Recipe Maker print view follows its own publisher back to the illustrated recipe',()=>{
+ const {recipeDestination}=require('../lib/routes/recipe-book');
+ const print=new URL('https://mycoffeehasbutter.com/wprm_print/cajun-chicken-and-sausage-gumbo');
+ const back='<a href="/cajun-chicken-and-sausage-gumbo/" id="wprm-print-button-back">Go Back</a>';
+ assert.equal(recipeDestination(back,print).href,'https://mycoffeehasbutter.com/cajun-chicken-and-sausage-gumbo/');
+ assert.equal(recipeDestination(back.replace('href="/','href="https://another.example/'),print),null);
+});
