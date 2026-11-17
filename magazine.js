@@ -19,11 +19,14 @@ function mountMagazine({list,read,save}){
    const left=tag('section',''),right=tag('section','');
    left.append(tag('h4','Ingredients'),ingredients);right.append(tag('h4','Method'),steps);
    columns.append(left,right);paper.append(columns);if(!isGumbo)paper.append(link('Original recipe',recipe.url));
+  }else if(recipe.kind==='saved-pin'){
+   paper.append(link('Open saved Pin',recipe.pinUrl));
+   if(recipe.url!==recipe.pinUrl)paper.append(link('Open recipe source',recipe.url));
   }else{
    paper.append(tag('p','Ingredients and directions from '+recipe.publisher+'.'),link('Open full recipe',recipe.url));
   }
   const photo=el('bookPhoto');
-  let publisherPhoto=false;try{const u=new URL(recipe.photo);publisherPhoto=u.protocol==='https:'&&(Array.isArray(recipe.steps)||u.hostname==='www.budgetbytes.com');}catch{}
+  let publisherPhoto=false;try{const u=new URL(recipe.photo);publisherPhoto=u.protocol==='https:'&&(Array.isArray(recipe.steps)||recipe.kind==='saved-pin'&&u.hostname==='i.pinimg.com'||u.hostname==='www.budgetbytes.com');}catch{}
   photo.hidden=!isGumbo&&!publisherPhoto;photo.src=publisherPhoto?recipe.photo:'assets/lifestyle/recipe.jpg';photo.alt=isGumbo?'Illustration of chicken and sausage gumbo':recipe.title;
   paper.parentElement.classList.toggle('source-only',photo.hidden);
   el('cookCount').textContent=pages.length+(pages.length===1?' recipe':' recipes');
@@ -59,8 +62,8 @@ function mountMagazine({list,read,save}){
   boardStatus.textContent='Checking Mad Food Son…';
   boardTimeout=setTimeout(()=>{boardStatus.textContent='Open Mad Food Son to finish checking your board.';boardButton.textContent='Open Mad Food Son';},20000);
  }
- async function importRecipe(url,discovery=false){
-  const r=await fetch('/api/lifestyle/cookbook',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url,discovery})});
+ async function importRecipe(url,discovery=false,pin=null){
+  const r=await fetch('/api/lifestyle/cookbook',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url,discovery,pin})});
   if(!r.ok)throw Error('import');
   return (await r.json()).status;
  }
@@ -72,15 +75,16 @@ function mountMagazine({list,read,save}){
   if(!Array.isArray(event.data.links))return;
   localStorage.setItem('jamesRecipeBoardEnabled','1');boardButton.textContent='Check Mad Food Son';
   importing=true;boardButton.disabled=true;
-  let added=0,skipped=Number(event.data.missing)||0,failed=0;
+  const pins=Array.isArray(event.data.pins)?event.data.pins:null;
+  let added=0,linked=0,skipped=pins?0:Number(event.data.missing)||0,failed=0;
   try{
-   for(const url of new Set(event.data.links)){
-    try{const result=await importRecipe(url);if(result==='added')added++;else if(result!=='existing')skipped++;}
+   for(const pin of pins||[...new Set(event.data.links)].map(recipeSource=>({recipeSource}))){
+    try{const result=await importRecipe(pin.recipeSource,false,pin);if(result==='added')added++;else if(result==='linked')linked++;else if(result!=='existing')skipped++;}
     catch{failed++;}
    }
    await loadBook();lastScan=Date.now();
    await showPinterestIdeas(event.data.discovery);void discoverMatches();
-   boardStatus.textContent=[added?added+' added to your book':'Book up to date',skipped?skipped+' without a supported recipe':'',failed?failed+' could not be checked. Try again.':''].filter(Boolean).join(' · ');
+   boardStatus.textContent=[added?added+' full recipes added':'',linked?linked+' saved as recipe links':'',!added&&!linked&&!skipped&&!failed?'Book up to date':'',skipped?skipped+' without a supported recipe':'',failed?failed+' could not be checked. Try again.':''].filter(Boolean).join(' · ');
   }finally{importing=false;boardButton.disabled=false;}
  });
  boardButton.onclick=()=>boardScan(true);
