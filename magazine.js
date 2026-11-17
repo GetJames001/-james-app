@@ -38,6 +38,8 @@ function mountMagazine({list,read,save}){
   const photo=el('bookPhoto');
   let publisherPhoto=false;try{const u=new URL(recipe.photo);publisherPhoto=u.protocol==='https:'&&(Array.isArray(recipe.steps)||recipe.kind==='saved-pin'&&u.hostname==='i.pinimg.com'||u.hostname==='www.budgetbytes.com');}catch{}
   photo.hidden=!isGumbo&&!publisherPhoto;photo.src=publisherPhoto?recipe.photo:'assets/lifestyle/recipe.jpg';photo.alt=isGumbo?'Illustration of chicken and sausage gumbo':recipe.title;
+  photo.alt=recipe.photoCredit?recipe.title+' — '+recipe.photoCredit:photo.alt;
+  if(recipe.photoCredit)paper.append(tag('small',recipe.photoCredit));
   paper.parentElement.classList.toggle('source-only',photo.hidden);
   el('cookCount').textContent=pages.length+(pages.length===1?' recipe':' recipes');
   el('bookPosition').textContent=(current+1)+' / '+pages.length;el('bookPrev').disabled=current===0;el('bookNext').disabled=current===pages.length-1;
