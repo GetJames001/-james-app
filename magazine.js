@@ -4,6 +4,15 @@ function mountMagazine({list,read,save}){
  const tag=(name,text)=>{const node=document.createElement(name);node.textContent=text;return node;};
  const link=(title,url)=>{const a=tag('a',title);a.href=url;a.target='_blank';a.rel='noopener noreferrer';return a;};
  const gumbo={title:'Cajun chicken & sausage gumbo',url:'#james-gumbo',publisher:'James kitchen · Serves 4 · Recipe illustration'};
+ const stuffingBites={
+  title:'Bacon-Wrapped Stuffing Bites',publisher:'Who Needs A Cape? · Makes 18',
+  url:'https://whoneedsacape.com/2016/10/bacon-wrapped-stuffing-bites/',
+  photo:'https://i0.wp.com/whoneedsacape.com/wp-content/uploads/2019/01/DSC_0140-2.jpg?fit=735,490&ssl=1',
+  ingredients:['3 cups prepared stuffing','9 strips of bacon'],
+  steps:['Heat the oven to 375°F. Line a baking sheet with foil and lightly grease it.',
+   'Shape the stuffing into 18 balls. Halve the bacon strips crosswise and wrap one half around each ball. Secure each with a toothpick.',
+   'Arrange on the baking sheet. Bake for about 20–25 minutes, until the bacon is cooked through. Drain briefly before serving.']
+ };
  const safeRecipe=row=>{try{return typeof row.title==='string'&&row.title.trim()&&row.title.length<=200&&typeof row.publisher==='string'&&row.publisher.length<=100&&new URL(row.url).protocol==='https:';}catch{return false;}};
  let pages=[gumbo],current=0,bookRequest=0;
  const suffix='.james-recipe.json';
@@ -51,7 +60,7 @@ function mountMagazine({list,read,save}){
    if(generation!==bookRequest)return;
    const selected=pages[current]?.url;
    const readable=new Map(),pins=new Map();
-   for(const item of [gumbo,...rows.filter(safeRecipe),...(imports.items||[]).filter(safeRecipe)]){
+   for(const item of [gumbo,...rows.filter(safeRecipe),...(imports.items||[]).filter(safeRecipe),stuffingBites]){
     const canonical=new URL(item.url,location.href);
     canonical.hash='';
     for(const param of [...canonical.searchParams.keys()])if(/^utm_|^fbclid$|^epik$/.test(param))canonical.searchParams.delete(param);
@@ -61,8 +70,16 @@ function mountMagazine({list,read,save}){
     else pins.set(key,item);
    }
    pages=[...readable.values()];
+   el('kitchenRecipes').replaceChildren(...pages.map((recipe,index)=>{
+    const button=tag('button','');button.type='button';
+    const photo=recipe===gumbo?'assets/lifestyle/recipe.jpg':recipe.photo;
+    if(photo){const image=document.createElement('img');image.src=photo;image.alt='';image.loading='lazy';image.referrerPolicy='no-referrer';button.append(image);}
+    button.append(tag('span',recipe.title));
+    button.onclick=()=>{current=index;drawBook();openCookbook();};
+    return button;
+   }));
    let savedPins=el('cookSavedPins');
-   if(!savedPins){savedPins=tag('details','');savedPins.id='cookSavedPins';el('cookbookCover').after(savedPins);}
+   if(!savedPins){savedPins=tag('details','');savedPins.id='cookSavedPins';el('kitchenShelf').after(savedPins);}
    const pending=[...pins].filter(([key])=>!readable.has(key)).map(([,item])=>item);
    savedPins.hidden=!pending.length;
    savedPins.replaceChildren(tag('summary','Saved links ('+pending.length+')'));

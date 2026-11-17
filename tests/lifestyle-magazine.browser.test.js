@@ -33,7 +33,10 @@ test('Lifestyle on iPad opens existing Wardrobe, saves a recipe across refresh, 
   const cards=page.locator('#lifestyle .mag-tile');assert.equal(await cards.count(),7);
   assert.equal(await page.locator('#lifestyle a.mag-tile').getAttribute('href'),await page.locator('.wardrobe-launch').getAttribute('href'));
   await page.locator('#lifestyle [data-action-page=recipes]').click();
-  await page.locator('#cookbookCover').click();
+  await page.getByRole('button',{name:'Bacon-Wrapped Stuffing Bites'}).click();
+  assert.equal(await page.locator('#bookPage ul li').count(),2);
+  await page.locator('#cookClose').click();
+  await page.getByRole('button',{name:'Cajun chicken & sausage gumbo'}).click();
   assert.equal(await page.locator('#cookReader').evaluate(d=>d.open),true);
   await page.locator('#cookFit').click();
   assert.equal(await page.locator('#cookFit').textContent(),'Fit to screen');
@@ -54,16 +57,16 @@ test('Lifestyle on iPad opens existing Wardrobe, saves a recipe across refresh, 
   await page.locator('#recipeBoardSync').click();
   await page.getByRole('button',{name:'Save to book'}).click();
   await page.waitForFunction(()=>document.querySelector('#bookPage h3').textContent==='Roasted peppers');
-  await page.reload();await page.waitForFunction(()=>document.querySelector('#bookPosition').textContent.endsWith('/ 2'));
+  await page.reload();await page.waitForFunction(()=>document.querySelector('#bookPosition').textContent.endsWith('/ 3'));
   await page.locator('#cookbookCover').click();
   await page.locator('#bookNext').click();assert.equal(await page.locator('#bookPage a').getAttribute('href'),pick.url);
   await page.keyboard.press('ArrowLeft');
-  assert.equal(await page.locator('#bookPosition').textContent(),'1 / 2');
+  assert.equal(await page.locator('#bookPosition').textContent(),'1 / 3');
   await page.keyboard.press('Escape');
   await page.getByRole('button',{name:'Delete Roasted peppers'}).click();
   await page.getByText('No new recipe suggestions.').waitFor();
   await page.reload();await page.getByText('No new recipe suggestions.').waitFor();
-  await page.waitForFunction(()=>document.querySelector('#bookPosition').textContent==='1 / 2');
+  await page.waitForFunction(()=>document.querySelector('#bookPosition').textContent==='1 / 3');
   await page.locator('nav [data-page=lifestyle]').click();await page.locator('#lifestyle [data-action-page=growth]').click();
   const visual=await page.evaluate(()=>({
    canvas:getComputedStyle(document.getElementById('app')).backgroundImage,
@@ -168,6 +171,6 @@ test('cookbook imports board destinations and a second scan keeps a single recip
   assert.equal(stored.size,2);
   await page.locator('#cookbookCover').click();
   await page.locator('#bookPrev').click();
-  assert.equal(await page.locator('#bookPosition').textContent(),'1 / 2');
+  assert.equal(await page.locator('#bookPosition').textContent(),'1 / 3');
  }finally{await browser.close();}
 });
