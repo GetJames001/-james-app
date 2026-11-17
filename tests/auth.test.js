@@ -630,7 +630,8 @@ test('welcome assets remain authenticated GET/HEAD-only with correct content typ
 test("the kitchen cover is bundled and served as the original image", async () => {
   const fs = require("node:fs");
   const cover = fs.readFileSync("index.html","utf8").match(/class="kitchen-scene"[^>]*src="([^"]+)"/)[1];
-  assert.ok(require("../vercel.json").functions["api/gateway.js"].includeFiles.includes(cover));
+  assert.equal(cover,"assets/lifestyle/james-bistro.webp");
+  assert.ok(require("../vercel.json").functions["api/gateway.js"].includeFiles.includes("assets/lifestyle/*"));
   const res = mockRes();
   await require("../api/gateway.js")(request("GET",{authorized:true,query:{path:cover}}),res);
   assert.equal(res.statusCode,200);
