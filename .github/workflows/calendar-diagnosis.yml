@@ -41,6 +41,7 @@ jobs:
           retention-days: 3
       - run: npm audit --omit=dev
       - name: Verify public cookbook sources
+        if: always()
         run: node tools/check-recipe-sources.cjs
       - name: Verify public lifestyle feed access
         if: github.head_ref == 'feature/free-news-workout-picker'

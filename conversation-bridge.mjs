@@ -122,4 +122,3 @@ export function createConversationBridge({identityOwner, navigate, capabilities,
     subscribeEvents(fn){if(typeof fn!=='function')throw Error('Observer required');listeners.add(fn);return ()=>listeners.delete(fn)}
   };
 }
-

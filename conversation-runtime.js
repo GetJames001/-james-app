@@ -202,4 +202,3 @@ function createConversationBridge({identityOwner, navigate, capabilities, newId,
 
 root.JamesConversationRuntime={createConversationIdentityOwner,createConversationBridge};
 })(typeof window==='undefined'?globalThis:window);
-

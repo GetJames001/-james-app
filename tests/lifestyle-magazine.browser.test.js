@@ -45,6 +45,8 @@ test('Lifestyle on iPad opens existing Wardrobe, saves a recipe across refresh, 
   await page.locator('#cookFit').click();
   assert.equal(await page.locator('#bookPage ul li').count(),8);
   assert.equal(await page.locator('#bookPage ol li').count(),4);
+  const guidance=await page.evaluate(()=>{const g=window.jamesRecipes;return [g.read('start'),g.read('ingredients'),g.read('repeat'),g.read('next'),g.read('previous')];});
+  assert.equal(guidance[0].step,1);assert.equal(guidance[2].instruction,guidance[0].instruction);assert.equal(guidance[3].step,2);assert.equal(guidance[4].step,1);assert.equal(guidance[1].ingredients.length,8);
   for(const width of [1180,820,390]){
    await page.setViewportSize({width,height:900});
    const layout=await page.locator('#bookPage ol li').first().evaluate(li=>{
