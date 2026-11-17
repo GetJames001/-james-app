@@ -33,6 +33,7 @@ const exactHandlers = new Map([
   ["api/james/workbench", workbench],
   ["api/james/conversation", conversation],
   ["api/james/voice", require("../lib/routes/voice.js")],
+  ["api/james/speech", require("../lib/routes/speech.js")],
   ["api/james/files", require("../lib/routes/files.js")],
   ["api/auth/login", login],
   ["api/auth/logout", logout],

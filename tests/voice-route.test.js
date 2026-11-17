@@ -30,3 +30,9 @@ test('voice distinguishes exhausted quota from rate limiting without exposing pr
  }
 });
 
+test('Archer retains realtime input and tools but requests text output only after activation',async()=>{
+ let form,calls=0;const config={OPENAI_API_KEY:'fixture',ELEVENLABS_API_KEY:'fixture'};
+ const handler=createHandler({store:{execute:async()=>({...scope,status:'ready'})},fetchImpl:async(_,options)=>{calls++;form=options.body;return {ok:true,text:async()=>'v=0 answer'};},env:config});
+ const request=req();request.body.voice='archer';const blocked=res();await handler(request,blocked);assert.equal(blocked.code,503);assert.equal(calls,0);
+ config.JAMES_ARCHER_ENABLED='true';const ready=res();await handler(request,ready);assert.equal(ready.code,200);const session=JSON.parse(form.get('session'));assert.deepEqual(session.output_modalities,['text']);assert.equal(session.audio.output,undefined);assert.ok(session.audio.input.transcription);assert.ok(session.tools.find(tool=>tool.name==='read_recipe'));
+});

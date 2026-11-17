@@ -16,6 +16,7 @@ test('voice stays across page changes, rejects stale playback events, and closes
    class Peer{constructor(){window.peers++;window.peer=this;}createDataChannel(){const channel={readyState:'open',send:data=>window.framesSent.push(JSON.parse(data)),close:()=>{}};window.channel=channel;return channel;}addTrack(){}async createOffer(){return {type:'offer',sdp:'v=0 synthetic'};}async setLocalDescription(){}async setRemoteDescription(){}close(){}}
    const track={enabled:true,stop:()=>window.trackStops++},stream={getTracks:()=>[track],getAudioTracks:()=>[track]};
    const ui={prepareVoice:async()=>({scope,history:[],identityOwner:owner}),verifyVoice:async()=>true,detachVoice:()=>{},context:()=>({page:window.contextPage||'files',timezone:'America/Los_Angeles'}),navigate:async door=>{window.opened.push(door);return {status:'ready'};},interruptVoiceReply:()=>{},rememberVoice:async(...args)=>window.remembered.push(args)};
+   const createElement=document.createElement.bind(document);document.createElement=(tag,...args)=>{const node=createElement(tag,...args);if(tag==='audio')window.voiceAudio=node;return node;};Peer.prototype.getAudioMuted=()=>window.voiceAudio.muted;
    window.prepared=[];window.controller=JamesVoiceSession.mount({ui,readBriefing:()=>({calendar:{google:{hasData:true,state:'fresh',complete:true,fetchedAt:new Date().toISOString()}}}),prepareAppointment:async details=>{window.prepared.push(details);return {status:"review_required"};},orb:document.querySelector('#jamesOrb'),button:document.querySelector('#voice'),settingsButton:document.querySelector('#settings'),readWeather:()=>({status:'ready',daylight:{sunrise:'2026-11-06T06:10',sunset:'2026-11-06T16:40',timezone:'America/Los_Angeles'}}),setState:value=>{window.state=value;const orb=document.querySelector('#jamesOrb');orb.classList.remove('listening','thinking','speaking','connecting','muted');if(value!=='idle')orb.classList.add(value);},Peer,media:{getUserMedia:async()=>stream},fetcher:async()=>({ok:true,text:async()=>'v=0 answer'})});
    window.emit=event=>window.channel.onmessage({data:JSON.stringify(event)});
   });
@@ -39,7 +40,8 @@ test('voice stays across page changes, rejects stale playback events, and closes
   await page.evaluate(()=>{window.emit({type:'conversation.item.input_audio_transcription.completed',item_id:'audio-1',transcript:'Open Calendar'});window.emit({type:'response.done',response:{id:'reply-1',status:'completed',output:[{type:'function_call',call_id:'call-1',name:'open_page',arguments:'{"page":"calendar"}'}]}});});
   await page.waitForFunction(()=>window.opened.includes('calendar'));assert.equal(await page.evaluate(()=>window.peers),1);assert.equal(await page.evaluate(()=>window.trackStops),0);
   await page.waitForFunction(()=>window.framesSent.filter(e=>e.type==='response.create').length===2);
-  await page.evaluate(()=>{const request=window.framesSent.filter(e=>e.type==='response.create').at(-1);window.emit({type:'response.created',response:{id:'reply-weather',metadata:request.response.metadata}});window.emit({type:'response.done',response:{id:'reply-weather',status:'completed',output:[{type:'function_call',call_id:'weather-1',name:'read_weather',arguments:'{}'}]}});});
+  await page.evaluate(()=>{const request=window.framesSent.filter(e=>e.type==='response.create').at(-1);window.emit({type:'response.created',response:{id:'reply-weather',metadata:request.response.metadata}});window.continuationAudioMuted=window.peer.getAudioMuted();window.emit({type:'response.done',response:{id:'reply-weather',status:'completed',output:[{type:'function_call',call_id:'weather-1',name:'read_weather',arguments:'{}'}]}});});
+  assert.equal(await page.evaluate(()=>window.continuationAudioMuted),false,'tool continuation keeps existing audio audible without another output_audio_buffer.started');
   await page.waitForFunction(()=>window.framesSent.some(e=>e.item?.call_id==='weather-1'));assert.equal(await page.evaluate(()=>JSON.parse(window.framesSent.find(e=>e.item?.call_id==='weather-1').item.output).daylight.sunset),'2026-11-06T16:40');
   await page.waitForFunction(()=>window.framesSent.filter(e=>e.type==='response.create').length===3);
   await page.evaluate(()=>{const request=window.framesSent.filter(e=>e.type==='response.create').at(-1);window.emit({type:'response.created',response:{id:'reply-draft',metadata:request.response.metadata}});window.emit({type:'response.done',response:{id:'reply-draft',status:'completed',output:[{type:'function_call',call_id:'draft-1',name:'prepare_appointment',arguments:JSON.stringify({title:'Fixture',location:'Confirmed address',start:'2026-12-01T18:00:00-08:00',end:'2026-12-01T19:00:00-08:00',timeZone:'America/Los_Angeles'})}]}});});
@@ -86,5 +88,39 @@ test('voice stays across page changes, rejects stale playback events, and closes
    assert.equal(await page.evaluate(()=>window.failure.active()),false);
    await page.evaluate(()=>document.querySelector('#failure-orb').remove());
   }
+ }finally{await browser.close();await new Promise(resolve=>server.close(resolve));}
+});
+
+
+test('Archer uses text tool continuation and speaks final reply once; setup failure starts no microphone',async()=>{
+ const server=http.createServer((req,res)=>{
+  res.setHeader('Content-Type',req.url==='/'?'text/html':'text/javascript');
+  if(req.url==='/')return res.end('<button id="orb">James</button><button id="settings">Settings</button><script src="/voice-session.js"></script>');
+  if(!/^\/(voice-session\.js|realtime-coordinator\.mjs|conversation-bridge\.mjs|turn-timing\.mjs)$/.test(req.url)){res.statusCode=404;return res.end();}
+  res.end(fs.readFileSync(path.join(__dirname,'..',req.url.slice(1))));
+ });await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));const browser=await chromium.launch();
+ try{
+  const page=await browser.newPage();await page.goto('http://127.0.0.1:'+server.address().port);
+  await page.evaluate(()=>{
+   const scope={accountId:'account-fixture',conversationId:'conversation-fixture',generation:1};window.sent=[];window.spoken=[];window.micStarts=0;window.archerReady=false;window.opened=[];
+   HTMLMediaElement.prototype.play=async function(){window.playedAudio=this;};
+   class Peer{createDataChannel(){return window.channel={readyState:'open',send:data=>window.sent.push(JSON.parse(data)),close(){}};}addTrack(){}async createOffer(){return {sdp:'v=0 fixture'};}async setLocalDescription(){}async setRemoteDescription(){}close(){}}
+   const track={enabled:true,stop(){}},stream={getTracks:()=>[track],getAudioTracks:()=>[track]};
+   const ui={prepareVoice:async()=>({scope,history:[],identityOwner:{current:()=>scope,snapshotIdentity:async()=>scope}}),verifyVoice:async()=>true,detachVoice(){},context:()=>({page:'recipes'}),navigate:async page=>{window.opened.push(page);return {status:'ready'};},interruptVoiceReply(){},rememberVoice:async()=>{}};
+   window.controller=JamesVoiceSession.mount({ui,orb:document.querySelector('#orb'),settingsButton:document.querySelector('#settings'),setState:state=>window.state=state,Peer,media:{getUserMedia:async()=>{window.micStarts++;return stream;}},fetcher:async(url,options)=>{
+    if(url==='/api/james/speech'){if(options.method!=='POST')return {ok:true,json:async()=>({ready:window.archerReady,reason:'connection_required'})};window.spoken.push(JSON.parse(options.body).text);return {ok:true,blob:async()=>new Blob(['fixture'],{type:'audio/mpeg'})};}
+    window.negotiatedVoice=JSON.parse(options.body).voice;return {ok:true,text:async()=>'v=0 answer'};
+   }});
+   window.emit=event=>window.channel.onmessage({data:JSON.stringify(event)});
+  });
+  await page.locator('#settings').click();await page.getByLabel('James voice',{exact:true}).selectOption('archer');await page.getByRole('button',{name:'Close settings'}).click();
+  await page.locator('#orb').click();await page.waitForFunction(()=>window.state==='idle');assert.equal(await page.evaluate(()=>window.micStarts),0);assert.match(await page.locator('.james-voice-panel').textContent(),/not configured/);
+  await page.evaluate(()=>window.archerReady=true);await page.locator('#orb').click();await page.waitForFunction(()=>!!window.channel);await page.evaluate(()=>{window.emit({type:'session.created'});window.emit({type:'input_audio_buffer.speech_started'});window.emit({type:'input_audio_buffer.speech_stopped'});window.emit({type:'input_audio_buffer.committed',item_id:'archer-one'});});
+  await page.waitForFunction(()=>window.sent.some(e=>e.type==='response.create'));
+  await page.evaluate(()=>{const req=window.sent.find(e=>e.type==='response.create');window.textOnly=req.response.output_modalities;window.emit({type:'response.created',response:{id:'open-recipe',metadata:req.response.metadata}});window.emit({type:'response.done',response:{id:'open-recipe',status:'completed',output:[{type:'message',content:[{type:'output_text',text:'Sure.'}]},{type:'function_call',call_id:'open-one',name:'open_page',arguments:'{"page":"recipes"}'}]}});});
+  await page.waitForFunction(()=>window.sent.filter(e=>e.type==='response.create').length===2);assert.deepEqual(await page.evaluate(()=>window.textOnly),['text']);assert.deepEqual(await page.evaluate(()=>window.opened),['recipes']);assert.equal(await page.evaluate(()=>window.spoken.length),0);
+  await page.evaluate(()=>{const req=window.sent.filter(e=>e.type==='response.create').at(-1);window.emit({type:'response.created',response:{id:'recipe-ready',metadata:req.response.metadata}});window.emit({type:'response.output_text.delta',response_id:'recipe-ready',delta:'Recipes is open. Choose a recipe and I’ll guide you.'});window.emit({type:'response.done',response:{id:'recipe-ready',status:'completed',output:[{type:'message',content:[{type:'output_text',text:'Recipes is open. Choose a recipe and I’ll guide you.'}]}]}});});
+  await page.waitForFunction(()=>window.state==='speaking');assert.deepEqual(await page.evaluate(()=>window.spoken),['Recipes is open. Choose a recipe and I’ll guide you.']);assert.equal(await page.evaluate(()=>window.negotiatedVoice),'archer');
+  await page.evaluate(()=>window.playedAudio.onended());assert.equal(await page.evaluate(()=>window.state),'listening');await page.evaluate(()=>window.controller.close());
  }finally{await browser.close();await new Promise(resolve=>server.close(resolve));}
 });
