@@ -18,7 +18,7 @@ test('voice retains key server-side, uses correlated manual turns and only allow
  let form,headers;const handler=createHandler({store:{execute:async()=>({...scope,status:'ready'})},fetchImpl:async(url,options)=>{assert.equal(url,'https://api.openai.com/v1/realtime/calls');form=options.body;headers=options.headers;return {ok:true,text:async()=>'v=0\r\nanswer'}},env:{OPENAI_API_KEY:'synthetic-private-key'}});
  const response=res();await handler(req(),response);assert.equal(response.code,200);assert.equal(response.body,'v=0\r\nanswer');assert.doesNotMatch(response.body,/private-key/);assert.equal(headers.Authorization,'Bearer synthetic-private-key');
  const session=JSON.parse(form.get('session'));assert.equal(session.audio.output.voice,'marin');assert.deepEqual(session.audio.input.noise_reduction,{type:'far_field'});assert.equal(session.audio.input.turn_detection.create_response,false);assert.equal(session.audio.input.turn_detection.interrupt_response,false);
- assert.deepEqual(session.tools.map(t=>t.name),['read_recipe','create_reminder','read_reminders','find_places','read_route','prepare_appointment','read_appointment_review','read_weather','read_briefing','read_calendar','ask_james','open_page']);assert.match(response.headers['Cache-Control'],/no-store/);assert.ok(session.tools.find(t=>t.name==='open_page').parameters.properties.page.enum.includes('wardrobe'));for(const page of ['lifestyle','recipes','fitness','workouts','garage','finance','growth'])assert.ok(session.tools.find(t=>t.name==='open_page').parameters.properties.page.enum.includes(page));assert.match(session.instructions,/wait for Michael to say next/);assert.match(session.instructions,/no fixed script/);assert.match(session.instructions,/Do not claim you read his closet/);
+ assert.deepEqual(session.tools.map(t=>t.name),['read_recipe','create_reminder','read_reminders','find_places','read_trips','read_forecast','read_route','prepare_appointment','read_appointment_review','read_weather','read_briefing','read_calendar','ask_james','open_page']);assert.match(response.headers['Cache-Control'],/no-store/);assert.ok(session.tools.find(t=>t.name==='open_page').parameters.properties.page.enum.includes('wardrobe'));for(const page of ['lifestyle','recipes','fitness','workouts','garage','finance','growth'])assert.ok(session.tools.find(t=>t.name==='open_page').parameters.properties.page.enum.includes(page));assert.match(session.instructions,/wait for Michael to say next/);assert.match(session.instructions,/no fixed script/);assert.match(session.instructions,/Do not claim you read his closet/);
 });
 test('provider rejection never masquerades as James sign-out or leaks provider details',async()=>{
  for(const status of [401,403,429,500]){const handler=createHandler({store:{execute:async()=>({...scope,status:'ready'})},fetchImpl:async()=>({ok:false,status,text:async()=>'PRIVATE_PROVIDER_DETAIL'}),env:{OPENAI_API_KEY:'synthetic-only'}});const response=res();await handler(req(),response);assert.equal(response.code,502);assert.doesNotMatch(JSON.stringify(response),/PRIVATE_PROVIDER_DETAIL|synthetic-only/);}
@@ -35,4 +35,15 @@ test('Archer retains realtime input and tools but requests text output only afte
  const handler=createHandler({store:{execute:async()=>({...scope,status:'ready'})},fetchImpl:async(_,options)=>{calls++;form=options.body;return {ok:true,text:async()=>'v=0 answer'};},env:config});
  const request=req();request.body.voice='archer';const blocked=res();await handler(request,blocked);assert.equal(blocked.code,503);assert.equal(calls,0);
  config.JAMES_ARCHER_ENABLED='true';const ready=res();await handler(request,ready);assert.equal(ready.code,200);const session=JSON.parse(form.get('session'));assert.deepEqual(session.output_modalities,['text']);assert.equal(session.audio.output,undefined);assert.ok(session.audio.input.transcription);assert.ok(session.tools.find(tool=>tool.name==='read_recipe'));
+});
+
+
+test('paid Archer activation stays inside combined Preview and supports explicit disable',()=>{
+ const {archerEnabled}=require('../lib/archer-config');
+ const env={VERCEL_ENV:'preview',VERCEL_GIT_COMMIT_REF:'fix/calendar-refresh-diagnosis-20261031'};
+ assert.equal(archerEnabled(env),true);
+ assert.equal(archerEnabled({...env,JAMES_ARCHER_ENABLED:'false'}),false);
+ assert.equal(archerEnabled({...env,VERCEL_ENV:'production'}),false);
+ assert.equal(archerEnabled({...env,VERCEL_GIT_COMMIT_REF:'another-preview'}),false);
+ assert.equal(archerEnabled({}),false);
 });

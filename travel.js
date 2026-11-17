@@ -34,6 +34,7 @@ function mountTravel({list, read, save}) {
   const suffix = '.james-trip.json';
   let request = 0;
   let savedTrips = [];
+  let tripsStatus = 'not_loaded', loadedAt = null, pendingTrips = null;
   let selectedGroup = '';
   for(const button of section.querySelectorAll('[data-trip-group]')){
     button.onclick=()=>{
@@ -62,11 +63,18 @@ function mountTravel({list, read, save}) {
       if (/^The original Drive Weather route shows .+ and omits .+\.$/i.test(stop.trim())) continue;
       item.append(tag('p', stop.replace(/Leave Sunstone, Las Vegas\b/i,'Leave Northwest Las Vegas')));
     }
+    for(const leg of tripDirections(trip)){
+      const link=tag('a',leg.label+' · Google Maps');
+      link.href=leg.url;link.target='_blank';link.rel='noopener noreferrer';
+      const row=tag('p','');row.append(link);item.append(row);
+    }
     if (trip.route) {
-      const link = tag('a', 'Open original Drive Weather route');
+      const details=tag('details','');details.append(tag('summary','Saved Drive Weather link'));
+      details.append(tag('p','An app-shared link, not a live weather connection.'));
+      const link = tag('a', 'Original shared link');
       link.href = trip.route;
       link.rel = 'noreferrer';
-      item.append(link);
+      details.append(link);item.append(details);
     }
     return item;
   }
@@ -164,7 +172,43 @@ function mountTravel({list, read, save}) {
     if(notes.length)link.append(tag('span',notes.slice(0,2).join(' · ')));
     link.append(tag('small','Open itinerary →'));return link;
   }
-  window.jamesTripCalendar = {tripsOn, tripLink};
+  function snapshot() {
+    return {status:tripsStatus,loadedAt,trips:savedTrips.map(trip=>({
+      id:trip.id,title:trip.title,start:trip.start,end:trip.end||null,
+      mode:trip.mode||(trip.route?'driving':'unspecified'),
+      stops:trip.stops.filter(stop=>!/^The original Drive Weather route shows .+ and omits .+\.$/i.test(stop.trim()))
+        .map(stop=>stop.replace(/Leave Sunstone, Las Vegas\b/i,'Leave Northwest Las Vegas')),
+      directions:tripDirections(trip),
+      driveWeather:{savedLink:Boolean(trip.route),connected:false,status:trip.route?'app_share_link_unverified':'not_linked'}
+    }))};
+  }
+  async function loadTrips() {
+    if(pendingTrips)return pendingTrips;
+    tripsStatus='loading';
+    pendingTrips=(async()=>{
+      try {
+        const {files}=await list();
+        if(!Array.isArray(files))throw Error('Invalid file list');
+        const results=await Promise.allSettled(files.filter(f=>f.name.endsWith(suffix)).map(async f=>{
+          if(cache.has(f.id))return cache.get(f.id);
+          const trip=JSON.parse(await (await read(f.id)).text());
+          if(!validTrip(trip))throw Error('Invalid saved trip');
+          return {...trip,id:f.id};
+        }));
+        savedTrips=results.filter(r=>r.status==='fulfilled').map(r=>r.value).sort((a,b)=>a.start.localeCompare(b.start));
+        cache=new Map(savedTrips.map(trip=>[trip.id,trip]));
+        tripsStatus=results.some(r=>r.status==='rejected')?'partial':'ready';
+        loadedAt=new Date().toISOString();
+        return savedTrips;
+      } catch(error) {tripsStatus=savedTrips.length?'stale':'unavailable';throw error;}
+      finally {pendingTrips=null;}
+    })();
+    return pendingTrips;
+  }
+  window.jamesTripCalendar = {tripsOn, tripLink,snapshot,read:async()=>{
+    try {await loadTrips();} catch {}
+    return snapshot();
+  }};
   async function show() {
     const travelOpen = section.classList.contains('active');
     const briefing = document.getElementById('briefing');
@@ -193,14 +237,7 @@ function mountTravel({list, read, save}) {
     }
     if (travelOpen) panel.replaceChildren(tag('p','Loading trips…'));
     try {
-      const {files} = await list();
-      const trips = await Promise.all(files.filter(f => f.name.endsWith(suffix)).map(async f => {
-        if (cache.has(f.id)) return cache.get(f.id);
-        const file = await read(f.id);
-        const trip = JSON.parse(await file.text());
-        if (!validTrip(trip)) throw Error('Invalid saved trip');
-        return {...trip, id:f.id};
-      }));
+      const trips = await loadTrips();
       if (seq !== request) return;
       const now = new Date();
       const today = [now.getFullYear(), String(now.getMonth()+1).padStart(2,'0'), String(now.getDate()).padStart(2,'0')].join('-');
@@ -268,4 +305,24 @@ function mountTravel({list, read, save}) {
   if (isTravelLink()) setTimeout(launch,0);
   else show();
 }
-if (typeof module !== 'undefined') module.exports = {tripDate, validTrip, tripGroup};
+// Map each leg separately: mobile Maps URLs support only a limited number of
+// waypoints. Keep all saved intermediate stops, including 'via' stops.
+function tripDirections(trip) {
+  if(!trip.route&&trip.mode!=='driving')return [];
+  const title=trip.title.match(/^(.+?)\s+to\s+(.+?)(?:\s+[·–-]\s+driving)?$/i);
+  if(!title)return [];
+  const points=[title[1]],clean=value=>value.trim().replace(/\.$/,'');
+  for(const line of trip.stops){
+    for(const match of line.matchAll(/(?:overnight\b[^.]{0,90}?\bin |stop in |continue via )([A-Z][a-z]+(?: [A-Z][a-z]+)*)/g)){
+      const city=clean(match[1]);if(points[points.length-1]!==city)points.push(city);
+    }
+  }
+  const destination=trip.stops.find(s=>/^Planned destination:\s*/i.test(s));
+  const end=destination?clean(destination.replace(/^Planned destination:\s*/i,'')):trip.destination||title[2];
+  if(points[points.length-1]!==end)points.push(end);
+  return points.slice(1).map((to,i)=>({label:points[i]+' → '+to,
+    url:'https://www.google.com/maps/dir/?'+new URLSearchParams({api:'1',origin:points[i],destination:to,travelmode:'driving'}),
+    opens:'Google Maps',basis:'saved itinerary locations; Maps chooses roads',liveTrafficVerified:false}));
+}
+if (typeof module !== 'undefined') module.exports = {tripDate, validTrip, tripGroup,tripDirections};
+

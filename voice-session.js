@@ -37,7 +37,9 @@
   function markDelivered(ticket){if(!ticket)return;delivered.add(ticket.key+'|'+ticket.day);try{storage?.setItem(ticket.key,ticket.day);}catch{}}
   return {candidate,markDelivered};
  }
- function mount({ui,orb,button,settingsButton,setState,createReminder=async()=>({status:"unavailable"}),readReminders=()=>({status:"unavailable"}),findPlaces=async()=>({status:"unavailable"}),prepareAppointment=async()=>({status:"unavailable"}),readAppointmentReview=()=>({status:"none"}),readRecipe=action=>root.jamesRecipes?.read(action)||({status:'unavailable'}),readRoute=()=>({status:"unavailable"}),readWeather=()=>({status:"unavailable"}),readBriefing=()=>({status:"unavailable"}),readCalendar=async()=>({status:"unavailable"}),fetcher=fetch,media=root.navigator.mediaDevices,Peer=root.RTCPeerConnection}){
+ function mount({ui,orb,button,settingsButton,setState,createReminder=async()=>({status:"unavailable"}),readReminders=()=>({status:"unavailable"}),findPlaces=async()=>({status:"unavailable"}),prepareAppointment=async()=>({status:"unavailable"}),readAppointmentReview=()=>({status:"none"}),readRecipe=action=>root.jamesRecipes?.read(action)||({status:'unavailable'}),readTrips=async()=>root.jamesTripCalendar?.read()||({status:'unavailable'}),readForecast=async({location,country,date})=>{
+   try {const response=await fetcher('/api/travel/forecast?'+new URLSearchParams({location,country,date}),{credentials:'same-origin',cache:'no-store'});return response.ok?await response.json():{status:'unavailable'};}catch{return {status:'unavailable'};}
+  },readRoute=()=>({status:"unavailable"}),readWeather=()=>({status:"unavailable"}),readBriefing=()=>({status:"unavailable"}),readCalendar=async()=>({status:"unavailable"}),fetcher=fetch,media=root.navigator.mediaDevices,Peer=root.RTCPeerConnection}){
   const doc=orb.ownerDocument,panel=doc.createElement('aside'),status=doc.createElement('p'),transcript=doc.createElement('p'),mute=doc.createElement('button'),stop=doc.createElement('button'),interrupt=doc.createElement('button');
   const launchTalk=doc.createElement('button');
   launchTalk.type='button';launchTalk.textContent='Start conversation';launchTalk.hidden=true;
@@ -89,6 +91,8 @@
     else if(item.name==='create_reminder'&&Object.keys(args).sort().join('|')==='dueAt|timeZone|title')output=await createReminder(args);
     else if(item.name==='read_reminders'&&Object.keys(args).length===0)output=readReminders();
     else if(item.name==='find_places'&&Object.keys(args).sort().join('|')==='area|query'&&['nearby','explicit'].includes(args.area)&&typeof args.query==='string'&&args.query.trim().length>=3&&args.query.length<=400)output=await findPlaces(args.query,args.area);
+    else if(item.name==='read_trips'&&Object.keys(args).length===0)output=await readTrips();
+    else if(item.name==='read_forecast'&&Object.keys(args).sort().join('|')==='country|date|location'&&typeof args.location==='string'&&args.location.length>=2&&args.location.length<=120&&/^[A-Z]{2}$/.test(args.country)&&/^\d{4}-\d{2}-\d{2}$/.test(args.date))output=await readForecast(args);
     else if(item.name==='read_route'&&Object.keys(args).length===0)output=readRoute();
     else if(item.name==='read_appointment_review'&&Object.keys(args).length===0)output=readAppointmentReview();
     else if(item.name==='prepare_appointment'&&Object.keys(args).sort().join('|')==='end|location|start|timeZone|title')output=await prepareAppointment(args);
@@ -223,4 +227,5 @@
  }
  root.JamesVoiceSession={mount,createMorningOutfitOffer,createArcherPlayback};
 })(typeof window==='undefined'?globalThis:window);
+
 

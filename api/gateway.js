@@ -50,6 +50,7 @@ const exactHandlers = new Map([
   ["api/microsoft/mail", microsoftMail],
   ["api/microsoft/compose", require("../lib/routes/outlook-compose.js")],
   ["api/microsoft/triage", microsoftTriage],
+  ["api/travel/forecast", require("../lib/routes/trip-forecast.js")],
   ["api/tasks", tasks],
   ["api/attention", attention],
   ["api/attention/alert", require("../lib/routes/review-alert.js")],
@@ -156,4 +157,5 @@ module.exports = async function handler(req, res) {
 };
 
 module.exports.requestedPath = requestedPath;
+
 

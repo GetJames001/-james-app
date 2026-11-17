@@ -4,7 +4,11 @@ Michael selected Archer – Conversational, voice ID `Fahco4VZzobUeiPqni1S`.
 
 The authenticated OpenAI WebRTC session and James tools handle input, navigation and saved-recipe guidance. Archer uses text-only responses and the server-only ElevenLabs speech endpoint. Interrupted or ended turns discard late audio; unavailable Archer never silently switches voices.
 
-## Verified November 17, 2026
+## Current activation update — November 17, 2026
+
+Michael subsequently confirmed **Paid** and retained Archer. The purchase pause below is historical. Combined Preview now defaults Archer activation on through `lib/archer-config.js` when its existing key is present; explicit `JAMES_ARCHER_ENABLED=false` disables it. Production and other Preview branches are unchanged. No subscription, key or credit cap was modified. Provider entitlement and actual playback remain to be verified after deployment. See [travel-voice-20261117.md](travel-voice-20261117.md).
+
+## Earlier verified checkpoint — November 17, 2026
 
 - Combined Preview code: `d4846ef543d80eefc943d09a97bee3288c732ed8`.
 - Vercel James Preview deployment succeeded: https://vercel.com/james-cb7a/james-app/FoTCtEdztn6iTmJRxXZhS1HtXnwG
@@ -15,16 +19,16 @@ The authenticated OpenAI WebRTC session and James tools handle input, navigation
 - `JAMES_ARCHER_ENABLED` was NOT saved. Archer is not active or selected on Michael's devices. No actual provider speech request or subscription purchase occurred.
 - The environment credential was added after the deployment above. Redeploy after activation to pick up environment changes.
 
-## Exact remaining blocker
+## Historical pre-purchase blocker
 
 ElevenLabs documentation says Voice Library voices cannot be used through the API on Free, even when website previews work:
 https://elevenlabs.io/docs/overview/capabilities/voices
 
 The signed-in monthly subscription screen offers Starter at $1 for the first month, then $6/month (taxes excluded). Michael subsequently approved a one-month trial with a renewal reminder, then asked to pause plan selection for a voice-quality and value review. Purchase remains paused pending that review and choice. Do not treat the earlier approval as an instruction to complete checkout now. Current key cap is deliberately conservative and should be reviewed before sustained daily use.
 
-## After subscription approval and account upgrade
+## Remaining verification after purchase
 
-1. Set `JAMES_ARCHER_ENABLED=true` only for the combined Preview branch and redeploy it.
+1. Deploy the combined Preview activation update so it picks up the existing branch-scoped key.
 2. Verify authenticated GET `/api/james/speech` reports ready. This is configuration presence, not provider entitlement.
 3. Verify an actual short Archer request succeeds, then select Archer in James Voice Settings.
 4. Give Michael one focused iPad check: say “open recipes” and confirm the complete spoken response continues after navigation. Android interruption check follows separately.
@@ -36,3 +40,4 @@ Wardrobe header fix remains independently deployed to the private Wardrobe site,
 ## Voice-quality review
 
 The November 17 review and next implementation gates are recorded in [voice-delivery-decision-20261117.md](voice-delivery-decision-20261117.md). Current speech is fully buffered, not end-to-end streaming. Model auditions and live voice quality remain unverified. The recommendation preserves James's existing conversation/tools while improving speech delivery; it does not activate Archer or a new model.
+
