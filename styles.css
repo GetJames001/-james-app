@@ -1369,3 +1369,19 @@ html[data-theme=light] .james-shell .intel-strip>.briefing-wardrobe{background:#
 #workoutPlayer {padding:1rem 0}
 #workoutPlayer .mag-bar {margin-top:.7rem}
 #workoutClock {font-variant-numeric:tabular-nums}
+#app #cookbookCover {position:relative;isolation:isolate;display:block;width:min(76%,370px);aspect-ratio:2/3;overflow:hidden;margin:1.5rem auto 2.3rem;padding:0;border:1px solid #b8996b;border-radius:3px 12px 12px 3px;box-shadow:4px 3px #d2bf9f,8px 6px #836c51,12px 18px 25px #0007;transform:rotate(-1deg);background:#23201c;color:#fff6e2;cursor:pointer}
+#cookbookCover img {position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:-2}
+#cookbookCover::before {content:"";position:absolute;inset:0;background:linear-gradient(90deg,#0009,transparent 4%,#fff3 5%,transparent 6%),linear-gradient(180deg,#10141cdb,transparent 40%,transparent 58%,#10141cf5);z-index:-1}
+.cook-cover-title,.cook-cover-footer {position:absolute;left:8%;right:8%;display:grid;gap:.5em;color:#fff6e2;text-shadow:0 2px 8px #0008}
+.cook-cover-title {top:7%;text-align:center}.cook-cover-title strong {font:500 clamp(1.9rem,4vw,3.1rem)/1 Georgia,serif}.cook-cover-title small,.cook-cover-footer small {font:.75rem/1.3 system-ui;letter-spacing:.12em}
+.cook-cover-footer {bottom:7%;text-align:left}.cook-cover-footer b {font:italic 1.3rem Georgia,serif}
+#cookReader {box-sizing:border-box;background:#101c2b;color:#fff4dd;border:1px solid #907951;border-radius:10px;padding:clamp(12px,2vw,28px);width:min(900px,96vw);max-height:94dvh;overflow:auto}
+#cookReader.fit {width:min(1440px,98vw);max-width:98vw;max-height:98dvh}
+#cookReader::backdrop {background:#02080fec}
+.cook-toolbar {display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.6rem;margin-bottom:1rem}
+.cook-toolbar strong {font:1.45rem Georgia,serif}.cook-toolbar div {display:flex;gap:.4rem}
+#cookReader .mag-book {perspective:1200px;touch-action:pan-y pinch-zoom}
+#cookReader .mag-book:is(.turn-forward,.turn-back)::before {content:"";position:absolute;z-index:2;inset:0 0 0 50%;background:linear-gradient(90deg,#bbab8c,#f3e8cd 15%,#e5d9bb);pointer-events:none;transform-origin:left;animation:cookFlip .48s ease-out forwards}
+#cookReader .mag-book.turn-back::before {inset:0 50% 0 0;transform-origin:right;animation-name:cookFlipBack}
+@keyframes cookFlip {to{transform:rotateY(-175deg);opacity:0}}@keyframes cookFlipBack {to{transform:rotateY(175deg);opacity:0}}
+@media(prefers-reduced-motion:reduce){#cookReader .mag-book:is(.turn-forward,.turn-back)::before{display:none}#app #cookbookCover{transform:none}}

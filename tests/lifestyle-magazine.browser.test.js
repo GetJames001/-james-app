@@ -7,9 +7,13 @@ test('Lifestyle on iPad opens existing Wardrobe, saves a recipe across refresh, 
  const browser=await chromium.launch();
  try{
   const page=await browser.newPage({viewport:{width:820,height:1180},reducedMotion:'reduce'});
-  let saved=null;
+  let saved=null,deleted=[];
   await page.route('https://test.invalid/**',async route=>{
    const url=new URL(route.request().url()),path=url.pathname.slice(1)||'index.html';
+   if(path==='api/lifestyle/cookbook'){
+    if(route.request().method()==='DELETE'){deleted.push(route.request().postDataJSON().url);return route.fulfill({status:204});}
+    return route.fulfill({json:url.search?{urls:deleted}:{items:[]}});
+   }
    if(path==='api/lifestyle/feed'){
     if(url.searchParams.get('source')==='recipes')return route.fulfill({json:{publisher:'Budget Bytes',items:[{title:'Roasted peppers',url:'https://www.budgetbytes.com/roasted-peppers/'}]}});
     if(url.searchParams.get('source')==='business')return route.fulfill({json:{publisher:'PBS News',items:[1,2,3].map(n=>({title:'Sample story '+n,url:'https://www.pbs.org/newshour/economy/'+n,photo:'https://test.invalid/assets/lifestyle/finance.jpg'}))}});
@@ -26,6 +30,11 @@ test('Lifestyle on iPad opens existing Wardrobe, saves a recipe across refresh, 
   const cards=page.locator('#lifestyle .mag-tile');assert.equal(await cards.count(),7);
   assert.equal(await page.locator('#lifestyle a.mag-tile').getAttribute('href'),await page.locator('.wardrobe-launch').getAttribute('href'));
   await page.locator('#lifestyle [data-action-page=recipes]').click();
+  await page.locator('#cookbookCover').click();
+  assert.equal(await page.locator('#cookReader').evaluate(d=>d.open),true);
+  await page.locator('#cookFit').click();
+  assert.equal(await page.locator('#cookFit').textContent(),'Fit to screen');
+  await page.locator('#cookFit').click();
   assert.equal(await page.locator('#bookPage ul li').count(),8);
   assert.equal(await page.locator('#bookPage ol li').count(),4);
   for(const width of [1180,820,390]){
@@ -38,10 +47,19 @@ test('Lifestyle on iPad opens existing Wardrobe, saves a recipe across refresh, 
    assert.ok(layout.width>130 && layout.line>layout.width*.6,'Method uses the available page width');
   }
   await page.setViewportSize({width:820,height:1180});
+  await page.locator('#cookClose').click();
   await page.getByRole('button',{name:'Save to book'}).click();
   await page.waitForFunction(()=>document.querySelector('#bookPage h3').textContent==='Roasted peppers');
   await page.reload();await page.waitForFunction(()=>document.querySelector('#bookPosition').textContent.endsWith('/ 2'));
+  await page.locator('#cookbookCover').click();
   await page.locator('#bookNext').click();assert.equal(await page.locator('#bookPage a').getAttribute('href'),'https://www.budgetbytes.com/roasted-peppers/');
+  await page.keyboard.press('ArrowLeft');
+  assert.equal(await page.locator('#bookPosition').textContent(),'1 / 2');
+  await page.keyboard.press('Escape');
+  await page.getByRole('button',{name:'Delete Roasted peppers'}).click();
+  await page.getByText('No new recipe suggestions.').waitFor();
+  await page.reload();await page.getByText('No new recipe suggestions.').waitFor();
+  await page.waitForFunction(()=>document.querySelector('#bookPosition').textContent==='1 / 2');
   await page.locator('nav [data-page=lifestyle]').click();await page.locator('#lifestyle [data-action-page=growth]').click();
   const visual=await page.evaluate(()=>({
    canvas:getComputedStyle(document.getElementById('app')).backgroundImage,
@@ -118,6 +136,7 @@ test('cookbook imports board destinations and a second scan keeps a single recip
   await page.locator('nav [data-page=lifestyle]').click();await page.locator('#lifestyle [data-action-page=recipes]').click();
   await page.locator('#recipeBoardSync').click();
   await page.getByText('1 added to your book').waitFor();
+  await page.locator('#cookbookCover').click();
   await page.locator('#bookNext').click();
   assert.equal(await page.locator('#bookPage h3').textContent(),item.title);
   assert.equal(await page.locator('#bookPhoto').getAttribute('src'),item.photo);
