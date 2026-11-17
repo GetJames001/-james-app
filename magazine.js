@@ -32,13 +32,44 @@ function mountMagazine({list,read,save}){
   el('cookCount').textContent=pages.length+(pages.length===1?' recipe':' recipes');
   el('bookPosition').textContent=(current+1)+' / '+pages.length;el('bookPrev').disabled=current===0;el('bookNext').disabled=current===pages.length-1;
  }
+ let repairing=false,repaired=false;
+ async function repairLinks(items){
+  repairing=true;
+  try{
+   for(const item of items){
+    if(item.kind!=='saved-pin'||item.url===item.pinUrl)continue;
+    await importRecipe(item.url,false,{title:item.title,url:item.pinUrl,recipeSource:item.url,image:item.photo}).catch(()=>{});
+   }
+   await loadBook();
+  }finally{repairing=false;}
+ }
  async function loadBook(){
   const generation=++bookRequest;
   try{
    const [{files},imports]=await Promise.all([list(),fetch('/api/lifestyle/cookbook',{cache:'no-store'}).then(r=>r.ok?r.json():{}).catch(()=>({}))]);
    const rows=await Promise.all(files.filter(f=>f.name.endsWith(suffix)).map(async f=>JSON.parse(await (await read(f.id)).text())));
    if(generation!==bookRequest)return;
-   const selected=pages[current]?.url;pages=[...new Map([gumbo,...rows.filter(safeRecipe),...(imports.items||[]).filter(safeRecipe)].map(row=>[row.url,row])).values()];
+   const selected=pages[current]?.url;
+   const readable=new Map(),pins=new Map();
+   for(const item of [gumbo,...rows.filter(safeRecipe),...(imports.items||[]).filter(safeRecipe)]){
+    const canonical=new URL(item.url,location.href);
+    canonical.hash='';
+    for(const param of [...canonical.searchParams.keys()])if(/^utm_|^fbclid$|^epik$/.test(param))canonical.searchParams.delete(param);
+    canonical.pathname=canonical.pathname.replace(/\/$/,'');
+    const key=item===gumbo?gumbo.url:canonical.href;
+    if(item===gumbo||item.ingredients?.length&&item.steps?.length)readable.set(key,item);
+    else pins.set(key,item);
+   }
+   pages=[...readable.values()];
+   let savedPins=el('cookSavedPins');
+   if(!savedPins){savedPins=tag('details','');savedPins.id='cookSavedPins';el('cookbookCover').after(savedPins);}
+   const pending=[...pins].filter(([key])=>!readable.has(key)).map(([,item])=>item);
+   savedPins.hidden=!pending.length;
+   savedPins.replaceChildren(tag('summary','Saved links ('+pending.length+')'));
+   for(const item of pending)savedPins.append(link(item.title,item.url));
+   if(!repairing && !repaired && pending.some(item=>item.kind==='saved-pin'&&item.url!==item.pinUrl)){
+    repaired=true;void repairLinks(pending);
+   }
    current=Math.max(0,pages.findIndex(row=>row.url===selected));drawBook();el('bookNotice').textContent='';
   }catch{if(generation===bookRequest)el('bookNotice').textContent='Saved recipes could not be refreshed.';}
  }
@@ -84,7 +115,7 @@ function mountMagazine({list,read,save}){
    }
    await loadBook();lastScan=Date.now();
    await showPinterestIdeas(event.data.discovery);void discoverMatches();
-   boardStatus.textContent=[added?added+' full recipes added':'',linked?linked+' saved as recipe links':'',!added&&!linked&&!skipped&&!failed?'Book up to date':'',skipped?skipped+' without a supported recipe':'',failed?failed+' could not be checked. Try again.':''].filter(Boolean).join(' · ');
+   boardStatus.textContent=[added?added+(added===1?' full recipe added':' full recipes added'):'',linked?linked+' saved as recipe links':'',!added&&!linked&&!skipped&&!failed?'Book up to date':'',skipped?skipped+' without a supported recipe':'',failed?failed+' could not be checked. Try again.':''].filter(Boolean).join(' · ');
   }finally{importing=false;boardButton.disabled=false;}
  });
  boardButton.onclick=()=>boardScan(true);

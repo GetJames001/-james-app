@@ -15,7 +15,7 @@ test('Lifestyle on iPad opens existing Wardrobe, saves a recipe across refresh, 
    if(path==='api/lifestyle/cookbook'){
     if(route.request().method()==='DELETE'){deleted.push(route.request().postDataJSON().url);return route.fulfill({status:204});}
     if(route.request().method()==='POST'){cookSaved=true;return route.fulfill({json:{status:'added'}});}
-    return route.fulfill({json:url.search?{urls:deleted}:{items:cookSaved?[pick]:[]}});
+    return route.fulfill({json:url.search?{urls:deleted}:{items:cookSaved?[{...pick,ingredients:['2 peppers'],steps:['Roast the peppers.']}]:[]}});
    }
    if(path==='api/lifestyle/feed'){
     if(url.searchParams.get('source')==='recipes')throw Error('Publisher feed must not be used for Pinterest inspiration');
@@ -124,13 +124,20 @@ test('cookbook imports board destinations and a second scan keeps a single recip
   const page=await browser.newPage({viewport:{width:820,height:1180}}),ctx=page.context();
   const dest='https://www.eatwell101.com/parmesan-roasted-brussels-sprouts';
   const item={url:dest,title:'Garlic Parmesan Roasted Brussels Sprouts',publisher:'Eatwell101',ingredients:['Brussels sprouts'],steps:['Roast until golden.'],photo:'https://www.eatwell101.com/photo.jpg'};
-  let stored=false;
-  await ctx.route('https://aaru-working-review.aglow-ox-8353.chatgpt.site/wardrobe/recipe-board',r=>r.fulfill({contentType:'text/html',body:'<script>(window.opener||parent).postMessage('+JSON.stringify({type:'james-recipe-board',links:[dest,dest],missing:0})+',"https://test.invalid");if(window.opener)window.close()</script>'}));
+  const pin={url:'https://www.pinterest.com/pin/123456789/',title:'Saved dinner idea'};
+  const stored=new Map();
+  let postCount=0;
+  await ctx.route('https://aaru-working-review.aglow-ox-8353.chatgpt.site/wardrobe/recipe-board',r=>r.fulfill({contentType:'text/html',body:'<script>(window.opener||parent).postMessage('+JSON.stringify({type:'james-recipe-board',links:[dest],pins:[{url:"https://www.pinterest.com/pin/456/",recipeSource:dest},pin],missing:1})+',"https://test.invalid");if(window.opener)window.close()</script>'}));
   await ctx.route('https://test.invalid/**',async r=>{
    const path=new URL(r.request().url()).pathname.slice(1)||'index.html';
    if(path==='api/lifestyle/cookbook'){
-    if(r.request().method()==='GET')return r.fulfill({json:{items:stored?[item]:[]}});
-    const status=stored?'existing':'added';stored=true;return r.fulfill({json:{status}});
+    if(r.request().method()==='GET')return r.fulfill({json:{items:[...stored.values()]}});
+    const body=r.request().postDataJSON(),key=body.url||body.pin.url;
+    postCount++;
+    if(stored.has(key))return r.fulfill({json:{status:'existing'}});
+    const full=key===dest;
+    stored.set(key,full?item:{...pin,kind:'saved-pin',pinUrl:pin.url,publisher:'Mad Food Son'});
+    return r.fulfill({json:{status:full?'added':'linked'}});
    }
    if(path==='api/james/files')return r.fulfill({json:{files:[]}});
    if(!path.includes('..')&&fs.existsSync(path)&&fs.statSync(path).isFile())return r.fulfill({path});
@@ -139,13 +146,21 @@ test('cookbook imports board destinations and a second scan keeps a single recip
   await page.goto('https://test.invalid');
   await page.locator('nav [data-page=lifestyle]').click();await page.locator('#lifestyle [data-action-page=recipes]').click();
   await page.locator('#recipeBoardSync').click();
-  await page.getByText('1 added to your book').waitFor();
+  await page.getByText('1 full recipe added · 1 saved as recipe links',{exact:true}).waitFor();
+  await page.locator('#cookSavedPins summary').click();
+  assert.equal(await page.locator('#cookSavedPins a').getAttribute('href'),pin.url);
   await page.locator('#cookbookCover').click();
   await page.locator('#bookNext').click();
   assert.equal(await page.locator('#bookPage h3').textContent(),item.title);
   assert.equal(await page.locator('#bookPhoto').getAttribute('src'),item.photo);
   assert.equal(await page.locator('#bookPage ol li').textContent(),item.steps[0]);
-  await page.reload();await page.getByText('Book up to date',{exact:true}).waitFor();
+  await page.locator('#cookClose').click();
+  await page.locator('#recipeBoardSync').click();
+  await page.getByText('Book up to date',{exact:true}).waitFor();
+  assert.equal(postCount,4);
+  assert.equal(stored.size,2);
+  await page.locator('#cookbookCover').click();
+  await page.locator('#bookPrev').click();
   assert.equal(await page.locator('#bookPosition').textContent(),'1 / 2');
  }finally{await browser.close();}
 });

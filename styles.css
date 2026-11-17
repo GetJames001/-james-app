@@ -1385,3 +1385,14 @@ html[data-theme=light] .james-shell .intel-strip>.briefing-wardrobe{background:#
 #cookReader .mag-book.turn-back::before {inset:0 50% 0 0;transform-origin:right;animation-name:cookFlipBack}
 @keyframes cookFlip {to{transform:rotateY(-175deg);opacity:0}}@keyframes cookFlipBack {to{transform:rotateY(175deg);opacity:0}}
 @media(prefers-reduced-motion:reduce){#cookReader .mag-book:is(.turn-forward,.turn-back)::before{display:none}#app #cookbookCover{transform:none}}
+
+#cookSavedPins{margin:1rem 0}
+#cookSavedPins a{display:block;margin:.65rem 0}
+@media(min-width:621px){
+ #app #recipes #cookReader .mag-book{height:min(65dvh,680px);grid-template-rows:minmax(0,1fr)}
+ #app #recipes #cookReader #bookPage{overflow:auto;min-height:0}
+ #app #recipes #cookReader #bookPhoto{height:100%;max-height:100%;object-fit:cover}
+}
+@media(max-width:620px){
+ #app #recipes #cookReader #bookPhoto{width:100%;height:clamp(130px,24dvh,210px);object-fit:cover}
+}
