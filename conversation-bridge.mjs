@@ -2,7 +2,7 @@
 // authenticates a client-supplied owner or creates a conversation identity.
 const plain = v => v && Object.getPrototypeOf(v) === Object.prototype;
 const id = v => typeof v === 'string' && /^[a-zA-Z0-9_-]{1,160}$/.test(v);
-const doors = new Set(['briefing', 'calendar', 'wardrobe', 'finance', 'health', 'growth', 'tasks', 'files', 'workbench', 'customer-database', 'personalMail', 'attention', 'conversations', 'travel', 'insights']);
+const doors = new Set(['briefing', 'calendar', 'wardrobe', 'finance', 'health', 'growth', 'lifestyle', 'recipes', 'fitness', 'workouts', 'garage', 'tasks', 'files', 'workbench', 'customer-database', 'personalMail', 'attention', 'conversations', 'travel', 'insights']);
 const keys = (v, allowed) => plain(v) && Object.keys(v).every(k => allowed.includes(k));
 function context(value = {}) {
   if (!keys(value, ['projectId','outfitId','versionId','garmentId']) || !Object.values(value).every(id)) throw Error('Invalid selection');
@@ -122,3 +122,4 @@ export function createConversationBridge({identityOwner, navigate, capabilities,
     subscribeEvents(fn){if(typeof fn!=='function')throw Error('Observer required');listeners.add(fn);return ()=>listeners.delete(fn)}
   };
 }
+

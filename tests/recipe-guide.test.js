@@ -1,0 +1,20 @@
+const {test}=require('node:test');
+const assert=require('node:assert/strict');
+const {create}=require('../recipe-guide');
+test('recipe guidance preserves exact quantities, repeats, boundaries and changed recipe state',()=>{
+ let recipe={url:'https://example.test/gumbo',title:'Gumbo',ingredients:['6 cups broth'],steps:['Brown sausage.','Add 6 cups broth.']};
+ const guide=create(()=>recipe);
+ assert.equal(guide.read('repeat').status,'not_started');
+ assert.equal(guide.read('start').instruction,'Brown sausage.');
+ assert.deepEqual(guide.read('ingredients').ingredients,['6 cups broth']);
+ assert.equal(guide.read('repeat').step,1);
+ assert.equal(guide.read('next').instruction,'Add 6 cups broth.');
+ assert.equal(guide.read('next').status,'complete');
+ assert.equal(guide.read('previous').step,1);
+ assert.equal(guide.read('previous').step,1);
+ recipe={...recipe,steps:['New first step.']};
+ assert.equal(guide.read('current').status,'not_started');
+ assert.equal(guide.read('next').instruction,'New first step.');
+ recipe={title:'Photo only'};
+ assert.equal(guide.read('start').status,'unavailable');
+});

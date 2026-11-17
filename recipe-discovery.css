@@ -1,0 +1,11 @@
+.recipe-preview{box-sizing:border-box;width:min(960px,94vw);max-height:90dvh;overflow:auto;background:#102338;color:#f5ecd7;border:1px solid #b49b69;border-radius:16px;padding:20px}
+.recipe-preview::backdrop{background:#020b14b8}
+.recipe-preview-paper{background:#f8efd8;color:#302819;padding:24px;border-radius:8px;margin:16px 0}
+.recipe-preview-paper li{display:list-item;width:auto;max-width:none;white-space:normal;line-height:1.55;margin-bottom:10px}
+.recipe-preview img{display:block;width:100%;max-height:360px;object-fit:cover;border-radius:8px}
+.recipe-preview .mag-bar{display:flex;flex-wrap:wrap;gap:10px}
+#pinterestPicks .mag-story{overflow:hidden;border:1px solid #a38a5b;border-radius:10px;min-height:230px;padding:16px;display:flex;flex-direction:column;justify-content:end;gap:8px}
+#pinterestPicks .mag-story img{width:100%;height:100%;object-fit:cover}
+#pinterestPicks .mag-story small{position:relative;color:#fff;text-shadow:0 1px 4px #000}
+#pinterestPicks .recipe-preview-title{font-family:Georgia,serif;font-size:1.2rem;text-align:left}
+@media(max-width:600px){.recipe-preview{padding:12px}.recipe-preview-paper{padding:18px}}

@@ -18,7 +18,7 @@
   function markDelivered(ticket){if(!ticket)return;delivered.add(ticket.key+'|'+ticket.day);try{storage?.setItem(ticket.key,ticket.day);}catch{}}
   return {candidate,markDelivered};
  }
- function mount({ui,orb,button,settingsButton,setState,createReminder=async()=>({status:"unavailable"}),readReminders=()=>({status:"unavailable"}),findPlaces=async()=>({status:"unavailable"}),prepareAppointment=async()=>({status:"unavailable"}),readAppointmentReview=()=>({status:"none"}),readRoute=()=>({status:"unavailable"}),readWeather=()=>({status:"unavailable"}),readBriefing=()=>({status:"unavailable"}),readCalendar=async()=>({status:"unavailable"}),fetcher=fetch,media=root.navigator.mediaDevices,Peer=root.RTCPeerConnection}){
+ function mount({ui,orb,button,settingsButton,setState,createReminder=async()=>({status:"unavailable"}),readReminders=()=>({status:"unavailable"}),findPlaces=async()=>({status:"unavailable"}),prepareAppointment=async()=>({status:"unavailable"}),readAppointmentReview=()=>({status:"none"}),readRecipe=action=>root.jamesRecipes?.read(action)||({status:'unavailable'}),readRoute=()=>({status:"unavailable"}),readWeather=()=>({status:"unavailable"}),readBriefing=()=>({status:"unavailable"}),readCalendar=async()=>({status:"unavailable"}),fetcher=fetch,media=root.navigator.mediaDevices,Peer=root.RTCPeerConnection}){
   const doc=orb.ownerDocument,panel=doc.createElement('aside'),status=doc.createElement('p'),transcript=doc.createElement('p'),mute=doc.createElement('button'),stop=doc.createElement('button'),interrupt=doc.createElement('button');
   const launchTalk=doc.createElement('button');
   launchTalk.type='button';launchTalk.textContent='Start conversation';launchTalk.hidden=true;
@@ -63,7 +63,8 @@
     const args=JSON.parse(item.arguments);
     if(!args||typeof args!=='object'||Array.isArray(args))throw Error();
     if(!await ui.verifyVoice(s.scope)||!current(s))return close('Conversation changed. Tap James to reconnect.');
-    if(item.name==='read_weather'&&Object.keys(args).length===0)output=readWeather();
+    if(item.name==='read_recipe'&&Object.keys(args).join('|')==='action'&&['current','ingredients','start','next','previous','repeat'].includes(args.action))output=readRecipe(args.action);
+    else if(item.name==='read_weather'&&Object.keys(args).length===0)output=readWeather();
     else if(item.name==='create_reminder'&&Object.keys(args).sort().join('|')==='dueAt|timeZone|title')output=await createReminder(args);
     else if(item.name==='read_reminders'&&Object.keys(args).length===0)output=readReminders();
     else if(item.name==='find_places'&&Object.keys(args).sort().join('|')==='area|query'&&['nearby','explicit'].includes(args.area)&&typeof args.query==='string'&&args.query.trim().length>=3&&args.query.length<=400)output=await findPlaces(args.query,args.area);
@@ -94,7 +95,8 @@
     clearTimeout(s.startup);s.maximum=setTimeout(()=>close('Five-minute voice session ended. Tap James to continue.'),300000);
     context(s);for(const item of s.history)send(s,{type:'conversation.item.create',item:{type:'message',role:item.role==='User'?'user':'assistant',content:[{type:item.role==='User'?'input_text':'output_text',text:item.text}]}});
     state('listening','Listening — speak naturally. You can interrupt James.');
-    if(ui.context().page==='briefing'&&claimDailyWelcome(s))void s.coordinator.submitTyped('Give one short natural time-appropriate welcome and offer the Daily Briefing whenever Michael is ready. Vary the phrasing naturally. This is an invitation only: do not read or summarize his day, appointments or briefing until he asks.');
+    if(s.initialPrompt)void s.coordinator.submitTyped(s.initialPrompt);
+    else if(ui.context().page==='briefing'&&claimDailyWelcome(s))void s.coordinator.submitTyped('Give one short natural time-appropriate welcome and offer the Daily Briefing whenever Michael is ready. Vary the phrasing naturally. This is an invitation only: do not read or summarize his day, appointments or briefing until he asks.');
    }
    if(e.type==='error')s.failureMessage=failureMessage(e.error?.code)||'Voice session failed. Your conversation is retained; tap James to retry.';
    if(!s.coordinator.receive(e))return;
@@ -119,11 +121,12 @@
    }
    if(e.type==='error'&&!['response_cancel_not_active','input_audio_buffer_commit_empty'].includes(e.error?.code))close('Voice session failed. Your conversation is retained; tap James to retry.');
   }
-  async function start(){
-   if(session){close();return;}
+  async function start(options){
+   const prompt=typeof options?.prompt==='string'?options.prompt.slice(0,1000):null;
+   if(session){if(prompt&&session.ready){stopReply();void session.coordinator.submitTyped(prompt);return;}close();if(!prompt)return;}
    launchTalk.hidden=true;panel.hidden=false;mute.disabled=interrupt.disabled=false;mute.textContent='Mute microphone';mute.setAttribute('aria-pressed','false');stop.textContent='Close voice';transcript.textContent='';
    if(!media?.getUserMedia||!Peer){state('idle','Live voice is unavailable in this browser. You can still type to James.');return;}
-   const s={id:++serial,controller:new AbortController(),audio:doc.createElement('audio'),turn:0,calls:new Set(),closed:false,responding:false,userText:'',replyText:''};session=s;
+   const s={initialPrompt:prompt,id:++serial,controller:new AbortController(),audio:doc.createElement('audio'),turn:0,calls:new Set(),closed:false,responding:false,userText:'',replyText:''};session=s;
    s.audio.autoplay=true;s.audio.muted=true;s.audio.setAttribute('playsinline','');
    s.adapter={subscribeTurn:()=>()=>{},end:()=>{if(current(s))close();},interruptReply:()=>{if(current(s))s.coordinator?.interrupt();}};
    state('connecting','Connecting to James…');
@@ -188,3 +191,4 @@
  }
  root.JamesVoiceSession={mount,createMorningOutfitOffer};
 })(typeof window==='undefined'?globalThis:window);
+

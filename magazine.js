@@ -144,34 +144,20 @@ function mountMagazine({list,read,save}){
  });
  boardButton.onclick=()=>boardScan(true);
  if(localStorage.getItem('jamesRecipeBoardEnabled')==='1')boardButton.textContent='Check Saved Pinterest Meals';
- const autoPicks=el('recipeAutoPicks');
- autoPicks.checked=localStorage.getItem('jamesAutoRecipePicks')==='1';
- let matching=false,ideasReady=false,pinterestIdeas=[];
- async function discoverMatches(){
-  if(!autoPicks.checked||matching)return;
-  matching=true;
-  try{
-   const ignore=new Set(['roasted','garlic','fresh','with','baked','easy','quick','recipe','recipes','homemade','simple','creamy']);
-   const words=title=>title.toLowerCase().match(/[a-z]{4,}/g)||[];
-   const interests=new Set(pages.filter(p=>p!==gumbo).flatMap(p=>words(p.title)).filter(w=>!ignore.has(w)));
-   if(!interests.size)return;
-   const items=pinterestIdeas;
-   for(const item of items.filter(row=>words(row.title).some(w=>interests.has(w))).slice(0,2)){
-    const status=await importRecipe(item.url,true);
-    if(status==='added'||status==='existing'){
-     pinterestIdeas=pinterestIdeas.filter(i=>i.url!==item.url);renderIdeas();await loadBook();
-    }
-   }
-  }catch{boardStatus.textContent='Discover picks could not be refreshed.';}finally{matching=false;}
- }
- autoPicks.onchange=()=>{localStorage.setItem('jamesAutoRecipePicks',autoPicks.checked?'1':'0');void discoverMatches();};
+ let ideasReady=false,pinterestIdeas=[];
+ const discoverMatches=()=>Promise.resolve();
  const reader=el('cookReader'),spread=reader.querySelector('.mag-book');
  function openCookbook(){
   reader.classList.add('fit');el('cookFit').textContent='Normal size';el('cookFit').setAttribute('aria-pressed','true');
   if(!reader.open)reader.showModal();
   reader.scrollTop=0;
  }
- el('cookbookCover').onclick=el('bookLaunch').onclick=openCookbook;
+ el('cookbookCover').onclick=openCookbook;
+ window.jamesRecipes=window.JamesRecipeGuide.create(()=>{
+  const recipe=pages[current];
+  return {...recipe,ingredients:[...el('bookPage').querySelectorAll('ul li')].map(n=>n.textContent),steps:[...el('bookPage').querySelectorAll('ol li')].map(n=>n.textContent)};
+ });
+ el('cookWithJames').onclick=()=>{reader.close();void window.jamesVoice?.start({prompt:'Walk me through the selected saved cookbook recipe. Use read_recipe start and read just the first step, then wait for me.'});};
  el('cookClose').onclick=()=>reader.close();
  el('cookFit').onclick=()=>{
   const fit=reader.classList.toggle('fit');el('cookFit').textContent=fit?'Normal size':'Fit to screen';
@@ -208,48 +194,67 @@ function mountMagazine({list,read,save}){
    document.querySelectorAll('[data-finance-view]').forEach(item=>item.setAttribute('aria-pressed',String(item===tab)));
   };
  }
- async function showPinterestIdeas(discovery){
+ let discoveryLoading=false,discoveryChecked=0;
+ async function showPinterestIdeas(){return loadDiscover();}
+ async function loadDiscover(){
+  if(discoveryLoading||Date.now()-discoveryChecked<60000)return;
+  discoveryLoading=true;
   const host=el('pinterestPicks');
-  ideasReady=false;pinterestIdeas=[];
-  if(discovery?.status!=='ready'){
-   host.replaceChildren(tag('p',discovery?.status==='restricted'?'Pinterest has not enabled recipe search for James.':'Pinterest suggestions are unavailable right now.'),link('Browse recipes on Pinterest','https://www.pinterest.com/search/pins/?q=dinner%20recipes'));
-   return;
-  }
-  let deleted;
-  try{deleted=await deletedRecipes();}
-  catch{host.textContent='Recipe preferences could not be loaded.';return;}
-  pinterestIdeas=(discovery.items||[]).filter(item=>!deleted.has(item.url));
-  ideasReady=true;renderIdeas();
+  try{
+   const response=await fetch('/api/lifestyle/cookbook?view=discover',{cache:'no-store'});
+   if(!response.ok)throw Error();
+   const data=await response.json();
+   if(!Array.isArray(data.items))throw Error();
+   pinterestIdeas=data.items;ideasReady=true;
+   if(data.status==='loading'||data.status==='unavailable')throw Error();
+   discoveryChecked=Date.now();renderIdeas();
+  }catch{
+   const retry=tag('button','Retry discoveries');retry.onclick=()=>{discoveryChecked=0;void loadDiscover();};
+   host.replaceChildren(tag('p','New recipes could not be loaded.'),retry);
+  }finally{discoveryLoading=false;}
+ }
+ async function passIdea(item){
+  const r=await fetch('/api/lifestyle/cookbook',{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({url:item.url})});
+  if(!r.ok)throw Error();
+  pinterestIdeas=pinterestIdeas.filter(i=>i.url!==item.url);renderIdeas();
+ }
+ async function saveIdea(item){
+  const status=await importRecipe(item.url,true);
+  if(status!=='existing'&&status!=='added')throw Error();
+  pinterestIdeas=pinterestIdeas.filter(i=>i.url!==item.url);renderIdeas();await loadBook();
+  current=Math.max(0,pages.findIndex(p=>recipeKey(p.url)===recipeKey(item.url)));drawBook();
+ }
+ function previewIdea(item){
+  const dialog=tag('dialog','');dialog.className='recipe-preview';dialog.setAttribute('aria-label',item.title);
+  const close=tag('button','Close preview'),keep=tag('button','Save to book'),pass=tag('button','Pass');
+  const paper=tag('div','');paper.className='recipe-preview-paper';
+  const ingredients=tag('ul',''),steps=tag('ol','');
+  (item.ingredients||[]).forEach(line=>ingredients.append(tag('li',line)));
+  (item.steps||[]).forEach(line=>steps.append(tag('li',line)));
+  paper.append(tag('h3',item.title),tag('small',item.publisher),tag('h4','Ingredients'),ingredients,tag('h4','Method'),steps,link('Original recipe',item.url));
+  const photo=tag('img','');photo.src=item.photo;photo.alt=item.title;
+  const actions=tag('div','');actions.className='mag-bar';actions.append(keep,pass,close);
+  dialog.append(actions,paper,photo);document.body.append(dialog);
+  close.onclick=()=>dialog.close();dialog.onclose=()=>dialog.remove();
+  keep.onclick=async()=>{keep.disabled=true;try{await saveIdea(item);dialog.close();}catch{keep.disabled=false;keep.textContent='Retry save';}};
+  pass.onclick=async()=>{pass.disabled=true;try{await passIdea(item);dialog.close();}catch{pass.disabled=false;pass.textContent='Retry pass';}};
+  dialog.showModal();
  }
  function renderIdeas(){
   const host=el('pinterestPicks');
   pinterestIdeas=pinterestIdeas.filter(item=>!savedIdea(item));
   const cards=pinterestIdeas.map(item=>{
    const row=tag('div','');row.className='mag-story';
-   const image=document.createElement('img');image.src=item.photo;image.alt='';image.referrerPolicy='no-referrer';
-   const keep=tag('button','Save to book'),remove=tag('button','Delete');remove.setAttribute('aria-label','Delete '+item.title);
-   row.append(image,link(item.title,item.pin||item.url),keep,remove);
-   keep.onclick=async()=>{
-    keep.disabled=true;
-    try{
-     const status=await importRecipe(item.url);
-     if(status!=='existing'&&status!=='added'){keep.textContent='Recipe unavailable';return;}
-     pinterestIdeas=pinterestIdeas.filter(i=>i.url!==item.url);renderIdeas();
-     await loadBook();current=Math.max(0,pages.findIndex(p=>recipeKey(p.url)===recipeKey(item.url)));drawBook();
-    }catch{keep.disabled=false;keep.textContent='Retry save';}
-   };
-   remove.onclick=async()=>{
-    remove.disabled=true;
-    try{
-     const r=await fetch('/api/lifestyle/cookbook',{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({url:item.url})});
-     if(!r.ok)throw Error();
-     pinterestIdeas=pinterestIdeas.filter(i=>i.url!==item.url);row.remove();
-     if(!pinterestIdeas.length)host.textContent='No new recipe suggestions.';
-    }catch{remove.disabled=false;remove.textContent='Retry delete';}
-   };
+   const image=tag('img','');image.src=item.photo;image.alt='';image.referrerPolicy='no-referrer';
+   const preview=tag('button',item.title),keep=tag('button','Save to book'),remove=tag('button','Pass');
+   preview.className='recipe-preview-title';preview.onclick=()=>previewIdea(item);
+   remove.setAttribute('aria-label','Pass '+item.title);
+   row.append(image,tag('small',item.publisher),preview,keep,remove);
+   keep.onclick=async()=>{keep.disabled=true;try{await saveIdea(item);}catch{keep.disabled=false;keep.textContent='Retry save';}};
+   remove.onclick=async()=>{remove.disabled=true;try{await passIdea(item);}catch{remove.disabled=false;remove.textContent='Retry pass';}};
    return row;
   });
-  if(cards.length)host.replaceChildren(...cards);else host.textContent='No new recipe suggestions.';
+  if(cards.length)host.replaceChildren(...cards);else host.textContent='You’re up to date with this week’s recipes.';
  }
  const feeds=new Map();
  async function deletedRecipes(){
@@ -443,7 +448,7 @@ function mountMagazine({list,read,save}){
   if(screen.id==='workout-detail')showWorkoutDetail();else stopTimer();
   if(screen.id==='garage')void showServices();
   if(screen.id==='recipes'){
-   void loadBook().then(discoverMatches);
+   void loadBook().then(loadDiscover);
    if(localStorage.getItem('jamesRecipeBoardEnabled')==='1' && !boardFrame && !boardPopup && Date.now()-lastScan>900000)boardScan(false);
   }
   if(screen.id==='fitness'){showWorkout();showHealth();}
@@ -452,3 +457,4 @@ function mountMagazine({list,read,save}){
  window.addEventListener('james:page-changed',openMagazine);
  window.addEventListener('james:calendar-updated',()=>{if(el('fitness').classList.contains('active'))showHealth();});
 }
+

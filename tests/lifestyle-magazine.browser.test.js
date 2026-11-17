@@ -8,13 +8,14 @@ test('Lifestyle on iPad opens existing Wardrobe, saves a recipe across refresh, 
  try{
   const page=await browser.newPage({viewport:{width:820,height:1180},reducedMotion:'reduce'});
   let saved=null,deleted=[],cookSaved=false;
-  const pick={url:'https://www.eatwell101.com/roasted-peppers',title:'Roasted peppers',publisher:'Eatwell101',photo:'https://i.pinimg.com/example.jpg'};
+  const pick={url:'https://www.eatwell101.com/roasted-peppers',title:'Roasted peppers',publisher:'Eatwell101',photo:'https://i.pinimg.com/example.jpg',ingredients:['2 peppers'],steps:['Roast the peppers.']};
   await page.context().route('https://aaru-working-review.aglow-ox-8353.chatgpt.site/wardrobe/recipe-board',r=>r.fulfill({contentType:'text/html',body:'<script>(window.opener||parent).postMessage('+JSON.stringify({type:'james-recipe-board',links:[],missing:0,discovery:{status:'ready',items:[pick,{...pick,url:'https://www.eatwell101.com/roast-carrots',title:'Roast carrots'}]}})+',"https://test.invalid");if(window.opener)window.close()</script>'}));
   await page.route('https://test.invalid/**',async route=>{
    const url=new URL(route.request().url()),path=url.pathname.slice(1)||'index.html';
    if(path==='api/lifestyle/cookbook'){
     if(route.request().method()==='DELETE'){deleted.push(route.request().postDataJSON().url);return route.fulfill({status:204});}
     if(route.request().method()==='POST'){cookSaved=true;return route.fulfill({json:{status:'added'}});}
+    if(url.searchParams.get('view')==='discover')return route.fulfill({json:{status:'ready',items:[pick,{...pick,url:'https://www.eatwell101.com/roast-carrots',title:'Roast carrots'}].filter(p=>!deleted.includes(p.url)&&(!cookSaved||p.url!==pick.url))}});
     return route.fulfill({json:url.search?{urls:deleted}:{items:cookSaved?[{...pick,ingredients:['2 peppers'],steps:['Roast the peppers.']}]:[]}});
    }
    if(path==='api/lifestyle/feed'){
@@ -56,20 +57,24 @@ test('Lifestyle on iPad opens existing Wardrobe, saves a recipe across refresh, 
   await page.setViewportSize({width:820,height:1180});
   await page.locator('#cookClose').click();
   await page.locator('#recipeBoardSync').click();
+  assert.equal(await page.locator('#bookLaunch').count(),0);
+  await page.locator('#pinterestPicks .mag-story').filter({hasText:'Roasted peppers'}).getByRole('button',{name:'Roasted peppers',exact:true}).click();
+  assert.equal(await page.locator('.recipe-preview li').first().textContent(),'2 peppers');
+  await page.getByRole('button',{name:'Close preview',exact:true}).click();
   await page.locator('#pinterestPicks .mag-story').filter({hasText:'Roasted peppers'}).getByRole('button',{name:'Save to book'}).click();
   await page.waitForFunction(()=>document.querySelector('#bookPage h3').textContent==='Roasted peppers');
-  assert.equal(await page.getByRole('button',{name:'Delete Roasted peppers'}).count(),0);
+  assert.equal(await page.getByRole('button',{name:'Pass Roasted peppers'}).count(),0);
   await page.reload();await page.waitForFunction(()=>document.querySelector('#bookPosition').textContent.endsWith('/ 3'));
   await page.locator('#cookbookCover').click();
   await page.locator('#bookNext').click();assert.equal(await page.locator('#bookPage a').getAttribute('href'),pick.url);
   await page.keyboard.press('ArrowLeft');
   assert.equal(await page.locator('#bookPosition').textContent(),'1 / 3');
   await page.keyboard.press('Escape');
-  await page.getByRole('button',{name:'Delete Roast carrots'}).waitFor();
-  assert.equal(await page.getByRole('button',{name:'Delete Roasted peppers'}).count(),0);
-  await page.getByRole('button',{name:'Delete Roast carrots'}).click();
-  await page.getByText('No new recipe suggestions.').waitFor();
-  await page.reload();await page.getByText('No new recipe suggestions.').waitFor();
+  await page.getByRole('button',{name:'Pass Roast carrots'}).waitFor();
+  assert.equal(await page.getByRole('button',{name:'Pass Roasted peppers'}).count(),0);
+  await page.getByRole('button',{name:'Pass Roast carrots'}).click();
+  await page.getByText('You’re up to date with this week’s recipes.').waitFor();
+  await page.reload();await page.getByText('You’re up to date with this week’s recipes.').waitFor();
   await page.waitForFunction(()=>document.querySelector('#bookPosition').textContent==='1 / 3');
   await page.locator('nav [data-page=lifestyle]').click();await page.locator('#lifestyle [data-action-page=growth]').click();
   const visual=await page.evaluate(()=>({
@@ -198,3 +203,4 @@ test('a complete publisher gumbo retires the James starter page',async()=>{
   assert.equal(await page.locator('#bookPage li').first().textContent(),'6 cups chicken broth');
  }finally{await browser.close();}
 });
+

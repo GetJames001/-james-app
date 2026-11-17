@@ -423,13 +423,13 @@
 </section>
 <section class="page" id="recipes">
 <div class="sheet magazine edition">
-<div class="edition-crumb"><b>James</b><button data-action-page="lifestyle">‹ Lifestyle</button><span>Cooking &amp; Recipes</span></div><div class="book-tools"><button id="recipeAsk">Ask James what to cook</button><button data-scroll="recipeDiscover">Discover</button><button id="bookLaunch">My recipe book</button></div><p id="bookNotice" role="status">
+<div class="edition-crumb"><b>James</b><button data-action-page="lifestyle">‹ Lifestyle</button><span>Cooking &amp; Recipes</span></div><div class="book-tools"><button id="recipeAsk">Ask James what to cook</button><button data-scroll="recipeDiscover">Discover</button></div><p id="bookNotice" role="status">
 </p>
 <button type="button" id="cookbookCover" aria-label="James Bistro — open My Recipe Book">
 <img class="kitchen-scene" width="1536" height="1024" src="assets/lifestyle/james-bistro.webp" alt="James Bistro. A curated collection of timeless recipes.">
 <span class="cook-cover-footer"><b>Open the cookbook →</b><small id="cookCount"></small></span>
 </button>
-<dialog id="cookReader" aria-label="My Recipe Book"><header class="cook-toolbar"><strong>My Recipe Book</strong><div><button id="cookFit" aria-pressed="true">Normal size</button><button id="cookClose">Close book</button></div></header>
+<dialog id="cookReader" aria-label="My Recipe Book"><header class="cook-toolbar"><strong>My Recipe Book</strong><div><button id="cookWithJames">Cook with James</button><button id="cookFit" aria-pressed="true">Normal size</button><button id="cookClose">Close book</button></div></header>
 <div class="mag-book">
 <div id="bookPage" aria-live="polite">
 </div>
@@ -443,13 +443,13 @@
 </div>
 </dialog>
 <section id="recipeDiscover">
-<h3>Recipe inspiration from Pinterest</h3>
-<div id="pinterestPicks">Check Saved Pinterest Meals to load recipe ideas.
+<h3>Discover recipes</h3>
+<div id="pinterestPicks">Loading this week’s recipes…
 </div>
 <p>
 <button type="button" id="recipeBoardSync">Connect Saved Pinterest Meals</button>
 <span id="recipeBoardStatus" role="status"></span>
-<label><input type="checkbox" id="recipeAutoPicks"> Save matching Discover recipes automatically</label>
+
 </p>
 </section>
 </div>
@@ -707,6 +707,8 @@
 <script src="wall-display.js"></script>
 <script src="customer-activity-ui.js"></script>
 <script src="travel.js"></script>
+<link rel="stylesheet" href="recipe-discovery.css">
+<script src="recipe-guide.js"></script>
 <script src="magazine.js"></script>
 <script src="app.js"></script>
 <link rel="stylesheet" href="/customer-database.css">
@@ -715,4 +717,5 @@
 
 </body>
 </html>
+
 
