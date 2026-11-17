@@ -77,6 +77,8 @@ function mountMagazine({list,read,save}){
     if(item===gumbo||item.ingredients?.length&&item.steps?.length){if(item!==stuffingBites||!readable.has(key))readable.set(key,item);}
     else pins.set(key,item);
    }
+   // Retire the starter page once the saved publisher recipe is readable.
+   if(readable.has('https://mycoffeehasbutter.com/cajun-chicken-and-sausage-gumbo'))readable.delete(gumbo.url);
    pages=[...readable.values()];
    if(ideasReady)renderIdeas();
    let savedPins=el('cookSavedPins');

@@ -29,3 +29,10 @@ test('WP Recipe Maker print view follows its own publisher back to the illustrat
  assert.equal(recipeDestination(back,print).href,'https://mycoffeehasbutter.com/cajun-chicken-and-sausage-gumbo/');
  assert.equal(recipeDestination(back.replace('href="/','href="https://another.example/'),print),null);
 });
+
+test('confirmed yams destination resolves a Pin and preserves an explicit publisher',()=>{
+ const {boardPublisher}=require('../lib/routes/recipe-book');
+ const pin={title:'Southern Candied Yams Recipe (Soul Food Style)',url:'https://www.pinterest.com/pin/123/'};
+ assert.equal(boardPublisher(pin).href,'https://iheartrecipes.com/baked-candied-yams-soul-food/');
+ assert.equal(boardPublisher({...pin,url:'https://example.com/another-yams-recipe'}).hostname,'example.com');
+});

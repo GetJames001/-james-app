@@ -178,3 +178,23 @@ test('cookbook imports board destinations and a second scan keeps a single recip
   assert.equal(await page.locator('#bookPosition').textContent(),'1 / 3');
  }finally{await browser.close();}
 });
+
+test('a complete publisher gumbo retires the James starter page',async()=>{
+ const browser=await chromium.launch();
+ try{
+  const page=await browser.newPage();
+  const gumbo={title:'Cajun Chicken and Sausage Gumbo',publisher:'My Coffee Has Butter',url:'https://mycoffeehasbutter.com/cajun-chicken-and-sausage-gumbo/',ingredients:['6 cups chicken broth'],steps:['Serve.']};
+  await page.route('https://test.invalid/**',route=>{
+   const file=new URL(route.request().url()).pathname.slice(1)||'index.html';
+   if(file==='api/lifestyle/cookbook')return route.fulfill({json:{items:[gumbo]}});
+   if(file==='api/james/files')return route.fulfill({json:{files:[]}});
+   if(!file.includes('..')&&fs.existsSync(file)&&fs.statSync(file).isFile())return route.fulfill({path:file});
+   return route.fulfill({json:{}});
+  });
+  await page.goto('https://test.invalid');
+  await page.locator('nav [data-page=lifestyle]').click();await page.locator('#lifestyle [data-action-page=recipes]').click();
+  await page.waitForFunction(()=>document.querySelector('#bookPage h3')?.textContent==='Cajun Chicken and Sausage Gumbo');
+  assert.equal(await page.locator('#bookPosition').textContent(),'1 / 2');
+  assert.equal(await page.locator('#bookPage li').first().textContent(),'6 cups chicken broth');
+ }finally{await browser.close();}
+});
