@@ -127,6 +127,7 @@ test('cookbook imports board destinations and a second scan keeps a single recip
   const pin={url:'https://www.pinterest.com/pin/123456789/',title:'Saved dinner idea'};
   const stored=new Map();
   let postCount=0;
+  await ctx.route(item.photo,r=>r.fulfill({contentType:'image/svg+xml',body:'<svg xmlns="http://www.w3.org/2000/svg" width="350" height="2200"/>'}));
   await ctx.route('https://aaru-working-review.aglow-ox-8353.chatgpt.site/wardrobe/recipe-board',r=>r.fulfill({contentType:'text/html',body:'<script>(window.opener||parent).postMessage('+JSON.stringify({type:'james-recipe-board',links:[dest],pins:[{url:"https://www.pinterest.com/pin/456/",recipeSource:dest},pin],missing:1})+',"https://test.invalid");if(window.opener)window.close()</script>'}));
   await ctx.route('https://test.invalid/**',async r=>{
    const path=new URL(r.request().url()).pathname.slice(1)||'index.html';
@@ -154,6 +155,12 @@ test('cookbook imports board destinations and a second scan keeps a single recip
   assert.equal(await page.locator('#bookPage h3').textContent(),item.title);
   assert.equal(await page.locator('#bookPhoto').getAttribute('src'),item.photo);
   assert.equal(await page.locator('#bookPage ol li').textContent(),item.steps[0]);
+  await page.locator('#bookPhoto').evaluate(photo=>photo.decode());
+  for(const width of [1180,820,390]){
+   await page.setViewportSize({width,height:820});
+   const height=await page.locator('#bookPhoto').evaluate(photo=>photo.getBoundingClientRect().height);
+   assert.ok(height>0 && height<=535,'Portrait photo fits the page at '+width+'px');
+  }
   await page.locator('#cookClose').click();
   await page.locator('#recipeBoardSync').click();
   await page.getByText('Book up to date',{exact:true}).waitFor();
