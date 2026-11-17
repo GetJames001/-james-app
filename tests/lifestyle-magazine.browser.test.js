@@ -95,3 +95,34 @@ test('Lifestyle on iPad opens existing Wardrobe, saves a recipe across refresh, 
   }
  }finally{await browser.close();}
 });
+
+test('cookbook imports board destinations and a second scan keeps a single recipe',async()=>{
+ const browser=await chromium.launch();
+ try{
+  const page=await browser.newPage({viewport:{width:820,height:1180}}),ctx=page.context();
+  const dest='https://www.eatwell101.com/parmesan-roasted-brussels-sprouts';
+  const item={url:dest,title:'Garlic Parmesan Roasted Brussels Sprouts',publisher:'Eatwell101',ingredients:['Brussels sprouts'],steps:['Roast until golden.'],photo:'https://www.eatwell101.com/photo.jpg'};
+  let stored=false;
+  await ctx.route('https://aaru-working-review.aglow-ox-8353.chatgpt.site/wardrobe/recipe-board',r=>r.fulfill({contentType:'text/html',body:'<script>(window.opener||parent).postMessage('+JSON.stringify({type:'james-recipe-board',links:[dest,dest],missing:0})+',"https://test.invalid");if(window.opener)window.close()</script>'}));
+  await ctx.route('https://test.invalid/**',async r=>{
+   const path=new URL(r.request().url()).pathname.slice(1)||'index.html';
+   if(path==='api/lifestyle/cookbook'){
+    if(r.request().method()==='GET')return r.fulfill({json:{items:stored?[item]:[]}});
+    const status=stored?'existing':'added';stored=true;return r.fulfill({json:{status}});
+   }
+   if(path==='api/james/files')return r.fulfill({json:{files:[]}});
+   if(!path.includes('..')&&fs.existsSync(path)&&fs.statSync(path).isFile())return r.fulfill({path});
+   return r.fulfill({json:{}});
+  });
+  await page.goto('https://test.invalid');
+  await page.locator('nav [data-page=lifestyle]').click();await page.locator('#lifestyle [data-action-page=recipes]').click();
+  await page.locator('#recipeBoardSync').click();
+  await page.getByText('1 added to your book').waitFor();
+  await page.locator('#bookNext').click();
+  assert.equal(await page.locator('#bookPage h3').textContent(),item.title);
+  assert.equal(await page.locator('#bookPhoto').getAttribute('src'),item.photo);
+  assert.equal(await page.locator('#bookPage ol li').textContent(),item.steps[0]);
+  await page.reload();await page.getByText('Book up to date',{exact:true}).waitFor();
+  assert.equal(await page.locator('#bookPosition').textContent(),'1 / 2');
+ }finally{await browser.close();}
+});

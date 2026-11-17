@@ -23,6 +23,7 @@ const conversation = require("../lib/routes/conversation.js");
 const exactHandlers = new Map([
   ["api/health", health],
   ["api/lifestyle/feed", require("../lib/routes/lifestyle-feed.js")],
+  ["api/lifestyle/cookbook", require("../lib/routes/recipe-book.js")],
   ["api/weather", require("../lib/routes/weather.js")],
   ["api/james/routing", require("../lib/routes/routing.js")],
   ["api/james/reminders", require("../lib/routes/reminders.js")],

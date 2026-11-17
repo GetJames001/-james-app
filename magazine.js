@@ -10,20 +10,20 @@ function mountMagazine({list,read,save}){
  function drawBook(){
   const recipe=pages[current],isGumbo=recipe.url===gumbo.url,paper=el('bookPage');
   paper.replaceChildren(tag('h3',recipe.title),tag('small',recipe.publisher));
-  if(isGumbo){
+  if(isGumbo||Array.isArray(recipe.ingredients)&&Array.isArray(recipe.steps)){
    const ingredients=tag('ul','');
-   for(const line of ['⅓ cup neutral oil + ⅓ cup all-purpose flour','1 onion, 1 green pepper and 2 celery stalks, diced','3 cloves garlic, minced','8 oz smoked andouille, sliced','1 lb boneless chicken thighs, cut into chunks','4 cups low-sodium chicken stock','1 bay leaf, 1 tsp paprika and ½ tsp dried thyme','Salt and pepper to taste · 3 cups hot cooked rice'])ingredients.append(tag('li',line));
+   for(const line of recipe.ingredients||['⅓ cup neutral oil + ⅓ cup all-purpose flour','1 onion, 1 green pepper and 2 celery stalks, diced','3 cloves garlic, minced','8 oz smoked andouille, sliced','1 lb boneless chicken thighs, cut into chunks','4 cups low-sodium chicken stock','1 bay leaf, 1 tsp paprika and ½ tsp dried thyme','Salt and pepper to taste · 3 cups hot cooked rice'])ingredients.append(tag('li',line));
    const steps=tag('ol','');
-   for(const line of ['In a heavy pot, whisk oil and flour over medium-low heat until deep brown, stirring constantly, about 20–30 minutes.','Stir in the diced vegetables for 5 minutes, then garlic for 1 minute. Slowly whisk in stock.','Add sausage, chicken, bay leaf, paprika and thyme. Simmer gently for about 30 minutes, until chicken reaches 165°F.','Remove bay leaf, season to taste and serve over rice.'])steps.append(tag('li',line));
+   for(const line of recipe.steps||['In a heavy pot, whisk oil and flour over medium-low heat until deep brown, stirring constantly, about 20–30 minutes.','Stir in the diced vegetables for 5 minutes, then garlic for 1 minute. Slowly whisk in stock.','Add sausage, chicken, bay leaf, paprika and thyme. Simmer gently for about 30 minutes, until chicken reaches 165°F.','Remove bay leaf, season to taste and serve over rice.'])steps.append(tag('li',line));
    const columns=tag('div','');columns.className='recipe-columns';
    const left=tag('section',''),right=tag('section','');
    left.append(tag('h4','Ingredients'),ingredients);right.append(tag('h4','Method'),steps);
-   columns.append(left,right);paper.append(columns);
+   columns.append(left,right);paper.append(columns);if(!isGumbo)paper.append(link('Original recipe',recipe.url));
   }else{
    paper.append(tag('p','Ingredients and directions from '+recipe.publisher+'.'),link('Open full recipe',recipe.url));
   }
   const photo=el('bookPhoto');
-  let publisherPhoto=false;try{const u=new URL(recipe.photo);publisherPhoto=u.protocol==='https:'&&u.hostname==='www.budgetbytes.com';}catch{}
+  let publisherPhoto=false;try{const u=new URL(recipe.photo);publisherPhoto=u.protocol==='https:'&&(Array.isArray(recipe.steps)||u.hostname==='www.budgetbytes.com');}catch{}
   photo.hidden=!isGumbo&&!publisherPhoto;photo.src=publisherPhoto?recipe.photo:'assets/lifestyle/recipe.jpg';photo.alt=isGumbo?'Illustration of chicken and sausage gumbo':recipe.title;
   paper.parentElement.classList.toggle('source-only',photo.hidden);
   el('bookPosition').textContent=(current+1)+' / '+pages.length;el('bookPrev').disabled=current===0;el('bookNext').disabled=current===pages.length-1;
@@ -31,13 +31,77 @@ function mountMagazine({list,read,save}){
  async function loadBook(){
   const generation=++bookRequest;
   try{
-   const {files}=await list();
+   const [{files},imports]=await Promise.all([list(),fetch('/api/lifestyle/cookbook',{cache:'no-store'}).then(r=>r.ok?r.json():{}).catch(()=>({}))]);
    const rows=await Promise.all(files.filter(f=>f.name.endsWith(suffix)).map(async f=>JSON.parse(await (await read(f.id)).text())));
    if(generation!==bookRequest)return;
-   const selected=pages[current]?.url;pages=[...new Map([gumbo,...rows.filter(safeRecipe)].map(row=>[row.url,row])).values()];
+   const selected=pages[current]?.url;pages=[...new Map([gumbo,...rows.filter(safeRecipe),...(imports.items||[]).filter(safeRecipe)].map(row=>[row.url,row])).values()];
    current=Math.max(0,pages.findIndex(row=>row.url===selected));drawBook();el('bookNotice').textContent='';
   }catch{if(generation===bookRequest)el('bookNotice').textContent='Saved recipes could not be refreshed.';}
  }
+ const boardOrigin='https://aaru-working-review.aglow-ox-8353.chatgpt.site';
+ const boardUrl=boardOrigin+'/wardrobe/recipe-board';
+ const boardButton=el('recipeBoardSync'),boardStatus=el('recipeBoardStatus');
+ let boardFrame=null,boardPopup=null,boardTimeout=null,importing=false,lastScan=0;
+ function resetReader(){
+  clearTimeout(boardTimeout);boardFrame?.remove();boardFrame=null;boardPopup=null;
+ }
+ function boardScan(manual){
+  if(importing)return;
+  resetReader();
+  if(manual){
+   boardPopup=window.open(boardUrl,'jamesRecipeBoard','popup,width=560,height=650');
+   if(!boardPopup){boardStatus.textContent='Allow this window to open your connected board.';return;}
+  }else{
+   boardFrame=document.createElement('iframe');boardFrame.hidden=true;boardFrame.title='Read Mad Food Son';
+   boardFrame.src=boardUrl;document.body.append(boardFrame);
+  }
+  boardStatus.textContent='Checking Mad Food Son…';
+  boardTimeout=setTimeout(()=>{boardStatus.textContent='Open Mad Food Son to finish checking your board.';boardButton.textContent='Open Mad Food Son';},20000);
+ }
+ async function importRecipe(url){
+  const r=await fetch('/api/lifestyle/cookbook',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url})});
+  if(!r.ok)throw Error('import');
+  return (await r.json()).status;
+ }
+ window.addEventListener('message',async event=>{
+  if(importing||event.origin!==boardOrigin||!event.source||
+     (event.source!==boardPopup&&event.source!==boardFrame?.contentWindow)||event.data?.type!=='james-recipe-board')return;
+  resetReader();
+  if(event.data.error){boardStatus.textContent=event.data.error;return;}
+  if(!Array.isArray(event.data.links))return;
+  localStorage.setItem('jamesRecipeBoardEnabled','1');boardButton.textContent='Check Mad Food Son';
+  importing=true;boardButton.disabled=true;
+  let added=0,skipped=Number(event.data.missing)||0,failed=0;
+  try{
+   for(const url of new Set(event.data.links)){
+    try{const result=await importRecipe(url);if(result==='added')added++;else if(result!=='existing')skipped++;}
+    catch{failed++;}
+   }
+   await loadBook();lastScan=Date.now();
+   boardStatus.textContent=[added?added+' added to your book':'Book up to date',skipped?skipped+' without a supported recipe':'',failed?failed+' could not be checked. Try again.':''].filter(Boolean).join(' · ');
+  }finally{importing=false;boardButton.disabled=false;}
+ });
+ boardButton.onclick=()=>boardScan(true);
+ if(localStorage.getItem('jamesRecipeBoardEnabled')==='1')boardButton.textContent='Check Mad Food Son';
+ const autoPicks=el('recipeAutoPicks');
+ autoPicks.checked=localStorage.getItem('jamesAutoRecipePicks')==='1';
+ let matching=false;
+ async function discoverMatches(){
+  if(!autoPicks.checked||matching)return;
+  matching=true;
+  try{
+   const ignore=new Set(['roasted','garlic','fresh','with','baked','easy','quick','recipe','recipes','homemade','simple','creamy']);
+   const words=title=>title.toLowerCase().match(/[a-z]{4,}/g)||[];
+   const interests=new Set(pages.filter(p=>p!==gumbo).flatMap(p=>words(p.title)).filter(w=>!ignore.has(w)));
+   if(!interests.size)return;
+   const res=await fetch('/api/lifestyle/feed?source=recipes');if(!res.ok)return;
+   const {items}=await res.json();
+   for(const item of items.filter(row=>words(row.title).some(w=>interests.has(w))).slice(0,2)){
+    if(await importRecipe(item.url)==='added')await loadBook();
+   }
+  }catch{boardStatus.textContent='Discover picks could not be refreshed.';}finally{matching=false;}
+ }
+ autoPicks.onchange=()=>{localStorage.setItem('jamesAutoRecipePicks',autoPicks.checked?'1':'0');void discoverMatches();};
  el('bookPrev').onclick=()=>{if(current>0){current--;drawBook();}};
  el('bookNext').onclick=()=>{if(current<pages.length-1){current++;drawBook();}};
  el('recipeAsk').onclick=()=>{page('insights');const q=el('jamesQuestion');q.value='Help me find a recipe using ';q.focus();q.setSelectionRange(q.value.length,q.value.length);};
@@ -252,7 +316,10 @@ function mountMagazine({list,read,save}){
   screen.querySelectorAll('[data-feed]').forEach(refreshFeed);
   if(screen.id==='workout-detail')showWorkoutDetail();else stopTimer();
   if(screen.id==='garage')void showServices();
-  if(screen.id==='recipes')void loadBook();
+  if(screen.id==='recipes'){
+   void loadBook().then(discoverMatches);
+   if(localStorage.getItem('jamesRecipeBoardEnabled')==='1' && !boardFrame && !boardPopup && Date.now()-lastScan>900000)boardScan(false);
+  }
   if(screen.id==='fitness'){showWorkout();showHealth();}
  }
  drawBook();showWorkout();openMagazine();
