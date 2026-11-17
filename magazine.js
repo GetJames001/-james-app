@@ -108,11 +108,11 @@ function mountMagazine({list,read,save}){
    boardPopup=window.open(boardUrl,'jamesRecipeBoard','popup,width=560,height=650');
    if(!boardPopup){boardStatus.textContent='Allow this window to open your connected board.';return;}
   }else{
-   boardFrame=document.createElement('iframe');boardFrame.hidden=true;boardFrame.title='Read Mad Food Son';
+   boardFrame=document.createElement('iframe');boardFrame.hidden=true;boardFrame.title='Read Saved Pinterest Meals';
    boardFrame.src=boardUrl;document.body.append(boardFrame);
   }
-  boardStatus.textContent='Checking Mad Food Son…';
-  boardTimeout=setTimeout(()=>{boardStatus.textContent='Open Mad Food Son to finish checking your board.';boardButton.textContent='Open Mad Food Son';},20000);
+  boardStatus.textContent='Checking Saved Pinterest Meals…';
+  boardTimeout=setTimeout(()=>{boardStatus.textContent='Open Saved Pinterest Meals to finish checking your board.';boardButton.textContent='Open Saved Pinterest Meals';},20000);
  }
  async function importRecipe(url,discovery=false,pin=null){
   const r=await fetch('/api/lifestyle/cookbook',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url,discovery,pin})});
@@ -125,7 +125,7 @@ function mountMagazine({list,read,save}){
   resetReader();
   if(event.data.error){boardStatus.textContent=event.data.error;return;}
   if(!Array.isArray(event.data.links))return;
-  localStorage.setItem('jamesRecipeBoardEnabled','1');boardButton.textContent='Check Mad Food Son';
+  localStorage.setItem('jamesRecipeBoardEnabled','1');boardButton.textContent='Check Saved Pinterest Meals';
   importing=true;boardButton.disabled=true;
   const pins=Array.isArray(event.data.pins)?event.data.pins:null;
   let added=0,linked=0,skipped=pins?0:Number(event.data.missing)||0,failed=0;
@@ -140,7 +140,7 @@ function mountMagazine({list,read,save}){
   }finally{importing=false;boardButton.disabled=false;}
  });
  boardButton.onclick=()=>boardScan(true);
- if(localStorage.getItem('jamesRecipeBoardEnabled')==='1')boardButton.textContent='Check Mad Food Son';
+ if(localStorage.getItem('jamesRecipeBoardEnabled')==='1')boardButton.textContent='Check Saved Pinterest Meals';
  const autoPicks=el('recipeAutoPicks');
  autoPicks.checked=localStorage.getItem('jamesAutoRecipePicks')==='1';
  let matching=false,ideasReady=false,pinterestIdeas=[];

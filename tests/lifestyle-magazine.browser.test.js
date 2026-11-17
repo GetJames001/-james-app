@@ -144,7 +144,7 @@ test('cookbook imports board destinations and a second scan keeps a single recip
     postCount++;
     if(stored.has(key))return r.fulfill({json:{status:'existing'}});
     const full=key===dest;
-    stored.set(key,full?item:{...pin,kind:'saved-pin',pinUrl:pin.url,publisher:'Mad Food Son'});
+    stored.set(key,full?item:{...pin,kind:'saved-pin',pinUrl:pin.url,publisher:'Saved Pinterest Meals'});
     return r.fulfill({json:{status:full?'added':'linked'}});
    }
    if(path==='api/james/files')return r.fulfill({json:{files:[]}});
