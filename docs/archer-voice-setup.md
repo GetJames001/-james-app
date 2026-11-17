@@ -20,7 +20,7 @@ The authenticated OpenAI WebRTC session and James tools handle input, navigation
 ElevenLabs documentation says Voice Library voices cannot be used through the API on Free, even when website previews work:
 https://elevenlabs.io/docs/overview/capabilities/voices
 
-The signed-in monthly subscription screen offers Starter at $1 for the first month, then $6/month (taxes excluded). User approved listed speech usage at $0.04 per 1,000 characters and Preview setup, but has not approved this recurring subscription. Do not purchase or change billing without approval. Current key cap is deliberately conservative and should be reviewed before sustained daily use.
+The signed-in monthly subscription screen offers Starter at $1 for the first month, then $6/month (taxes excluded). Michael subsequently approved a one-month trial with a renewal reminder, then asked to pause plan selection for a voice-quality and value review. Purchase remains paused pending that review and choice. Do not treat the earlier approval as an instruction to complete checkout now. Current key cap is deliberately conservative and should be reviewed before sustained daily use.
 
 ## After subscription approval and account upgrade
 
@@ -32,3 +32,7 @@ The signed-in monthly subscription screen offers Starter at $1 for the first mon
 Model: `eleven_flash_v2_5`; output: `mp3_44100_128`. Account/API pricing shows $0.04 per 1,000 Flash/Turbo characters. Existing OpenAI input/reasoning usage remains.
 
 Wardrobe header fix remains independently deployed to the private Wardrobe site, source `58e68a1fc9fcd634626ebe8b3459134af17de86d`: Back to James replaces AARU Home, Working preview removed, direct entry/refresh opens Wardrobe. Closet data and lookbook preserved. 96 checks passed; legacy inspiration browser check unavailable due to missing local Chromium.
+
+## Voice-quality review
+
+The November 17 review and next implementation gates are recorded in [voice-delivery-decision-20261117.md](voice-delivery-decision-20261117.md). Current speech is fully buffered, not end-to-end streaming. Model auditions and live voice quality remain unverified. The recommendation preserves James's existing conversation/tools while improving speech delivery; it does not activate Archer or a new model.
