@@ -473,8 +473,8 @@
 <div class="sheet magazine">
 <div class="edition-crumb"><b>James</b><button data-action-page="lifestyle">‹ Lifestyle</button><span>Health &amp; Fitness</span></div><div class="fitness-layout"><div><h2>Health &amp; Fitness</h2>
 <section class="photo-panel lead-panel" style="--photo:url(assets/lifestyle/health.jpg)"><div><small>Workout of the day</small><h3 id="dailyWorkout"></h3>
-<div class="mag-bar"><button data-action-page="workout-detail">View workout</button><button data-action-page="workouts">Swap workout</button></div></div></section>
-<div class="pair"><button class="photo-panel" data-action-page="workouts" style="--photo:url(assets/lifestyle/mobility.jpg)">Mobility reset</button><button class="photo-panel" data-scroll="fitnessEvidence" style="--photo:url(assets/lifestyle/journal-open.jpg)">Supplements &amp; peptides</button></div></div>
+<div class="mag-bar"><button data-action-page="workout-detail">View workout</button><button data-action-page="workouts">Browse workouts</button></div></div></section>
+</div>
 <aside class="fitness-side"><section><h3>My goals</h3><button data-action-page="tasks">View goals</button></section>
 <section><h3>Health appointments</h3><div id="healthMeetings"></div><button data-action-page="appointments">Open calendar</button></section></aside></div>
 <h3 id="fitnessEvidence" class="rule-title">Supplements &amp; peptides</h3><details>
@@ -499,7 +499,6 @@
     <button class="mag-back" data-action-page="fitness">‹ Health &amp; Fitness</button>
     <div class="mag-cover" style="--photo:url(assets/lifestyle/health.jpg)"><h2 id="libraryTitle">Workout library</h2></div>
     <div id="workoutChoices" class="workout-choices"></div>
-    <a href="https://www.nike.com/ntc-app" target="_blank" rel="noopener noreferrer">Explore Nike Training Club ↗</a>
   </div>
 </section>
 <section class="page" id="workout-detail" aria-labelledby="workoutTitle">
@@ -508,8 +507,10 @@
     <div class="mag-cover" id="workoutCover"><h2 id="workoutTitle"></h2></div>
     <p id="workoutEquipment"></p>
     <ol id="workoutMoves"></ol>
-    <div id="workoutGuide"></div>
-    <div class="mag-bar"><button id="chooseWorkout">Use this workout today</button><button data-action-page="fitness">Health &amp; Fitness</button></div>
+    <p><a href="https://www.nike.com/a/what-is-calisthenics-workout" target="_blank" rel="noopener noreferrer">Routine from Nike</a></p>
+    <section id="workoutPlayer"><strong role="status" id="workoutStage"></strong> <span id="workoutClock"></span>
+    <div class="mag-bar"><button id="workoutStart">Start workout</button><button hidden id="workoutNext">Next interval</button></div></section>
+    <div class="mag-bar"><button id="chooseWorkout">Set as today’s workout</button><button data-action-page="fitness">Health &amp; Fitness</button></div>
   </div>
 </section>
 <section class="page" id="garage"><div class="sheet magazine edition"><div class="edition-crumb"><b>James</b><button data-action-page="lifestyle">‹ Lifestyle</button><span>Auto</span></div><h2>Auto</h2><h3 class="rule-title">My garage</h3><div class="garage-car" style="--photo:url(assets/lifestyle/auto.jpg)"><div><h3>2015 Jaguar F-TYPE S</h3><a href="https://www.jaguarusa.com/owners/index.html" target="_blank" rel="noopener noreferrer">Owner resources ↗</a>

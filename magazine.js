@@ -63,17 +63,13 @@ function mountMagazine({list,read,save}){
    const data=await entry.promise;
    if(host.dataset.feed!==key)return;
    if(key==='business'){
-    const cards=data.items.slice(0,2).map((item,index)=>{
-     const card=tag('details','');card.className='news-reader';
-     const cover=tag('summary','');cover.className='headline-card';
-     const image=document.createElement('img');image.alt='';image.src=item.photo||'assets/lifestyle/'+(index?'journal':'finance')+'.jpg';
+    const cards=data.items.filter(item=>item.photo).slice(0,2).map(item=>{
+     const card=link('',item.url);card.className='headline-card';
+     const image=document.createElement('img');image.alt='';image.src=item.photo;image.referrerPolicy='no-referrer';
      const caption=tag('span','');caption.append(tag('small',data.publisher),tag('strong',item.title));
-     cover.append(image,caption);
-     card.append(cover);
-     if(item.summary && item.summary!==item.title)card.append(tag('p',item.summary));
-     card.append(link('Read the public release',item.url));
-     return card;
+     card.append(image,caption);return card;
     });
+    if(!cards.length)throw Error('No illustrated stories');
     host.replaceChildren(...cards);return;
    }
    if(key.endsWith('-books')){
@@ -171,44 +167,81 @@ function mountMagazine({list,read,save}){
   }catch{el('serviceDates').textContent='Could not save. Try again.';}
   finally{button.disabled=false;}
  };
- const workouts = [
-  {title:'Full-body strength', gear:'Chair and wall', moves:['Sit to stand','Wall press-up','Calf raise'], guide:'strength-exercises', photo:'health'},
-  {title:'Mobility reset', gear:'Chair or standing space', moves:['Neck rotation','Sideways bend','Calf stretch'], guide:'flexibility-exercises', photo:'mobility'},
-  {title:'Seated movement', gear:'Sturdy chair', moves:['Chest stretch','Upper-body twist','Hip marching'], guide:'sitting-exercises', photo:'mobility'},
-  {title:'Balance practice', gear:'Space beside a wall', moves:['Sideways walking','Heel-to-toe walk','One-leg stand'], guide:'balance-exercises', photo:'health'}
+ const workouts=[
+  {title:'Bodyweight cardio circuit',gear:'5 min 30 sec · Wall or bench',work:30,rest:0,photo:'health',moves:['Air squat','Wall push-up','Forward lunge','Plank hold','Jumping jack']},
+  {title:'Core and strength circuit',gear:'9 min 45 sec · Bench and floor space',work:45,rest:15,photo:'mobility',moves:['Air squat','Incline push-up','Glute bridge','Plank hold','Bird dog']}
  ];
  function dayKey(){return new Date().toLocaleDateString('en-CA');}
  function dailyIndex(){
-  const stored=sessionStorage.getItem('jamesWorkout:'+dayKey());
-  if(stored!==null && workouts[Number(stored)])return Number(stored);
+  const choice=sessionStorage.getItem('jamesCircuit:'+dayKey());
+  const index=workouts.findIndex(item=>item.title===choice);
   const now=new Date();
-  return Math.floor(Date.UTC(now.getFullYear(),now.getMonth(),now.getDate())/86400000)%workouts.length;
+  return index>=0?index:Math.floor(Date.UTC(now.getFullYear(),now.getMonth(),now.getDate())/86400000)%workouts.length;
  }
- let selected=dailyIndex();
+ let selected=dailyIndex(),intervals=[],step=0,ticker=null,deadline=0,remaining=0;
+ function stopTimer(){clearInterval(ticker);ticker=null;}
  function showWorkout(){
-  const index=dailyIndex();
-  el('dailyWorkout').textContent=workouts[index].title;
+  const index=dailyIndex(),item=workouts[index];
+  el('dailyWorkout').textContent=item.title;
+  el('dailyWorkout').closest('.photo-panel').style.setProperty('--photo','url(assets/lifestyle/'+item.photo+'.jpg)');
   el('fitness').querySelector('[data-action-page="workout-detail"]').onclick=()=>{selected=index;page('workout-detail');};
  }
+ function paintInterval(){
+  if(step>=intervals.length){
+   stopTimer();el('workoutStage').textContent='Workout complete';el('workoutClock').textContent='';
+   el('workoutNext').hidden=true;el('workoutStart').textContent='Start again';return;
+  }
+  const interval=intervals[step];
+  el('workoutStage').textContent='Round '+interval.round+' of 2 · '+interval.name;
+  el('workoutClock').textContent=Math.ceil(remaining/1000)+' sec';
+  el('workoutNext').textContent=step===intervals.length-1?'Finish workout':'Next interval';
+ }
+ function tick(){
+  const now=Date.now();
+  while(step<intervals.length && now>=deadline){
+   step++;
+   if(step<intervals.length)deadline+=intervals[step].seconds*1000;
+  }
+  remaining=Math.max(0,deadline-now);paintInterval();
+ }
  function showWorkoutDetail(){
+  stopTimer();
   const item=workouts[selected];
   el('workoutTitle').textContent=item.title;
   el('workoutCover').style.setProperty('--photo','url(assets/lifestyle/'+item.photo+'.jpg)');
-  el('workoutEquipment').textContent=item.gear;
-  el('workoutMoves').replaceChildren(...item.moves.map(move=>tag('li',move)));
-  el('workoutGuide').replaceChildren(link('Illustrated exercise guide · NHS','https://www.nhs.uk/live-well/exercise/'+item.guide+'/'));
+  el('workoutEquipment').textContent=item.gear+' · 2 rounds. Warm up for 2–3 minutes before starting.';
+  el('workoutMoves').replaceChildren(...item.moves.map(move=>tag('li',move+' · '+item.work+' sec')));
+  intervals=[];
+  for(let round=1;round<=2;round++){
+   item.moves.forEach((name,index)=>{
+    intervals.push({name,seconds:item.work,round});
+    const last=index===item.moves.length-1;
+    const rest=last && round===2?0:item.rest || (last?30:0);
+    if(rest)intervals.push({name:'Rest',seconds:rest,round});
+   });
+  }
+  step=0;remaining=intervals[0].seconds*1000;
+  el('workoutStart').textContent='Start workout';el('workoutNext').hidden=true;el('workoutStage').textContent='';el('workoutClock').textContent='';
  }
+ el('workoutStart').onclick=()=>{
+  if(ticker!==null){tick();stopTimer();if(step<intervals.length)el('workoutStart').textContent='Resume';return;}
+  if(step>=intervals.length){step=0;remaining=intervals[0].seconds*1000;}
+  deadline=Date.now()+remaining;ticker=setInterval(tick,250);
+  el('workoutStart').textContent='Pause';el('workoutNext').hidden=false;paintInterval();
+ };
+ el('workoutNext').onclick=()=>{
+  step++;if(step<intervals.length){remaining=intervals[step].seconds*1000;deadline=Date.now()+remaining;}
+  paintInterval();
+ };
  workouts.forEach((item,index)=>{
-  const button=tag('button','');
-  button.className='workout-choice';
+  const button=tag('button','');button.className='workout-choice';
   button.style.setProperty('--photo','url(assets/lifestyle/'+item.photo+'.jpg)');
   button.append(tag('strong',item.title),tag('small',item.gear));
   button.onclick=()=>{selected=index;page('workout-detail');};
   el('workoutChoices').append(button);
  });
  el('chooseWorkout').onclick=()=>{
-  sessionStorage.setItem('jamesWorkout:'+dayKey(),String(selected));
-  page('fitness');
+  sessionStorage.setItem('jamesCircuit:'+dayKey(),workouts[selected].title);page('fitness');
  };
  function showHealth(){
   const items=(window.liveEvents||[]).filter(e=>Date.parse(e.end)>=Date.now()&&/\b(dentist|doctor|physical exam|annual physical|checkup|medical|clinic|cardiolog\w*|dermatolog\w*)\b/i.test(e.title||'')).sort((a,b)=>Date.parse(a.start)-Date.parse(b.start)).slice(0,4);
@@ -217,7 +250,7 @@ function mountMagazine({list,read,save}){
  function openMagazine(){
   const screen=document.querySelector('.page.active');if(!screen)return;
   screen.querySelectorAll('[data-feed]').forEach(refreshFeed);
-  if(screen.id==='workout-detail')showWorkoutDetail();
+  if(screen.id==='workout-detail')showWorkoutDetail();else stopTimer();
   if(screen.id==='garage')void showServices();
   if(screen.id==='recipes')void loadBook();
   if(screen.id==='fitness'){showWorkout();showHealth();}

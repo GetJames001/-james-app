@@ -12,7 +12,7 @@ test('Lifestyle on iPad opens existing Wardrobe, saves a recipe across refresh, 
    const url=new URL(route.request().url()),path=url.pathname.slice(1)||'index.html';
    if(path==='api/lifestyle/feed'){
     if(url.searchParams.get('source')==='recipes')return route.fulfill({json:{publisher:'Budget Bytes',items:[{title:'Roasted peppers',url:'https://www.budgetbytes.com/roasted-peppers/'}]}});
-    if(url.searchParams.get('source')==='business')return route.fulfill({json:{publisher:'Federal Reserve',items:[1,2,3].map(n=>({title:'Sample story '+n,url:'https://www.federalreserve.gov/newsevents/'+n,photo:'https://test.invalid/assets/lifestyle/finance.jpg'}))}});
+    if(url.searchParams.get('source')==='business')return route.fulfill({json:{publisher:'PBS News',items:[1,2,3].map(n=>({title:'Sample story '+n,url:'https://www.pbs.org/newshour/economy/'+n,photo:'https://test.invalid/assets/lifestyle/finance.jpg'}))}});
     return route.fulfill({status:503,json:{}});
    }
    if(path==='api/james/files'){
@@ -57,14 +57,20 @@ test('Lifestyle on iPad opens existing Wardrobe, saves a recipe across refresh, 
   assert.equal(await page.locator('#growth a').first().getAttribute('href'),'https://ggia.berkeley.edu/practice/active_listening');
   await page.locator('nav [data-page=lifestyle]').click();
   await page.locator('#lifestyle [data-action-page=fitness]').click();
-  await page.getByRole('button',{name:'Swap workout'}).click();
-  await page.getByRole('button',{name:/Mobility reset/}).click();
-  assert.equal(await page.locator('#workoutTitle').textContent(),'Mobility reset');
-  await page.getByRole('button',{name:'Use this workout today'}).click();
+  await page.getByRole('button',{name:'Browse workouts'}).click();
+  await page.getByRole('button',{name:/Core and strength circuit/}).click();
+  assert.equal(await page.locator('#workoutTitle').textContent(),'Core and strength circuit');
+  await page.getByRole('button',{name:'Set as today’s workout'}).click();
   await page.reload();
-  assert.equal(await page.locator('#dailyWorkout').textContent(),'Mobility reset');
+  assert.equal(await page.locator('#dailyWorkout').textContent(),'Core and strength circuit');
   await page.getByRole('button',{name:'View workout'}).click();
-  assert.equal(await page.locator('#workoutMoves li').count(),3);
+  assert.equal(await page.locator('#workoutMoves li').count(),5);
+  await page.locator('#workoutStart').click();
+  assert.match(await page.locator('#workoutStage').textContent(),/Air squat/);
+  await page.locator('#workoutNext').click();
+  assert.match(await page.locator('#workoutStage').textContent(),/Rest/);
+  await page.locator('#workoutStart').click();
+  assert.equal(await page.locator('#workoutStart').textContent(),'Resume');
   await page.setViewportSize({width:1180,height:820});
   await page.evaluate(()=>window.jamesPageNow('finance'));
   const financeCards=page.locator('#finance .money-grid > section');
@@ -75,8 +81,7 @@ test('Lifestyle on iPad opens existing Wardrobe, saves a recipe across refresh, 
   assert.equal(boxes[2],boxes[3]);
   await page.locator('#financeToday .headline-card').first().waitFor();
   assert.equal(await page.locator('#financeToday .headline-card').count(),2);
-  await page.locator('#financeToday summary').first().click();
-  assert.match(await page.getByRole('link',{name:'Read the public release'}).first().getAttribute('href'),/^https:\/\/www\.federalreserve\.gov\//);
+  assert.equal(await page.locator('#financeToday a.headline-card').first().getAttribute('href'),'https://www.pbs.org/newshour/economy/1');
   await page.getByRole('button',{name:'Investments',exact:true}).click();
   assert.equal(await page.locator('#financeOverview').isVisible(),false);
   assert.equal(await page.locator('#financeInvestments').isVisible(),true);

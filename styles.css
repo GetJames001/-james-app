@@ -1365,3 +1365,7 @@ html[data-theme=light] .james-shell .intel-strip>.briefing-wardrobe{background:#
  #app #recipes .mag-book{grid-template-columns:1fr}
  #app #recipes #bookPhoto{height:auto;aspect-ratio:1.8;max-height:240px}
 }
+#workoutMoves li {display:list-item;line-height:1.6;margin:.35rem 0}
+#workoutPlayer {padding:1rem 0}
+#workoutPlayer .mag-bar {margin-top:.7rem}
+#workoutClock {font-variant-numeric:tabular-nums}
