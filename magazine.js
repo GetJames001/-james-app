@@ -5,6 +5,7 @@ function mountMagazine({list,read,save}){
  const link=(title,url)=>{const a=tag('a',title);a.href=url;a.target='_blank';a.rel='noopener noreferrer';return a;};
  const gumbo={title:'Cajun chicken & sausage gumbo · James original',url:'#james-gumbo',publisher:'James kitchen · Serves 4 · Recipe illustration'};
  const stuffingBites={
+  pinUrl:'https://www.pinterest.com/pin/351773420878575874/',
   title:'Bacon-Wrapped Stuffing Bites',publisher:'Who Needs A Cape? · Makes 18',
   url:'https://whoneedsacape.com/2016/10/bacon-wrapped-stuffing-bites/',
   photo:'https://i0.wp.com/whoneedsacape.com/wp-content/uploads/2019/01/DSC_0140-2.jpg?fit=735,490&ssl=1',
