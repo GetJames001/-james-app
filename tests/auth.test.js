@@ -626,3 +626,15 @@ test('welcome assets remain authenticated GET/HEAD-only with correct content typ
   const post=mockRes();await gateway(request('POST',{authorized:true,query:{path:asset}}),post);assert.equal(post.statusCode,405,asset);
  }
 });
+
+test("the kitchen cover is bundled and served as the original image", async () => {
+  const fs = require("node:fs");
+  const cover = fs.readFileSync("index.html","utf8").match(/class="kitchen-scene"[^>]*src="([^"]+)"/)[1];
+  assert.ok(require("../vercel.json").functions["api/gateway.js"].includeFiles.includes(cover));
+  const res = mockRes();
+  await require("../api/gateway.js")(request("GET",{authorized:true,query:{path:cover}}),res);
+  assert.equal(res.statusCode,200);
+  assert.equal(res.headers["Content-Type"],"image/webp");
+  assert.equal(res.body.toString("ascii",8,12),"WEBP");
+  assert.deepEqual(res.body,fs.readFileSync(cover));
+});
