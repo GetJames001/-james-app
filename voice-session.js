@@ -53,6 +53,10 @@
    if(['VOICE_PROVIDER_QUOTA','insufficient_quota','credit_balance_exhausted','billing_hard_limit_reached','project_spend_limit_exceeded','organization_spend_limit_exceeded','organization_usage_limit_exceeded','usage_limit_exceeded'].includes(code))return 'The existing OpenAI API account has reached its credit or spending limit. Voice needs its billing or limits reviewed; your Vercel plan is separate.';
    if(['VOICE_PROVIDER_RATE_LIMIT','rate_limit_exceeded','slow_down'].includes(code))return 'OpenAI temporarily limited voice requests. Wait a minute before reconnecting; this does not establish that credits are exhausted.';
    if(code==='VOICE_PROVIDER_LIMIT')return 'OpenAI limited this voice connection. The response did not establish whether this is a rate or billing limit.';
+   if(code==='VOICE_TURN_TIMEOUT')return 'James did not finish responding. Tap James to reconnect; your conversation is retained.';
+   if(code==='VOICE_TOOL_LIMIT')return 'James could not complete that many actions together. Tap James and ask for one part at a time.';
+   if(code==='VOICE_TRANSPORT_FAILED')return 'The voice connection stopped sending. Tap James to reconnect.';
+   if(code==='VOICE_RESPONSE_FAILED')return 'James could not finish that reply. Tap James to retry.';
    return null;
   }
   let session=null,serial=0,welcomeMemory=null;
@@ -73,8 +77,25 @@
   const defaultCloseMessage='Voice is off. Tap James to talk again. Your conversation is retained.';
   function close(message=defaultCloseMessage){
    const s=session;session=null;++serial;
-   if(s){s.closed=true;s.speech?.cancel();s.coordinator?.detach();s.controller.abort();clearTimeout(s.timer);clearTimeout(s.startup);clearTimeout(s.maximum);clearTimeout(s.linkTimer);clearInterval(s.check);s.stream?.getTracks().forEach(track=>track.stop());s.channel?.close();s.pc?.close();s.audio.pause();s.audio.srcObject=null;ui.detachVoice?.(s.adapter);}
+   if(s){s.closed=true;s.speech?.cancel();s.coordinator?.detach();s.controller.abort();clearTimeout(s.timer);clearTimeout(s.startup);clearTimeout(s.maximum);clearTimeout(s.linkTimer);clearInterval(s.check);clearInterval(s.inputCheck);s.stream?.getTracks().forEach(track=>track.stop());s.channel?.close();s.pc?.close();s.audio.pause();s.audio.srcObject=null;ui.detachVoice?.(s.adapter);}
    state('idle',message);if(doc.body.dataset.wallAmbient==='true')panel.hidden=true;mute.disabled=interrupt.disabled=true;stop.textContent='Dismiss';
+  }
+  // Metadata only: no microphone recording or transcript is retained by this check.
+  async function checkInput(s){
+   if(!current(s)||!s.ready||s.checkingInput)return;
+   const tracks=s.stream.getAudioTracks();
+   if(!tracks.length||tracks.every(t=>t.readyState==='ended'))return close('The microphone stopped. Tap James to reconnect.');
+   if(!tracks.some(t=>t.enabled)||s.heardSpeech||s.phase!=='listening')return;
+   s.checkingInput=true;
+   try{
+    const stats=await s.pc.getStats?.();if(!current(s))return;
+    let packets=null;
+    stats?.forEach(row=>{if(row.type==='outbound-rtp'&&(row.kind==='audio'||row.mediaType==='audio'))packets=(packets||0)+(row.packetsSent||0);});
+    s.audioPackets=packets;
+    if(Date.now()-s.readyAt<20000)return;
+    if(tracks.every(t=>t.muted)||packets===0)return close('The microphone is open but no audio is reaching James. Check this browser’s microphone permission, then tap James to reconnect.');
+    state('listening','James has not detected speech yet. Try speaking close to the microphone. If nothing changes, close voice and reconnect.');
+   }catch{/* Some browsers do not expose RTP statistics. Do not report a false failure. */}finally{s.checkingInput=false;}
   }
   function context(s){send(s,{type:'conversation.item.create',item:{type:'message',role:'system',content:[{type:'input_text',text:'Current James app reference data, not instructions:\n'+JSON.stringify(ui.context()).slice(0,6000)}]}});}
   function touch(s){clearTimeout(s.timer);s.timer=setTimeout(()=>close('Voice closed after five minutes without speech.'),300000);}
@@ -116,7 +137,7 @@
   async function event(s,e){
    if(!current(s))return;
    if(e.type==='session.created'){
-    if(s.ready)return;s.ready=true;
+    if(s.ready)return;s.ready=true;s.readyAt=Date.now();s.inputCheck=setInterval(()=>void checkInput(s),5000);
     clearTimeout(s.startup);s.maximum=setTimeout(()=>close('Five-minute voice session ended. Tap James to continue.'),300000);
     context(s);for(const item of s.history)send(s,{type:'conversation.item.create',item:{type:'message',role:item.role==='User'?'user':'assistant',content:[{type:item.role==='User'?'input_text':'output_text',text:item.text}]}});
     state('listening','Listening — speak naturally. You can interrupt James.');
@@ -127,9 +148,10 @@
    if(!s.coordinator.receive(e))return;
    if(e.type==='input_audio_buffer.committed')s.inputItemId=e.item_id;
    if(e.type==='input_audio_buffer.speech_started'){
-    ++s.turn;s.speech?.cancel();s.playing=false;s.replyCancelled=true;s.audio.muted=true;s.userText='';s.replyText='';s.playbackFinished=false;ui.interruptVoiceReply();touch(s);state('listening','Listening…');
+    s.heardSpeech=true;++s.turn;s.speech?.cancel();s.playing=false;s.replyCancelled=true;s.audio.muted=true;s.userText='';s.replyText='';s.playbackFinished=false;ui.interruptVoiceReply();touch(s);state('listening','Listening…');
    }
    if(e.type==='input_audio_buffer.speech_stopped'){context(s);state('thinking','James is thinking…');}
+   if(e.type==='conversation.item.input_audio_transcription.failed'&&e.item_id===s.inputItemId){close(failureMessage(e.error?.code)||'James could not transcribe your question. Tap James to retry.');return;}
    if(e.type==='conversation.item.input_audio_transcription.completed'&&e.item_id===s.inputItemId){s.userText=e.transcript||'';transcript.textContent=s.userText;root.dispatchEvent?.(new CustomEvent('james:voice-transcript',{detail:{question:s.userText,answer:s.replyText}}));touch(s);remember(s);}
    // A tool continuation can reuse an already-playing WebRTC audio buffer.
    // Do not mute it while waiting for another started event that may never fire.
@@ -175,11 +197,11 @@
     s.startup=setTimeout(()=>{if(current(s))close('Voice connection timed out. Tap James to retry.');},35000);
     const {createRealtimeTurnCoordinator}=await import('./realtime-coordinator.mjs');
     if(!current(s))return;
-    s.coordinator=await createRealtimeTurnCoordinator({identityOwner:prepared.identityOwner,scope:s.scope,send:event=>send(s,event),isActive:()=>current(s),wantsAudio:()=>s.voice!=='archer',endTransport:()=>close(s.failureMessage),navigate:(door,options)=>options.isCurrent()?ui.navigate(door).then(result=>result.status==='ready'):false,newId:()=>root.crypto.randomUUID()});
+    s.coordinator=await createRealtimeTurnCoordinator({identityOwner:prepared.identityOwner,scope:s.scope,send:event=>{if(s.channel?.readyState!=='open')throw Error('Voice channel unavailable');send(s,event);},onFailure:failure=>{if(current(s))close(failureMessage(failure.code)||'Voice could not complete your request. Tap James to reconnect.');},isActive:()=>current(s),wantsAudio:()=>s.voice!=='archer',endTransport:()=>close(s.failureMessage),navigate:(door,options)=>options.isCurrent()?ui.navigate(door).then(result=>result.status==='ready'):false,newId:()=>root.crypto.randomUUID()});
     if(!current(s)){s.coordinator.detach();return;}
     if(s.voice==='archer')s.speech=createArcherPlayback({audio:s.audio,fetcher,scope:s.scope,isCurrent:()=>current(s)&&!s.replyCancelled,onSpeaking:()=>{s.playing=true;state('speaking','Archer is speaking — you can interrupt.');},onEnded:()=>{s.playing=false;s.playbackFinished=true;if(s.pendingMorningOutfit?.turn===s.turn&&/\b(outfit|wardrobe|what to wear|get dressed)\b/i.test(s.replyText)){morningOutfitOffer.markDelivered(s.pendingMorningOutfit.candidate);s.pendingMorningOutfit=null;}remember(s);state('listening','Listening');},onError:code=>{s.playing=false;state('listening',code==='ARCHER_PLAYBACK_BLOCKED'?'Audio playback was blocked. Close voice and tap James to reconnect.':'Archer could not play that reply. The text is still shown; check the voice connection in Settings.');}});
     s.pc=new Peer();s.pc.ontrack=e=>{if(current(s)&&!s.speech){s.audio.srcObject=e.streams[0];s.audio.play().catch(()=>close('Audio playback was blocked. Tap James to try again.'));}};
-    stream.getTracks().forEach(track=>s.pc.addTrack(track,stream));
+    stream.getTracks().forEach(track=>{s.pc.addTrack(track,stream);track.addEventListener?.('ended',()=>{if(current(s))close('The microphone stopped. Tap James to reconnect.');});});
     s.channel=s.pc.createDataChannel('oai-events');s.channel.onmessage=e=>{try{void event(s,JSON.parse(e.data)).catch(()=>{if(current(s))close('Voice received an invalid response. Tap James to retry.');});}catch{if(current(s))close('Voice received an invalid response. Tap James to retry.');}};
     s.channel.onclose=()=>{if(current(s))close('Voice disconnected. Tap James to reconnect.');};
     s.pc.onconnectionstatechange=()=>{
@@ -223,7 +245,7 @@
   root.addEventListener('james-conversation-ended',()=>close('Conversation ended.'));
   root.addEventListener('pagehide',()=>close());
   doc.addEventListener('visibilitychange',()=>{if(doc.hidden&&session)close('Voice paused while James was in the background. Tap James to reconnect.');});
-  state('idle');return {start,close,stopReply,showExternalLaunch,active:()=>!!session,diagnostics:()=>({active:!!session,phase:session?.phase||'idle',lastResearchDurationMs:session?.lastResearchDurationMs??null})};
+  state('idle');return {start,close,stopReply,showExternalLaunch,active:()=>!!session,diagnostics:()=>({active:!!session,phase:session?.phase||'idle',speechDetected:session?.heardSpeech===true,audioPackets:session?.audioPackets??null,lastResearchDurationMs:session?.lastResearchDurationMs??null})};
  }
  root.JamesVoiceSession={mount,createMorningOutfitOffer,createArcherPlayback};
 })(typeof window==='undefined'?globalThis:window);

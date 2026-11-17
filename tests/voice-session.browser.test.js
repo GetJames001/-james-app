@@ -135,3 +135,32 @@ test('Archer uses text tool continuation and speaks final reply once; setup fail
  }finally{await browser.close();await new Promise(resolve=>server.close(resolve));}
 });
 
+
+test('voice surfaces missing input, transcription and provider failures instead of silent listening',async()=>{
+ const server=http.createServer((req,res)=>{
+  res.setHeader('Content-Type',req.url==='/'?'text/html':'text/javascript');
+  if(req.url==='/')return res.end('<button id="orb">James</button><script src="/voice-session.js"></script>');
+  if(!/^\/(voice-session\.js|realtime-coordinator\.mjs|conversation-bridge\.mjs|turn-timing\.mjs)$/.test(req.url)){res.statusCode=404;return res.end();}
+  res.end(fs.readFileSync(path.join(__dirname,'..',req.url.slice(1))));
+ });await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));const browser=await chromium.launch();
+ try{
+  const page=await browser.newPage();await page.clock.install();await page.goto('http://127.0.0.1:'+server.address().port);
+  await page.evaluate(()=>{
+   const scope={accountId:'fixture',conversationId:'fixture-conversation',generation:1};window.sent=[];window.packets=0;window.stops=0;
+   class Peer{createDataChannel(){return window.channel={readyState:'open',send:data=>window.sent.push(JSON.parse(data)),close(){}};}addTrack(){}async createOffer(){return {sdp:'v=0 fixture'};}async setLocalDescription(){}async setRemoteDescription(){}async getStats(){return new Map([['audio',{type:'outbound-rtp',kind:'audio',packetsSent:window.packets}]]);}close(){}}
+   const track={enabled:true,readyState:'live',stop(){window.stops++;}},stream={getTracks:()=>[track],getAudioTracks:()=>[track]};
+   const ui={prepareVoice:async()=>({scope,history:[],identityOwner:{current:()=>scope,snapshotIdentity:async()=>scope}}),verifyVoice:async()=>true,detachVoice(){},context:()=>({page:'travel'}),navigate:async()=>({status:'ready'}),interruptVoiceReply(){},rememberVoice:async()=>{}};
+   window.controller=JamesVoiceSession.mount({ui,orb:document.querySelector('#orb'),setState:s=>window.state=s,Peer,media:{getUserMedia:async()=>stream},fetcher:async()=>({ok:true,text:async()=>'v=0 answer'})});
+   window.emit=e=>window.channel.onmessage({data:JSON.stringify(e)});
+  });
+  async function start(){await page.evaluate(()=>{window.channel=null;window.sent=[];});await page.locator('#orb').click();await page.waitForFunction(()=>!!window.channel);await page.evaluate(()=>window.emit({type:'session.created'}));}
+  await start();await page.clock.runFor(21000);await page.waitForFunction(()=>!window.controller.active());assert.match(await page.locator('.james-voice-panel').textContent(),/no audio is reaching James/);assert.equal(await page.evaluate(()=>window.stops),1);
+  await page.evaluate(()=>window.packets=100);await start();await page.clock.runFor(21000);assert.equal(await page.evaluate(()=>window.controller.active()),true);assert.match(await page.locator('.james-voice-panel').textContent(),/has not detected speech/);
+  await page.evaluate(()=>{window.emit({type:'input_audio_buffer.speech_started'});window.emit({type:'input_audio_buffer.speech_stopped'});window.emit({type:'input_audio_buffer.committed',item_id:'audio-1'});});
+  await page.waitForFunction(()=>window.sent.some(e=>e.type==='response.create'));
+  await page.evaluate(()=>window.emit({type:'error',error:{event_id:window.sent.find(e=>e.type==='response.create').event_id,code:'insufficient_quota'}}));
+  assert.equal(await page.evaluate(()=>window.controller.active()),false);assert.match(await page.locator('.james-voice-panel').textContent(),/credit or spending limit/);
+  await start();await page.evaluate(()=>{window.emit({type:'input_audio_buffer.committed',item_id:'audio-2'});window.emit({type:'conversation.item.input_audio_transcription.failed',item_id:'stale',error:{}});});assert.equal(await page.evaluate(()=>window.controller.active()),true);
+  await page.evaluate(()=>window.emit({type:'conversation.item.input_audio_transcription.failed',item_id:'audio-2',error:{}}));assert.equal(await page.evaluate(()=>window.controller.active()),false);assert.match(await page.locator('.james-voice-panel').textContent(),/could not transcribe/);
+ }finally{await browser.close();await new Promise(resolve=>server.close(resolve));}
+});

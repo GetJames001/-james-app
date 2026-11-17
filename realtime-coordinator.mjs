@@ -5,7 +5,7 @@ const id=v=>typeof v==='string'&&/^[A-Za-z0-9_-]{1,160}$/.test(v);
 const same=(a,b)=>a&&b&&a.accountId===b.accountId&&a.conversationId===b.conversationId&&a.generation===b.generation;
 // One existing WebRTC channel; this adapter never opens a microphone or calls an API.
 // Spoken turns carry the provider's committed item ID, never a fabricated transcript.
-export async function createRealtimeTurnCoordinator({identityOwner,scope,send,isActive,endTransport,navigate,newId,now,wantsAudio=()=>true,schedule=setTimeout,unschedule=clearTimeout,capacity=128}){
+export async function createRealtimeTurnCoordinator({identityOwner,scope,send,isActive,endTransport,navigate,newId,now,wantsAudio=()=>true,onFailure=()=>{},schedule=setTimeout,unschedule=clearTimeout,capacity=128}){
  if(typeof send!=='function'||typeof isActive!=='function'||typeof endTransport!=='function'||typeof navigate!=='function'||typeof identityOwner?.current!=='function')throw Error('Host transport required');
  scope=Object.freeze({...scope});
  let detached=false,pending=null,submitVoice=null,speechActive=false,lastReply=null,playback=null,requestedNavigation=null;
@@ -15,6 +15,7 @@ export async function createRealtimeTurnCoordinator({identityOwner,scope,send,is
  const frame=(event)=>{if(!live())throw Error('Transport unavailable');send(event);};
  const responseRequest=turn=>{turn.expectedRequest='request-'+turn.id+'-'+(++turn.requests);turn.sentEvents.add(turn.expectedRequest);return {type:'response.create',event_id:turn.expectedRequest,response:{metadata:{james_turn_id:turn.id,james_request_id:turn.expectedRequest},...(!wantsAudio()?{output_modalities:['text']}:{})}};};
  function rejectPending(){const old=pending;pending=null;if(old){unschedule(old.timer);old.signal.removeEventListener('abort',old.abort);old.reject(Error('Turn interrupted'));}lastReply=null;playback=null;}
+ function fail(code){interrupt();try{onFailure({code})}catch{}}
  function requireLive(){if(live())return true;if(!detached){detached=true;rejectPending();bridge.end();endTransport();}return false;}
  const bridge=createConversationBridge({identityOwner,navigate:(door,options)=>{const request=requestedNavigation;return navigate(request?.workspace||door,{...options,isCurrent:()=>options.isCurrent()&&(!request?.guard||request.guard())});},newId,timing,capacity,capabilities:{realtime:q=>{
   if(!live()||pending||speechActive)throw Error('Transport unavailable');
@@ -23,10 +24,10 @@ export async function createRealtimeTurnCoordinator({identityOwner,scope,send,is
    turn.abort=()=>{if(pending===turn)rejectPending()};pending=turn;q.signal.addEventListener('abort',turn.abort,{once:true});
    try{
     if(q.signal.aborted)throw Error('Turn interrupted');
-    turn.timer=schedule(()=>{if(pending===turn){bridge.interruptReply();rejectPending();}},90000);
+    turn.timer=schedule(()=>{if(pending===turn){fail('VOICE_TURN_TIMEOUT');}},90000);
     if(q.origin==='typed')frame({type:'conversation.item.create',event_id:'input-'+q.turnId,item:{id:'item-'+q.turnId,type:'message',role:'user',content:[{type:'input_text',text:q.text}]}});
     frame(responseRequest(turn));
-   }catch{if(pending===turn)rejectPending();}
+   }catch{if(pending===turn)fail('VOICE_TRANSPORT_FAILED');}
   });
  }}});
  const ready=await bridge.verifyIdentity();
@@ -56,7 +57,7 @@ export async function createRealtimeTurnCoordinator({identityOwner,scope,send,is
    submitVoice?.({action:'realtime',text:event.item_id}).then(result=>{if(result.status==='completed'&&result.isCurrent()&&live())lastReply=result;}).catch(()=>{});
    return true;
   }
-  if(event.type==='error'){const ref=event.error?.event_id;if(ref&&(!pending||!pending.sentEvents.has(ref)))return false;interrupt();if(!ref){detached=true;bridge.end();endTransport();}return false;}
+  if(event.type==='error'){const ref=event.error?.event_id;if(['response_cancel_not_active','input_audio_buffer_commit_empty'].includes(event.error?.code))return false;if(ref&&(!pending||!pending.sentEvents.has(ref)))return false;fail(event.error?.code||'VOICE_PROVIDER_FAILED');if(!ref&&!detached){detached=true;bridge.end();endTransport();}return false;}
   if(event.type.startsWith('output_audio_buffer.')&&playback&&event.response_id===playback.responseId&&playback.isCurrent()){if(event.type==='output_audio_buffer.started')mark(playback,'provider_audio_started_event');return true;}
   const turn=pending,responseId=event.response_id||event.response?.id;
   if(event.type==='response.created'){
@@ -68,9 +69,9 @@ export async function createRealtimeTurnCoordinator({identityOwner,scope,send,is
    if(event.type==='output_audio_buffer.started')mark(turn,'provider_audio_started_event');
    if(event.type==='response.done'){
     turn.done.add(responseId);mark(turn,'response_done_event');
-    if(event.response?.status!=='completed'){rejectPending();return false;}
+    if(event.response?.status!=='completed'){fail(event.response?.status_details?.error?.code||'VOICE_RESPONSE_FAILED');return false;}
     const calls=event.response?.output?.filter(item=>item.type==='function_call')||[];
-    if(calls.length){if(calls.length>4||calls.some(call=>!id(call.call_id)||turn.calls.has(call.call_id))||new Set(calls.map(call=>call.call_id)).size!==calls.length){rejectPending();return false;}for(const call of calls){turn.calls.add(call.call_id);turn.remainingCalls.add(call.call_id);}turn.continuation=true;turn.continuationRequested=false;return true;}
+    if(calls.length){if(calls.length>12||calls.some(call=>!id(call.call_id)||turn.calls.has(call.call_id))||new Set(calls.map(call=>call.call_id)).size!==calls.length){fail('VOICE_TOOL_LIMIT');return false;}for(const call of calls){turn.calls.add(call.call_id);turn.remainingCalls.add(call.call_id);}turn.continuation=true;turn.continuationRequested=false;return true;}
     pending=null;playback=turn;unschedule(turn.timer);turn.signal.removeEventListener('abort',turn.abort);turn.resolve({status:'provider_completed'});
    }
    return true;
@@ -90,3 +91,4 @@ export async function createRealtimeTurnCoordinator({identityOwner,scope,send,is
   observePresentation:event=>live()&&lastReply?.observePresentation(event)===true
  });
 }
+

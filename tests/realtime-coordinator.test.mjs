@@ -25,3 +25,23 @@ test('late referenced provider error cannot cancel a newer typed turn',async()=>
 test('verified replacement account stops transport once and clears old timing',async()=>{const h=await setup(),p=h.c.submitTyped('Fixture');h.created();h.identity({accountId:'B',conversationId:'conversation-B',generation:1});assert.equal(h.done(),false);assert.equal(h.ends(),1);assert.equal((await p).status,'superseded');assert.equal(h.done(),false);assert.equal(h.ends(),1);assert.deepEqual(h.c.snapshot().timings,[])});
 test('new typed input clears previous playback without cancelling a completed inference',async()=>{const h=await setup(),p=h.c.submitTyped('First');h.created();h.done();await p;const n=h.frames.length,next=h.c.submitTyped('Second');const frames=h.frames.slice(n);assert.ok(frames.some(f=>f.type==='output_audio_buffer.clear'));assert.equal(frames.some(f=>f.type==='response.cancel'),false);h.created('second');h.done('second');await next;h.c.detach()});
 test('End while tools are pending blocks late tool output and continuation',async()=>{const h=await setup(),p=h.c.submitTyped('Fixture');h.created();h.done('response-1',[{type:'function_call',call_id:'tool-1'}]);h.c.detach();assert.equal(h.c.toolOutput({type:'conversation.item.create',item:{type:'function_call_output',call_id:'tool-1',output:'{}'}}),false);assert.equal(h.c.continueResponse(),false);assert.equal((await p).status,'superseded')});
+test('current request errors and failed responses reach the host; stale errors do not',async()=>{
+ const failures=[],h=await setup({onFailure:e=>failures.push(e.code)});
+ const p=h.c.submitTyped('Weather');const ref=h.request().event_id;
+ h.c.receive({type:'error',error:{event_id:ref,code:'insufficient_quota'}});
+ assert.equal((await p).status,'failed');assert.deepEqual(failures,['insufficient_quota']);assert.equal(h.timers.size,0);
+ const q=h.c.submitTyped('Try again');h.c.receive({type:'error',error:{event_id:ref,code:'old_error'}});assert.equal(failures.length,1);
+ h.created('r2');h.c.receive({type:'response.done',response:{id:'r2',status:'failed',status_details:{error:{code:'rate_limit_exceeded'}}}});
+ assert.equal((await q).status,'failed');assert.deepEqual(failures,['insufficient_quota','rate_limit_exceeded']);h.c.detach();
+});
+test('five route forecast calls continue exactly once after all results arrive',async()=>{
+ const failures=[],h=await setup({onFailure:e=>failures.push(e.code)}),p=h.c.submitTyped('Route weather');h.created();
+ const calls=Array.from({length:5},(_,i)=>({type:'function_call',call_id:'forecast-'+i}));assert.equal(h.done('response-1',calls),true);
+ for(let i=0;i<5;i++){assert.equal(h.c.toolOutput({type:'conversation.item.create',item:{type:'function_call_output',call_id:calls[i].call_id,output:'{}'}}),true);assert.equal(h.c.continueResponse(),i===4);}
+ assert.equal(h.frames.filter(e=>e.type==='response.create').length,2);h.created('summary');h.done('summary');assert.equal((await p).status,'completed');assert.deepEqual(failures,[]);h.c.detach();
+});
+test('timeout surfaces to host without retrying; expected cancellation errors remain harmless',async()=>{
+ const failures=[],h=await setup({onFailure:e=>failures.push(e.code)}),p=h.c.submitTyped('Hello');
+ h.c.receive({type:'error',error:{code:'response_cancel_not_active'}});assert.equal(h.c.snapshot().pending,true);assert.deepEqual(failures,[]);
+ for(const fn of [...h.timers.values()])fn();assert.equal((await p).status,'failed');assert.deepEqual(failures,['VOICE_TURN_TIMEOUT']);assert.equal(h.frames.filter(e=>e.type==='response.create').length,1);h.c.detach();
+});
