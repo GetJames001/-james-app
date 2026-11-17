@@ -7,15 +7,18 @@ test('Lifestyle on iPad opens existing Wardrobe, saves a recipe across refresh, 
  const browser=await chromium.launch();
  try{
   const page=await browser.newPage({viewport:{width:820,height:1180},reducedMotion:'reduce'});
-  let saved=null,deleted=[];
+  let saved=null,deleted=[],cookSaved=false;
+  const pick={url:'https://www.eatwell101.com/roasted-peppers',title:'Roasted peppers',publisher:'Eatwell101',photo:'https://i.pinimg.com/example.jpg'};
+  await page.context().route('https://aaru-working-review.aglow-ox-8353.chatgpt.site/wardrobe/recipe-board',r=>r.fulfill({contentType:'text/html',body:'<script>(window.opener||parent).postMessage('+JSON.stringify({type:'james-recipe-board',links:[],missing:0,discovery:{status:'ready',items:[pick]}})+',"https://test.invalid");if(window.opener)window.close()</script>'}));
   await page.route('https://test.invalid/**',async route=>{
    const url=new URL(route.request().url()),path=url.pathname.slice(1)||'index.html';
    if(path==='api/lifestyle/cookbook'){
     if(route.request().method()==='DELETE'){deleted.push(route.request().postDataJSON().url);return route.fulfill({status:204});}
-    return route.fulfill({json:url.search?{urls:deleted}:{items:[]}});
+    if(route.request().method()==='POST'){cookSaved=true;return route.fulfill({json:{status:'added'}});}
+    return route.fulfill({json:url.search?{urls:deleted}:{items:cookSaved?[pick]:[]}});
    }
    if(path==='api/lifestyle/feed'){
-    if(url.searchParams.get('source')==='recipes')return route.fulfill({json:{publisher:'Budget Bytes',items:[{title:'Roasted peppers',url:'https://www.budgetbytes.com/roasted-peppers/'}]}});
+    if(url.searchParams.get('source')==='recipes')throw Error('Publisher feed must not be used for Pinterest inspiration');
     if(url.searchParams.get('source')==='business')return route.fulfill({json:{publisher:'PBS News',items:[1,2,3].map(n=>({title:'Sample story '+n,url:'https://www.pbs.org/newshour/economy/'+n,photo:'https://test.invalid/assets/lifestyle/finance.jpg'}))}});
     return route.fulfill({status:503,json:{}});
    }
@@ -48,11 +51,12 @@ test('Lifestyle on iPad opens existing Wardrobe, saves a recipe across refresh, 
   }
   await page.setViewportSize({width:820,height:1180});
   await page.locator('#cookClose').click();
+  await page.locator('#recipeBoardSync').click();
   await page.getByRole('button',{name:'Save to book'}).click();
   await page.waitForFunction(()=>document.querySelector('#bookPage h3').textContent==='Roasted peppers');
   await page.reload();await page.waitForFunction(()=>document.querySelector('#bookPosition').textContent.endsWith('/ 2'));
   await page.locator('#cookbookCover').click();
-  await page.locator('#bookNext').click();assert.equal(await page.locator('#bookPage a').getAttribute('href'),'https://www.budgetbytes.com/roasted-peppers/');
+  await page.locator('#bookNext').click();assert.equal(await page.locator('#bookPage a').getAttribute('href'),pick.url);
   await page.keyboard.press('ArrowLeft');
   assert.equal(await page.locator('#bookPosition').textContent(),'1 / 2');
   await page.keyboard.press('Escape');

@@ -79,6 +79,7 @@ function mountMagazine({list,read,save}){
     catch{failed++;}
    }
    await loadBook();lastScan=Date.now();
+   await showPinterestIdeas(event.data.discovery);void discoverMatches();
    boardStatus.textContent=[added?added+' added to your book':'Book up to date',skipped?skipped+' without a supported recipe':'',failed?failed+' could not be checked. Try again.':''].filter(Boolean).join(' · ');
   }finally{importing=false;boardButton.disabled=false;}
  });
@@ -86,7 +87,7 @@ function mountMagazine({list,read,save}){
  if(localStorage.getItem('jamesRecipeBoardEnabled')==='1')boardButton.textContent='Check Mad Food Son';
  const autoPicks=el('recipeAutoPicks');
  autoPicks.checked=localStorage.getItem('jamesAutoRecipePicks')==='1';
- let matching=false;
+ let matching=false,pinterestIdeas=[];
  async function discoverMatches(){
   if(!autoPicks.checked||matching)return;
   matching=true;
@@ -95,8 +96,7 @@ function mountMagazine({list,read,save}){
    const words=title=>title.toLowerCase().match(/[a-z]{4,}/g)||[];
    const interests=new Set(pages.filter(p=>p!==gumbo).flatMap(p=>words(p.title)).filter(w=>!ignore.has(w)));
    if(!interests.size)return;
-   const res=await fetch('/api/lifestyle/feed?source=recipes');if(!res.ok)return;
-   const {items}=await res.json();
+   const items=pinterestIdeas;
    for(const item of items.filter(row=>words(row.title).some(w=>interests.has(w))).slice(0,2)){
     if(await importRecipe(item.url,true)==='added')await loadBook();
    }
@@ -122,7 +122,8 @@ function mountMagazine({list,read,save}){
   spread.classList.add(direction>0?'turn-forward':'turn-back');reader.scrollTop=0;
  }
  el('bookPrev').onclick=()=>turnRecipe(-1);el('bookNext').onclick=()=>turnRecipe(1);
- reader.addEventListener('keydown',event=>{
+ document.addEventListener('keydown',event=>{
+  if(!reader.open)return;
   if(event.key==='ArrowLeft'||event.key==='ArrowRight'){
    event.preventDefault();turnRecipe(event.key==='ArrowRight'?1:-1);
   }
@@ -144,6 +145,43 @@ function mountMagazine({list,read,save}){
    el('financeToday').hidden=investments;
    document.querySelectorAll('[data-finance-view]').forEach(item=>item.setAttribute('aria-pressed',String(item===tab)));
   };
+ }
+ async function showPinterestIdeas(discovery){
+  const host=el('pinterestPicks');
+  pinterestIdeas=[];
+  if(discovery?.status!=='ready'){
+   host.replaceChildren(tag('p',discovery?.status==='restricted'?'Pinterest has not enabled recipe search for James.':'Pinterest suggestions are unavailable right now.'),link('Browse recipes on Pinterest','https://www.pinterest.com/search/pins/?q=dinner%20recipes'));
+   return;
+  }
+  let deleted;
+  try{deleted=await deletedRecipes();}
+  catch{host.textContent='Recipe preferences could not be loaded.';return;}
+  pinterestIdeas=(discovery.items||[]).filter(item=>!deleted.has(item.url));
+  const cards=pinterestIdeas.map(item=>{
+   const row=tag('div','');row.className='mag-story';
+   const image=document.createElement('img');image.src=item.photo;image.alt='';image.referrerPolicy='no-referrer';
+   const keep=tag('button','Save to book'),remove=tag('button','Delete');remove.setAttribute('aria-label','Delete '+item.title);
+   row.append(image,link(item.title,item.pin||item.url),keep,remove);
+   keep.onclick=async()=>{
+    keep.disabled=true;
+    try{
+     const status=await importRecipe(item.url);
+     if(status!=='existing'&&status!=='added'){keep.textContent='Recipe unavailable';return;}
+     await loadBook();current=Math.max(0,pages.findIndex(p=>p.url===item.url));drawBook();keep.textContent='Saved';
+    }catch{keep.disabled=false;keep.textContent='Retry save';}
+   };
+   remove.onclick=async()=>{
+    remove.disabled=true;
+    try{
+     const r=await fetch('/api/lifestyle/cookbook',{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({url:item.url})});
+     if(!r.ok)throw Error();
+     pinterestIdeas=pinterestIdeas.filter(i=>i.url!==item.url);row.remove();
+     if(!pinterestIdeas.length)host.textContent='No new recipe suggestions.';
+    }catch{remove.disabled=false;remove.textContent='Retry delete';}
+   };
+   return row;
+  });
+  if(cards.length)host.replaceChildren(...cards);else host.textContent='No new recipe suggestions.';
  }
  const feeds=new Map();
  async function deletedRecipes(){
@@ -184,34 +222,8 @@ function mountMagazine({list,read,save}){
     });
     host.replaceChildren(...cards);return;
    }
-   const deleted=key==='recipes'?await deletedRecipes():new Set();
-   const nodes=data.items.filter(item=>!deleted.has(item.url)).map(item=>{
-    const row=tag('div','');row.className='mag-story';row.append(link(item.title,item.url));
-    if(key==='recipes'){
-     if(item.photo){const image=document.createElement('img');image.src=item.photo;image.alt='';image.loading='lazy';image.referrerPolicy='no-referrer';row.prepend(image);}
-     const button=tag('button','Save to book');row.append(button);
-     const remove=tag('button','Delete');remove.type='button';remove.setAttribute('aria-label','Delete '+item.title);row.append(remove);
-     remove.onclick=async()=>{
-      remove.disabled=true;
-      try{
-       const response=await fetch('/api/lifestyle/cookbook',{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({url:item.url})});
-       if(!response.ok)throw Error();
-       row.remove();if(!host.querySelector('.mag-story'))host.textContent='No new recipe suggestions.';
-      }catch{remove.disabled=false;remove.textContent='Retry delete';}
-     };
-     button.onclick=async()=>{
-      button.disabled=true;
-      try{
-       const recipe={title:item.title,url:item.url,publisher:data.publisher,...(item.photo?{photo:item.photo}:{})};
-       if(!safeRecipe(recipe))throw Error();
-       await save(new File([JSON.stringify(recipe)],'saved'+suffix,{type:'application/json',lastModified:0}));
-       await loadBook();const index=pages.findIndex(p=>p.url===item.url);
-       if(index>=0){current=index;drawBook();}button.textContent='Saved';
-      }catch{button.disabled=false;button.textContent='Retry save';}
-     };
-    }return row;
-   });
-   if(key==='recipes'&&!nodes.length)host.textContent='No new recipe suggestions.';else host.replaceChildren(tag('small',data.publisher),...nodes);
+
+   host.replaceChildren(tag('small',data.publisher),...data.items.map(item=>link(item.title,item.url)));
   }catch{if(host.dataset.feed!==key)return;if(feeds.get(key)===entry)feeds.delete(key);const retry=tag('button','Retry feed');retry.onclick=()=>refreshFeed(host);const picks={
     'sales-books':['To Sell Is Human','Daniel Pink','https://www.danpink.com/books/to-sell-is-human/','Ask a customer what would make their decision easier. Summarize their answer before you pitch.'],
     'business-books':['The Mom Test','Rob Fitzpatrick','https://www.momtestbook.com/','Ask about the last time a customer faced the problem you want to solve.'],

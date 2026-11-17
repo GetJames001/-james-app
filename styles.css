@@ -1257,7 +1257,7 @@ html[data-theme=light] .james-shell .intel-strip>.briefing-wardrobe{background:#
 #app .mag-book #bookPage {background:linear-gradient(90deg,#ddcaa4,#f8eed6 5%,#f7efd9 91%,#bda57f);padding:clamp(18px,3vw,44px)}
 #app .mag-book #bookPhoto {height:100%;min-height:260px;max-height:none}
 #app .mag-book.source-only {background:linear-gradient(90deg,#e1ccaa,#f5e9d0)}
-#app #growthReading,#app #recipeDiscover [data-feed] {display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,200px),1fr));gap:8px;margin-top:.65rem}
+#app #growthReading,#app #pinterestPicks {display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,200px),1fr));gap:8px;margin-top:.65rem}
 #app #growthReading[hidden] {display:none}
 #app [data-feed]>small {grid-column:1/-1}
 #app #growthReading .mag-story,#app #recipeDiscover .mag-story {display:flex;position:relative;isolation:isolate;align-items:end;align-content:end;border-radius:5px;overflow:hidden;min-height:130px;padding:12px;background:linear-gradient(0deg,#071019ec,#08111c99),url(assets/lifestyle/books.jpg) center/cover;color:white}
