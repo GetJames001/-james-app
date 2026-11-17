@@ -171,7 +171,7 @@ test('cookbook imports board destinations and a second scan keeps a single recip
   await page.locator('#cookClose').click();
   await page.locator('#recipeBoardSync').click();
   await page.getByText('Book up to date',{exact:true}).waitFor();
-  assert.equal(postCount,4);
+  assert.equal(postCount,5); // Two board scans plus one automatic retry of the unresolved Pin.
   assert.equal(stored.size,2);
   await page.locator('#cookbookCover').click();
   await page.locator('#bookPrev').click();

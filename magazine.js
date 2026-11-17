@@ -3,7 +3,7 @@ function mountMagazine({list,read,save}){
  const el=id=>document.getElementById(id);
  const tag=(name,text)=>{const node=document.createElement(name);node.textContent=text;return node;};
  const link=(title,url)=>{const a=tag('a',title);a.href=url;a.target='_blank';a.rel='noopener noreferrer';return a;};
- const gumbo={title:'Cajun chicken & sausage gumbo',url:'#james-gumbo',publisher:'James kitchen · Serves 4 · Recipe illustration'};
+ const gumbo={title:'Cajun chicken & sausage gumbo · James original',url:'#james-gumbo',publisher:'James kitchen · Serves 4 · Recipe illustration'};
  const stuffingBites={
   title:'Bacon-Wrapped Stuffing Bites',publisher:'Who Needs A Cape? · Makes 18',
   url:'https://whoneedsacape.com/2016/10/bacon-wrapped-stuffing-bites/',
@@ -46,7 +46,7 @@ function mountMagazine({list,read,save}){
   repairing=true;
   try{
    for(const item of items){
-    if(item.kind!=='saved-pin'||item.url===item.pinUrl)continue;
+    if(item.kind!=='saved-pin')continue;
     await importRecipe(item.url,false,{title:item.title,url:item.pinUrl,recipeSource:item.url,image:item.photo}).catch(()=>{});
    }
    await loadBook();
@@ -74,18 +74,19 @@ function mountMagazine({list,read,save}){
    const readable=new Map(),pins=new Map();
    for(const item of [gumbo,...rows.filter(safeRecipe),...(imports.items||[]).filter(safeRecipe),stuffingBites]){
     const key=recipeKey(item.url);
-    if(item===gumbo||item.ingredients?.length&&item.steps?.length)readable.set(key,item);
+    if(item===gumbo||item.ingredients?.length&&item.steps?.length){if(item!==stuffingBites||!readable.has(key))readable.set(key,item);}
     else pins.set(key,item);
    }
    pages=[...readable.values()];
    if(ideasReady)renderIdeas();
    let savedPins=el('cookSavedPins');
    if(!savedPins){savedPins=tag('details','');savedPins.id='cookSavedPins';el('cookbookCover').after(savedPins);}
-   const pending=[...pins].filter(([key])=>!readable.has(key)).map(([,item])=>item);
+   const imported=new Set(pages.flatMap(row=>[row.url,row.pinUrl,row.sourceUrl].filter(Boolean).map(recipeKey)));
+   const pending=[...pins.values()].filter(row=>![row.url,row.pinUrl].some(url=>url&&imported.has(recipeKey(url))));
    savedPins.hidden=!pending.length;
-   savedPins.replaceChildren(tag('summary','Saved links ('+pending.length+')'));
+   savedPins.replaceChildren(tag('summary','Links awaiting a full recipe ('+pending.length+')'));
    for(const item of pending)savedPins.append(link(item.title,item.url));
-   if(!repairing && !repaired && pending.some(item=>item.kind==='saved-pin'&&item.url!==item.pinUrl)){
+   if(!repairing && !repaired && pending.some(item=>item.kind==='saved-pin')){
     repaired=true;void repairLinks(pending);
    }
    current=Math.max(0,pages.findIndex(row=>row.url===selected));drawBook();el('bookNotice').textContent='';

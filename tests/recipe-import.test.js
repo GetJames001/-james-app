@@ -8,3 +8,16 @@ test('cookbook uses an exact publisher and groups information from the same reci
  const recipe=article('<script type="application/ld+json">'+JSON.stringify(data)+'</script>',sourceUrl('https://www.eatwell101.com/recipe'));
  assert.deepEqual(recipe.steps,['Roast until golden.']);assert.equal(recipe.title,'Sprouts');assert.equal(recipe.ingredients.length,1);
 });
+
+test('follows one explicit recipe destination and refuses ambiguous recipes',()=>{
+ const {recipeDestination}=require('../lib/routes/recipe-book');
+ const base=new URL('https://example.com/saved-yams');
+ const button='<a href="/recipes/yams"><span>See recipe</span></a>';
+ assert.equal(recipeDestination(button,base).href,'https://example.com/recipes/yams');
+ assert.equal(recipeDestination(button+'<a href="/other">Get recipe</a>',base),null);
+ const dish={ '@type':'Recipe',name:'Pinned gumbo',recipeIngredient:['6 cups chicken broth'],recipeInstructions:['Serve over rice.'] };
+ const block=data=>'<script type="application/ld+json">'+JSON.stringify(data)+'</script>';
+ assert.deepEqual(article(block(dish),base).ingredients,['6 cups chicken broth']);
+ assert.equal(article(block([dish,{...dish,name:'Another gumbo'}]),base),null);
+ assert.equal(article(block({'@type':'ItemList',itemListElement:[dish]}),base),null);
+});
