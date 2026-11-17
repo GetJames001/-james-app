@@ -2,17 +2,33 @@
 
 Michael selected Archer – Conversational, voice ID `Fahco4VZzobUeiPqni1S`.
 
-The existing authenticated WebRTC session, manual turn coordinator and James tools continue to handle input, navigation and recipe guidance. Archer requests text output from that session and speaks the final answer through the server-only ElevenLabs endpoint. It does not play a different voice silently when Archer is unavailable. Interrupted or ended turns discard late audio.
+The authenticated OpenAI WebRTC session and James tools handle input, navigation and saved-recipe guidance. Archer uses text-only responses and the server-only ElevenLabs speech endpoint. Interrupted or ended turns discard late audio; unavailable Archer never silently switches voices.
 
-Activation is not complete. No speech generation, subscription, purchase or new paid call was made during implementation. The current Vercel connector returned no James project for either default scope or James team `team_lVrzYRomAyAMMK3W3Rf0WWhl`, so its environment could not be verified or edited.
+## Verified November 17, 2026
 
-After access and additional usage approval:
+- Combined Preview code: `d4846ef543d80eefc943d09a97bee3288c732ed8`.
+- Vercel James Preview deployment succeeded: https://vercel.com/james-cb7a/james-app/FoTCtEdztn6iTmJRxXZhS1HtXnwG
+- Full CI run 44157019316: 566 passed, 0 failed, 1 skipped. Audit and public cookbook-source verification passed. Includes navigation continuation audio and Archer lifecycle browser checks.
+- ElevenLabs authenticated account is on Free. Archer was added to My Voices.
+- A restricted key named James Preview Archer Speech was created: text-to-speech access only, 10,000-credit per-period cap, auto-disable-if-leaked enabled.
+- Credential securely stored as Secret `ELEVENLABS_API_KEY`, solely for Preview branch `fix/calendar-refresh-diagnosis-20261031`. No production variables changed.
+- `JAMES_ARCHER_ENABLED` was NOT saved. Archer is not active or selected on Michael's devices. No actual provider speech request or subscription purchase occurred.
+- The environment credential was added after the deployment above. Redeploy after activation to pick up environment changes.
 
-1. Configure `ELEVENLABS_API_KEY` as a sensitive Preview-only variable, scoped to `fix/calendar-refresh-diagnosis-20261031`. Do not paste secrets into chat or source.
-2. Set `JAMES_ARCHER_ENABLED=true` on that Preview only and deploy the same branch.
-3. Verify authenticated GET `/api/james/speech` reports ready. This verifies configuration presence, not provider credentials or voice entitlement.
-4. Select Archer in James Voice Settings and test one complete spoken navigation response on iPad, then interruptions on Android. Confirm the voice entitlement with an actual authorized request.
+## Exact remaining blocker
 
-Model: `eleven_flash_v2_5`; output: `mp3_44100_128`. Official ElevenLabs API pricing reviewed November 17, 2026 lists Flash/Turbo at $0.04 per 1,000 characters. Account terms and voice access must be verified before activation. Existing OpenAI input/reasoning usage remains. Reference: https://elevenlabs.io/pricing/api and https://elevenlabs.io/docs/api-reference/text-to-speech/stream
+ElevenLabs documentation says Voice Library voices cannot be used through the API on Free, even when website previews work:
+https://elevenlabs.io/docs/overview/capabilities/voices
 
-The Wardrobe header fix is independently deployed to the existing private Wardrobe site, source commit `58e68a1fc9fcd634626ebe8b3459134af17de86d`: Back to James replaces AARU Home, Working preview removed, direct entry/refresh opens Wardrobe, retired dashboard no longer displayed. Closet storage and lookbook are unchanged. 96 automated checks passed; the legacy inspiration browser check was blocked by an unavailable Chromium executable.
+The signed-in monthly subscription screen offers Starter at $1 for the first month, then $6/month (taxes excluded). User approved listed speech usage at $0.04 per 1,000 characters and Preview setup, but has not approved this recurring subscription. Do not purchase or change billing without approval. Current key cap is deliberately conservative and should be reviewed before sustained daily use.
+
+## After subscription approval and account upgrade
+
+1. Set `JAMES_ARCHER_ENABLED=true` only for the combined Preview branch and redeploy it.
+2. Verify authenticated GET `/api/james/speech` reports ready. This is configuration presence, not provider entitlement.
+3. Verify an actual short Archer request succeeds, then select Archer in James Voice Settings.
+4. Give Michael one focused iPad check: say “open recipes” and confirm the complete spoken response continues after navigation. Android interruption check follows separately.
+
+Model: `eleven_flash_v2_5`; output: `mp3_44100_128`. Account/API pricing shows $0.04 per 1,000 Flash/Turbo characters. Existing OpenAI input/reasoning usage remains.
+
+Wardrobe header fix remains independently deployed to the private Wardrobe site, source `58e68a1fc9fcd634626ebe8b3459134af17de86d`: Back to James replaces AARU Home, Working preview removed, direct entry/refresh opens Wardrobe. Closet data and lookbook preserved. 96 checks passed; legacy inspiration browser check unavailable due to missing local Chromium.
