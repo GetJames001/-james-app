@@ -40,6 +40,8 @@ jobs:
           path: card-previews/
           retention-days: 3
       - run: npm audit --omit=dev
+      - name: Verify public cookbook sources
+        run: node tools/check-recipe-sources.cjs
       - name: Verify public lifestyle feed access
         if: github.head_ref == 'feature/free-news-workout-picker'
         run: |
@@ -68,3 +70,4 @@ jobs:
             }
           })().catch(error=>{console.error(error.message);process.exitCode=1});
           NODE
+
