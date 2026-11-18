@@ -33,3 +33,9 @@ test('explicit itinerary cover and guide do not parse canceled or return stops',
  assert.match(source,/for\(const stop of trip\.drivingLegs \? \[\] : trip\.stops\)/);
  assert.match(source,/trip\.drivingLegs\.map\(leg=>leg\.label\)/);
 });
+
+test('travel presentation stays concise without exposing map addresses in city guide',()=>{
+ const source=require('node:fs').readFileSync(require.resolve('../travel'),'utf8');
+ assert.equal(source.includes("item.append(tag('p', 'Saved route waypoints"),false);
+ assert.match(source,/const end=trip\?\.destinationCity\|\|trip\?\.title/);
+});

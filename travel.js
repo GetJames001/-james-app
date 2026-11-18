@@ -64,7 +64,6 @@ function mountTravel({list, read, save}) {
       if (/^The original Drive Weather route shows .+ and omits .+\.$/i.test(stop.trim())) continue;
       item.append(tag('p', stop.replace(/Leave Sunstone, Las Vegas\b/i,'Leave Northwest Las Vegas')));
     }
-    if (trip.drivingLegs) item.append(tag('p', 'Saved route waypoints · Google Maps recalculates the roads. Check the route before driving; this is not live Drive Weather.'));
     for(const leg of tripDirections(trip)){
       const link=tag('a',leg.label+' · Google Maps');
       link.href=leg.url;link.target='_blank';link.rel='noopener noreferrer';
@@ -99,7 +98,7 @@ function mountTravel({list, read, save}) {
     const generation=++guideSequence;
     guideTrip=trip;guideDay=today;
     const host=document.getElementById('tripPlaces'),wrap=document.getElementById('tripGuide'),jump=document.getElementById('tripGuideJump');
-    const end=trip?.destination||trip?.title?.match(/(?:^|\s)to\s+(.+?)(?:\s+[·–-]\s+driving)?$/i)?.[1];
+    const end=trip?.destinationCity||trip?.title?.match(/(?:^|\s)to\s+(.+?)(?:\s+[·–-]\s+driving)?$/i)?.[1]||trip?.destination;
     const road=Boolean(trip?.route||trip?.drivingLegs||trip?.mode==='driving');
     wrap.hidden=jump.hidden=!trip||(!road&&!end);
     if(wrap.hidden){host.replaceChildren();return;}
