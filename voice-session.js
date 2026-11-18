@@ -2,7 +2,9 @@
  'use strict';
  function createArcherPlayback({audio,fetcher,scope,isCurrent,onSpeaking,onEnded,onError,urlAPI=root.URL}){
   let epoch=0,controller=null,url=null;
-  function cancel(){++epoch;controller?.abort();controller=null;audio.onended=audio.onerror=null;audio.pause();audio.removeAttribute('src');if(url){urlAPI.revokeObjectURL(url);url=null;}}
+  // Do not interrupt the browser audio session when no Archer media was loaded.
+  // Speech onset still invalidates pending fetches and real playback immediately.
+  function cancel(){++epoch;controller?.abort();controller=null;audio.onended=audio.onerror=null;if(url){audio.pause();audio.removeAttribute('src');urlAPI.revokeObjectURL(url);url=null;}}
   async function play(text){
    cancel();const turn=epoch;controller=new AbortController();
    const live=()=>turn===epoch&&isCurrent();
@@ -58,7 +60,7 @@
   },readRoute=()=>({status:"unavailable"}),readWeather=()=>({status:"unavailable"}),readBriefing=()=>({status:"unavailable"}),readCalendar=async()=>({status:"unavailable"}),fetcher=fetch,media=root.navigator.mediaDevices,Peer=root.RTCPeerConnection}){
   const doc=orb.ownerDocument,panel=doc.createElement('aside'),status=doc.createElement('p'),transcript=doc.createElement('p'),mute=doc.createElement('button'),stop=doc.createElement('button'),interrupt=doc.createElement('button');
   const launchTalk=doc.createElement('button'),connectionDetails=doc.createElement('details'),connectionSummary=doc.createElement('summary'),connectionReport=doc.createElement('pre');
-  connectionSummary.textContent='Connection details · Voice check 4';connectionDetails.append(connectionSummary,connectionReport);connectionDetails.hidden=false;connectionReport.style.cssText='white-space:pre-wrap;overflow-wrap:anywhere;font-size:12px';
+  connectionSummary.textContent='Connection details · Voice check 5';connectionDetails.append(connectionSummary,connectionReport);connectionDetails.hidden=false;connectionReport.style.cssText='white-space:pre-wrap;overflow-wrap:anywhere;font-size:12px';
   launchTalk.type='button';launchTalk.textContent='Start conversation';launchTalk.hidden=true;
   panel.className='james-voice-panel';panel.hidden=true;panel.setAttribute('aria-label','James conversation');
   status.setAttribute('role','status');transcript.className='james-voice-transcript';
@@ -94,7 +96,7 @@
   const defaultCloseMessage='Voice is off. Tap James to talk again. Your conversation is retained.';
   // Keep only transport metadata after cleanup so a failed device test remains diagnosable.
   // Never retain audio, transcripts, account IDs or device labels here.
-  function diagnostic(s){return {build:'voice-check-4',active:!!s,phase:s?.phase||'idle',speechDetected:s?.heardSpeech===true,providerEvents:{...(s?.providerEvents||{})},audioPackets:s?.audioPackets??null,inputProgress:s?.inputProgress||null,providerVad:s?.providerVad||null,lastResearchDurationMs:s?.lastResearchDurationMs??null,connectionState:s?.pc?.connectionState||null,channelState:s?.channel?.readyState||null,microphone:s?.stream?.getAudioTracks().map(track=>({state:track.readyState||'unknown',enabled:track.enabled,muted:track.muted===true}))||[]};}
+  function diagnostic(s){return {build:'voice-check-5',active:!!s,phase:s?.phase||'idle',speechDetected:s?.heardSpeech===true,providerEvents:{...(s?.providerEvents||{})},audioPackets:s?.audioPackets??null,inputProgress:s?.inputProgress||null,providerVad:s?.providerVad||null,lastResearchDurationMs:s?.lastResearchDurationMs??null,connectionState:s?.pc?.connectionState||null,channelState:s?.channel?.readyState||null,microphone:s?.stream?.getAudioTracks().map(track=>({state:track.readyState||'unknown',enabled:track.enabled,muted:track.muted===true}))||[]};}
   function close(message=defaultCloseMessage){
    const s=session;if(s)lastDiagnostic={...diagnostic(s),active:false,closedAt:new Date().toISOString(),reason:message};session=null;++serial;
    if(s){s.closed=true;s.speech?.cancel();s.coordinator?.detach();s.controller.abort();clearTimeout(s.timer);clearTimeout(s.startup);clearTimeout(s.maximum);clearTimeout(s.linkTimer);clearInterval(s.check);clearInterval(s.inputCheck);s.stream?.getTracks().forEach(track=>track.stop());s.channel?.close();s.pc?.close();s.audio.pause();s.audio.srcObject=null;ui.detachVoice?.(s.adapter);}
