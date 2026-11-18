@@ -55,12 +55,20 @@
   s.inputStatsPrevious={at,packets,captureSeconds,energy,outputs,sources};
   return s.inputProgress;
  }
+ function noteInputTranscriptionFailure(s,event){
+  if(event?.type!=='conversation.item.input_audio_transcription.failed'||typeof s.inputItemId!=='string'||!s.inputItemId||event.item_id!==s.inputItemId)return false;
+  // A separate ASR failure must not cancel the native-audio model's response.
+  // Keep fixed codes only; provider messages can contain private input.
+  const allowed=['transcription_error','audio_unintelligible','server_error','model_not_found','invalid_api_key','insufficient_quota','rate_limit_exceeded','permission_denied'];
+  s.inputTranscription={state:'failed',code:allowed.includes(event.error?.code)?event.error.code:'unclassified'};
+  return true;
+ }
  function mount({ui,orb,button,settingsButton,setState,createReminder=async()=>({status:"unavailable"}),readReminders=()=>({status:"unavailable"}),findPlaces=async()=>({status:"unavailable"}),prepareAppointment=async()=>({status:"unavailable"}),readAppointmentReview=()=>({status:"none"}),readRecipe=action=>root.jamesRecipes?.read(action)||({status:'unavailable'}),readTrips=async()=>root.jamesTripCalendar?.read()||({status:'unavailable'}),readForecast=async({location,country,date})=>{
    try {const response=await fetcher('/api/travel/forecast?'+new URLSearchParams({location,country,date}),{credentials:'same-origin',cache:'no-store'});return response.ok?await response.json():{status:'unavailable'};}catch{return {status:'unavailable'};}
   },readRoute=()=>({status:"unavailable"}),readWeather=()=>({status:"unavailable"}),readBriefing=()=>({status:"unavailable"}),readCalendar=async()=>({status:"unavailable"}),fetcher=fetch,media=root.navigator.mediaDevices,Peer=root.RTCPeerConnection}){
   const doc=orb.ownerDocument,panel=doc.createElement('aside'),status=doc.createElement('p'),transcript=doc.createElement('p'),mute=doc.createElement('button'),stop=doc.createElement('button'),interrupt=doc.createElement('button');
   const launchTalk=doc.createElement('button'),connectionDetails=doc.createElement('details'),connectionSummary=doc.createElement('summary'),connectionReport=doc.createElement('pre');
-  connectionSummary.textContent='Connection details · Voice check 5';connectionDetails.append(connectionSummary,connectionReport);connectionDetails.hidden=false;connectionReport.style.cssText='white-space:pre-wrap;overflow-wrap:anywhere;font-size:12px';
+  connectionSummary.textContent='Connection details · Voice check 6';connectionDetails.append(connectionSummary,connectionReport);connectionDetails.hidden=false;connectionReport.style.cssText='white-space:pre-wrap;overflow-wrap:anywhere;font-size:12px';
   launchTalk.type='button';launchTalk.textContent='Start conversation';launchTalk.hidden=true;
   panel.className='james-voice-panel';panel.hidden=true;panel.setAttribute('aria-label','James conversation');
   status.setAttribute('role','status');transcript.className='james-voice-transcript';
@@ -96,7 +104,7 @@
   const defaultCloseMessage='Voice is off. Tap James to talk again. Your conversation is retained.';
   // Keep only transport metadata after cleanup so a failed device test remains diagnosable.
   // Never retain audio, transcripts, account IDs or device labels here.
-  function diagnostic(s){return {build:'voice-check-5',active:!!s,phase:s?.phase||'idle',speechDetected:s?.heardSpeech===true,providerEvents:{...(s?.providerEvents||{})},audioPackets:s?.audioPackets??null,inputProgress:s?.inputProgress||null,providerVad:s?.providerVad||null,lastResearchDurationMs:s?.lastResearchDurationMs??null,connectionState:s?.pc?.connectionState||null,channelState:s?.channel?.readyState||null,microphone:s?.stream?.getAudioTracks().map(track=>({state:track.readyState||'unknown',enabled:track.enabled,muted:track.muted===true}))||[]};}
+  function diagnostic(s){return {build:'voice-check-6',active:!!s,phase:s?.phase||'idle',speechDetected:s?.heardSpeech===true,providerEvents:{...(s?.providerEvents||{})},inputTranscription:s?.inputTranscription||null,audioPackets:s?.audioPackets??null,inputProgress:s?.inputProgress||null,providerVad:s?.providerVad||null,lastResearchDurationMs:s?.lastResearchDurationMs??null,connectionState:s?.pc?.connectionState||null,channelState:s?.channel?.readyState||null,microphone:s?.stream?.getAudioTracks().map(track=>({state:track.readyState||'unknown',enabled:track.enabled,muted:track.muted===true}))||[]};}
   function close(message=defaultCloseMessage){
    const s=session;if(s)lastDiagnostic={...diagnostic(s),active:false,closedAt:new Date().toISOString(),reason:message};session=null;++serial;
    if(s){s.closed=true;s.speech?.cancel();s.coordinator?.detach();s.controller.abort();clearTimeout(s.timer);clearTimeout(s.startup);clearTimeout(s.maximum);clearTimeout(s.linkTimer);clearInterval(s.check);clearInterval(s.inputCheck);s.stream?.getTracks().forEach(track=>track.stop());s.channel?.close();s.pc?.close();s.audio.pause();s.audio.srcObject=null;ui.detachVoice?.(s.adapter);}
@@ -161,7 +169,7 @@
   async function event(s,e){
    if(!current(s))return;
    // Only fixed event counters, never provider payloads, audio or transcripts.
-   if(['session.created','input_audio_buffer.speech_started','input_audio_buffer.speech_stopped','input_audio_buffer.committed','response.created','response.done','error'].includes(e.type)){s.providerEvents||={};s.providerEvents[e.type]=(s.providerEvents[e.type]||0)+1;connectionReport.textContent=JSON.stringify(diagnostic(s),null,2);}
+   if(['session.created','input_audio_buffer.speech_started','input_audio_buffer.speech_stopped','input_audio_buffer.committed','response.created','response.done','conversation.item.input_audio_transcription.failed','conversation.item.input_audio_transcription.completed','error'].includes(e.type)){s.providerEvents||={};s.providerEvents[e.type]=(s.providerEvents[e.type]||0)+1;connectionReport.textContent=JSON.stringify(diagnostic(s),null,2);}
    if(e.type==='session.created'||e.type==='session.updated'){const vad=e.session?.audio?.input?.turn_detection;s.providerVad=['server_vad','semantic_vad'].includes(vad?.type)?vad.type:vad===null?'disabled':'unknown';connectionReport.textContent=JSON.stringify(diagnostic(s),null,2);}
    if(e.type==='session.created'){
     if(s.ready)return;s.ready=true;s.readyAt=Date.now();s.inputCheck=setInterval(()=>void checkInput(s),5000);
@@ -173,13 +181,13 @@
    }
    if(e.type==='error')s.failureMessage=failureMessage(e.error?.code)||'Voice session failed. Your conversation is retained; tap James to retry.';
    if(!s.coordinator.receive(e))return;
-   if(e.type==='input_audio_buffer.committed')s.inputItemId=e.item_id;
+   if(e.type==='input_audio_buffer.committed'){s.inputItemId=e.item_id;s.inputTranscription={state:'pending'};}
    if(e.type==='input_audio_buffer.speech_started'){
-    s.heardSpeech=true;++s.turn;s.speech?.cancel();s.playing=false;s.replyCancelled=true;s.audio.muted=true;s.userText='';s.replyText='';s.playbackFinished=false;ui.interruptVoiceReply();touch(s);state('listening','Listening…');
+    s.inputItemId=null;s.inputTranscription=null;s.heardSpeech=true;++s.turn;s.speech?.cancel();s.playing=false;s.replyCancelled=true;s.audio.muted=true;s.userText='';s.replyText='';s.playbackFinished=false;ui.interruptVoiceReply();touch(s);state('listening','Listening…');
    }
    if(e.type==='input_audio_buffer.speech_stopped'){context(s);state('thinking','James is thinking…');}
-   if(e.type==='conversation.item.input_audio_transcription.failed'&&e.item_id===s.inputItemId){close(failureMessage(e.error?.code)||'James could not transcribe your question. Tap James to retry.');return;}
-   if(e.type==='conversation.item.input_audio_transcription.completed'&&e.item_id===s.inputItemId){s.userText=e.transcript||'';transcript.textContent=s.userText;root.dispatchEvent?.(new CustomEvent('james:voice-transcript',{detail:{question:s.userText,answer:s.replyText}}));touch(s);remember(s);}
+   if(noteInputTranscriptionFailure(s,e)){state(s.phase||'thinking','Input transcript unavailable. James can still process the audio.');return;}
+   if(e.type==='conversation.item.input_audio_transcription.completed'&&typeof s.inputItemId==='string'&&e.item_id===s.inputItemId){s.inputTranscription={state:'ready'};s.userText=e.transcript||'';transcript.textContent=s.userText;root.dispatchEvent?.(new CustomEvent('james:voice-transcript',{detail:{question:s.userText,answer:s.replyText}}));touch(s);remember(s);}
    // A tool continuation can reuse an already-playing WebRTC audio buffer.
    // Do not mute it while waiting for another started event that may never fire.
    if(e.type==='response.created'){s.responding=true;s.replyCancelled=false;s.audio.muted=!!s.speech;if(s.speech)s.playbackFinished=false;}
@@ -274,7 +282,7 @@
   doc.addEventListener('visibilitychange',()=>{if(doc.hidden&&session)close('Voice paused while James was in the background. Tap James to reconnect.');});
   state('idle');return {start,close,stopReply,showExternalLaunch,active:()=>!!session,diagnostics:()=>session?diagnostic(session):lastDiagnostic?{...lastDiagnostic,microphone:lastDiagnostic.microphone.map(track=>({...track}))}:diagnostic(null)};
  }
- root.JamesVoiceSession={sampleInputMetadata,mount,createMorningOutfitOffer,createArcherPlayback};
+ root.JamesVoiceSession={noteInputTranscriptionFailure,sampleInputMetadata,mount,createMorningOutfitOffer,createArcherPlayback};
 })(typeof window==='undefined'?globalThis:window);
 
 
