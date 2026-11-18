@@ -665,7 +665,15 @@ function page(id){
   pageNow(id);
 }
 window.jamesPageNow=pageNow;
+function openWardrobe(){
+  // Keep the return page in this tab; Wardrobe is a separate app, not a popup.
+  pageNow('lifestyle');
+  const destination = new URL('https://aaru-working-review.aglow-ox-8353.chatgpt.site/wardrobe');
+  destination.searchParams.set('returnTo', new URL('/#lifestyle', window.location.origin).href);
+  window.location.assign(destination.href);
+}
 function pageNow(id){
+  if(id === 'wardrobe'){openWardrobe();return;}
   if(id === "attention") openAttentionSavedView();
   else clearAttentionSavedView();
   sessionStorage.setItem('jamesCurrentPage', id);
@@ -741,6 +749,11 @@ function intro(){
   JamesWelcome.start({ onResume: () => {
     let savedPage = 'briefing';
     try { savedPage = sessionStorage.getItem('jamesCurrentPage') || 'briefing'; } catch (_) {}
+    if (savedPage === 'wardrobe') savedPage = 'lifestyle';
+    if (window.location.hash === '#lifestyle') {
+      savedPage = 'lifestyle';
+      history.replaceState(history.state, '', window.location.pathname + window.location.search);
+    }
     if (!document.getElementById(savedPage)?.classList.contains('page')) savedPage = 'briefing';
     page(savedPage);
   }});
