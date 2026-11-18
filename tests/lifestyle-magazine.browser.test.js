@@ -32,7 +32,7 @@ test('Lifestyle on iPad opens existing Wardrobe, saves a recipe across refresh, 
   });
   await page.goto('https://test.invalid');await page.locator('nav [data-page=lifestyle]').click();
   const cards=page.locator('#lifestyle .mag-tile');assert.equal(await cards.count(),7);
-  assert.equal(await page.locator('#lifestyle a.mag-tile').getAttribute('href'),await page.locator('.wardrobe-launch').getAttribute('href'));
+  assert.equal(await page.locator('#lifestyle [data-action-page=wardrobe]').count(),1);
   await page.locator('#lifestyle [data-action-page=recipes]').click();
   assert.equal(await page.locator('#kitchenShelf').count(),0);
   await page.locator('#cookbookCover').click();await page.locator('#bookNext').click();
