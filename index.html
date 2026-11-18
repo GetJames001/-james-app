@@ -103,7 +103,7 @@
     <details><summary>Travel</summary><p>Open Travel from the sidebar or the Briefing tile. Choose an upcoming trip to see its dates, stops and itinerary.</p></details>
     <details><summary>Workbench and Files</summary><p>Open Workbench to return to a project. Open Files to find an upload or add a file for James to use.</p></details>
     <details><summary>Customer Information</summary><p>Use the Customer Vault to find a company or import a customer file. Add a company to today’s list, then open it in Customer Activity to record a visit, call or follow-up.</p></details>
-    <details><summary>Wardrobe</summary><p>Choose Wardrobe, then Open Wardrobe. Your closet, inspiration and saved looks open in a separate tab.</p></details>
+    <details><summary>Wardrobe</summary><p>Choose Wardrobe to open your closet, inspiration and saved looks in this tab. Return to Lifestyle when you are done.</p></details>
     <details><summary>Lifestyle</summary><p>Choose a photograph to open its section. Cooking &amp; Recipes has a recipe book and a live discovery feed. Personal Development brings reading and career files together. Finance shows sample accounts and card payments. Open Happening today for business stories or choose Investments to view the portfolio area.</p></details>
     <details><summary>James and voice</summary><p>Choose James in the sidebar to type a question, or tap the James orb to speak. Open Settings and choose Voice to change your voice preferences.</p></details>
     <details><summary>Settings</summary><p>Open Settings at the top of James for Connections, Voice, your entrance scene, the light or dark theme and Wall display.</p></details>
@@ -394,10 +394,10 @@
 <img src="assets/lifestyle/salmon.jpg" alt="" loading="lazy">
 <span>Cooking &amp; Recipes<em>Saved Pinterest Meals!!!</em><small>Explore recipes →</small></span>
 </button>
-<a class="mag-tile" href="https://aaru-working-review.aglow-ox-8353.chatgpt.site/wardrobe" target="_blank" rel="noopener noreferrer">
+<button type="button" class="mag-tile" data-action-page="wardrobe">
 <img src="assets/lifestyle/tailoring.jpg" alt="" loading="lazy">
 <span>Wardrobe</span>
-</a>
+</button>
 <button type="button" class="mag-tile" data-action-page="garage">
 <img src="assets/lifestyle/auto.jpg" alt="" loading="lazy">
 <span>Auto</span>
@@ -564,8 +564,8 @@
         <h3 id="wardrobeHeading">Wardrobe</h3>
       </div>
       
-      <a class="wardrobe-launch" href="https://aaru-working-review.aglow-ox-8353.chatgpt.site/wardrobe" target="_blank" rel="noopener noreferrer">Open Wardrobe <span>(new tab)</span></a>
-      <button type="button" data-action-page="briefing">Return to Briefing</button>
+      <button type="button" class="wardrobe-launch" data-action-page="wardrobe">Open Wardrobe</button>
+      <button type="button" data-action-page="lifestyle">Return to Lifestyle</button>
     </div>
   </section>
 
