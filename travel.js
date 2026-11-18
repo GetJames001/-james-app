@@ -11,6 +11,7 @@ function validTrip(trip) {
       !tripDate(trip.start) || (trip.end && (!tripDate(trip.end) || trip.end < trip.start)) ||
       !Array.isArray(trip.stops) || !trip.stops.length || trip.stops.length > 20 ||
       !trip.stops.every(stop => typeof stop === 'string' && stop.length > 0 && stop.length <= 500)) return false;
+  if (trip.drivingLegs !== undefined && !validDrivingLegs(trip.drivingLegs)) return false;
   if (!trip.route) return true;
   try {
     const url = new URL(trip.route);
@@ -63,6 +64,7 @@ function mountTravel({list, read, save}) {
       if (/^The original Drive Weather route shows .+ and omits .+\.$/i.test(stop.trim())) continue;
       item.append(tag('p', stop.replace(/Leave Sunstone, Las Vegas\b/i,'Leave Northwest Las Vegas')));
     }
+    if (trip.drivingLegs) item.append(tag('p', 'Saved route waypoints · Google Maps recalculates the roads. Check the route before driving; this is not live Drive Weather.'));
     for(const leg of tripDirections(trip)){
       const link=tag('a',leg.label+' · Google Maps');
       link.href=leg.url;link.target='_blank';link.rel='noopener noreferrer';
@@ -98,14 +100,14 @@ function mountTravel({list, read, save}) {
     guideTrip=trip;guideDay=today;
     const host=document.getElementById('tripPlaces'),wrap=document.getElementById('tripGuide'),jump=document.getElementById('tripGuideJump');
     const end=trip?.destination||trip?.title?.match(/(?:^|\s)to\s+(.+?)(?:\s+[·–-]\s+driving)?$/i)?.[1];
-    const road=Boolean(trip?.route||trip?.mode==='driving');
+    const road=Boolean(trip?.route||trip?.drivingLegs||trip?.mode==='driving');
     wrap.hidden=jump.hidden=!trip||(!road&&!end);
     if(wrap.hidden){host.replaceChildren();return;}
     jump.textContent=road?'Along the way':'In town';
     document.getElementById('tripGuideTitle').textContent=road?'Along the way':'While in '+end;
     if(road){
       const stops=[];
-      for(const line of trip.stops){
+      for(const line of trip.drivingLegs ? [] : trip.stops){
         for(const match of line.matchAll(/(?:overnight[^.]{0,90}? in |stop in )([A-Z][a-z]+(?: [A-Z][a-z]+)*)/g)){
           if(!stops.includes(match[1]))stops.push(match[1]);
         }
@@ -153,14 +155,17 @@ function mountTravel({list, read, save}) {
   function cover(trip){
     const link=tripLink(trip);link.replaceChildren(tag('strong',trip.title),tag('span',displayDate(trip.start)+(trip.end?' – '+displayDate(trip.end):'')));
     const notes=[];
-    for(const stop of trip.stops){
+    for(const stop of trip.drivingLegs ? [] : trip.stops){
       const overnight=stop.match(/overnight\b[^.]{0,75}?\bin ([A-Z][a-z]+(?: [A-Z][a-z]+)*)/);
       const pause=stop.match(/stop in ([A-Z][a-z]+(?: [A-Z][a-z]+)*) for (\d+ hours?)/i);
       if(overnight)notes.push('Overnight in '+overnight[1]);
       if(pause)notes.push(pause[2]+' in '+pause[1]);
     }
     const routeTitle=trip.title.match(/^(.+?)\s+to\s+(.+?)(?:\s+[·–-]\s+driving)?$/i);
-    if(routeTitle && trip.route){
+    if(trip.drivingLegs){
+      const route=tag('span',trip.drivingLegs.map(leg=>leg.label).join(' → '));
+      route.className='route-stops';link.append(route);
+    } else if(routeTitle && trip.route){
       const stops=[routeTitle[1]];
       for(const stop of trip.stops){
         const city=stop.match(/overnight\b[^.]{0,75}?\bin ([A-Z][a-z]+(?: [A-Z][a-z]+)*)/) || stop.match(/stop in ([A-Z][a-z]+(?: [A-Z][a-z]+)*) for \d+ hours?/i);
@@ -175,7 +180,7 @@ function mountTravel({list, read, save}) {
   function snapshot() {
     return {status:tripsStatus,loadedAt,trips:savedTrips.map(trip=>({
       id:trip.id,title:trip.title,start:trip.start,end:trip.end||null,
-      mode:trip.mode||(trip.route?'driving':'unspecified'),
+      mode:trip.mode||((trip.route||trip.drivingLegs)?'driving':'unspecified'),
       stops:trip.stops.filter(stop=>!/^The original Drive Weather route shows .+ and omits .+\.$/i.test(stop.trim()))
         .map(stop=>stop.replace(/Leave Sunstone, Las Vegas\b/i,'Leave Northwest Las Vegas')),
       directions:tripDirections(trip),
@@ -305,9 +310,33 @@ function mountTravel({list, read, save}) {
   if (isTravelLink()) setTimeout(launch,0);
   else show();
 }
+// Explicit legs retain the user's selected corridor independently of narrative
+// stops (which may mention canceled or return-only reservations). No arbitrary
+// external URLs are accepted. Three waypoints is the mobile-browser limit.
+function drivingLegURL(leg) {
+  const params = new URLSearchParams({api:'1',origin:leg.origin,
+    destination:leg.destination,travelmode:'driving'});
+  if (leg.waypoints?.length) params.set('waypoints',leg.waypoints.join('|'));
+  return 'https://www.google.com/maps/dir/?' + params;
+}
+function validDrivingLegs(legs) {
+  const text = value => typeof value === 'string' && value.trim().length > 0 &&
+    value.length <= 200 && !/[|\x00-\x1f\x7f]/.test(value);
+  return Array.isArray(legs) && legs.length > 0 && legs.length <= 20 && legs.every(leg =>
+    leg && text(leg.label) && text(leg.origin) && text(leg.destination) &&
+    (leg.waypoints === undefined || (Array.isArray(leg.waypoints) &&
+      leg.waypoints.length <= 3 && leg.waypoints.every(text))) &&
+    drivingLegURL(leg).length <= 2048);
+}
 // Map each leg separately: mobile Maps URLs support only a limited number of
 // waypoints. Keep all saved intermediate stops, including 'via' stops.
 function tripDirections(trip) {
+  if (trip.drivingLegs !== undefined) {
+    if (!validDrivingLegs(trip.drivingLegs)) return [];
+    return trip.drivingLegs.map(leg => ({label:leg.label,url:drivingLegURL(leg),
+      opens:'Google Maps',basis:'saved explicit route waypoints; Maps recalculates roads, exact route not verified',
+      liveTrafficVerified:false}));
+  }
   if(!trip.route&&trip.mode!=='driving')return [];
   const title=trip.title.match(/^(.+?)\s+to\s+(.+?)(?:\s+[·–-]\s+driving)?$/i);
   if(!title)return [];
