@@ -42,7 +42,7 @@
   },readRoute=()=>({status:"unavailable"}),readWeather=()=>({status:"unavailable"}),readBriefing=()=>({status:"unavailable"}),readCalendar=async()=>({status:"unavailable"}),fetcher=fetch,media=root.navigator.mediaDevices,Peer=root.RTCPeerConnection}){
   const doc=orb.ownerDocument,panel=doc.createElement('aside'),status=doc.createElement('p'),transcript=doc.createElement('p'),mute=doc.createElement('button'),stop=doc.createElement('button'),interrupt=doc.createElement('button');
   const launchTalk=doc.createElement('button'),connectionDetails=doc.createElement('details'),connectionSummary=doc.createElement('summary'),connectionReport=doc.createElement('pre');
-  connectionSummary.textContent='Connection details · Voice check 2';connectionDetails.append(connectionSummary,connectionReport);connectionDetails.hidden=false;connectionReport.style.cssText='white-space:pre-wrap;overflow-wrap:anywhere;font-size:12px';
+  connectionSummary.textContent='Connection details · Voice check 3';connectionDetails.append(connectionSummary,connectionReport);connectionDetails.hidden=false;connectionReport.style.cssText='white-space:pre-wrap;overflow-wrap:anywhere;font-size:12px';
   launchTalk.type='button';launchTalk.textContent='Start conversation';launchTalk.hidden=true;
   panel.className='james-voice-panel';panel.hidden=true;panel.setAttribute('aria-label','James conversation');
   status.setAttribute('role','status');transcript.className='james-voice-transcript';
@@ -71,14 +71,14 @@
    welcomeMemory={accountId:s.scope.accountId,day};try{root.localStorage.setItem(key,JSON.stringify(welcomeMemory));}catch{}
    return true;
   }
-  function state(value,message){root.dispatchEvent?.(new CustomEvent('james:voice-state',{detail:{phase:value,active:!!session,message:value==='idle'&&message!==defaultCloseMessage?message:''}}));if(value==='listening'&&session?.stream?.getAudioTracks().every(track=>!track.enabled)){value='muted';message='Microphone muted';}setState(value);if(session)session.phase=value;if(message)status.textContent=message;orb.dataset.voiceState=value;orb.dataset.microphone=session?.stream?(session.stream.getAudioTracks().some(track=>track.enabled)?'live':'muted'):'off';orb.title=({idle:'James voice is off',connecting:'Connecting to James',listening:'James is listening',thinking:'James is thinking',speaking:'James is speaking',muted:'James microphone is muted'})[value]||'James';orb.setAttribute('aria-pressed',String(!!session));orb.setAttribute('aria-label',session?'Close James voice':'Talk to James');if(button)button.textContent=session?'Close voice':'Talk to James';}
+  function state(value,message){root.dispatchEvent?.(new CustomEvent('james:voice-state',{detail:{phase:value,active:!!session,message:value==='idle'&&message!==defaultCloseMessage?message:''}}));if(value==='listening'&&session?.stream?.getAudioTracks().every(track=>!track.enabled)){value='muted';message='Microphone muted';}setState(value);if(session){session.phase=value;connectionReport.textContent=JSON.stringify(diagnostic(session),null,2);}if(message)status.textContent=message;orb.dataset.voiceState=value;orb.dataset.microphone=session?.stream?(session.stream.getAudioTracks().some(track=>track.enabled)?'live':'muted'):'off';orb.title=({idle:'James voice is off',connecting:'Connecting to James',listening:'James is listening',thinking:'James is thinking',speaking:'James is speaking',muted:'James microphone is muted'})[value]||'James';orb.setAttribute('aria-pressed',String(!!session));orb.setAttribute('aria-label',session?'Close James voice':'Talk to James');if(button)button.textContent=session?'Close voice':'Talk to James';}
   const current=s=>session===s&&!s.closed;
   function send(s,event){if(current(s)&&s.channel?.readyState==='open')s.channel.send(JSON.stringify(event));}
   function stopReply(){const s=session;if(!s)return;s.speech?.cancel();s.replyCancelled=true;s.playing=false;s.audio.muted=true;s.coordinator?.interrupt();ui.interruptVoiceReply();state('listening','Listening');}
   const defaultCloseMessage='Voice is off. Tap James to talk again. Your conversation is retained.';
   // Keep only transport metadata after cleanup so a failed device test remains diagnosable.
   // Never retain audio, transcripts, account IDs or device labels here.
-  function diagnostic(s){return {build:'voice-check-2',active:!!s,phase:s?.phase||'idle',speechDetected:s?.heardSpeech===true,providerEvents:{...(s?.providerEvents||{})},audioPackets:s?.audioPackets??null,lastResearchDurationMs:s?.lastResearchDurationMs??null,connectionState:s?.pc?.connectionState||null,channelState:s?.channel?.readyState||null,microphone:s?.stream?.getAudioTracks().map(track=>({state:track.readyState||'unknown',enabled:track.enabled,muted:track.muted===true}))||[]};}
+  function diagnostic(s){return {build:'voice-check-3',active:!!s,phase:s?.phase||'idle',speechDetected:s?.heardSpeech===true,providerEvents:{...(s?.providerEvents||{})},audioPackets:s?.audioPackets??null,lastResearchDurationMs:s?.lastResearchDurationMs??null,connectionState:s?.pc?.connectionState||null,channelState:s?.channel?.readyState||null,microphone:s?.stream?.getAudioTracks().map(track=>({state:track.readyState||'unknown',enabled:track.enabled,muted:track.muted===true}))||[]};}
   function close(message=defaultCloseMessage){
    const s=session;if(s)lastDiagnostic={...diagnostic(s),active:false,closedAt:new Date().toISOString(),reason:message};session=null;++serial;
    if(s){s.closed=true;s.speech?.cancel();s.coordinator?.detach();s.controller.abort();clearTimeout(s.timer);clearTimeout(s.startup);clearTimeout(s.maximum);clearTimeout(s.linkTimer);clearInterval(s.check);clearInterval(s.inputCheck);s.stream?.getTracks().forEach(track=>track.stop());s.channel?.close();s.pc?.close();s.audio.pause();s.audio.srcObject=null;ui.detachVoice?.(s.adapter);}
@@ -90,13 +90,16 @@
    if(!current(s)||!s.ready||s.checkingInput)return;
    const tracks=s.stream.getAudioTracks();
    if(!tracks.length||tracks.every(t=>t.readyState==='ended'))return close('The microphone stopped. Tap James to reconnect.');
-   if(!tracks.some(t=>t.enabled)||s.heardSpeech||s.phase!=='listening')return;
+   if(!tracks.some(t=>t.enabled)||s.phase!=='listening')return;
    s.checkingInput=true;
    try{
     const stats=await s.pc.getStats?.();if(!current(s))return;
     let packets=null;
     stats?.forEach(row=>{if(row.type==='outbound-rtp'&&(row.kind==='audio'||row.mediaType==='audio'))packets=(packets||0)+(row.packetsSent||0);});
     s.audioPackets=packets;connectionReport.textContent=JSON.stringify(diagnostic(s),null,2);
+    // After speech onset retain diagnostics only: a transient device mute is not
+    // evidence that a completed turn failed, and RTP counts are cumulative.
+    if(s.heardSpeech)return;
     if(Date.now()-s.readyAt<20000)return;
     if(tracks.every(t=>t.muted)||packets===0)return close('The microphone is open but no audio is reaching James. Check this browser’s microphone permission, then tap James to reconnect.');
     state('listening','James has not detected speech yet. Try speaking close to the microphone. If nothing changes, close voice and reconnect.');
