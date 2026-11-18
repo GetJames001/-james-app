@@ -1,5 +1,17 @@
 (function(root){
  'use strict';
+ const audioSessionOwners=new WeakMap();
+ // Optional, document-scoped duplex hint. Never request another microphone or
+ // overwrite another feature's later choice when releasing our ownership.
+ function acquireDuplexAudioSession(navigator){
+  try{
+   const audioSession=navigator?.audioSession;if(!audioSession)return ()=>{};
+   let owner=audioSessionOwners.get(audioSession);
+   if(!owner){const previous=audioSession.type;audioSession.type='play-and-record';owner={previous,count:0};audioSessionOwners.set(audioSession,owner);}
+   owner.count++;let released=false;
+   return ()=>{if(released)return;released=true;if(--owner.count)return;audioSessionOwners.delete(audioSession);try{if(audioSession.type==='play-and-record')audioSession.type=owner.previous;}catch{}};
+  }catch{return ()=>{};}
+ }
  function createArcherPlayback({audio,fetcher,scope,isCurrent,onSpeaking,onEnded,onError,urlAPI=root.URL}){
   let epoch=0,controller=null,url=null;
   // Do not interrupt the browser audio session when no Archer media was loaded.
@@ -14,7 +26,8 @@
     if(!response.ok){const data=await response.json();throw Error(data.error||'ARCHER_SPEECH_FAILED');}
     const blob=await response.blob();if(!live())return;
     url=urlAPI.createObjectURL(blob);audio.src=url;audio.muted=false;
-    audio.onended=()=>{if(!live())return;cancel();onEnded();};
+    // Natural completion must not pause/reset media while capture continues.
+    audio.onended=()=>{if(!live())return;++epoch;controller=null;audio.onended=audio.onerror=null;if(url){urlAPI.revokeObjectURL(url);url=null;}onEnded();};
     audio.onerror=()=>{if(!live())return;cancel();onError('ARCHER_PLAYBACK_FAILED');};
     await audio.play();if(live())onSpeaking();
    }catch(error){if(live()){cancel();onError(error.name==='NotAllowedError'?'ARCHER_PLAYBACK_BLOCKED':error.message);}}
@@ -68,7 +81,7 @@
   },readRoute=()=>({status:"unavailable"}),readWeather=()=>({status:"unavailable"}),readBriefing=()=>({status:"unavailable"}),readCalendar=async()=>({status:"unavailable"}),fetcher=fetch,media=root.navigator.mediaDevices,Peer=root.RTCPeerConnection}){
   const doc=orb.ownerDocument,panel=doc.createElement('aside'),status=doc.createElement('p'),transcript=doc.createElement('p'),mute=doc.createElement('button'),stop=doc.createElement('button'),interrupt=doc.createElement('button');
   const launchTalk=doc.createElement('button'),connectionDetails=doc.createElement('details'),connectionSummary=doc.createElement('summary'),connectionReport=doc.createElement('pre');
-  connectionSummary.textContent='Connection details · Voice check 6';connectionDetails.append(connectionSummary,connectionReport);connectionDetails.hidden=false;connectionReport.style.cssText='white-space:pre-wrap;overflow-wrap:anywhere;font-size:12px';
+  connectionSummary.textContent='Connection details · Voice check 7';connectionDetails.append(connectionSummary,connectionReport);connectionDetails.hidden=false;connectionReport.style.cssText='white-space:pre-wrap;overflow-wrap:anywhere;font-size:12px';
   launchTalk.type='button';launchTalk.textContent='Start conversation';launchTalk.hidden=true;
   panel.className='james-voice-panel';panel.hidden=true;panel.setAttribute('aria-label','James conversation');
   status.setAttribute('role','status');transcript.className='james-voice-transcript';
@@ -104,10 +117,10 @@
   const defaultCloseMessage='Voice is off. Tap James to talk again. Your conversation is retained.';
   // Keep only transport metadata after cleanup so a failed device test remains diagnosable.
   // Never retain audio, transcripts, account IDs or device labels here.
-  function diagnostic(s){return {build:'voice-check-6',active:!!s,phase:s?.phase||'idle',speechDetected:s?.heardSpeech===true,providerEvents:{...(s?.providerEvents||{})},inputTranscription:s?.inputTranscription||null,audioPackets:s?.audioPackets??null,inputProgress:s?.inputProgress||null,providerVad:s?.providerVad||null,lastResearchDurationMs:s?.lastResearchDurationMs??null,connectionState:s?.pc?.connectionState||null,channelState:s?.channel?.readyState||null,microphone:s?.stream?.getAudioTracks().map(track=>({state:track.readyState||'unknown',enabled:track.enabled,muted:track.muted===true}))||[]};}
+  function diagnostic(s){return {build:'voice-check-7',active:!!s,phase:s?.phase||'idle',speechDetected:s?.heardSpeech===true,providerEvents:{...(s?.providerEvents||{})},inputTranscription:s?.inputTranscription||null,audioPackets:s?.audioPackets??null,inputProgress:s?.inputProgress||null,providerVad:s?.providerVad||null,lastResearchDurationMs:s?.lastResearchDurationMs??null,connectionState:s?.pc?.connectionState||null,channelState:s?.channel?.readyState||null,microphone:s?.stream?.getAudioTracks().map(track=>({state:track.readyState||'unknown',enabled:track.enabled,muted:track.muted===true}))||[]};}
   function close(message=defaultCloseMessage){
    const s=session;if(s)lastDiagnostic={...diagnostic(s),active:false,closedAt:new Date().toISOString(),reason:message};session=null;++serial;
-   if(s){s.closed=true;s.speech?.cancel();s.coordinator?.detach();s.controller.abort();clearTimeout(s.timer);clearTimeout(s.startup);clearTimeout(s.maximum);clearTimeout(s.linkTimer);clearInterval(s.check);clearInterval(s.inputCheck);s.stream?.getTracks().forEach(track=>track.stop());s.channel?.close();s.pc?.close();s.audio.pause();s.audio.srcObject=null;ui.detachVoice?.(s.adapter);}
+   if(s){s.closed=true;s.speech?.cancel();s.coordinator?.detach();s.controller.abort();clearTimeout(s.timer);clearTimeout(s.startup);clearTimeout(s.maximum);clearTimeout(s.linkTimer);clearInterval(s.check);clearInterval(s.inputCheck);s.stream?.getTracks().forEach(track=>track.stop());s.channel?.close();s.pc?.close();s.audio.pause();s.audio.srcObject=null;s.releaseAudioSession?.();ui.detachVoice?.(s.adapter);}
    connectionDetails.hidden=false;if(lastDiagnostic)connectionReport.textContent=JSON.stringify(lastDiagnostic,null,2);if(message!==defaultCloseMessage)connectionDetails.open=true;
    state('idle',message);launchTalk.textContent='Reconnect to James';launchTalk.hidden=message===defaultCloseMessage;if(doc.body.dataset.wallAmbient==='true')panel.hidden=true;mute.disabled=interrupt.disabled=true;stop.textContent='Dismiss';
   }
@@ -226,6 +239,7 @@
     if(s.voice==='archer'){const response=await fetcher('/api/james/speech',{credentials:'same-origin',cache:'no-store',signal:s.controller.signal});const config=await response.json();if(!response.ok||!config.ready)throw Error(config.reason==='activation_required'?'ARCHER_ACTIVATION_REQUIRED':'ARCHER_CONNECTION_REQUIRED');}
     if(root.jamesWallDisplay&&!await root.jamesWallDisplay.pauseWake())throw Error("LOCAL_MICROPHONE_BUSY");
     if(!current(s))return;
+    s.releaseAudioSession=acquireDuplexAudioSession(root.navigator);
     const stream=await media.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true}});
     if(!current(s)){stream.getTracks().forEach(track=>track.stop());return;}s.stream=stream;
     const prepared=await ui.prepareVoice(s.adapter);if(!current(s))return;s.scope=prepared.scope;s.history=prepared.history;
@@ -282,7 +296,7 @@
   doc.addEventListener('visibilitychange',()=>{if(doc.hidden&&session)close('Voice paused while James was in the background. Tap James to reconnect.');});
   state('idle');return {start,close,stopReply,showExternalLaunch,active:()=>!!session,diagnostics:()=>session?diagnostic(session):lastDiagnostic?{...lastDiagnostic,microphone:lastDiagnostic.microphone.map(track=>({...track}))}:diagnostic(null)};
  }
- root.JamesVoiceSession={noteInputTranscriptionFailure,sampleInputMetadata,mount,createMorningOutfitOffer,createArcherPlayback};
+ root.JamesVoiceSession={acquireDuplexAudioSession,noteInputTranscriptionFailure,sampleInputMetadata,mount,createMorningOutfitOffer,createArcherPlayback};
 })(typeof window==='undefined'?globalThis:window);
 
 

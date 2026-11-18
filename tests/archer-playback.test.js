@@ -31,3 +31,12 @@ test('late decoded audio after End does not play, and failed speech never switch
 test('idle Archer cancellation never pauses or resets the browser audio element',()=>{const h=harness(async()=>{throw Error('No fetch expected')});h.playback.cancel();h.playback.cancel();assert.equal(h.read().paused,0);assert.equal(h.read().removed,0);assert.equal(h.read().created,0);});
 test('speech onset while TTS is fetching cancels work without touching idle audio',async()=>{let release,signal;const h=harness(async(_url,options)=>{signal=options.signal;return new Promise(resolve=>release=resolve)});const task=h.playback.play('Pending');assert.equal(h.read().paused,0);h.playback.cancel();assert.equal(signal.aborted,true);release({ok:true,blob:async()=>({})});await task;assert.equal(h.read().paused,0);assert.equal(h.read().removed,0);assert.equal(h.read().played,0);});
 test('interrupting real Archer playback still pauses and releases media exactly once',async()=>{const h=harness(async()=>({ok:true,blob:async()=>({})}));await h.playback.play('Audible');assert.equal(h.read().paused,0);h.playback.cancel();h.playback.cancel();assert.equal(h.read().paused,1);assert.equal(h.read().removed,1);assert.equal(h.read().revoked.length,1);});
+
+test('natural Archer completion leaves media untouched for the next microphone turn',async()=>{
+ const h=harness(async()=>({ok:true,blob:async()=>({})}));
+ await h.playback.play('First reply');const ended=h.audio.onended;ended();ended();
+ assert.equal(h.read().ended,1);assert.equal(h.read().paused,0);assert.equal(h.read().removed,0);assert.equal(h.read().revoked.length,1);
+ h.playback.cancel();assert.equal(h.read().paused,0);assert.equal(h.read().removed,0);
+ await h.playback.play('Second reply');assert.equal(h.read().played,2);ended();assert.equal(h.read().ended,1);
+ h.audio.onended();assert.equal(h.read().ended,2);assert.equal(h.read().paused,0);assert.equal(h.read().removed,0);assert.equal(h.read().revoked.length,2);
+});
