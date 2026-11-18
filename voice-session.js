@@ -37,12 +37,28 @@
   function markDelivered(ticket){if(!ticket)return;delivered.add(ticket.key+'|'+ticket.day);try{storage?.setItem(ticket.key,ticket.day);}catch{}}
   return {candidate,markDelivered};
  }
+ function sampleInputMetadata(s,stats,at=Date.now()){
+  let packets=null,captureSeconds=null,energy=null,level=null,outputs=0,sources=0,packetMetrics=0,captureMetrics=0,energyMetrics=0,levelMetrics=0;
+  const numeric=value=>typeof value==='number'&&Number.isFinite(value)&&value>=0;
+  stats?.forEach(row=>{
+   if(row.type==='outbound-rtp'&&(row.kind==='audio'||row.mediaType==='audio')){outputs++;if(numeric(row.packetsSent)){packetMetrics++;packets=(packets??0)+row.packetsSent;}}
+   if(row.type==='media-source'&&row.kind==='audio'){sources++;if(numeric(row.totalSamplesDuration)){captureMetrics++;captureSeconds=(captureSeconds??0)+row.totalSamplesDuration;}if(numeric(row.totalAudioEnergy)){energyMetrics++;energy=(energy??0)+row.totalAudioEnergy;}if(numeric(row.audioLevel)&&row.audioLevel<=1){levelMetrics++;level=Math.max(level??0,row.audioLevel);}}
+  });
+  if(packetMetrics!==outputs)packets=null;if(captureMetrics!==sources)captureSeconds=null;if(energyMetrics!==sources)energy=null;if(levelMetrics!==sources)level=null;
+  const previous=s.inputStatsPrevious,elapsed=previous?at-previous.at:null;
+  const delta=(value,key,countKey,count)=>previous&&elapsed>0&&previous[countKey]===count&&value!==null&&previous[key]!==null&&value>=previous[key]?Number((value-previous[key]).toFixed(6)):null;
+  s.audioPackets=packets;
+  s.inputProgress={sampledMsSinceReady:Math.max(0,at-(s.readyAt??at)),intervalMs:elapsed>0?elapsed:null,packetDelta:delta(packets,'packets','outputs',outputs),captureSecondsDelta:delta(captureSeconds,'captureSeconds','sources',sources),audioEnergyDelta:delta(energy,'energy','sources',sources),audioLevel:level===null?null:Number(level.toFixed(4))};
+  // Keep one numeric baseline only. No track IDs, device labels, audio or transcript.
+  s.inputStatsPrevious={at,packets,captureSeconds,energy,outputs,sources};
+  return s.inputProgress;
+ }
  function mount({ui,orb,button,settingsButton,setState,createReminder=async()=>({status:"unavailable"}),readReminders=()=>({status:"unavailable"}),findPlaces=async()=>({status:"unavailable"}),prepareAppointment=async()=>({status:"unavailable"}),readAppointmentReview=()=>({status:"none"}),readRecipe=action=>root.jamesRecipes?.read(action)||({status:'unavailable'}),readTrips=async()=>root.jamesTripCalendar?.read()||({status:'unavailable'}),readForecast=async({location,country,date})=>{
    try {const response=await fetcher('/api/travel/forecast?'+new URLSearchParams({location,country,date}),{credentials:'same-origin',cache:'no-store'});return response.ok?await response.json():{status:'unavailable'};}catch{return {status:'unavailable'};}
   },readRoute=()=>({status:"unavailable"}),readWeather=()=>({status:"unavailable"}),readBriefing=()=>({status:"unavailable"}),readCalendar=async()=>({status:"unavailable"}),fetcher=fetch,media=root.navigator.mediaDevices,Peer=root.RTCPeerConnection}){
   const doc=orb.ownerDocument,panel=doc.createElement('aside'),status=doc.createElement('p'),transcript=doc.createElement('p'),mute=doc.createElement('button'),stop=doc.createElement('button'),interrupt=doc.createElement('button');
   const launchTalk=doc.createElement('button'),connectionDetails=doc.createElement('details'),connectionSummary=doc.createElement('summary'),connectionReport=doc.createElement('pre');
-  connectionSummary.textContent='Connection details · Voice check 3';connectionDetails.append(connectionSummary,connectionReport);connectionDetails.hidden=false;connectionReport.style.cssText='white-space:pre-wrap;overflow-wrap:anywhere;font-size:12px';
+  connectionSummary.textContent='Connection details · Voice check 4';connectionDetails.append(connectionSummary,connectionReport);connectionDetails.hidden=false;connectionReport.style.cssText='white-space:pre-wrap;overflow-wrap:anywhere;font-size:12px';
   launchTalk.type='button';launchTalk.textContent='Start conversation';launchTalk.hidden=true;
   panel.className='james-voice-panel';panel.hidden=true;panel.setAttribute('aria-label','James conversation');
   status.setAttribute('role','status');transcript.className='james-voice-transcript';
@@ -78,7 +94,7 @@
   const defaultCloseMessage='Voice is off. Tap James to talk again. Your conversation is retained.';
   // Keep only transport metadata after cleanup so a failed device test remains diagnosable.
   // Never retain audio, transcripts, account IDs or device labels here.
-  function diagnostic(s){return {build:'voice-check-3',active:!!s,phase:s?.phase||'idle',speechDetected:s?.heardSpeech===true,providerEvents:{...(s?.providerEvents||{})},audioPackets:s?.audioPackets??null,lastResearchDurationMs:s?.lastResearchDurationMs??null,connectionState:s?.pc?.connectionState||null,channelState:s?.channel?.readyState||null,microphone:s?.stream?.getAudioTracks().map(track=>({state:track.readyState||'unknown',enabled:track.enabled,muted:track.muted===true}))||[]};}
+  function diagnostic(s){return {build:'voice-check-4',active:!!s,phase:s?.phase||'idle',speechDetected:s?.heardSpeech===true,providerEvents:{...(s?.providerEvents||{})},audioPackets:s?.audioPackets??null,inputProgress:s?.inputProgress||null,providerVad:s?.providerVad||null,lastResearchDurationMs:s?.lastResearchDurationMs??null,connectionState:s?.pc?.connectionState||null,channelState:s?.channel?.readyState||null,microphone:s?.stream?.getAudioTracks().map(track=>({state:track.readyState||'unknown',enabled:track.enabled,muted:track.muted===true}))||[]};}
   function close(message=defaultCloseMessage){
    const s=session;if(s)lastDiagnostic={...diagnostic(s),active:false,closedAt:new Date().toISOString(),reason:message};session=null;++serial;
    if(s){s.closed=true;s.speech?.cancel();s.coordinator?.detach();s.controller.abort();clearTimeout(s.timer);clearTimeout(s.startup);clearTimeout(s.maximum);clearTimeout(s.linkTimer);clearInterval(s.check);clearInterval(s.inputCheck);s.stream?.getTracks().forEach(track=>track.stop());s.channel?.close();s.pc?.close();s.audio.pause();s.audio.srcObject=null;ui.detachVoice?.(s.adapter);}
@@ -94,9 +110,7 @@
    s.checkingInput=true;
    try{
     const stats=await s.pc.getStats?.();if(!current(s))return;
-    let packets=null;
-    stats?.forEach(row=>{if(row.type==='outbound-rtp'&&(row.kind==='audio'||row.mediaType==='audio'))packets=(packets||0)+(row.packetsSent||0);});
-    s.audioPackets=packets;connectionReport.textContent=JSON.stringify(diagnostic(s),null,2);
+    sampleInputMetadata(s,stats);const packets=s.audioPackets;connectionReport.textContent=JSON.stringify(diagnostic(s),null,2);
     // After speech onset retain diagnostics only: a transient device mute is not
     // evidence that a completed turn failed, and RTP counts are cumulative.
     if(s.heardSpeech)return;
@@ -146,6 +160,7 @@
    if(!current(s))return;
    // Only fixed event counters, never provider payloads, audio or transcripts.
    if(['session.created','input_audio_buffer.speech_started','input_audio_buffer.speech_stopped','input_audio_buffer.committed','response.created','response.done','error'].includes(e.type)){s.providerEvents||={};s.providerEvents[e.type]=(s.providerEvents[e.type]||0)+1;connectionReport.textContent=JSON.stringify(diagnostic(s),null,2);}
+   if(e.type==='session.created'||e.type==='session.updated'){const vad=e.session?.audio?.input?.turn_detection;s.providerVad=['server_vad','semantic_vad'].includes(vad?.type)?vad.type:vad===null?'disabled':'unknown';connectionReport.textContent=JSON.stringify(diagnostic(s),null,2);}
    if(e.type==='session.created'){
     if(s.ready)return;s.ready=true;s.readyAt=Date.now();s.inputCheck=setInterval(()=>void checkInput(s),5000);
     clearTimeout(s.startup);s.maximum=setTimeout(()=>close('Five-minute voice session ended. Tap James to continue.'),300000);
@@ -257,7 +272,7 @@
   doc.addEventListener('visibilitychange',()=>{if(doc.hidden&&session)close('Voice paused while James was in the background. Tap James to reconnect.');});
   state('idle');return {start,close,stopReply,showExternalLaunch,active:()=>!!session,diagnostics:()=>session?diagnostic(session):lastDiagnostic?{...lastDiagnostic,microphone:lastDiagnostic.microphone.map(track=>({...track}))}:diagnostic(null)};
  }
- root.JamesVoiceSession={mount,createMorningOutfitOffer,createArcherPlayback};
+ root.JamesVoiceSession={sampleInputMetadata,mount,createMorningOutfitOffer,createArcherPlayback};
 })(typeof window==='undefined'?globalThis:window);
 
 
