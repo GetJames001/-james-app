@@ -41,12 +41,13 @@
    try {const response=await fetcher('/api/travel/forecast?'+new URLSearchParams({location,country,date}),{credentials:'same-origin',cache:'no-store'});return response.ok?await response.json():{status:'unavailable'};}catch{return {status:'unavailable'};}
   },readRoute=()=>({status:"unavailable"}),readWeather=()=>({status:"unavailable"}),readBriefing=()=>({status:"unavailable"}),readCalendar=async()=>({status:"unavailable"}),fetcher=fetch,media=root.navigator.mediaDevices,Peer=root.RTCPeerConnection}){
   const doc=orb.ownerDocument,panel=doc.createElement('aside'),status=doc.createElement('p'),transcript=doc.createElement('p'),mute=doc.createElement('button'),stop=doc.createElement('button'),interrupt=doc.createElement('button');
-  const launchTalk=doc.createElement('button');
+  const launchTalk=doc.createElement('button'),connectionDetails=doc.createElement('details'),connectionSummary=doc.createElement('summary'),connectionReport=doc.createElement('pre');
+  connectionSummary.textContent='Connection details';connectionDetails.append(connectionSummary,connectionReport);connectionDetails.hidden=true;
   launchTalk.type='button';launchTalk.textContent='Start conversation';launchTalk.hidden=true;
   panel.className='james-voice-panel';panel.hidden=true;panel.setAttribute('aria-label','James conversation');
   status.setAttribute('role','status');transcript.className='james-voice-transcript';
   mute.type=stop.type=interrupt.type='button';mute.textContent='Mute microphone';stop.textContent='Close voice';interrupt.textContent='Stop reply';
-  const voiceLabel=doc.createElement('label'),voice=doc.createElement('select'),samples=doc.createElement('a');voiceLabel.textContent='James’s voice ';voice.setAttribute('aria-label','James voice');for(const name of ['marin','coral','shimmer','sage','alloy','ash','ballad','echo','verse','cedar','archer']){const option=doc.createElement('option');option.value=name;option.textContent=name[0].toUpperCase()+name.slice(1);voice.append(option);}try{if([...voice.options].some(o=>o.value===root.localStorage.getItem('james:voice')))voice.value=root.localStorage.getItem('james:voice');}catch{}voice.onchange=()=>{if(session)close('Voice changed. Tap James to reconnect using '+voice.value+'.');try{root.localStorage.setItem('james:voice',voice.value);}catch{}};const updateVoiceDetails=()=>{if(voice.value==='archer'){samples.href='https://runway-static-assets.s3.amazonaws.com/public-model-resources/pier-pledge/voice/Fahco4VZzobUeiPqni1S/3f286c32d9f2d9837ba031facfbd80ad56ee69d58cfdcf44b4aad94b19395532.mp3';samples.textContent='Listen to Archer';note.textContent='Archer uses ElevenLabs speech with James’s existing conversation. A server connection and usage activation are required.';}else{samples.href='https://www.openai.fm/';samples.textContent='Listen to voice samples';note.textContent='AI-generated voice · OpenAI API usage applies separately from Vercel. Voice sessions stop after five minutes.';}};const changeVoice=voice.onchange;voice.onchange=()=>{changeVoice();updateVoiceDetails();};voiceLabel.append(voice);samples.textContent='Listen to voice samples';samples.href='https://www.openai.fm/';samples.target='_blank';samples.rel='noopener noreferrer';const note=doc.createElement('p');note.className='muted';note.textContent='AI-generated voice · OpenAI API usage applies separately from Vercel. Voice sessions stop after five minutes.';const disclosure=doc.createElement('small');disclosure.textContent='AI-generated voice';panel.append(status,transcript,disclosure,launchTalk,mute,interrupt,stop);doc.body.append(panel);const settings=doc.createElement('dialog'),settingsTitle=doc.createElement('h2'),settingsClose=doc.createElement('button');settings.setAttribute('aria-label','James voice settings');settings.className='james-voice-settings';settingsTitle.textContent='James voice';settingsClose.type='button';settingsClose.textContent='Close settings';settingsClose.onclick=()=>settings.close();settings.append(settingsTitle,voiceLabel,samples,note,settingsClose);doc.body.append(settings);updateVoiceDetails();if(settingsButton)settingsButton.onclick=()=>settings.showModal();
+  const voiceLabel=doc.createElement('label'),voice=doc.createElement('select'),samples=doc.createElement('a');voiceLabel.textContent='James’s voice ';voice.setAttribute('aria-label','James voice');for(const name of ['marin','coral','shimmer','sage','alloy','ash','ballad','echo','verse','cedar','archer']){const option=doc.createElement('option');option.value=name;option.textContent=name[0].toUpperCase()+name.slice(1);voice.append(option);}try{if([...voice.options].some(o=>o.value===root.localStorage.getItem('james:voice')))voice.value=root.localStorage.getItem('james:voice');}catch{}voice.onchange=()=>{if(session)close('Voice changed. Tap James to reconnect using '+voice.value+'.');try{root.localStorage.setItem('james:voice',voice.value);}catch{}};const updateVoiceDetails=()=>{if(voice.value==='archer'){samples.href='https://runway-static-assets.s3.amazonaws.com/public-model-resources/pier-pledge/voice/Fahco4VZzobUeiPqni1S/3f286c32d9f2d9837ba031facfbd80ad56ee69d58cfdcf44b4aad94b19395532.mp3';samples.textContent='Listen to Archer';note.textContent='Archer uses ElevenLabs speech with James’s existing conversation. A server connection and usage activation are required.';}else{samples.href='https://www.openai.fm/';samples.textContent='Listen to voice samples';note.textContent='AI-generated voice · OpenAI API usage applies separately from Vercel. Voice sessions stop after five minutes.';}};const changeVoice=voice.onchange;voice.onchange=()=>{changeVoice();updateVoiceDetails();};voiceLabel.append(voice);samples.textContent='Listen to voice samples';samples.href='https://www.openai.fm/';samples.target='_blank';samples.rel='noopener noreferrer';const note=doc.createElement('p');note.className='muted';note.textContent='AI-generated voice · OpenAI API usage applies separately from Vercel. Voice sessions stop after five minutes.';const disclosure=doc.createElement('small');disclosure.textContent='AI-generated voice';panel.append(status,transcript,disclosure,launchTalk,mute,interrupt,stop,connectionDetails);doc.body.append(panel);const settings=doc.createElement('dialog'),settingsTitle=doc.createElement('h2'),settingsClose=doc.createElement('button');settings.setAttribute('aria-label','James voice settings');settings.className='james-voice-settings';settingsTitle.textContent='James voice';settingsClose.type='button';settingsClose.textContent='Close settings';settingsClose.onclick=()=>settings.close();settings.append(settingsTitle,voiceLabel,samples,note,settingsClose);doc.body.append(settings);updateVoiceDetails();if(settingsButton)settingsButton.onclick=()=>settings.showModal();
   function failureMessage(code){
    if(code==='ARCHER_CONNECTION_REQUIRED')return 'Archer is selected, but his ElevenLabs API connection is not configured in James yet. Your existing voices remain available in Settings.';
    if(code==='ARCHER_ACTIVATION_REQUIRED')return 'Archer is connected but not activated. Additional voice usage needs approval before enabling him.';
@@ -59,7 +60,7 @@
    if(code==='VOICE_RESPONSE_FAILED')return 'James could not finish that reply. Tap James to retry.';
    return null;
   }
-  let session=null,serial=0,welcomeMemory=null;
+  let session=null,serial=0,welcomeMemory=null,lastDiagnostic=null;
   let offerStorage;try{offerStorage=root.localStorage;}catch{}
   const morningOutfitOffer=createMorningOutfitOffer({storage:offerStorage});
   function claimDailyWelcome(s){
@@ -75,10 +76,14 @@
   function send(s,event){if(current(s)&&s.channel?.readyState==='open')s.channel.send(JSON.stringify(event));}
   function stopReply(){const s=session;if(!s)return;s.speech?.cancel();s.replyCancelled=true;s.playing=false;s.audio.muted=true;s.coordinator?.interrupt();ui.interruptVoiceReply();state('listening','Listening');}
   const defaultCloseMessage='Voice is off. Tap James to talk again. Your conversation is retained.';
+  // Keep only transport metadata after cleanup so a failed device test remains diagnosable.
+  // Never retain audio, transcripts, account IDs or device labels here.
+  function diagnostic(s){return {active:!!s,phase:s?.phase||'idle',speechDetected:s?.heardSpeech===true,audioPackets:s?.audioPackets??null,lastResearchDurationMs:s?.lastResearchDurationMs??null,connectionState:s?.pc?.connectionState||null,channelState:s?.channel?.readyState||null,microphone:s?.stream?.getAudioTracks().map(track=>({state:track.readyState||'unknown',enabled:track.enabled,muted:track.muted===true}))||[]};}
   function close(message=defaultCloseMessage){
-   const s=session;session=null;++serial;
+   const s=session;if(s)lastDiagnostic={...diagnostic(s),active:false,closedAt:new Date().toISOString(),reason:message};session=null;++serial;
    if(s){s.closed=true;s.speech?.cancel();s.coordinator?.detach();s.controller.abort();clearTimeout(s.timer);clearTimeout(s.startup);clearTimeout(s.maximum);clearTimeout(s.linkTimer);clearInterval(s.check);clearInterval(s.inputCheck);s.stream?.getTracks().forEach(track=>track.stop());s.channel?.close();s.pc?.close();s.audio.pause();s.audio.srcObject=null;ui.detachVoice?.(s.adapter);}
-   state('idle',message);if(doc.body.dataset.wallAmbient==='true')panel.hidden=true;mute.disabled=interrupt.disabled=true;stop.textContent='Dismiss';
+   connectionDetails.hidden=!s||message===defaultCloseMessage;if(s)connectionReport.textContent=JSON.stringify(lastDiagnostic,null,2);
+   state('idle',message);launchTalk.textContent='Reconnect to James';launchTalk.hidden=message===defaultCloseMessage;if(doc.body.dataset.wallAmbient==='true')panel.hidden=true;mute.disabled=interrupt.disabled=true;stop.textContent='Dismiss';
   }
   // Metadata only: no microphone recording or transcript is retained by this check.
   async function checkInput(s){
@@ -180,7 +185,7 @@
   async function start(options){
    const prompt=typeof options?.prompt==='string'?options.prompt.slice(0,1000):null;
    if(session){if(prompt&&session.ready){stopReply();void session.coordinator.submitTyped(prompt);return;}close();if(!prompt)return;}
-   launchTalk.hidden=true;panel.hidden=false;mute.disabled=interrupt.disabled=false;mute.textContent='Mute microphone';mute.setAttribute('aria-pressed','false');stop.textContent='Close voice';transcript.textContent='';
+   launchTalk.hidden=true;connectionDetails.hidden=true;connectionDetails.open=false;panel.hidden=false;mute.disabled=interrupt.disabled=false;mute.textContent='Mute microphone';mute.setAttribute('aria-pressed','false');stop.textContent='Close voice';transcript.textContent='';
    if(!media?.getUserMedia||!Peer){state('idle','Live voice is unavailable in this browser. You can still type to James.');return;}
    const s={voice:voice.value,initialPrompt:prompt,id:++serial,controller:new AbortController(),audio:doc.createElement('audio'),turn:0,calls:new Set(),closed:false,responding:false,userText:'',replyText:''};session=s;
    s.audio.autoplay=true;s.audio.muted=true;s.audio.setAttribute('playsinline','');
@@ -231,7 +236,7 @@
    if(session)return;
    root.jamesWallDisplay?.wake();
    panel.hidden=false;launchTalk.hidden=false;mute.disabled=interrupt.disabled=true;stop.textContent='Dismiss';
-   status.textContent='Ready to talk. Start the conversation to turn on the microphone.';
+   launchTalk.textContent='Start conversation';status.textContent='Ready to talk. Start the conversation to turn on the microphone.';
    launchTalk.focus({preventScroll:true});
   }
   launchTalk.onclick=start;
@@ -245,7 +250,7 @@
   root.addEventListener('james-conversation-ended',()=>close('Conversation ended.'));
   root.addEventListener('pagehide',()=>close());
   doc.addEventListener('visibilitychange',()=>{if(doc.hidden&&session)close('Voice paused while James was in the background. Tap James to reconnect.');});
-  state('idle');return {start,close,stopReply,showExternalLaunch,active:()=>!!session,diagnostics:()=>({active:!!session,phase:session?.phase||'idle',speechDetected:session?.heardSpeech===true,audioPackets:session?.audioPackets??null,lastResearchDurationMs:session?.lastResearchDurationMs??null})};
+  state('idle');return {start,close,stopReply,showExternalLaunch,active:()=>!!session,diagnostics:()=>session?diagnostic(session):lastDiagnostic?{...lastDiagnostic,microphone:lastDiagnostic.microphone.map(track=>({...track}))}:diagnostic(null)};
  }
  root.JamesVoiceSession={mount,createMorningOutfitOffer,createArcherPlayback};
 })(typeof window==='undefined'?globalThis:window);
