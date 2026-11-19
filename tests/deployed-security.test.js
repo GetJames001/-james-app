@@ -8,6 +8,9 @@ const test = require("node:test");
 const runWithVercelCli = process.env.JAMES_SECURITY_USE_VERCEL_CLI === "1";
 const runWithAutomationBypass = process.env.JAMES_SECURITY_USE_AUTOMATION_BYPASS === "1";
 const runAuthorizedProbe = runWithVercelCli || runWithAutomationBypass;
+// PR93 preserves the Vault's existing branch allowlist. Its review workflow
+// explicitly requires the disabled response; other candidates still require auth.
+const customerDatabaseDisabled = process.env.JAMES_SECURITY_CUSTOMER_DATABASE_DISABLED === "1";
 const previewUrls = String(process.env.JAMES_SECURITY_PREVIEW_URLS || "")
   .split(",")
   .map(value => value.trim().replace(/\/$/, ""))
@@ -24,6 +27,10 @@ const privateSignatures = [
 ];
 
 const unauthorizedCases = [
+  { name: "Customer Activity form", target: "/customer-activity-ui.js" },
+  { name: "encoded Customer Activity form", target: "/%63ustomer-activity-ui.js" },
+  { name: "Customer Information UI", target: "/customer-database-ui.js" },
+  { name: "Customer Activity API", target: "/api/customer-activity" },
   { name: "trailing-slash index", target: "/index.html/" },
   { name: "encoded internal calendar page", target: "/%63alendar-test.html" },
   { name: "encoded internal council page", target: "/%63ouncil-test.html" },
@@ -241,6 +248,23 @@ function assertUnauthorized(response, label, options = {}) {
   }
 }
 
+function assertDisabledCustomerDatabase(response, label, options = {}) {
+  assertGatewayResponse(response, 404, label);
+  assert.deepEqual(headerValues(response, "location"), [], label);
+  assert.deepEqual(headerValues(response, "set-cookie"), [], label);
+  if (options.head) assert.equal(response.body, "", label);
+  else assert.deepEqual(JSON.parse(response.body), { ok: false, error: "NOT_FOUND" }, label);
+}
+
+test("disabled Customer Vault requires the exact private application response, not an arbitrary 404", () => {
+  const response = {status:404,headers:new Map([["x-application-gateway",["enforced"]],["cache-control",["private, no-store"]]]),body:'{"ok":false,"error":"NOT_FOUND"}'};
+  assertDisabledCustomerDatabase(response,"disabled fixture");
+  assertDisabledCustomerDatabase({...response,body:""},"HEAD fixture",{head:true});
+  for (const change of [{status:200},{status:401},{body:'{"ok":true,"workspaces":[]}'},{headers:new Map()},{headers:new Map([...response.headers,["set-cookie",["unexpected=value"]]])}]) {
+    assert.throws(()=>assertDisabledCustomerDatabase({...response,...change},"invalid fixture"));
+  }
+});
+
 test("deployed gateway probe supports protected automation without exposing its secret", () => {
   const source = fs.readFileSync(__filename, "utf8");
   assert.match(source, /JAMES_SECURITY_USE_VERCEL_CLI/);
@@ -344,6 +368,19 @@ test("authorized automation reaches both protected Preview application gateways"
       );
     }
 
+    for (const target of ["/api/customer-activity"]) {
+      for (const method of ["HEAD", "POST", "PUT", "DELETE"]) {
+        assertUnauthorized(authorizedRequest(baseUrl,target,{method}),`${baseUrl}: ${method} ${target}`,{head:method==="HEAD"});
+      }
+    }
+
+    const assertDatabase = customerDatabaseDisabled ? assertDisabledCustomerDatabase : assertUnauthorized;
+    for (const target of ["/api/customer-database", "/api/customer-database?cache=security-review"]) {
+      for (const method of ["GET", "HEAD", "POST", "PUT", "DELETE"]) {
+        assertDatabase(authorizedRequest(baseUrl,target,{method}),`${baseUrl}: ${method} ${target}`,{head:method==="HEAD"});
+      }
+    }
+
     const forwardedHeaders = authorizedRequest(baseUrl, "/api/auth/session", {
       headers: {
         "X-Forwarded-Host": "attacker.example",
@@ -376,7 +413,7 @@ test("authorized automation reaches both protected Preview application gateways"
       assert.match(cookie, /Path=\//);
       assert.match(cookie, /HttpOnly/);
       assert.match(cookie, /Secure/);
-      assert.match(cookie, /SameSite=Lax/);
+      assert.match(cookie, /SameSite=Strict/);
       assert.match(cookie, /Max-Age=0/);
     }
 
