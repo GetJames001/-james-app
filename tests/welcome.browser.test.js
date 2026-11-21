@@ -11,7 +11,7 @@ function server() { return http.createServer((req,res)=>{
   if (p.startsWith('/api/')) {res.setHeader('Content-Type','application/json'); return res.end(JSON.stringify(p==='/api/tasks'?{tasks:[]}:p.includes('events')?{connected:false,events:[],calendars:[],complete:false}:p.includes('mail')?{connected:false,messages:[],unreadCount:null}:{}));}
   const f = path.resolve(root,p==='/'?'index.html':p.slice(1));
   if (!f.startsWith(root+path.sep)||!fs.existsSync(f)) {res.statusCode=404;return res.end();}
-  res.setHeader('Content-Type',f.endsWith('.js')?'text/javascript':f.endsWith('.css')?'text/css':f.endsWith('.png')?'image/png':'text/html');res.end(fs.readFileSync(f));
+  res.setHeader('Content-Type',(f.endsWith('.js')||f.endsWith('.mjs'))?'text/javascript':f.endsWith('.css')?'text/css':f.endsWith('.png')?'image/png':'text/html');res.end(fs.readFileSync(f));
 }); }
 async function fixture(fn) {
  const s=server(); await new Promise(r=>s.listen(0,'127.0.0.1',r)); let b;

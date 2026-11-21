@@ -30,3 +30,16 @@ html[data-theme="light"] .wb .save-state.error{color:#8b3024;}
 html[data-theme="light"] .wb .error-banner{background:#f7e9e4;color:#692b22;border-color:#a75645;}
 html[data-theme="light"] .wb dialog::backdrop{background:#17223888;}
 html[data-theme="light"] .wb :is(button,input,textarea,select,a,summary):focus-visible{outline:3px solid #6e4b1c;outline-offset:3px;}
+
+/* Compact account task status: no extra navigation or empty-state tile. */
+.wb .task-status[hidden]{display:none}
+.wb .task-status{margin:24px 0;padding:18px 0;border-block:1px solid var(--line)}
+.wb .task-status-heading,.wb .task-status-notice{display:flex;gap:16px;align-items:center;justify-content:space-between}
+.wb .task-status-heading h2{font-size:24px}
+.wb .task-status-row{display:flex;gap:20px;align-items:start;justify-content:space-between;padding:12px 0}
+.wb .task-status-copy{min-width:0;overflow-wrap:anywhere}
+.wb .task-status-row details{max-width:65%;min-width:110px}
+.wb .task-status-row summary{cursor:pointer;min-height:44px;padding:8px 0;color:var(--gold)}
+.wb .task-status-row pre{white-space:pre-wrap;overflow-wrap:anywhere;font:14px/1.5 ui-sans-serif,system-ui;color:var(--ink);max-height:240px;overflow:auto;margin:0}
+.wb .task-status-notice{font-size:14px;color:var(--muted);padding:8px 0}
+@media(max-width:540px){.wb .task-status-row{flex-wrap:wrap;gap:4px}.wb .task-status-row details{max-width:100%;width:100%}}

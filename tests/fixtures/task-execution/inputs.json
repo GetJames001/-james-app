@@ -1,0 +1,7 @@
+{
+  "owner": "fictional-owner-a",
+  "agenda": {"events": [{"title": "Fictional planning call", "time": "09:00"}]},
+  "followupMissing": {},
+  "followupReady": {"customer": "Alex Example"},
+  "budget": {"maxAttempts": 4, "maxSteps": 5, "maxDurationMs": 60000, "maxCostMicros": 0}
+}
