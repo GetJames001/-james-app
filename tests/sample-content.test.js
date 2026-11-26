@@ -9,7 +9,7 @@ const app = fs.readFileSync(path.join(root, 'app.js'), 'utf8');
 
 test('conversation and file views contain honest empty states', () => {
   assert.match(index, /No conversations available/);
-  assert.match(index, /not connected to a conversation source/);
+  assert.match(index, /Conversations aren’t connected/);
   assert.match(index, /id="savedJamesFiles"/);
   assert.match(app, /No files available/);
   assert.match(app, /James Files is unavailable/);

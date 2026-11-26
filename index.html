@@ -57,11 +57,11 @@
       <details class="header-preferences">
         <summary>Settings</summary>
         <div class="header-preferences-menu">
+          <button id="voiceSettingsOpen" class="james-theme-toggle" type="button">Voice</button>
+          <button id="connectionsSettingsOpen" class="james-theme-toggle" type="button">Connections</button>
           <button id="introScreenOpen" class="james-theme-toggle" type="button">Entrance</button>
           <button id="jamesThemeToggle" class="james-theme-toggle" type="button" aria-label="Use light theme">Light</button>
           <button id="guideOpen" type="button" class="james-theme-toggle">James Guide</button>
-          <button id="connectionsSettingsOpen" class="james-theme-toggle" type="button">Connections</button>
-          <button id="voiceSettingsOpen" class="james-theme-toggle" type="button">Voice</button>
           <button id="displaySettingsOpen" class="james-theme-toggle" type="button">Wall display</button>
         </div>
       </details>
@@ -122,7 +122,7 @@
 
       <div class="sheet-head compact-head">
         <div>
-          <h3>Your Daily Briefing</h3>
+          <h3>Briefing</h3>
         </div>
       </div>
       <section class="perspective-revisit" aria-labelledby="perspectiveBriefHeading">
@@ -204,6 +204,7 @@
           </div>
         </div>
 
+        <p id="nextAppointmentOverlap" class="appointment-overlap" hidden></p>
         <div id="appointmentTravel" hidden>
         <div class="next-meta">
           <div>
@@ -248,7 +249,7 @@
           <div id="allDayStrip" hidden></div>
           <div id="allDayRibbon" hidden>ALL DAY</div>
           <div id="calendar" class="calendar"></div>
-          <div class="calendar-diagnostics"><details id="calendarDetails"><summary>Calendar connection info</summary><button id="appointmentSavingSetup" type="button">Appointment saving settings</button><p id="calendarSyncStatus"></p><p id="calendarFailureDetail" hidden></p><p id="calendarSyncSources"></p><p>Read window: previous 24 hours through the next 90 days. The briefing grid shows 7 AM–7 PM. Appointments lets you browse dates, including all-day and out-of-hours events.</p></details></div>
+          <div class="calendar-diagnostics"><details id="calendarDetails"><summary>Calendar connection info</summary><button id="appointmentSavingSetup" type="button">Appointment saving settings</button><p id="calendarSyncStatus"></p><p id="calendarFailureDetail" hidden></p><p id="calendarSyncSources"></p><p>Calendar coverage: past 24 hours to 90 days ahead. Open Appointments for events outside the 7 AM–7 PM grid.</p></details></div>
         </div>
 
         <aside>
@@ -262,8 +263,7 @@
   <div class="sheet content-medium">
     <div class="sheet-head">
       <div>
-        <small>PERSONAL MAIL</small>
-        <h3>Recent messages</h3>
+        <h3>Personal Mail</h3>
       </div>
       <button id="personalMailBack" type="button">Back</button>
     </div>
@@ -313,8 +313,7 @@
     <div class="sheet content-medium">
       <div class="sheet-head">
         <div>
-          <small>APPOINTMENTS</small>
-          <h3>Your days, with room to pivot.</h3>
+          <h3>Appointments</h3>
         </div>
       </div>
       
@@ -337,15 +336,14 @@
     <div class="sheet content-wide">
       <div class="sheet-head">
         <div>
-          <small>CONVERSATIONS</small>
-          <h3>Calls, texts, and email in one place.</h3>
+          <h3>Conversations</h3>
         </div>
       </div>
 
       <div class="cards one compact-cards">
         <article class="empty-state">
           <h4>No conversations available</h4>
-          <p>This view is not connected to a conversation source. Live personal messages remain available under Personal Mail.</p>
+          <p>Conversations aren’t connected. Open Personal Mail for your messages.</p>
         </article>
       </div>
     </div>
@@ -392,7 +390,7 @@
 <div class="mag-grid">
 <button type="button" class="mag-tile" data-action-page="recipes">
 <img src="assets/lifestyle/salmon.jpg" alt="" loading="lazy">
-<span>Cooking &amp; Recipes<em>Saved Pinterest Meals!!!</em><small>Explore recipes →</small></span>
+<span>Cooking &amp; Recipes</span>
 </button>
 <button type="button" class="mag-tile" data-action-page="wardrobe">
 <img src="assets/lifestyle/tailoring.jpg" alt="" loading="lazy">
@@ -456,8 +454,8 @@
 </section>
 <section class="page" id="finance">
 <div class="sheet magazine edition">
-<div class="edition-crumb"><b>James</b><button data-action-page="lifestyle">‹ Lifestyle</button><span>Finance</span></div>
-<header class="money-cover"><h2>Finance</h2><p>Your accounts, upcoming payments<br>and spending, in one clear view.</p><small>Sample data · Accounts aren’t connected</small></header>
+<div class="edition-crumb"><b>James</b><button data-action-page="lifestyle">‹ Lifestyle</button></div>
+<header class="money-cover"><h2>Finance</h2><small>Sample data · Accounts aren’t connected</small></header>
 <div class="edition-tabs finance-tabs" aria-label="Finance views"><button data-finance-view="overview" aria-pressed="true">Overview</button><button data-finance-view="investments" aria-pressed="false">Investments</button></div>
 <div class="money-grid" id="financeOverview">
 <section><h3>Accounts</h3><dl><div><dt>Checking</dt><dd>$2,450</dd></div><div><dt>Savings</dt><dd>$6,200</dd></div></dl></section>
@@ -472,14 +470,14 @@
 <section id="financeToday"><h3 class="rule-title">Happening today</h3><div data-feed="business" class="headline-grid"></div></section>
 </div>
 </section>
-<section class="page" id="growth"><div class="sheet magazine edition"><div class="edition-crumb"><b>James</b><button data-action-page="lifestyle">‹ Lifestyle</button><span>Personal Development</span></div><div class="edition-title"><h2>Personal Development</h2><div class="edition-tabs" aria-label="Reading topics">
+<section class="page" id="growth"><div class="sheet magazine edition"><div class="edition-crumb"><b>James</b><button data-action-page="lifestyle">‹ Lifestyle</button></div><div class="edition-title"><h2>Personal Development</h2><div class="edition-tabs" aria-label="Reading topics">
 <button data-topic="sales-books" aria-pressed="true">Sales</button><button data-topic="life-books" aria-pressed="false">Personal growth</button><button data-topic="business-books" aria-pressed="false">Business</button></div></div>
 <div class="growth-top"><article class="photo-panel lead-panel" style="--photo:url(assets/lifestyle/development.jpg)"><div><h3><a href="https://ggia.berkeley.edu/practice/active_listening" target="_blank" rel="noopener noreferrer">Listen before responding</a></h3><button id="savePractice"><svg viewBox="0 0 16 19" width="14" height="16" aria-hidden="true"><path d="M2 1h12v16l-6-4-6 4z" fill="none" stroke="currentColor"/></svg> Save for later</button></div></article>
 <aside class="career-box"><h3>Career folder</h3><button data-career="resume"><span class="doc-paper" aria-hidden="true">Résumé</span><span>Current résumé</span><span aria-hidden="true">›</span></button><button data-career="cover"><span class="doc-paper" aria-hidden="true">Cover letter</span><span>Cover letter</span><span aria-hidden="true">›</span></button></aside></div>
 <h3 class="rule-title">Sharpen the saw</h3><div id="growthReading" class="headline-grid" data-feed="sales-books">Loading books…</div></div></section>
 <section class="page" id="fitness">
 <div class="sheet magazine">
-<div class="edition-crumb"><b>James</b><button data-action-page="lifestyle">‹ Lifestyle</button><span>Health &amp; Fitness</span></div><div class="fitness-layout"><div><h2>Health &amp; Fitness</h2>
+<div class="edition-crumb"><b>James</b><button data-action-page="lifestyle">‹ Lifestyle</button></div><div class="fitness-layout"><div><h2>Health &amp; Fitness</h2>
 <section class="photo-panel lead-panel" style="--photo:url(assets/lifestyle/health.jpg)"><div><small>Workout of the day</small><h3 id="dailyWorkout"></h3>
 <div class="mag-bar"><button data-action-page="workout-detail">View workout</button><button data-action-page="workouts">Browse workouts</button></div></div></section>
 </div>
@@ -521,14 +519,14 @@
     <div class="mag-bar"><button id="chooseWorkout">Set as today’s workout</button><button data-action-page="fitness">Health &amp; Fitness</button></div>
   </div>
 </section>
-<section class="page" id="garage"><div class="sheet magazine edition"><div class="edition-crumb"><b>James</b><button data-action-page="lifestyle">‹ Lifestyle</button><span>Auto</span></div><h2>Auto</h2><h3 class="rule-title">My garage</h3><div class="garage-car" style="--photo:url(assets/lifestyle/auto.jpg)"><div><h3>2015 Jaguar F-TYPE S</h3><a href="https://www.jaguarusa.com/owners/index.html" target="_blank" rel="noopener noreferrer">Owner resources ↗</a>
+<section class="page" id="garage"><div class="sheet magazine edition"><div class="edition-crumb"><b>James</b><button data-action-page="lifestyle">‹ Lifestyle</button></div><h2>Auto</h2><h3 class="rule-title">My garage</h3><div class="garage-car" style="--photo:url(assets/lifestyle/auto.jpg)"><div><h3>2015 Jaguar F-TYPE S</h3><a href="https://www.jaguarusa.com/owners/index.html" target="_blank" rel="noopener noreferrer">Owner resources ↗</a>
 <button data-service="2015 Jaguar F-TYPE S">Add maintenance schedule</button></div></div>
 <div class="garage-car" style="--photo:url(assets/lifestyle/mercedes.jpg)"><div><h3>2019 Mercedes-AMG GLC 63 S</h3><a href="https://www.mbusa.com/en/owners" target="_blank" rel="noopener noreferrer">Owner resources ↗</a><button data-service="2019 Mercedes-AMG GLC 63 S">Add maintenance schedule</button></div></div>
 <form id="serviceSchedule" hidden><h3 id="serviceVehicle"></h3><label>Service <input name="service" placeholder="Oil change" required maxlength="120"></label> <label>Due <input name="due" type="date" required></label><button>Save schedule</button> <button type="button" id="serviceCancel">Cancel</button></form>
 <div id="serviceDates" aria-live="polite"></div><div class="pair"><details class="photo-panel" style="--photo:url(assets/lifestyle/weekend.jpg)"><summary>Keeping the weekend car ready</summary><p>Review your service record and upcoming maintenance.</p><a href="https://www.nhtsa.gov/recalls" target="_blank" rel="noopener noreferrer">Check recalls by VIN</a></details>
 <button class="photo-panel" style="--photo:url(assets/lifestyle/road.jpg)" data-action-page="travel">Before the drive to Oregon</button></div></div></section>
 <section id="travel" class="page">
-    <div class="sheet magazine edition"><div class="edition-crumb"><b>James</b><button data-action-page="lifestyle">‹ Lifestyle</button><span>Travel</span></div><div class="travel-feature"><h2>Travel</h2><div class="edition-tabs">
+    <div class="sheet magazine edition"><div class="edition-crumb"><b>James</b><button data-action-page="lifestyle">‹ Lifestyle</button></div><div class="travel-feature"><h2>Travel</h2><div class="edition-tabs">
 <button data-trip-group="Current trips">Current trips</button><button data-trip-group="Upcoming trips">Planned trips</button><button id="tripGuideJump" data-scroll="tripPlaces" hidden>Places to see</button></div>
 <div id="travelCards" class="cards one compact-cards" aria-live="polite"></div></div>
 <section id="tripGuide" hidden><h3 class="rule-title" id="tripGuideTitle"></h3><div class="mag-places" id="tripPlaces"></div></section>
@@ -540,8 +538,7 @@
       <div class="sheet-head">
         <div>
           <button id="filesWorkbenchBack" type="button">Back to Workbench</button>
-          <small>WORKBENCH · ALL FILES</small>
-          <h3>The documents your day depends on.</h3>
+          <h3>All Files</h3>
         </div>
       </div>
 
@@ -549,7 +546,7 @@
         <input id="voiceAttachmentLibrary" type="file" multiple>
       </label>
       <button id="saveJamesFiles" type="button">Save to Files</button>
-      <p>Saved to your James account. This Preview supports up to 20 files, 2 MB each.</p>
+      <p>Saved to your James account · Up to 20 files, 2 MB each.</p>
       <label>Search saved files <input id="searchJamesFiles" type="search"></label>
       <div id="savedJamesFiles"></div>
       <p id="voiceAttachmentLibraryStatus" role="status">No files selected.</p>
@@ -574,8 +571,7 @@
 
     <div class="sheet-head">
       <div>
-        <small>ASK JAMES</small>
-        <h3>What can James help you with?</h3>
+        <h3>Ask James</h3>
       </div>
     </div>
 
@@ -606,7 +602,7 @@
     <div class="customer-overlay-shade" aria-hidden="true"></div>
     <section class="customer-workspace" tabindex="-1">
       <div class="customer-workspace-head">
-        <div><small>JAMES · WORKSPACE</small><h2 id="customerActivityTitle">Customer Activity</h2></div>
+        <div><h2 id="customerActivityTitle">Customer Activity</h2></div>
         <button id="customerActivityClose" type="button" aria-label="Exit Customer Activity workspace">Exit <span aria-hidden="true">×</span></button>
       </div>
       <p id="customerModeNotice" class="customer-demo-note">Record what happened and what comes next.</p>

@@ -36,6 +36,30 @@
     timed.sort((a,b)=>Date.parse(a[5].start)-Date.parse(b[5].start) || String(a[5].id).localeCompare(String(b[5].id)));
     return {date,timed,allDay,invalidCount};
   }
+  // Index actual timed overlaps by source row. Calendar end times are exclusive.
+  // Do not guess whether an event can move, or treat all-day/free entries as conflicts.
+  function timedOverlaps(timedRows) {
+    const overlaps=new Map(), active=[];
+    for(const row of timedRows) {
+      const event=row[5];
+      if(event.allDay || event.transparency==='transparent' ||
+        ['free','workingElsewhere'].includes(event.showAs) ||
+        event.status==='cancelled' || event.isCancelled===true) continue;
+      const start=Date.parse(event.start),end=Date.parse(event.end);
+      for(let i=active.length-1;i>=0;i--) if(active[i].end<=start) active.splice(i,1);
+      for(const other of active){
+        // Invitation copies sometimes arrive on both providers. Do not count
+        // identical occurrences twice or collapse different recurring instances.
+        if(event.iCalUID && event.iCalUID===other.event.iCalUID && start===other.start) continue;
+        if(!overlaps.has(row)) overlaps.set(row,[]);
+        if(!overlaps.has(other.row)) overlaps.set(other.row,[]);
+        overlaps.get(row).push(other.row);
+        overlaps.get(other.row).push(row);
+      }
+      active.push({row,event,start,end});
+    }
+    return overlaps;
+  }
   function appointmentDays(value, mode='day') {
     if(!validDateOnly(value) || !['day','week'].includes(mode)) throw new Error('Invalid appointment date or view');
     const start=new Date(value+'T12:00:00');
@@ -102,5 +126,5 @@
       isPolling(){return controller?controller.isPolling():false;}
     };
   }
-  return {appointmentDays,eventsForDay,mergePartial,readCalendar,createCalendarRefreshController};
+  return {appointmentDays,eventsForDay,timedOverlaps,mergePartial,readCalendar,createCalendarRefreshController};
 });

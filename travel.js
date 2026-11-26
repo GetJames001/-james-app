@@ -194,10 +194,10 @@ function mountTravel({list, read, save}) {
         const {files}=await list();
         if(!Array.isArray(files))throw Error('Invalid file list');
         const results=await Promise.allSettled(files.filter(f=>f.name.endsWith(suffix)).map(async f=>{
-          if(cache.has(f.id))return cache.get(f.id);
+          if(cache.has(f.id)&&cache.get(f.id).fileRevision===(f.revision||f.lastModified))return cache.get(f.id);
           const trip=JSON.parse(await (await read(f.id)).text());
           if(!validTrip(trip))throw Error('Invalid saved trip');
-          return {...trip,id:f.id};
+          return {...trip,id:f.id,fileRevision:f.revision||f.lastModified};
         }));
         savedTrips=results.filter(r=>r.status==='fulfilled').map(r=>r.value).sort((a,b)=>a.start.localeCompare(b.start));
         cache=new Map(savedTrips.map(trip=>[trip.id,trip]));

@@ -16,6 +16,7 @@ let liveEvents = [];
 let googleEvents = [];
 let hotmailEvents = [];
 let hotmailRefresh;
+let googleCalendarLoaded=false, hotmailCalendarLoaded=false;
 function combineCalendarEvents() {
   const key = event => event.iCalUID && JSON.stringify([
     event.iCalUID, event.allDay ? event.start : Date.parse(event.start)
@@ -36,6 +37,11 @@ async function refreshHotmailCalendar() {
       if (connect) connect.hidden = response.ok && Array.isArray(data.events);
       if (!response.ok || !Array.isArray(data.events)) throw Error('Hotmail calendar unavailable');
       hotmailEvents = JamesCalendarSync.mergePartial(hotmailEvents, { ...data, partial:!data.complete });
+      hotmailCalendarLoaded=true;
+      if(!googleCalendarLoaded){
+        calendarSyncState={hasData:true,state:'partial',complete:false,fetchedAt:data.fetchedAt||new Date().toISOString()};
+        calendarStatus('Incomplete coverage. Showing Hotmail events; Google Calendar has not been verified.');
+      }
       combineCalendarEvents();
       renderCalendarDay();
       if (status) status.textContent = data.complete ? 'Hotmail calendar connected.' : 'Hotmail calendar coverage is incomplete.';
@@ -515,6 +521,12 @@ function applyNextDrive(){
 function updateHero(){
   const appt=calendarSyncState.hasData?nextAppointment():null;
   const online=isOnlineAppointment(appt?.[5]);
+  const overlapNote=$('#nextAppointmentOverlap');
+  if(overlapNote){
+    const collisions=appt?JamesCalendarSync.timedOverlaps(events.filter(row=>row[5]&&!row[4])).get(appt):null;
+    overlapNote.textContent=appointmentOverlapText(collisions);
+    overlapNote.hidden=!overlapNote.textContent;
+  }
   $('#appointmentTravel').hidden=!appt?.[5]?.location?.trim()||!!online;
   if(online&&nextDriveController&&!nextDriveController.signal.aborted){nextDriveGeneration++;nextDriveController.abort();nextDriveResult=null;}
   if(!calendarSyncState.hasData) {
@@ -550,6 +562,9 @@ $('#driveTime').textContent = travel ? `${drive} min` : '—';
   refreshNextDriveIfNeeded();
 }
 
+function appointmentOverlapText(collisions){
+  return collisions?.length?'Overlaps with '+collisions.slice(0,2).map(row=>row[2]).join(' · ')+(collisions.length>2?' and '+(collisions.length-2)+' more':''):'';
+}
 function openCalendarEvent(row) {
   const event=Array.isArray(row)?row[5]:row;
   const title=event?.title || (Array.isArray(row)?row[2]:'Untitled event');
@@ -613,7 +628,7 @@ function renderQuickCalendar(){
     if(hasEvents&&!button.disabled){const dot=document.createElement('i');dot.className='appointment-dot';dot.setAttribute('aria-hidden','true');button.append(dot);}
     button.onclick=()=>openAppointmentDate(date);grid.append(button);
   }
-  $('#quickCalendarStatus').textContent=calendarSyncState.state==='loading'?'Checking calendar…':calendarSyncState.state==='stale'?'Refresh failed · Showing saved events':!calendarSyncState.hasData?'Calendar unavailable':!calendarSyncState.complete?'Some events may be missing':'● Appointments · Tap a day to open';
+  $('#quickCalendarStatus').textContent=calendarSyncState.state==='loading'?'Checking calendar…':calendarSyncState.state==='stale'?'Refresh failed · Showing saved events':!calendarSyncState.hasData?'Calendar unavailable':!calendarSyncState.complete?'Some events may be missing':'● Appointments';
 }
 function renderAppointmentView(){
   const list=$('#apptList');if(!list)return;
@@ -628,7 +643,7 @@ function renderAppointmentView(){
   const days=JamesCalendarSync.appointmentDays(appointmentDate,appointmentMode).filter(x=>x.date<=maximum);
   const label=day=>day.toLocaleDateString(undefined,{weekday:'long',month:'long',day:'numeric',year:'numeric'});
   const coverage=calendarSyncState.hasData?(calendarSyncState.state==='fresh'&&calendarSyncState.complete?'Selected Google calendars read successfully.':calendarSyncState.state==='stale'?'Refresh failed; showing previously received events.':'Coverage incomplete; some events may be missing.'):'Calendar unavailable; these dates have not been verified.';
-  $('#appointmentsViewStatus').textContent=`${label(days[0].day)}${days.length>1?' through '+label(days.at(-1).day):''} · ${coverage}`;
+  $('#appointmentsViewStatus').textContent=coverage;
   list.replaceChildren();
   for(const day of days){
     const group=document.createElement('section');group.className='appointment-day';group.dataset.date=day.date;list.append(group);
@@ -637,7 +652,15 @@ function renderAppointmentView(){
     for(const trip of trips) group.append(window.jamesTripCalendar.tripLink(trip));
     const result=JamesCalendarSync.eventsForDay(liveEvents,day.day);
     for(const event of result.allDay){const article=document.createElement('article'),time=document.createElement('div'),details=document.createElement('div'),title=document.createElement('h4'),source=document.createElement('p');time.textContent='All day';title.textContent=event.title;source.textContent=event.calendarName||'Google Calendar';details.append(title,source);const button=document.createElement('button');button.type='button';button.textContent='Open';button.onclick=()=>openCalendarEvent(event);article.append(time,details,button);group.append(article);}
-    for(const event of result.timed){const article=document.createElement('article'),time=document.createElement('div'),details=document.createElement('div'),title=document.createElement('h4'),location=document.createElement('p'),button=document.createElement('button');time.textContent=pretty(event[0]);title.textContent=event[2];location.textContent=event[3];details.append(title,location);button.textContent='Open';button.onclick=()=>openCalendarEvent(event);article.append(time,details,button);group.append(article);}
+    const overlaps=JamesCalendarSync.timedOverlaps(result.timed);
+    for(const event of result.timed){const article=document.createElement('article'),time=document.createElement('div'),details=document.createElement('div'),title=document.createElement('h4'),location=document.createElement('p'),button=document.createElement('button');time.textContent=pretty(event[0]);title.textContent=event[2];location.textContent=event[3];details.append(title,location);
+      const collisions=overlaps.get(event);
+      if(collisions?.length){
+        const note=document.createElement('p');note.className='appointment-overlap';
+        note.textContent=appointmentOverlapText(collisions);
+        details.append(note);
+      }
+      button.textContent='Open';button.onclick=()=>openCalendarEvent(event);article.append(time,details,button);group.append(article);}
     if(!trips.length&&!result.timed.length&&!result.allDay.length){const empty=document.createElement('p');empty.textContent=calendarSyncState.hasData&&calendarSyncState.complete&&calendarSyncState.state==='fresh'?'No events returned for this date from the selected Google calendars.':'No events available for this date; the schedule is not verified.';group.append(empty);}
   }
 }
@@ -663,6 +686,17 @@ function buildCalendar(){
 function page(id){
   if(!window.jamesWorkbenchNavigating && (id==='workbench'||document.getElementById('workbench')?.classList.contains('active'))){window.jamesWorkbenchNavigate?.(id);return;}
   pageNow(id);
+}
+async function navigateJamesDoor(door,{isCurrent=()=>true}={}){
+  const id=door==='calendar'?'appointments':door==='health'?'fitness':door;
+  const target=document.getElementById(id);
+  if(!isCurrent()||!target?.classList.contains('page'))return false;
+  // Only a deliberate manual click may leave this document for the separate Wardrobe.
+  if(id==='wardrobe')return false;
+  if(id==='workbench'||document.getElementById('workbench')?.classList.contains('active')){
+    if(await window.jamesWorkbenchNavigate?.(id)!==true)return false;
+  }else page(id);
+  return isCurrent()&&target.classList.contains('active');
 }
 window.jamesPageNow=pageNow;
 function openWardrobe(){
@@ -876,6 +910,7 @@ function applyGoogleEvents(data) {
   if(diagnostic){diagnostic.textContent='';diagnostic.hidden=true;}
   const reconnectLink=$('#googleCalendarConnectLink');if(reconnectLink)reconnectLink.hidden=true;
   googleEvents=JamesCalendarSync.mergePartial(googleEvents,data);
+  googleCalendarLoaded=true;
   combineCalendarEvents();
   calendarSyncState={hasData:true,state:data.complete===false || data.partial===true?'partial':'fresh',complete:data.complete!==false && data.partial!==true,fetchedAt:data.fetchedAt || new Date().toISOString()};
   const sources=$('#calendarSyncSources');
@@ -901,8 +936,16 @@ function googleEventsFailed(error) {
   if(diagnostic){diagnostic.textContent=calendarFailureDetail(error);diagnostic.hidden=false;}
   const reconnectLink=$('#googleCalendarConnectLink');
   if(reconnectLink)reconnectLink.hidden=!(error?.calendarCode==='GOOGLE_CALENDAR_READ_FAILED' && error?.calendarStage==='TOKEN_REFRESH');
-  calendarSyncState.state=calendarSyncState.hasData?'stale':'unavailable';
-  calendarStatus(calendarSyncState.hasData?'Refresh failed. Keeping previously received events; they may be stale.':'Google Calendar unavailable. Your schedule has not been verified.');
+  if(googleCalendarLoaded){
+    calendarSyncState.state='stale';
+    calendarStatus('Google refresh failed. Keeping previously received events; they may be stale.');
+  }else if(hotmailCalendarLoaded){
+    calendarSyncState.state='partial';
+    calendarStatus('Incomplete coverage. Showing Hotmail events; Google Calendar unavailable.');
+  }else{
+    calendarSyncState.state='unavailable';
+    calendarStatus('Google Calendar unavailable. Your schedule has not been verified.');
+  }
   if(calendarSyncState.hasData)renderCalendarDay();else{updateHero();renderAppointmentView();renderQuickCalendar();}
 }
 function loadLiveGoogleEvents() { return calendarRefreshController ? calendarRefreshController.refresh('manual') : Promise.resolve({skipped:'not-started'}); }
@@ -1606,7 +1649,7 @@ if (personalMailDetailBack) {
     reminders:window.jamesReminders.read(),attention:'Not scanned for this briefing; do not infer no urgent messages.'
   });
   const getJamesContext=()=>({page:document.querySelector('.page.active')?.id||'briefing',localTime:new Date().toLocaleString(),timezone:Intl.DateTimeFormat().resolvedOptions().timeZone,location:window.jamesLocation.snapshot(),weather:readJamesWeather(),calendar:readJamesCalendar(jamesLocalDay(new Date())),travel:{trips:window.jamesTripCalendar?.snapshot()||{status:'not_loaded'},route:readJamesRoute(),calendarCreate:'review_and_permission_required'},appointmentReview:window.jamesAppointments.read(),reminders:window.jamesReminders.read()});
-  window.jamesConversationUI=window.JamesConversationUI.mount({input:$('#jamesQuestion'),answer:$('#jamesAnswer'),askButton:$('#askJamesButton'),stopInput:()=>{window.jamesVoice?.close();window.speechSynthesis?.cancel();},getContext:getJamesContext,getLocation:()=>window.jamesLocation.point(),navigate:async door=>{const id=door==='calendar'?'appointments':door==='health'?'fitness':door;if(!document.getElementById(id)?.classList.contains('page'))return false;if(id==='workbench'||document.getElementById('workbench')?.classList.contains('active'))return await window.jamesWorkbenchNavigate?.(id);page(id);return true;},chooseEndpoint:question=>/\b(?:nearby|near me|street address|store location|restaurant|restaurants|caf[eé]|coffee shop)\b/i.test(question)?'/api/fast':!detectUtility(question)&&shouldUseCouncil(question)?'/api/council':'/api/fast'});
+  window.jamesConversationUI=window.JamesConversationUI.mount({input:$('#jamesQuestion'),answer:$('#jamesAnswer'),askButton:$('#askJamesButton'),stopInput:()=>{window.jamesVoice?.close();window.speechSynthesis?.cancel();},getContext:getJamesContext,getLocation:()=>window.jamesLocation.point(),navigate:navigateJamesDoor,chooseEndpoint:question=>/\b(?:nearby|near me|street address|store location|restaurant|restaurants|caf[eé]|coffee shop)\b/i.test(question)?'/api/fast':!detectUtility(question)&&shouldUseCouncil(question)?'/api/council':'/api/fast'});
   mailAttentionView=window.JamesMailAttention.mount($('#mailAttentionView'),{
     refresh:async()=>{},
     onCount:count=>setToDoCount('mail',count),
@@ -2118,4 +2161,3 @@ document.addEventListener('DOMContentLoaded',()=>{
 document.addEventListener('DOMContentLoaded',()=>{const dialog=$('#connectionSettings');$('#connectionsSettingsOpen').onclick=()=>dialog.showModal();});
 
 document.addEventListener('DOMContentLoaded',()=>{const guide=$('#jamesGuide');$('#guideOpen').onclick=()=>{for(const chapter of guide.querySelectorAll('details[open]'))chapter.open=false;guide.showModal();guide.scrollTop=0;openAttentionSavedView();};});
-

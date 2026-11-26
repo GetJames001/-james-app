@@ -14,7 +14,7 @@ test('permission denial on noninteractive resume never requests microphone',asyn
 test('external talk link is consumed once and waits for an explicit microphone action',()=>{
  const fs=require('node:fs'),vm=require('node:vm');
  const doc=new EventTarget();
- const node=()=>({children:[],dataset:{},options:[],append(...children){this.children.push(...children);this.options.push(...children);},setAttribute(){},focus(){this.focused=true;}});
+ const node=()=>Object.assign(new EventTarget(),{children:[],dataset:{},style:{},options:[],append(...children){this.children.push(...children);this.options.push(...children);},setAttribute(){},focus(){this.focused=true;}});
  doc.createElement=node;doc.body=node();doc.hidden=false;
  const root=new EventTarget(),location={hash:'#talk-to-james',pathname:'/',search:'?view=briefing'};
  let micCalls=0,wakes=0;

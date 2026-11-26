@@ -3,7 +3,9 @@ function mountMagazine({list,read,save}){
  const el=id=>document.getElementById(id);
  const tag=(name,text)=>{const node=document.createElement(name);node.textContent=text;return node;};
  const link=(title,url)=>{const a=tag('a',title);a.href=url;a.target='_blank';a.rel='noopener noreferrer';return a;};
- const gumbo={title:'Cajun chicken & sausage gumbo · James original',url:'#james-gumbo',publisher:'James kitchen · Serves 4 · Recipe illustration'};
+ const gumbo={title:'Cajun chicken & sausage gumbo · James original',url:'#james-gumbo',publisher:'James kitchen · Serves 4 · Recipe illustration',
+  ingredients:['⅓ cup neutral oil + ⅓ cup all-purpose flour','1 onion, 1 green pepper and 2 celery stalks, diced','3 cloves garlic, minced','8 oz smoked andouille, sliced','1 lb boneless chicken thighs, cut into chunks','4 cups low-sodium chicken stock','1 bay leaf, 1 tsp paprika and ½ tsp dried thyme','Salt and pepper to taste · 3 cups hot cooked rice'],
+  steps:['In a heavy pot, whisk oil and flour over medium-low heat until deep brown, stirring constantly, about 20–30 minutes.','Stir in the diced vegetables for 5 minutes, then garlic for 1 minute. Slowly whisk in stock.','Add sausage, chicken, bay leaf, paprika and thyme. Simmer gently for about 30 minutes, until chicken reaches 165°F.','Remove bay leaf, season to taste and serve over rice.']};
  const stuffingBites={
   pinUrl:'https://www.pinterest.com/pin/351773420878575874/',
   title:'Bacon-Wrapped Stuffing Bites',publisher:'Who Needs A Cape? · Makes 18',
@@ -16,15 +18,16 @@ function mountMagazine({list,read,save}){
  };
  const safeRecipe=row=>{try{return typeof row.title==='string'&&row.title.trim()&&row.title.length<=200&&typeof row.publisher==='string'&&row.publisher.length<=100&&new URL(row.url).protocol==='https:';}catch{return false;}};
  let pages=[gumbo],current=0,bookRequest=0;
+ const cookingSelection=window.JamesRecipeGuide.createSelection();
  const suffix='.james-recipe.json';
  function drawBook(){
   const recipe=pages[current],isGumbo=recipe.url===gumbo.url,paper=el('bookPage');
   paper.replaceChildren(tag('h3',recipe.title),tag('small',recipe.publisher));
   if(isGumbo||Array.isArray(recipe.ingredients)&&Array.isArray(recipe.steps)){
    const ingredients=tag('ul','');
-   for(const line of recipe.ingredients||['⅓ cup neutral oil + ⅓ cup all-purpose flour','1 onion, 1 green pepper and 2 celery stalks, diced','3 cloves garlic, minced','8 oz smoked andouille, sliced','1 lb boneless chicken thighs, cut into chunks','4 cups low-sodium chicken stock','1 bay leaf, 1 tsp paprika and ½ tsp dried thyme','Salt and pepper to taste · 3 cups hot cooked rice'])ingredients.append(tag('li',line));
+   for(const line of recipe.ingredients)ingredients.append(tag('li',line));
    const steps=tag('ol','');
-   for(const line of recipe.steps||['In a heavy pot, whisk oil and flour over medium-low heat until deep brown, stirring constantly, about 20–30 minutes.','Stir in the diced vegetables for 5 minutes, then garlic for 1 minute. Slowly whisk in stock.','Add sausage, chicken, bay leaf, paprika and thyme. Simmer gently for about 30 minutes, until chicken reaches 165°F.','Remove bay leaf, season to taste and serve over rice.'])steps.append(tag('li',line));
+   for(const line of recipe.steps)steps.append(tag('li',line));
    const columns=tag('div','');columns.className='recipe-columns';
    const left=tag('section',''),right=tag('section','');
    left.append(tag('h4','Ingredients'),ingredients);right.append(tag('h4','Method'),steps);
@@ -82,7 +85,7 @@ function mountMagazine({list,read,save}){
    }
    // Retire the starter page once the saved publisher recipe is readable.
    if(readable.has('https://mycoffeehasbutter.com/cajun-chicken-and-sausage-gumbo'))readable.delete(gumbo.url);
-   pages=[...readable.values()];
+   pages=[...readable.values()];cookingSelection.reconcile(pages);
    if(ideasReady)renderIdeas();
    let savedPins=el('cookSavedPins');
    if(!savedPins){savedPins=tag('details','');savedPins.id='cookSavedPins';el('cookbookCover').after(savedPins);}
@@ -95,7 +98,7 @@ function mountMagazine({list,read,save}){
     repaired=true;void repairLinks(pending);
    }
    current=Math.max(0,pages.findIndex(row=>row.url===selected));drawBook();el('bookNotice').textContent='';
-  }catch{if(generation===bookRequest)el('bookNotice').textContent='Saved recipes could not be refreshed.';}
+  }catch{if(generation===bookRequest){cookingSelection.choose(null);el('bookNotice').textContent='Saved recipes could not be refreshed.';}}
  }
  const boardOrigin='https://aaru-working-review.aglow-ox-8353.chatgpt.site';
  const boardUrl=boardOrigin+'/wardrobe/recipe-board';
@@ -153,11 +156,11 @@ function mountMagazine({list,read,save}){
   reader.scrollTop=0;
  }
  el('cookbookCover').onclick=openCookbook;
- window.jamesRecipes=window.JamesRecipeGuide.create(()=>{
-  const recipe=pages[current];
-  return {...recipe,ingredients:[...el('bookPage').querySelectorAll('ul li')].map(n=>n.textContent),steps:[...el('bookPage').querySelectorAll('ol li')].map(n=>n.textContent)};
- });
- el('cookWithJames').onclick=()=>{reader.close();void window.jamesVoice?.start({prompt:'Walk me through the selected saved cookbook recipe. Use read_recipe start and read just the first step, then wait for me.'});};
+ window.jamesRecipes=window.JamesRecipeGuide.create(()=>cookingSelection.read());
+ el('cookWithJames').onclick=()=>{
+  if(!cookingSelection.choose(pages[current]))return;
+  reader.close();void window.jamesVoice?.start({prompt:'Walk me through the selected saved cookbook recipe. Use read_recipe start and read just the first step, then wait for me.'});
+ };
  el('cookClose').onclick=()=>reader.close();
  el('cookFit').onclick=()=>{
   const fit=reader.classList.toggle('fit');el('cookFit').textContent=fit?'Normal size':'Fit to screen';
@@ -165,7 +168,7 @@ function mountMagazine({list,read,save}){
  };
  function turnRecipe(direction){
   const next=current+direction;if(next<0||next>=pages.length)return;
-  current=next;drawBook();
+  current=next;cookingSelection.choose(pages[current]);drawBook();
   spread.classList.remove('turn-forward','turn-back');void spread.offsetWidth;
   spread.classList.add(direction>0?'turn-forward':'turn-back');reader.scrollTop=0;
  }
@@ -222,7 +225,9 @@ function mountMagazine({list,read,save}){
   const status=await importRecipe(item.url,true);
   if(status!=='existing'&&status!=='added')throw Error();
   pinterestIdeas=pinterestIdeas.filter(i=>i.url!==item.url);renderIdeas();await loadBook();
-  current=Math.max(0,pages.findIndex(p=>recipeKey(p.url)===recipeKey(item.url)));drawBook();
+  const next=Math.max(0,pages.findIndex(p=>recipeKey(p.url)===recipeKey(item.url)));
+  if(next!==current)cookingSelection.choose(null);
+  current=next;drawBook();
  }
  function previewIdea(item){
   const dialog=tag('dialog','');dialog.className='recipe-preview';dialog.setAttribute('aria-label',item.title);
@@ -457,4 +462,3 @@ function mountMagazine({list,read,save}){
  window.addEventListener('james:page-changed',openMagazine);
  window.addEventListener('james:calendar-updated',()=>{if(el('fitness').classList.contains('active'))showHealth();});
 }
-

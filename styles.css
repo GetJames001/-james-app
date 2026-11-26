@@ -1407,3 +1407,13 @@ html[data-theme=light] .james-shell .intel-strip>.briefing-wardrobe{background:#
  padding:.45rem .8rem;border-radius:4px;background:#191710ec;color:#fff6df;text-shadow:none}
 #recipes .cook-cover-footer b{font:500 clamp(.85rem,1.5vw,1.1rem) Georgia,serif}
 @media(max-width:620px){#recipes #cookbookCover .cook-cover-footer{bottom:3%;padding:.3rem .55rem}}
+
+/* Quiet voice feedback must be readable without motion or a live microphone. */
+#jamesOrb:focus-visible{outline:2px solid var(--gold);outline-offset:4px}
+#jamesOrb[data-voice-state="connecting"]{outline:2px solid #73bfd9;outline-offset:3px}
+#jamesOrb[data-voice-state="muted"]{outline:2px solid var(--gold);outline-offset:3px}
+.james-voice-status{margin:0 0 10px;font-weight:600}
+.james-voice-panel .james-hold-to-talk{display:block;min-height:48px;width:100%;margin:0 0 8px;border:1px solid var(--gold);border-radius:10px;background:var(--paper);color:var(--ink);font-weight:650;-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
+.james-hold-to-talk[hidden]{display:none!important}
+.james-hold-to-talk[aria-disabled="true"]{opacity:.72;cursor:default}
+.james-hold-to-talk[aria-pressed="true"]{outline:2px solid #73bfd9;outline-offset:2px}
