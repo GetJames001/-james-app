@@ -24,3 +24,65 @@ test('worker recognizes an overlap only when the receiver confirms it',async()=>
   assert.equal(res.code,expected);
  }
 });
+
+const qaEnv={...env,JAMES_MAIL_BACKGROUND_SCOPE:'travel-qa',
+ VERCEL_PROJECT_ID:'prj_xV5D6jff7kSCiL5UYDpO88J7NefH',VERCEL_GIT_COMMIT_REF:'release/builder9-completion',
+ VERCEL_BRANCH_URL:receiver.QA_HOST,JAMES_TRAVEL_QA_BRANCH_URL:receiver.QA_HOST,
+ JAMES_TRAVEL_QA_REPLAY_ENABLED:'true',JAMES_TRAVEL_QA_APPROVED_GMAIL_ID:'synthetic-message',
+ JAMES_TRAVEL_QA_APPROVED_SENDER:'qa@example.invalid',KV_REST_API_URL:'https://qa.example.invalid',
+ JAMES_TRAVEL_QA_KV_URL:'https://qa.example.invalid',JAMES_TRAVEL_EVERYDAY_KV_URL:'https://everyday.example.invalid'};
+
+test('QA worker and receiver agree on the isolated destination and host-bound signature',async()=>{
+ let runs=0;
+ const receive=receiver.createHandler({env:qaEnv,now:()=>now,identity:()=> 'synthetic-owner',log:()=>{},
+  command:async c=>c[0]==='EVAL'?1:'OK',run:async req=>{assert.equal(req.headers.host,receiver.QA_HOST);runs++;return {partial:false};}});
+ const config={CRON_SECRET:'c'.repeat(40),JAMES_MAIL_WORKER_PRIVATE_KEY:privateKey.export({type:'pkcs8',format:'pem'}),JAMES_MAIL_WORKER_SCOPE:'travel-qa'};
+ const send=worker.createHandler({env:config,now:()=>now,fetchImpl:async(url,options)=>{
+  assert.equal(url,'https://'+receiver.QA_HOST+receiver.PATH);
+  const result=response();await receive({method:options.method,headers:{...options.headers,host:new URL(url).host},body:options.body,query:{}},result);
+  return {ok:result.code===200,status:result.code,json:async()=>result.body};
+ }});
+ const res=response();await send({method:'GET',headers:{authorization:'Bearer '+config.CRON_SECRET}},res);
+ assert.equal(res.code,200);assert.equal(runs,1);
+});
+
+test('QA receiver refuses mismatched project, branch, host, storage and missing replay pin before writes',async()=>{
+ for(const override of [
+  {VERCEL_ENV:'production'},{VERCEL_PROJECT_ID:'everyday-project'},
+  {VERCEL_GIT_COMMIT_REF:'fix/calendar-refresh-diagnosis-20261031'},
+  {VERCEL_BRANCH_URL:receiver.HOST},{JAMES_TRAVEL_QA_BRANCH_URL:receiver.HOST},
+  {KV_REST_API_URL:qaEnv.JAMES_TRAVEL_EVERYDAY_KV_URL},
+  {JAMES_TRAVEL_QA_KV_URL:qaEnv.JAMES_TRAVEL_EVERYDAY_KV_URL},
+  {JAMES_TRAVEL_QA_APPROVED_GMAIL_ID:''},{JAMES_TRAVEL_QA_REPLAY_ENABLED:''},
+  {JAMES_MAIL_BACKGROUND_SCOPE:'typo'}
+ ]){
+  const req=request();req.headers.host=receiver.QA_HOST;const res=response();
+  await receiver.createHandler({env:{...qaEnv,...override},command:async()=>assert.fail('storage accessed'),run:async()=>assert.fail('scan ran')})(req,res);
+  assert.equal(res.code,404);
+ }
+});
+
+test('an everyday worker signature cannot authorize the QA receiver',async()=>{
+ const req=request();req.headers.host=receiver.QA_HOST;const res=response();
+ await receiver.createHandler({env:qaEnv,now:()=>now,command:async()=>assert.fail('storage accessed')})(req,res);
+ assert.equal(res.code,401);
+});
+
+test('internal scan retains the validated QA host instead of substituting the old preview',async()=>{
+ const previous={email:process.env.JAMES_AUTH_EMAIL,secret:process.env.JAMES_SESSION_SECRET};
+ process.env.JAMES_AUTH_EMAIL='qa@example.invalid';process.env.JAMES_SESSION_SECRET='synthetic-session-secret-for-local-check';
+ try{
+  const result=await receiver.invokeScan({headers:{host:receiver.QA_HOST}},async(req,res)=>{
+   assert.equal(req.headers.host,receiver.QA_HOST);assert.equal(req.headers.origin,'https://'+receiver.QA_HOST);
+   res.status(200).json({saved:true,partial:false,revision:1});
+  });assert.deepEqual(result,{partial:false,revision:1});
+ }finally{
+  for(const [key,value] of [['JAMES_AUTH_EMAIL',previous.email],['JAMES_SESSION_SECRET',previous.secret]])if(value===undefined)delete process.env[key];else process.env[key]=value;
+ }
+});
+
+test('unknown worker scope fails before contacting any target',async()=>{
+ const res=response(),config={CRON_SECRET:'c'.repeat(40),JAMES_MAIL_WORKER_SCOPE:'typo'};
+ await worker.createHandler({env:config,fetchImpl:async()=>assert.fail('network accessed')})({method:'GET',headers:{authorization:'Bearer '+config.CRON_SECRET}},res);
+ assert.equal(res.code,503);
+});
